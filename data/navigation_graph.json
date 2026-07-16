@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "domain": "agnostic"
+  },
+  "nodes": {
+    "n001": {"pos": [0.0, 0.0, 0.0], "meta": {"width": 2.5, "type": "entry", "xa_data": {"slope_percent": 0.0, "clearance_height_m": 2.5}}},
+    "n002": {"pos": [5.0, 0.0, 0.0], "meta": {"width": 1.5, "type": "corridor", "xa_data": {"slope_percent": 8.0, "clearance_height_m": 2.2}}},
+    "n003": {"pos": [10.0, 2.0, 0.0], "meta": {"width": 3.0, "type": "exhibit", "xa_data": {"slope_percent": 2.0, "clearance_height_m": 2.8}}}
+  },
+  "edges": [
+    {"from": "n001", "to": "n002", "weight": 1.0},
+    {"from": "n002", "to": "n003", "weight": 1.5}
+  ],
+  "mission_profiles": {
+    "visitor_standard": ["n001", "n002", "n003"],
+    "player_speedrun": ["n001", "n003"]
+  }
+}
