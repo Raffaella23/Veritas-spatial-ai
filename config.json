@@ -1,0 +1,8 @@
+{
+  "aeroporto": { "nome": "LIRF", "modello3D": "assets/airport_LIRF.glb" },
+  "voli": { "api": "opensky", "codice_icao": "LIRF" },
+  "regole_vvff": [ { "id": "uscita_1", "larghezza_min": 1.2 } ],
+  "hotspots": [
+    { "id": "gate_A1", "type": "GATE", "position3D": { "x": 10, "y": 0, "z": 5 }, "note_VVFF": "Accesso facilitato", "status": "OK" }
+  ]
+}
