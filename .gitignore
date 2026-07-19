@@ -1,0 +1,18 @@
+# Cartelle di sistema
+.vs/
+__pycache__/
+.vscode/
+
+# File temporanei e di output
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+simulation_output.json
+
+# Indici di ricerca
+FileContentIndex/
+v17/
+
+# File di backup
+*.backup
