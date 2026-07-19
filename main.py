@@ -1,32 +1,51 @@
 import json
+import tkinter as tk
+from tkinter import filedialog
 from core.engine import SimulationEngine
 from core.topology_analyzer import TopologyAnalyzer
 
+def get_file_path():
+    """Apre una finestra di sistema per selezionare il file .glb"""
+    root = tk.Tk()
+    root.withdraw() # Nasconde la finestra principale di tkinter
+    
+    file_path = filedialog.askopenfilename(
+        title="Seleziona il modello 3D (.glb) per la simulazione",
+        filetypes=[("GLB files", "*.glb"), ("All files", "*.*")]
+    )
+    
+    root.destroy() # Chiude la finestra
+    
+    if not file_path:
+        print("Nessun file selezionato. Chiusura programma.")
+        exit()
+        
+    return file_path
+
 def main():
     # --- Configurazione Iniziale ---
-    # Assicurati che i percorsi siano corretti per il tuo progetto
-    model_path = "data/airport_LIRF.glb" 
+    # Il percorso del modello viene ora scelto da te all'avvio!
+    model_path = get_file_path()
+    
+    # Il file JSON invece rimane fisso (o puoi renderlo dinamico in futuro)
     graph_path = "data/navigation_graph.json"
 
     print("=== AVVIO SISTEMA VERITAS-SPATIAL-AI ===")
+    print(f"Modello caricato: {model_path}")
 
     # --- FASE 1: Analisi Topologica Automatica ---
-    # L'AI legge il modello 3D e capisce la struttura (senza lavoro manuale)
     print("Analisi automatica topologia in corso...")
     analyzer = TopologyAnalyzer(model_path)
     analyzer.analyze_model()
     
-    # Estraiamo i nodi di navigazione (in futuro questi popoleranno automaticamente il graph_path)
+    # Estraiamo i nodi di navigazione
     nav_nodes = analyzer.get_navigable_zones(num_clusters=10)
     print(f"Topologia estratta: identificati {len(nav_nodes)} nodi navigabili.")
 
     # --- FASE 2: Inizializzazione Motore ---
-    # Il motore ora gestisce sia la fisica che il "cervello" degli agenti
     engine = SimulationEngine(graph_path=graph_path)
 
     # --- FASE 3: Aggiunta Agenti con Profilo Cognitivo ---
-    # Definiamo il "DNA" (HumanAgent) dell'agente che il motore userà
-    # Questi parametri definiscono come l'agente reagisce (socialità, pazienza, ecc.)
     profile_data = {
         'patience': 0.8,
         'risk_aversion': 0.2,
@@ -44,10 +63,6 @@ def main():
 
     # --- FASE 4: Esecuzione Simulazione ---
     print("Esecuzione tick simulazione...")
-    
-    # Esempio: testiamo il sistema di emergenza che abbiamo inserito
-    # engine.trigger_emergency(status=True) 
-    
     engine.run_tick()
 
     # --- FASE 5: Esportazione Dati ---
@@ -55,7 +70,7 @@ def main():
     print("\n--- Stato finale della simulazione (JSON) ---")
     print(state)
 
-    # Opzionale: salvare su file
+    # Salvataggio su file
     with open("simulation_output.json", "w") as f:
         f.write(state)
     print("\nSalvataggio completato: 'simulation_output.json'")
