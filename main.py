@@ -1,81 +1,64 @@
 import json
-import os
-import requests  # Necessario per OpenSky API
-from core.engine import SpatialSimulation
-
-def fetch_opensky_data(icao_code):
-    """TASK 1: Recupero dati voli da OpenSky"""
-    url = f"https://opensky-network.org/api/states/all?airport={icao_code}"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json().get('states', [])
-        return []
-    except Exception as e:
-        print(f"Errore API OpenSky: {e}")
-        return []
+from core.engine import SimulationEngine
+from core.topology_analyzer import TopologyAnalyzer
 
 def main():
-    print("--- Avvio Simulazione V17 ---")
-    
-    # 1. Caricamento Configurazione (TASK 4: JSON Unico)
-    if not os.path.exists('config.json'):
-        print("[ERRORE] config.json non trovato!")
-        return
+    # --- Configurazione Iniziale ---
+    # Assicurati che i percorsi siano corretti per il tuo progetto
+    model_path = "data/airport_LIRF.glb" 
+    graph_path = "data/navigation_graph.json"
 
-    with open('config.json', 'r') as f:
-        config = json.load(f)
-    
-    # 2. Inizializzazione dati
-    voli_attivi = fetch_opensky_data(config['voli']['codice_icao'])
-    
-    # Calcolo passeggeri stimati (TASK 1.2)
-    # Assumiamo struttura OpenSky: indice 13 è capacity (se disponibile) o dato fittizio
-    sim = SpatialSimulation()
-    
-    # Task 1.3/1.4: Integrazione voli nel motore
-    for volo in voli_attivi:
-        # Logica: n_posti * 0.8 load_factor (placeholder 180 posti standard)
-        pax_totali = int(180 * 0.8) 
-        ritardo = 20 # Esempio logica ritardo
-        
-        sim.add_flight_event({
-            "volo": volo[1], 
-            "pax": pax_totali,
-            "ritardo": True if ritardo > 15 else False
-        })
+    print("=== AVVIO SISTEMA VERITAS-SPATIAL-AI ===")
 
-    # 3. Esecuzione Simulazione
-    results = sim.run_ticks(num_ticks=5)
+    # --- FASE 1: Analisi Topologica Automatica ---
+    # L'AI legge il modello 3D e capisce la struttura (senza lavoro manuale)
+    print("Analisi automatica topologia in corso...")
+    analyzer = TopologyAnalyzer(model_path)
+    analyzer.analyze_model()
+    
+    # Estraiamo i nodi di navigazione (in futuro questi popoleranno automaticamente il graph_path)
+    nav_nodes = analyzer.get_navigable_zones(num_clusters=10)
+    print(f"Topologia estratta: identificati {len(nav_nodes)} nodi navigabili.")
 
-    # 4. Creazione Report Integrato (TASK 2 e 3)
-    # Strutturiamo il report per la visualizzazione (Layering)
-    report = {
-        "metadata": {
-            "version": "1.7",
-            "status": "completed",
-            "timestamp_run": "2026-07-18"
-        },
-        "scene": {
-            "root_group": {
-                "aeroporto": config["aeroporto"]["nome"],
-                "hotspots": config.get("hotspots", []), # TASK 2: Hotspot nel report
-                "passeggeri": results.get("agents", [])
-            }
-        },
-        "compliance_logs": results.get("compliance_logs", [])
+    # --- FASE 2: Inizializzazione Motore ---
+    # Il motore ora gestisce sia la fisica che il "cervello" degli agenti
+    engine = SimulationEngine(graph_path=graph_path)
+
+    # --- FASE 3: Aggiunta Agenti con Profilo Cognitivo ---
+    # Definiamo il "DNA" (HumanAgent) dell'agente che il motore userà
+    # Questi parametri definiscono come l'agente reagisce (socialità, pazienza, ecc.)
+    profile_data = {
+        'patience': 0.8,
+        'risk_aversion': 0.2,
+        'social_factor': 0.5,
+        'base_speed': 1.2
     }
 
-    # 5. Output e Salvataggio
-    print("--- Report Finale V17 Generato ---")
+    # Aggiungiamo un agente di test
+    engine.add_agent(
+        agent_id="test_user_01", 
+        profile_id="standard_visitor", 
+        profile_data=profile_data
+    )
+    print("Agente 'test_user_01' inizializzato con core cognitivo.")
+
+    # --- FASE 4: Esecuzione Simulazione ---
+    print("Esecuzione tick simulazione...")
     
-    output_filename = "report_simulazione_v17.json"
-    try:
-        with open(output_filename, 'w') as f:
-            json.dump(report, f, indent=4)
-        print(f"[INFO] Report salvato correttamente in: {output_filename}")
-    except Exception as e:
-        print(f"[ERRORE] Impossibile salvare il file: {e}")
+    # Esempio: testiamo il sistema di emergenza che abbiamo inserito
+    # engine.trigger_emergency(status=True) 
+    
+    engine.run_tick()
+
+    # --- FASE 5: Esportazione Dati ---
+    state = engine.export_state()
+    print("\n--- Stato finale della simulazione (JSON) ---")
+    print(state)
+
+    # Opzionale: salvare su file
+    with open("simulation_output.json", "w") as f:
+        f.write(state)
+    print("\nSalvataggio completato: 'simulation_output.json'")
 
 if __name__ == "__main__":
     main()
