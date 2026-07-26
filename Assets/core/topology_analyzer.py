@@ -1,22 +1,231 @@
-import trimesh
+import os
+import json
 import numpy as np
+import trimesh
+from sklearn.cluster import KMeans
+
+
+# Parole chiave usate per etichettare automaticamente i nodi in base al nome
+# degli oggetti nella scena 3D (se il modello li nomina in modo descrittivo).
+# Questo e' cio' che permette all'agente di "specializzarsi" per dominio
+# (sicurezza aeroportuale, museo, gaming) senza dover ricodificare a mano ogni scena.
+DOMAIN_KEYWORDS = {
+    "checkpoint": ["checkpoint", "security", "gate", "varco", "controllo"],
+    "restricted": ["restricted", "riservato", "staff_only", "vietato"],
+    "interest_level": ["exhibit", "opera", "artwork", "teca", "vetrina"],
+    "objective": ["objective", "obiettivo", "target", "goal"],
+    "hazard": ["hazard", "pericolo", "danger", "trap"],
+}
+
 
 class TopologyAnalyzer:
-    def __init__(self, model_path):
-        # Utilizziamo force='mesh' per forzare il caricamento come oggetto mesh
-        self.mesh = trimesh.load(model_path, force='mesh')
+    def __init__(self, model_path: str):
+        self.model_path = model_path
+        self.scene = None
+        self.mesh = None
+        self.navigable_points = []
+        self.nodes = {}  # {"n000": {"pos": [...], "meta": {...}}, ...}
+        self._tag_hints = []  # [(centroid, tag_dict), ...] per oggetti nominati nella scena
 
     def analyze_model(self):
-        # Logica di analisi (ti metto una base, espandila con il tuo codice originale)
-        print("Analisi in corso...")
-        floor_threshold = 0.8 
-        # Esempio di operazione che usa self.mesh
-        if hasattr(self.mesh, 'faces'):
-            floor_faces = self.mesh.faces[self.mesh.face_normals[:, 2] > floor_threshold]
-            print("Analisi completata.")
+        """Carica il modello 3D (.glb) ed estrae le superfici e i punti di navigazione."""
+        if not os.path.exists(self.model_path):
+            raise FileNotFoundError(f"Modello non trovato al percorso: {self.model_path}")
+
+        loaded = trimesh.load(self.model_path, force='scene')
+
+        tag_hints = []
+
+        if isinstance(loaded, trimesh.Scene):
+            self.scene = loaded
+            geom_list = []
+            for name, geom in self.scene.geometry.items():
+                if isinstance(geom, trimesh.Trimesh):
+                    geom_list.append(geom)
+                    tag = self._tag_from_name(name)
+                    if tag:
+                        tag_hints.append((geom.centroid, tag))
+            if geom_list:
+                self.mesh = trimesh.util.concatenate(geom_list)
+            else:
+                raise ValueError("Nessuna geometria mesh valida trovata nella scena .glb")
+        elif isinstance(loaded, trimesh.Trimesh):
+            self.mesh = loaded
         else:
-            print("Errore: la mesh non contiene facce.")
+            raise ValueError("Formato del modello 3D non supportato.")
+
+        self._tag_hints = tag_hints
+
+        vertices = self.mesh.vertices
+        normals = self.mesh.vertex_normals
+
+        if len(normals) == len(vertices):
+            navigable_mask = normals[:, 1] > 0.75
+            self.navigable_points = vertices[navigable_mask]
+
+        if len(self.navigable_points) == 0:
+            self.navigable_points = vertices
+
+        print(f"[TopologyAnalyzer] Analisi completata. Estratti {len(self.navigable_points)} punti navigabili.")
+
+    def _tag_from_name(self, object_name: str) -> dict:
+        """Deduce un tag di dominio dal nome dell'oggetto nella scena 3D."""
+        name_lower = object_name.lower()
+        tag = {}
+        for key, keywords in DOMAIN_KEYWORDS.items():
+            if any(kw in name_lower for kw in keywords):
+                tag[key] = 1.0 if key == "interest_level" else True
+        return tag
+
+    def _nearest_tag(self, position, max_distance=5.0) -> dict:
+        """Associa a un punto il tag dell'oggetto nominato piu' vicino, se abbastanza vicino."""
+        if not self._tag_hints:
+            return {}
+        best_tag, best_dist = {}, max_distance
+        for centroid, tag in self._tag_hints:
+            dist = np.linalg.norm(np.array(centroid) - np.array(position))
+            if dist < best_dist:
+                best_dist = dist
+                best_tag = tag
+        return best_tag
 
     def get_navigable_zones(self, num_clusters=10):
-        # Restituisci i dati che si aspetta il main
-        return []
+        """Esegue il clustering reale (KMeans) sui punti navigabili per definire i nodi."""
+        if len(self.navigable_points) == 0:
+            self.nodes = {}
+            return []
+
+        n_clusters = min(num_clusters, len(self.navigable_points))
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        kmeans.fit(self.navigable_points)
+
+        centers = kmeans.cluster_centers_
+
+        nodes = {}
+        zones_list = []
+        for i, center in enumerate(centers):
+            node_id = f"n{i:03d}"
+            meta = self._nearest_tag(center)
+            nodes[node_id] = {
+                "pos": [float(center[0]), float(center[1]), float(center[2])],
+                "meta": meta
+            }
+            zones_list.append({"id": node_id, "center": nodes[node_id]["pos"], "meta": meta})
+
+        self.nodes = nodes
+        return zones_list
+
+    def export_navigation_graph(self, output_path: str):
+        """
+        Esporta il grafo nel formato atteso da PathLoader:
+        { "nodes": {...}, "mission_profiles": {...} }
+
+        I nodi vengono ordinati con una catena nearest-neighbor a partire dal primo,
+        cosi' da produrre un percorso di visita sensato invece di un ordine casuale.
+        Lo stesso percorso viene esposto sotto piu' nomi di profilo, cosi' da
+        funzionare sia per il visitatore standard sia per i domini specializzati
+        (sicurezza aeroportuale, museo, gaming, integrazione Unity).
+        """
+        if not self.nodes:
+            self.get_navigable_zones()
+
+        ordered_ids = self._nearest_neighbor_order(self.nodes)
+
+        graph_data = {
+            "version": "2.0",
+            "model": os.path.basename(self.model_path),
+            "nodes": self.nodes,
+            "mission_profiles": {
+                "visitor_standard": ordered_ids,
+                "airport_security": ordered_ids,
+                "museum_visitor": ordered_ids,
+                "gaming_player": ordered_ids,
+                "unity_bridge": ordered_ids,
+            }
+        }
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(graph_data, f, indent=4)
+        print(f"[TopologyAnalyzer] Grafo di navigazione salvato in {output_path}")
+        return graph_data
+
+    def _nearest_neighbor_order(self, nodes: dict) -> list:
+        """Ordina i nodi con una catena nearest-neighbor greedy, a partire dal primo inserito."""
+        if not nodes:
+            return []
+
+        ids = list(nodes.keys())
+        remaining = set(ids)
+        current = ids[0]
+        ordered = [current]
+        remaining.remove(current)
+
+        while remaining:
+            cur_pos = np.array(nodes[current]["pos"])
+            next_id = min(
+                remaining,
+                key=lambda nid: np.linalg.norm(np.array(nodes[nid]["pos"]) - cur_pos)
+            )
+            ordered.append(next_id)
+            remaining.remove(next_id)
+            current = next_id
+
+        return ordered
+
+    def export_visualization_html(self, output_path="topology_debug.html"):
+        """Genera una visualizzazione 3D interattiva (HTML) dei punti navigabili e dei nodi individuati."""
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            print("[TopologyAnalyzer] Libreria 'plotly' non installata: visualizzazione HTML saltata.")
+            print("Installa con: pip install plotly")
+            return None
+
+        fig = go.Figure()
+
+        if len(self.navigable_points) > 0:
+            fig.add_trace(go.Scatter3d(
+                x=self.navigable_points[:, 0],
+                y=self.navigable_points[:, 1],
+                z=self.navigable_points[:, 2],
+                mode='markers',
+                marker=dict(size=1.5, color='lightblue', opacity=0.4),
+                name='Punti navigabili'
+            ))
+
+        if self.nodes:
+            xs = [n["pos"][0] for n in self.nodes.values()]
+            ys = [n["pos"][1] for n in self.nodes.values()]
+            zs = [n["pos"][2] for n in self.nodes.values()]
+            labels = list(self.nodes.keys())
+
+            fig.add_trace(go.Scatter3d(
+                x=xs, y=ys, z=zs,
+                mode='markers+text',
+                marker=dict(size=6, color='red'),
+                text=labels,
+                name='Nodi (centri cluster)'
+            ))
+
+            ordered_ids = self._nearest_neighbor_order(self.nodes)
+            path_coords = [self.nodes[nid]["pos"] for nid in ordered_ids]
+            if len(path_coords) > 1:
+                px = [p[0] for p in path_coords]
+                py = [p[1] for p in path_coords]
+                pz = [p[2] for p in path_coords]
+                fig.add_trace(go.Scatter3d(
+                    x=px, y=py, z=pz,
+                    mode='lines',
+                    line=dict(color='orange', width=3),
+                    name='Percorso suggerito'
+                ))
+
+        fig.update_layout(
+            title=f"Topologia estratta - {os.path.basename(self.model_path)}",
+            scene=dict(aspectmode='data')
+        )
+
+        fig.write_html(output_path)
+        print(f"[TopologyAnalyzer] Visualizzazione HTML salvata in {output_path}")
+        return output_path
