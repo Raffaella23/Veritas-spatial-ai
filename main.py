@@ -10,6 +10,7 @@ if ASSETS_DIR not in sys.path:
 # --- Fine fix percorsi ---
 
 import json
+import webbrowser
 import tkinter as tk
 from tkinter import filedialog
 from core.engine import SimulationEngine
@@ -38,6 +39,7 @@ def get_file_path():
 def main():
     model_path = get_file_path()
     graph_path = os.path.join(ASSETS_DIR, "data", "navigation_graph.json")
+    html_path = os.path.join(BASE_DIR, "topology_debug.html")
 
     print("=== AVVIO SISTEMA VERITAS-SPATIAL-AI ===")
     print(f"Modello caricato: {model_path}")
@@ -48,6 +50,17 @@ def main():
 
     nav_nodes = analyzer.get_navigable_zones(num_clusters=10)
     print(f"Topologia estratta: identificati {len(nav_nodes)} nodi.")
+
+    if not nav_nodes:
+        print("Nessun nodo navigabile trovato. Impossibile proseguire con la simulazione.")
+        return
+
+    # Esporta il grafo appena calcolato: da qui in poi l'engine legge SEMPRE
+    # l'analisi reale del modello appena caricato, non un file statico vecchio.
+    analyzer.export_navigation_graph(graph_path)
+
+    # Genera la finestra HTML di verifica visiva della topologia estratta.
+    analyzer.export_visualization_html(html_path)
 
     engine = SimulationEngine(graph_path=graph_path)
 
@@ -74,6 +87,9 @@ def main():
         f.write(state)
 
     print("\nSalvataggio completato: 'simulation_output.json'")
+
+    # Apre automaticamente la finestra HTML nel browser predefinito.
+    webbrowser.open(f"file://{html_path}")
 
 
 if __name__ == "__main__":
