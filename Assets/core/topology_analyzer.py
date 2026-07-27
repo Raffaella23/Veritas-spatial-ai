@@ -17,6 +17,13 @@ DOMAIN_KEYWORDS = {
     "hazard": ["hazard", "pericolo", "danger", "trap"],
 }
 
+# Percentuale di nodi (i piu' periferici rispetto al centro dell'area navigabile)
+# candidati automaticamente come possibili ingressi/parcheggi, quando il modello
+# non fornisce nomi descrittivi. E' un'euristica geometrica, non una vera
+# comprensione semantica: gli ingressi tendono statisticamente a trovarsi ai
+# margini dell'area calpestabile, non al centro.
+ENTRANCE_BOUNDARY_FRACTION = 0.25
+
 
 class TopologyAnalyzer:
     def __init__(self, model_path: str):
@@ -112,8 +119,38 @@ class TopologyAnalyzer:
             }
             zones_list.append({"id": node_id, "center": nodes[node_id]["pos"], "meta": meta})
 
+        self._tag_entrance_candidates(nodes)
+
         self.nodes = nodes
         return zones_list
+
+    def _tag_entrance_candidates(self, nodes: dict):
+        """
+        Marca come possibili ingressi/parcheggi (meta['entrance'] = True) i nodi
+        piu' periferici rispetto al centro dell'area navigabile (sul piano
+        orizzontale X/Z), quando il nome degli oggetti non da' gia' un'indicazione
+        piu' specifica. E' un'euristica geometrica: approssima il fatto che gli
+        ingressi tendono a stare ai margini dell'edificio, non e' una vera
+        identificazione semantica del punto.
+        """
+        if not nodes:
+            return
+
+        ids = list(nodes.keys())
+        xs = np.array([nodes[nid]["pos"][0] for nid in ids])
+        zs = np.array([nodes[nid]["pos"][2] for nid in ids])
+        cx, cz = xs.mean(), zs.mean()
+        dists = np.sqrt((xs - cx) ** 2 + (zs - cz) ** 2)
+
+        n_entrances = max(1, round(len(ids) * ENTRANCE_BOUNDARY_FRACTION))
+        boundary_idx = np.argsort(dists)[-n_entrances:]
+
+        for idx in boundary_idx:
+            nid = ids[idx]
+            meta = nodes[nid]["meta"]
+            # Non sovrascrive tag piu' specifici gia' dedotti dal nome dell'oggetto
+            if not any(k in meta for k in ("checkpoint", "objective", "interest_level", "restricted", "hazard")):
+                meta["entrance"] = True
 
     def export_navigation_graph(self, output_path: str):
         """
