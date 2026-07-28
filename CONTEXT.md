@@ -266,6 +266,7 @@ To be validated before large-scale asset import.
 | 2026-07-16 | Viewer becomes Dumb Viewer | Remove business logic from HTML |
 | 2026-07-16 | simulation_config.json becomes Single Source of Truth | Centralize simulation configuration |
 | 2026-07-16 | Behaviour Engine becomes development priority | Foundation for Synthetic Players |
+| 2026-07-28 | Restored Core-First priority (real KPI on Python Engine) | Legacy HTML (V17/V18) had drifted from the planned architecture; the sellable product is the synthetic livability report, not the 3D visualization alone |
 
 ---
 
