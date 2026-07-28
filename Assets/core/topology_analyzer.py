@@ -24,6 +24,13 @@ DOMAIN_KEYWORDS = {
 # margini dell'area calpestabile, non al centro.
 ENTRANCE_BOUNDARY_FRACTION = 0.25
 
+# Se la dimensione massima del modello grezzo supera questa soglia, si assume
+# che sia espresso in millimetri (comune per export CAD/Revit/SketchUp) e viene
+# riportato a metri. Senza questa correzione le distanze tra i nodi restano
+# nell'ordine delle decine di migliaia di unita', e un agente che cammina a
+# velocita' umana non arriva mai a destinazione in una simulazione realistica.
+MM_DETECTION_THRESHOLD = 1000.0
+
 
 class TopologyAnalyzer:
     def __init__(self, model_path: str):
@@ -33,6 +40,7 @@ class TopologyAnalyzer:
         self.navigable_points = []
         self.nodes = {}  # {"n000": {"pos": [...], "meta": {...}}, ...}
         self._tag_hints = []  # [(centroid, tag_dict), ...] per oggetti nominati nella scena
+        self.scale_applied = 1.0  # fattore di scala applicato per normalizzare il modello a metri
 
     def analyze_model(self):
         """Carica il modello 3D (.glb) ed estrae le superfici e i punti di navigazione."""
@@ -62,6 +70,15 @@ class TopologyAnalyzer:
             raise ValueError("Formato del modello 3D non supportato.")
 
         self._tag_hints = tag_hints
+
+        # --- Normalizzazione di scala: se il modello e' in millimetri, lo riporta a metri ---
+        bbox_size = self.mesh.bounds[1] - self.mesh.bounds[0]
+        if bbox_size.max() > MM_DETECTION_THRESHOLD:
+            self.mesh.apply_scale(0.001)
+            self.scale_applied = 0.001
+            # Anche i punti di riferimento nominati (tag_hints) vanno riportati a metri
+            self._tag_hints = [(np.array(c) * 0.001, t) for c, t in self._tag_hints]
+            print("[TopologyAnalyzer] Scala rilevata in millimetri: applicato fattore 0.001 (modello riportato a metri).")
 
         vertices = self.mesh.vertices
         normals = self.mesh.vertex_normals
@@ -171,6 +188,7 @@ class TopologyAnalyzer:
         graph_data = {
             "version": "2.0",
             "model": os.path.basename(self.model_path),
+            "scale_applied": self.scale_applied,
             "nodes": self.nodes,
             "mission_profiles": {
                 "visitor_standard": ordered_ids,
@@ -259,7 +277,7 @@ class TopologyAnalyzer:
                 ))
 
         fig.update_layout(
-            title=f"Topologia estratta - {os.path.basename(self.model_path)}",
+            title=f"Topologia estratta - {os.path.basename(self.model_path)} (scala applicata: {self.scale_applied})",
             scene=dict(aspectmode='data')
         )
 
