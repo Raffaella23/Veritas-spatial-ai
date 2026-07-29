@@ -31,6 +31,23 @@ ENTRANCE_BOUNDARY_FRACTION = 0.25
 # velocita' umana non arriva mai a destinazione in una simulazione realistica.
 MM_DETECTION_THRESHOLD = 1000.0
 
+# Mappa il "type" dichiarato a mano in config.json (hotspots) verso i tag
+# di dominio gia' usati dal motore comportamentale. I punti caldi manuali
+# sono piu' affidabili di qualunque euristica automatica: quando presenti,
+# hanno sempre priorita'.
+HOTSPOT_TYPE_TO_META = {
+    "GATE": {"objective": True},
+    "CHECK_IN": {"checkpoint": True},
+    "CHECKPOINT": {"checkpoint": True},
+    "SECURITY": {"checkpoint": True},
+    "RESTRICTED": {"restricted": True},
+    "EXHIBIT": {"interest_level": 1.0},
+    "RETAIL": {"interest_level": 0.6},
+    "HAZARD": {"hazard": True},
+    "ENTRANCE": {"entrance": True},
+    "PARKING": {"entrance": True},
+}
+
 
 class TopologyAnalyzer:
     def __init__(self, model_path: str):
@@ -141,6 +158,38 @@ class TopologyAnalyzer:
         self.nodes = nodes
         return zones_list
 
+    def inject_hotspots(self, hotspots: list):
+        """
+        Inserisce nel grafo i punti caldi dichiarati a mano in config.json
+        (es. gate, check-in, varchi) come nodi espliciti, con priorita' sulle
+        etichette dedotte automaticamente. Le coordinate dei punti caldi sono
+        gia' espresse in metri reali dal file di configurazione, non vanno
+        ri-scalate come la mesh grezza.
+
+        hotspots: lista di dict nel formato di config.json, es.
+            {"id": "gate_A1", "type": "GATE", "position3D": {"x":10,"y":0,"z":5},
+             "note_VVFF": "...", "status": "OK"}
+        """
+        if not hotspots:
+            return
+
+        for hs in hotspots:
+            pos3d = hs.get("position3D", {})
+            pos = [float(pos3d.get("x", 0)), float(pos3d.get("y", 0)), float(pos3d.get("z", 0))]
+
+            meta = dict(HOTSPOT_TYPE_TO_META.get(hs.get("type", "").upper(), {}))
+            meta["label"] = hs.get("id", "hotspot")
+            meta["source"] = "config"
+            if "note_VVFF" in hs:
+                meta["vvff_note"] = hs["note_VVFF"]
+            if "status" in hs:
+                meta["vvff_status"] = hs["status"]
+
+            node_id = f"hotspot_{hs.get('id', len(self.nodes))}"
+            self.nodes[node_id] = {"pos": pos, "meta": meta}
+
+        print(f"[TopologyAnalyzer] Iniettati {len(hotspots)} punti caldi da config.json.")
+
     def _tag_entrance_candidates(self, nodes: dict):
         """
         Marca come possibili ingressi/parcheggi (meta['entrance'] = True) i nodi
@@ -176,6 +225,8 @@ class TopologyAnalyzer:
 
         I nodi vengono ordinati con una catena nearest-neighbor a partire dal primo,
         cosi' da produrre un percorso di visita sensato invece di un ordine casuale.
+        I punti caldi manuali (iniettati con inject_hotspots) vengono aggiunti in coda
+        a ogni profilo, cosi' restano sempre raggiungibili come tappe finali.
         Lo stesso percorso viene esposto sotto piu' nomi di profilo, cosi' da
         funzionare sia per il visitatore standard sia per i domini specializzati
         (sicurezza aeroportuale, museo, gaming, integrazione Unity).
@@ -183,7 +234,11 @@ class TopologyAnalyzer:
         if not self.nodes:
             self.get_navigable_zones()
 
-        ordered_ids = self._nearest_neighbor_order(self.nodes)
+        auto_ids = [nid for nid in self.nodes if not nid.startswith("hotspot_")]
+        hotspot_ids = [nid for nid in self.nodes if nid.startswith("hotspot_")]
+
+        ordered_auto = self._nearest_neighbor_order({nid: self.nodes[nid] for nid in auto_ids})
+        ordered_ids = ordered_auto + hotspot_ids
 
         graph_data = {
             "version": "2.0",
@@ -253,17 +308,17 @@ class TopologyAnalyzer:
             xs = [n["pos"][0] for n in self.nodes.values()]
             ys = [n["pos"][1] for n in self.nodes.values()]
             zs = [n["pos"][2] for n in self.nodes.values()]
-            labels = list(self.nodes.keys())
+            labels = [n["meta"].get("label", nid) for nid, n in self.nodes.items()]
 
             fig.add_trace(go.Scatter3d(
                 x=xs, y=ys, z=zs,
                 mode='markers+text',
                 marker=dict(size=6, color='red'),
                 text=labels,
-                name='Nodi (centri cluster)'
+                name='Nodi (centri cluster + punti caldi)'
             ))
 
-            ordered_ids = self._nearest_neighbor_order(self.nodes)
+            ordered_ids = self._nearest_neighbor_order({k: v for k, v in self.nodes.items() if not k.startswith("hotspot_")})
             path_coords = [self.nodes[nid]["pos"] for nid in ordered_ids]
             if len(path_coords) > 1:
                 px = [p[0] for p in path_coords]
