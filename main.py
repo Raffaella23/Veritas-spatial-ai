@@ -30,7 +30,7 @@ ARCHETYPES = [
     {"id": "stressed_late",   "weight": 5,  "patience": 0.05, "risk_aversion": 0.1, "social_factor": 0.05, "base_speed": 2.1},
 ]
 
-SIM_SECONDS = 45          # Durata della simulazione (in secondi simulati)
+SIM_SECONDS = 180        # Durata della simulazione (in secondi simulati) - alzato ora che le distanze sono in metri reali
 SIM_DOMAIN = "airport_security"  # Dominio corrente: aeroporto
 
 # Bounding box reale attorno a Roma Fiumicino (LIRF), in coordinate WGS84.
