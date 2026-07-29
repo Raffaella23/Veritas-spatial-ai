@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Optional
 from core.behaviour import SyntheticPlayer
 from core.compliance import AccessibilityValidator
 from core.path_loader import PathLoader
@@ -16,11 +16,12 @@ DOMAIN_CONFIG_DEFAULTS = {
 }
 
 class SimulationEngine:
-    def __init__(self, graph_path: str, dt: float = 0.1):
+    def __init__(self, graph_path: str, dt: float = 0.1, vvff_rules: Optional[List[dict]] = None):
         self.dt = dt
         self.agents: List[SyntheticPlayer] = []
         self.path_loader = PathLoader(graph_path)
         self.compliance_history = []
+        self.vvff_rules = vvff_rules or []
 
         # Stato Globale per la gestione emergenze
         self.emergency_mode = False
@@ -34,19 +35,21 @@ class SimulationEngine:
         self._checkpoint_encounters = {}
         self._checkpoint_waits = {}
 
-    def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None):
+    def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None):
         """Aggiunge un agente con capacita' fisiche e capacita' cognitive (HumanAgent).
 
         - profile_id: seleziona il percorso (mission_profile) da seguire nel grafo.
         - domain: seleziona la specializzazione comportamentale ('airport_security',
           'museum_visitor', 'gaming_player'); se omesso, usa profile_id come dominio.
+        - group_id: se valorizzato, lega l'agente a un gruppo sociale coeso (famiglia,
+          gruppo turistico) - vedi HumanAgent per la logica di coesione/contagio.
         """
         # 1. Creiamo il corpo (SyntheticPlayer)
         agent = SyntheticPlayer(agent_id, start_pos=[0.0, 0.0, 0.0])
 
         # 2. Creiamo il cervello (HumanAgent) e lo colleghiamo
         resolved_domain = domain or profile_id
-        agent.brain = HumanAgent(agent_id, profile_data, domain=resolved_domain)
+        agent.brain = HumanAgent(agent_id, profile_data, domain=resolved_domain, group_id=group_id)
 
         # 3. Gestione percorso
         waypoints = self.path_loader.get_waypoints(profile_id)
@@ -54,9 +57,10 @@ class SimulationEngine:
         if waypoints:
             agent.position = waypoints[0]["pos"].copy()
 
-        # 4. Validatore di accessibilita' calibrato sul dominio di questo agente
+        # 4. Validatore di accessibilita' calibrato sul dominio di questo agente,
+        # con le regole VVFF reali (larghezza minima uscite) se disponibili
         domain_cfg = DOMAIN_CONFIG_DEFAULTS.get(resolved_domain, {"min_clearance": 2.0})
-        agent.validator = AccessibilityValidator(domain_config=domain_cfg)
+        agent.validator = AccessibilityValidator(domain_config=domain_cfg, vvff_rules=self.vvff_rules)
 
         self.agents.append(agent)
         self._agent_start_tick[agent_id] = self.tick_count
@@ -143,6 +147,8 @@ class SimulationEngine:
             if total_checkpoint_encounters else 0.0
         )
 
+        non_compliant = sum(1 for c in self.compliance_history if not c["report"]["pass"])
+
         return {
             "flusso_effettivo_p_s": round(flow_rate, 3),
             "rallentamenti": self.slowdown_events,
@@ -151,6 +157,7 @@ class SimulationEngine:
             "agenti_completati": completed,
             "agenti_attivi": len(self.agents) - completed,
             "durata_simulazione_s": round(self.elapsed_time, 2),
+            "violazioni_compliance": non_compliant,
         }
 
     def export_state(self) -> str:
