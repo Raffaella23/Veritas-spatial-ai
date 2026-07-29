@@ -30,7 +30,11 @@ ARCHETYPES = [
     {"id": "stressed_late",   "weight": 5,  "patience": 0.05, "risk_aversion": 0.1, "social_factor": 0.05, "base_speed": 2.1},
 ]
 
-SIM_SECONDS = 180        # Durata della simulazione (in secondi simulati) - alzato ora che le distanze sono in metri reali
+# Archetipi abbastanza socievoli da formare gruppi coesi (famiglie, comitive).
+GROUP_FORMING_ARCHETYPES = {"tourist_family", "tour_group"}
+GROUP_SIZE = 3
+
+SIM_SECONDS = 180        # Durata della simulazione (in secondi simulati)
 SIM_DOMAIN = "airport_security"  # Dominio corrente: aeroporto
 
 # Bounding box reale attorno a Roma Fiumicino (LIRF), in coordinate WGS84.
@@ -41,6 +45,18 @@ LIRF_BBOX = {"lamin": 41.65, "lomin": 12.05, "lamax": 41.95, "lomax": 12.45}
 MIN_AGENTS = 15
 MAX_AGENTS = 80
 AGENTS_PER_FLIGHT = 4
+
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+
+
+def load_config():
+    """Carica config.json (punti caldi reali, regole VVFF, dati aeroporto).
+    Se assente, la simulazione prosegue comunque con i soli dati auto-rilevati."""
+    if not os.path.exists(CONFIG_PATH):
+        print("[Config] config.json non trovato: proseguo con la sola topologia auto-rilevata.")
+        return {}
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def fetch_live_traffic(bbox: dict, timeout: float = 6.0):
@@ -92,6 +108,10 @@ def get_file_path():
 
 
 def main():
+    config = load_config()
+    hotspots = config.get("hotspots", [])
+    vvff_rules = config.get("regole_vvff", [])
+
     model_path = get_file_path()
     graph_path = os.path.join(ASSETS_DIR, "data", "navigation_graph.json")
     html_path = os.path.join(BASE_DIR, "topology_debug.html")
@@ -116,6 +136,10 @@ def main():
         print("Nessun nodo navigabile trovato. Impossibile proseguire con la simulazione.")
         return
 
+    # Inietta i punti caldi reali dichiarati in config.json (gate, check-in, varchi)
+    if hotspots:
+        analyzer.inject_hotspots(hotspots)
+
     # Esporta il grafo appena calcolato: da qui in poi l'engine legge SEMPRE
     # l'analisi reale del modello appena caricato, non un file statico vecchio.
     analyzer.export_navigation_graph(graph_path)
@@ -123,7 +147,7 @@ def main():
     # Genera la finestra HTML di verifica visiva della topologia estratta.
     analyzer.export_visualization_html(html_path)
 
-    engine = SimulationEngine(graph_path=graph_path)
+    engine = SimulationEngine(graph_path=graph_path, vvff_rules=vvff_rules)
 
     # La popolazione simulata e' proporzionale al traffico aereo reale del
     # momento (entro limiti ragionevoli), invece di essere sempre fissa a 30.
@@ -132,6 +156,7 @@ def main():
         num_agents = 30  # fallback se l'API non risponde
 
     print(f"Genero popolazione di {num_agents} agenti (dominio: {SIM_DOMAIN})...")
+    group_counters = {}
     for i in range(num_agents):
         arch = pick_archetype()
         profile_data = {
@@ -140,11 +165,19 @@ def main():
             'social_factor': arch['social_factor'],
             'base_speed': arch['base_speed'],
         }
+
+        group_id = None
+        if arch['id'] in GROUP_FORMING_ARCHETYPES:
+            count = group_counters.get(arch['id'], 0)
+            group_id = f"{arch['id']}_grp_{count // GROUP_SIZE}"
+            group_counters[arch['id']] = count + 1
+
         engine.add_agent(
             agent_id=f"{arch['id']}_{i:03d}",
             profile_id="visitor_standard",
             profile_data=profile_data,
-            domain=SIM_DOMAIN
+            domain=SIM_DOMAIN,
+            group_id=group_id,
         )
 
     ticks = int(SIM_SECONDS / engine.dt)
@@ -155,7 +188,7 @@ def main():
     state = engine.export_state()
     state_data = json.loads(state)
     state_data["live_traffic"] = {
-        "aeroporto": "LIRF",
+        "aeroporto": config.get("aeroporto", {}).get("nome", "LIRF"),
         "velivoli_tracciati": len(voli_attivi),
         "agenti_generati": num_agents,
     }
