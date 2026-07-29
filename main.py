@@ -12,6 +12,7 @@ if ASSETS_DIR not in sys.path:
 import json
 import random
 import webbrowser
+import requests
 import tkinter as tk
 from tkinter import filedialog
 from core.engine import SimulationEngine
@@ -29,9 +30,41 @@ ARCHETYPES = [
     {"id": "stressed_late",   "weight": 5,  "patience": 0.05, "risk_aversion": 0.1, "social_factor": 0.05, "base_speed": 2.1},
 ]
 
-NUM_AGENTS = 30           # Popolazione simulata
 SIM_SECONDS = 45          # Durata della simulazione (in secondi simulati)
 SIM_DOMAIN = "airport_security"  # Dominio corrente: aeroporto
+
+# Bounding box reale attorno a Roma Fiumicino (LIRF), in coordinate WGS84.
+# L'endpoint states/all di OpenSky NON supporta un parametro "airport": va
+# interrogato con un riquadro geografico, come da documentazione ufficiale.
+LIRF_BBOX = {"lamin": 41.65, "lomin": 12.05, "lamax": 41.95, "lomax": 12.45}
+
+MIN_AGENTS = 15
+MAX_AGENTS = 80
+AGENTS_PER_FLIGHT = 4
+
+
+def fetch_live_traffic(bbox: dict, timeout: float = 6.0):
+    """
+    Interroga l'API pubblica OpenSky Network per il traffico aereo reale
+    nell'area indicata. Restituisce la lista di velivoli attualmente tracciati
+    (puo' essere vuota in caso di errore, rate limit, o assenza di traffico:
+    la simulazione deve funzionare comunque con un valore di default).
+    """
+    url = (
+        "https://opensky-network.org/api/states/all"
+        f"?lamin={bbox['lamin']}&lomin={bbox['lomin']}"
+        f"&lamax={bbox['lamax']}&lomax={bbox['lomax']}"
+    )
+    try:
+        response = requests.get(url, timeout=timeout)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("states") or []
+        print(f"[OpenSky] Risposta non valida (HTTP {response.status_code}). Uso popolazione di default.")
+        return []
+    except Exception as e:
+        print(f"[OpenSky] Impossibile recuperare dati di traffico reale: {e}. Uso popolazione di default.")
+        return []
 
 
 def pick_archetype():
@@ -66,6 +99,11 @@ def main():
 
     print("=== AVVIO SISTEMA VERITAS-SPATIAL-AI ===")
     print(f"Modello caricato: {model_path}")
+
+    print("Recupero traffico aereo reale (Roma Fiumicino - LIRF)...")
+    voli_attivi = fetch_live_traffic(LIRF_BBOX)
+    print(f"Velivoli attualmente tracciati nell'area: {len(voli_attivi)}")
+
     print("Analisi automatica topologia in corso...")
 
     analyzer = TopologyAnalyzer(model_path)
@@ -87,9 +125,14 @@ def main():
 
     engine = SimulationEngine(graph_path=graph_path)
 
-    # Popola una folla eterogenea di viaggiatori, non un solo agente identico.
-    print(f"Genero popolazione di {NUM_AGENTS} agenti (dominio: {SIM_DOMAIN})...")
-    for i in range(NUM_AGENTS):
+    # La popolazione simulata e' proporzionale al traffico aereo reale del
+    # momento (entro limiti ragionevoli), invece di essere sempre fissa a 30.
+    num_agents = max(MIN_AGENTS, min(MAX_AGENTS, len(voli_attivi) * AGENTS_PER_FLIGHT))
+    if not voli_attivi:
+        num_agents = 30  # fallback se l'API non risponde
+
+    print(f"Genero popolazione di {num_agents} agenti (dominio: {SIM_DOMAIN})...")
+    for i in range(num_agents):
         arch = pick_archetype()
         profile_data = {
             'patience': arch['patience'],
@@ -111,12 +154,19 @@ def main():
 
     state = engine.export_state()
     state_data = json.loads(state)
+    state_data["live_traffic"] = {
+        "aeroporto": "LIRF",
+        "velivoli_tracciati": len(voli_attivi),
+        "agenti_generati": num_agents,
+    }
 
     print("\n--- REPORT SINTETICO DI VIVIBILITA' ---")
     print(json.dumps(state_data["kpi_report"], indent=2, ensure_ascii=False))
+    print("\n--- TRAFFICO REALE UTILIZZATO ---")
+    print(json.dumps(state_data["live_traffic"], indent=2, ensure_ascii=False))
 
     with open("simulation_output.json", "w", encoding="utf-8") as f:
-        f.write(state)
+        json.dump(state_data, f, indent=2, ensure_ascii=False)
 
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(state_data["kpi_report"], f, indent=2, ensure_ascii=False)
