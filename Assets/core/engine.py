@@ -15,6 +15,12 @@ DOMAIN_CONFIG_DEFAULTS = {
     "unity_bridge": {"min_clearance": 2.0},
 }
 
+# Ogni quanti tick viene registrato uno snapshot della posizione di tutti gli
+# agenti, per poter poi animare la simulazione nel viewer passivo. Con dt=0.1
+# e RECORD_EVERY=5, uno snapshot ogni 0.5 secondi simulati: abbastanza fluido
+# da vedere, senza generare un file enorme.
+RECORD_EVERY = 5
+
 class SimulationEngine:
     def __init__(self, graph_path: str, dt: float = 0.1, vvff_rules: Optional[List[dict]] = None):
         self.dt = dt
@@ -34,6 +40,9 @@ class SimulationEngine:
         self._agent_start_tick = {}
         self._checkpoint_encounters = {}
         self._checkpoint_waits = {}
+
+        # --- Traiettoria nel tempo, per il viewer passivo (animazione) ---
+        self.trajectory = []
 
     def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None):
         """Aggiunge un agente con capacita' fisiche e capacita' cognitive (HumanAgent).
@@ -131,6 +140,21 @@ class SimulationEngine:
                 transit_seconds = (self.tick_count - start_tick) * self.dt
                 self.transit_times.append(transit_seconds)
 
+        # 4. Registra uno snapshot della scena per l'animazione nel viewer
+        if self.tick_count % RECORD_EVERY == 0:
+            self.trajectory.append({
+                "t": round(self.elapsed_time, 2),
+                "agents": [
+                    {
+                        "id": a.agent_id,
+                        "pos": a.position.tolist(),
+                        "state": a.state.value,
+                        "archetype": getattr(a.brain, "domain", None) if hasattr(a, "brain") else None,
+                    }
+                    for a in self.agents
+                ]
+            })
+
     def get_kpi_report(self) -> dict:
         """
         Calcola il report sintetico di vivibilita' dello spazio: quello che
@@ -167,4 +191,11 @@ class SimulationEngine:
             "compliance_logs": self.compliance_history,
             "emergency_mode": self.emergency_mode,
             "kpi_report": self.get_kpi_report(),
+        }, indent=2)
+
+    def export_trajectory(self, nodes: dict) -> str:
+        """Genera il payload per il viewer passivo: nodi statici + traiettoria animata."""
+        return json.dumps({
+            "nodes": nodes,
+            "frames": self.trajectory,
         }, indent=2)
