@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>VERITAS - Viewer Passivo</title>
+<style>
+  body { margin:0; background:#0a0e1a; color:#e5e7eb; font-family: system-ui, sans-serif; overflow:hidden; }
+  #topbar { padding:10px 16px; background:#111827; border-bottom:1px solid #1f2937; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  #topbar h1 { font-size:14px; margin:0; color:#60a5fa; font-weight:700; }
+  #topbar .hint { font-size:11px; color:#9ca3af; }
+  input[type=file] { color:#e5e7eb; font-size:12px; }
+  #canvasWrap { position:relative; width:100%; height:calc(100vh - 130px); }
+  canvas { width:100%; height:100%; display:block; background:#0e1424; }
+  #controls { padding:10px 16px; background:#111827; border-top:1px solid #1f2937; display:flex; align-items:center; gap:12px; }
+  button { background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:13px; }
+  button:hover { background:#374151; }
+  #timeline { flex:1; }
+  #legend { position:absolute; top:10px; right:10px; background:rgba(17,24,39,0.85); border:1px solid #1f2937; border-radius:8px; padding:10px 12px; font-size:11px; line-height:1.9; }
+  #legend div { display:flex; align-items:center; gap:6px; }
+  #legend span.dot { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  #kpiPanel { position:absolute; top:10px; left:10px; background:rgba(17,24,39,0.85); border:1px solid #1f2937; border-radius:8px; padding:10px 12px; font-size:11px; line-height:1.7; font-family:monospace; }
+  #timeLabel { font-size:12px; color:#9ca3af; min-width:70px; text-align:right; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>VERITAS - Viewer Passivo</h1>
+  <span class="hint">Carica simulation_trajectory.json (generato da main.py)</span>
+  <input type="file" id="fileInput" accept=".json">
+  <span class="hint" id="status">In attesa di un file...</span>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="scene"></canvas>
+  <div id="legend">
+    <div><span class="dot" style="background:#facc15"></span> checkpoint</div>
+    <div><span class="dot" style="background:#22c55e"></span> objective</div>
+    <div><span class="dot" style="background:#ef4444"></span> hazard</div>
+    <div><span class="dot" style="background:#f97316"></span> restricted</div>
+    <div><span class="dot" style="background:#38bdf8"></span> interest_level</div>
+    <div><span class="dot" style="background:#a78bfa"></span> entrance</div>
+    <div><span class="dot" style="background:#9ca3af"></span> nodo generico</div>
+    <hr style="border-color:#374151">
+    <div><span class="dot" style="background:#3b82f6"></span> agente: in movimento</div>
+    <div><span class="dot" style="background:#f59e0b"></span> agente: in attesa</div>
+    <div><span class="dot" style="background:#10b981"></span> agente: arrivato</div>
+  </div>
+  <div id="kpiPanel"></div>
+</div>
+
+<div id="controls">
+  <button id="playBtn">&#9654; Play</button>
+  <input type="range" id="timeline" min="0" max="0" value="0">
+  <span id="timeLabel">0.0s</span>
+  <select id="speedSelect">
+    <option value="1">1x</option>
+    <option value="2">2x</option>
+    <option value="4" selected>4x</option>
+    <option value="8">8x</option>
+  </select>
+</div>
+
+<script>
+// --- VIEWER PASSIVO ---
+// Nessuna logica di simulazione qui dentro: questo file legge SOLO il JSON
+// prodotto dal Core Python (Assets/core/engine.py) e lo disegna. Ogni
+// decisione (dove va un agente, quando si ferma, se e' in conformita') e'
+// gia' stata presa da Python prima di arrivare qui.
+
+const NODE_COLORS = {
+  checkpoint: '#facc15',
+  objective: '#22c55e',
+  hazard: '#ef4444',
+  restricted: '#f97316',
+  interest_level: '#38bdf8',
+  entrance: '#a78bfa',
+};
+
+const AGENT_STATE_COLORS = {
+  moving: '#3b82f6',
+  waiting: '#f59e0b',
+  arrived: '#10b981',
+  idle: '#6b7280',
+};
+
+let data = null;
+let frameIndex = 0;
+let playing = false;
+let lastTs = 0;
+let playSpeed = 4;
+
+const canvas = document.getElementById('scene');
+const ctx = canvas.getContext('2d');
+const fileInput = document.getElementById('fileInput');
+const statusEl = document.getElementById('status');
+const timeline = document.getElementById('timeline');
+const timeLabel = document.getElementById('timeLabel');
+const playBtn = document.getElementById('playBtn');
+const speedSelect = document.getElementById('speedSelect');
+const kpiPanel = document.getElementById('kpiPanel');
+
+function resizeCanvas() {
+  const wrap = document.getElementById('canvasWrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      data = JSON.parse(ev.target.result);
+      frameIndex = 0;
+      timeline.max = Math.max(0, (data.frames || []).length - 1);
+      timeline.value = 0;
+      statusEl.textContent = `Caricato: ${(data.frames || []).length} fotogrammi, ${Object.keys(data.nodes || {}).length} nodi.`;
+      computeBounds();
+      resizeCanvas();
+    } catch (err) {
+      statusEl.textContent = 'Errore nel file JSON: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+let bounds = { minX: -10, maxX: 10, minZ: -10, maxZ: 10 };
+
+function computeBounds() {
+  if (!data || !data.nodes) return;
+  const xs = [], zs = [];
+  Object.values(data.nodes).forEach(n => { xs.push(n.pos[0]); zs.push(n.pos[2]); });
+  if (data.frames) {
+    data.frames.forEach(f => f.agents.forEach(a => { xs.push(a.pos[0]); zs.push(a.pos[2]); }));
+  }
+  if (!xs.length) return;
+  const pad = 3;
+  bounds = {
+    minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad,
+    minZ: Math.min(...zs) - pad, maxZ: Math.max(...zs) + pad,
+  };
+}
+
+function worldToScreen(x, z) {
+  const w = canvas.width, h = canvas.height;
+  const spanX = bounds.maxX - bounds.minX || 1;
+  const spanZ = bounds.maxZ - bounds.minZ || 1;
+  const scale = Math.min(w / spanX, h / spanZ) * 0.92;
+  const offX = (w - spanX * scale) / 2;
+  const offZ = (h - spanZ * scale) / 2;
+  return [
+    offX + (x - bounds.minX) * scale,
+    offZ + (z - bounds.minZ) * scale,
+  ];
+}
+
+function nodeColor(meta) {
+  for (const key of Object.keys(NODE_COLORS)) {
+    if (meta && meta[key]) return NODE_COLORS[key];
+  }
+  return '#9ca3af';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!data) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '13px system-ui';
+    ctx.fillText('Carica un file simulation_trajectory.json per iniziare.', 20, 30);
+    return;
+  }
+
+  // Griglia di sfondo
+  ctx.strokeStyle = '#1a2236';
+  ctx.lineWidth = 1;
+  for (let gx = 0; gx <= canvas.width; gx += 40) {
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, canvas.height); ctx.stroke();
+  }
+  for (let gy = 0; gy <= canvas.height; gy += 40) {
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(canvas.width, gy); ctx.stroke();
+  }
+
+  // Nodi (ambiente statico)
+  Object.entries(data.nodes || {}).forEach(([id, node]) => {
+    const [sx, sy] = worldToScreen(node.pos[0], node.pos[2]);
+    const isHotspot = id.startsWith('hotspot_');
+    ctx.beginPath();
+    ctx.arc(sx, sy, isHotspot ? 7 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = nodeColor(node.meta);
+    ctx.fill();
+    if (isHotspot) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    const label = (node.meta && node.meta.label) || id;
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px monospace';
+    ctx.fillText(label, sx + 8, sy + 3);
+  });
+
+  // Agenti (fotogramma corrente)
+  const frame = (data.frames || [])[frameIndex];
+  if (frame) {
+    frame.agents.forEach(a => {
+      const [sx, sy] = worldToScreen(a.pos[0], a.pos[2]);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = AGENT_STATE_COLORS[a.state] || '#e5e7eb';
+      ctx.fill();
+    });
+    timeLabel.textContent = frame.t.toFixed(1) + 's';
+  }
+
+  // KPI live (conteggio stati nel fotogramma corrente)
+  if (frame) {
+    const counts = { moving: 0, waiting: 0, arrived: 0, idle: 0 };
+    frame.agents.forEach(a => { counts[a.state] = (counts[a.state] || 0) + 1; });
+    kpiPanel.innerHTML = `t = ${frame.t.toFixed(1)}s<br>` +
+      `in movimento: ${counts.moving}<br>` +
+      `in attesa: ${counts.waiting}<br>` +
+      `arrivati: ${counts.arrived}<br>` +
+      `agenti totali: ${frame.agents.length}`;
+  }
+}
+
+timeline.addEventListener('input', () => {
+  frameIndex = parseInt(timeline.value, 10);
+  draw();
+});
+
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.innerHTML = playing ? '&#10074;&#10074; Pausa' : '&#9654; Play';
+  if (playing) requestAnimationFrame(tick);
+});
+
+speedSelect.addEventListener('change', () => { playSpeed = parseFloat(speedSelect.value); });
+
+function tick(ts) {
+  if (!playing) return;
+  if (!lastTs) lastTs = ts;
+  const dt = ts - lastTs;
+  // Avanza un fotogramma ogni ~120ms diviso per la velocita' selezionata
+  if (dt > 120 / playSpeed) {
+    lastTs = ts;
+    const maxIdx = (data && data.frames) ? data.frames.length - 1 : 0;
+    frameIndex = Math.min(frameIndex + 1, maxIdx);
+    timeline.value = frameIndex;
+    draw();
+    if (frameIndex >= maxIdx) {
+      playing = false;
+      playBtn.innerHTML = '&#9654; Play';
+      return;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+resizeCanvas();
+</script>
+</body>
+</html>
