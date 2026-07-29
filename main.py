@@ -116,6 +116,7 @@ def main():
     graph_path = os.path.join(ASSETS_DIR, "data", "navigation_graph.json")
     html_path = os.path.join(BASE_DIR, "topology_debug.html")
     report_path = os.path.join(BASE_DIR, "kpi_report.json")
+    trajectory_path = os.path.join(BASE_DIR, "simulation_trajectory.json")
 
     print("=== AVVIO SISTEMA VERITAS-SPATIAL-AI ===")
     print(f"Modello caricato: {model_path}")
@@ -204,10 +205,19 @@ def main():
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(state_data["kpi_report"], f, indent=2, ensure_ascii=False)
 
-    print("\nSalvataggio completato: 'simulation_output.json' e 'kpi_report.json'")
+    # Esporta la traiettoria animata (nodi + fotogrammi) per il viewer passivo
+    trajectory_json = engine.export_trajectory(analyzer.nodes)
+    with open(trajectory_path, "w", encoding="utf-8") as f:
+        f.write(trajectory_json)
 
-    # Apre automaticamente la finestra HTML nel browser predefinito.
-    webbrowser.open(f"file://{html_path}")
+    print(f"\nSalvataggio completato: 'simulation_output.json', 'kpi_report.json' e 'simulation_trajectory.json'")
+
+    # Apre il viewer passivo con l'ambiente completo e gli agenti animati.
+    viewer_path = os.path.join(BASE_DIR, "veritas_spatial.html")
+    if os.path.exists(viewer_path):
+        webbrowser.open(f"file://{viewer_path}")
+    else:
+        webbrowser.open(f"file://{html_path}")
 
 
 if __name__ == "__main__":
