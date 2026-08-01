@@ -214,6 +214,7 @@
     window.__veritasProjectName = project.name;
     window.__veritasInitialNodes = project.nodes_config && project.nodes_config.length ? project.nodes_config : null;
     window.__veritasInitialCameras = project.camera_config && project.camera_config.length ? project.camera_config : null;
+    window.__veritasPassengerScale = (project.sim_params && project.sim_params.passengerScale) || 0.12;
     overlay.classList.add("hidden");
     bootDone();
   }
@@ -481,7 +482,10 @@
     const panel = document.createElement("div");
     panel.id = "veritas-picker-panel";
     panel.innerHTML = `
-      <h2>Punti • ${window.__veritasProjectName || ""}</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">Punti • ${window.__veritasProjectName || ""}</h2>
+        <button id="vp-collapse" title="Nascondi pannello (per vedere il modello sotto)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;">—</button>
+      </div>
       <select id="vp-type">${TYPE_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}</select>
       <input type="text" id="vp-label" placeholder="Etichetta (es. Gate B2)">
       <button class="vp-btn" id="vp-place">📍 Posiziona nuovo punto</button>
@@ -489,11 +493,25 @@
       <div class="vp-hint" style="margin-bottom:8px;">Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.</div>
       <button class="vp-btn" id="vp-reanalyze">🤖 Rianalizza mesh</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">Scala passeggeri: <span id="vp-scale-val">1.0x</span></label>
-      <input type="range" id="vp-scale" min="0.2" max="2" step="0.05" value="1" style="width:100%;margin-bottom:10px;">
+      <input type="range" id="vp-scale" min="0.03" max="1.5" step="0.01" value="0.12" style="width:100%;margin-bottom:10px;">
       <button class="vp-btn primary" id="vp-regen">↻ Rigenera simulazione</button>
       <button class="vp-btn" id="vp-save">💾 Salva progetto</button>
     `;
     document.body.appendChild(panel);
+
+    const reopenTab = document.createElement("button");
+    reopenTab.id = "veritas-reopen-tab";
+    reopenTab.textContent = "📍 Punti";
+    reopenTab.style.cssText = "position:fixed;right:14px;top:70px;z-index:9000;display:none;background:rgba(12,15,23,0.95);color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;";
+    document.body.appendChild(reopenTab);
+    panel.querySelector("#vp-collapse").onclick = () => {
+      panel.style.display = "none";
+      reopenTab.style.display = "block";
+    };
+    reopenTab.onclick = () => {
+      panel.style.display = "block";
+      reopenTab.style.display = "none";
+    };
 
     const grip = document.createElement("div");
     grip.id = "veritas-grip";
@@ -621,7 +639,7 @@
 
     const scaleSlider = panel.querySelector("#vp-scale");
     const scaleVal = panel.querySelector("#vp-scale-val");
-    scaleSlider.value = window.__veritasPassengerScale || 1;
+    scaleSlider.value = window.__veritasPassengerScale || 0.12;
     scaleVal.textContent = parseFloat(scaleSlider.value).toFixed(2) + "x";
     scaleSlider.addEventListener("input", () => {
       const v = parseFloat(scaleSlider.value);
@@ -639,7 +657,7 @@
     panel.querySelector("#vp-save").onclick = async () => {
       const btn = panel.querySelector("#vp-save");
       btn.textContent = "Salvataggio...";
-      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes });
+      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.12 } });
       btn.textContent = error ? "Errore ✕" : "Salvato ✓";
       setTimeout(() => (btn.textContent = "💾 Salva progetto"), 1500);
     };
