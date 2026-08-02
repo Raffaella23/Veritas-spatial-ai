@@ -133,3 +133,26 @@ Il repo contiene anche un **motore Python separato** (cartella `Assets/core/`) p
 ## 7. File legacy da NON toccare come base di codice
 
 `V12.html`, `V13.html`, `V17.html`, `Veritas-V18.html`, `Veritas1607.html` nella root del repo — versioni precedenti autonome, utili solo come riferimento visivo/UX, non collegate all'\''architettura attuale.
+
+
+---
+
+## 8. Aggiornamento sessione successiva (dopo commit 3e8cf95)
+
+**Nota importante**: questo documento NON viene aggiornato automaticamente dopo ogni sessione di lavoro — va richiesto esplicitamente o l'assistente deve ricordarsene da solo. Tra il commit 3e8cf95 e questo aggiornamento sono stati fatti diversi commit non documentati qui sopra. Riepilogo:
+
+- **Livello 1 — analisi geometrica reale**: `extractNavigablePoints()`, `kmeansCluster()`, `clusterWidths()` (PCA per corridoi), `runStructuralAnalysis()`, bottone "Report struttura" con score/zone/criticità. Filtra mesh con impronta fuori scala (piste/piazzali) usandole pero come riferimento direzionale lato-terra/lato-volo per ordinare i punti con un criterio di flusso reale (non piu solo nearest-neighbor).
+- **Multilingua IT/EN**: dizionario `I18N` + funzione `t()` nello script boot. Copre login, registrazione, lista progetti, pannello punti, report struttura. NON copre il testo dentro il bundle minificato originale (nomi telecamere, etichette KPI a destra, "CAMERE - 7 PRESET" ecc.) — resta italiano, e sarebbe un lavoro a parte piu rischioso.
+- **Pannello punti agganciabile**: parte collassato di default (solo tab "Punti"), si trascina dall'intestazione, posizione salvata in localStorage — non copre piu altre parti dell'interfaccia.
+- **Marker con dimensione regolabile**: slider "Dimensione marker selezionato" (0.05x-6x) quando un punto e selezionato, sostituendo il precedente slider minuscolo per riga.
+- **Telecamere agganciate ai nodi**: `syncCamerasToNodes()` aggiorna pos/target delle 7 telecamere preset in base ai punti reali quando questi si spostano (mappatura fissa per id: varco/controllo->security, imbarco/gateA->gate, lounge->lounge, accettazione->checkin).
+- **[IMPORTANTE] Supporto mesh multipiano**: fino a questo punto TUTTO il sistema forzava la quota Y a 0 (punti, passeggeri, telecamere) — su una mesh a piu livelli i passeggeri finivano sempre a terra invece che al piano reale. Risolto in piu punti:
+  - `detectFloorLevels()` raggruppa i punti navigabili in fasce di quota (gap >1.5m = nuovo piano), risultato in `lastFloorLevels`
+  - Le zone rilevate ora portano la Y reale (`zone.pos[1]`) e un `floorIdx` assegnato al piano piu vicino
+  - `analyzeMesh()` e i punti auto-suggeriti preservano la quota reale invece di azzerarla
+  - **Bug nel bundle originale trovato e corretto**: il codice che applica ogni frame la posizione ai passeggeri (`dA.group.position.set(h,0,b)`, vicino alla stringa `leftHip` nel bundle) ignorava completamente `pos[1]`. Aggiunta variabile `yQ` che legge/interpola la quota reale, sostituendo lo `0` hardcoded — 5 edit puntuali nel bundle, verificati con `node --check` prima del push
+  - `generateTrajectory()` ora interpola anche la Y tra un nodo e il successivo (i passeggeri salgono/scendono, non solo si spostano in piano)
+  - Il click di posizionamento manuale (`unprojectToFloor`) ora prova ogni livello rilevato e sceglie quello con punti navigabili vicini nel raggio di 3m, invece di intersecare sempre il piano y=0
+  - Il report struttura mostra ora "LIVELLI RILEVATI" e l'indicazione di piano per ogni zona
+
+**Prossimi passi aperti** (non affrontati in questa sessione): Livello 2 (ragionamento AI vero con Claude via backend/Supabase Edge Function, richiede chiave API Anthropic separata), bucket Storage per il `.glb`, editor dedicato per le 7 telecamere, traduzione del testo dentro il bundle minificato.
