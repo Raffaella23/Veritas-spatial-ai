@@ -422,18 +422,26 @@
   // punti navigabili dai vertici con normale verso l'alto, clustering
   // KMeans reale, stima larghezza corridoi via PCA locale)
   // ============================================================
+  const EXCLUDE_KEYWORDS = ["runway", "taxiway", "pista", "piazzale", "apron", "tarmac", "road", "strada", "terreno", "ground", "asphalt", "asfalto", "parcheggio_auto", "landscape", "terrain"];
+
   function extractNavigablePoints(root, maxSamples) {
     maxSamples = maxSamples || 4000;
-    const points = [];
     root.updateMatrixWorld(true);
+    // Passo 1: raccoglie i punti "verso l'alto" per ogni singola mesh separatamente,
+    // insieme all'impronta (area XZ) di quella mesh nel mondo reale.
+    const perMesh = [];
     root.traverse((obj) => {
       if (!obj.isMesh || !obj.geometry) return;
+      const name = (obj.name || "").toLowerCase();
+      if (EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))) return;
       const geo = obj.geometry;
       const posAttr = geo.attributes && geo.attributes.position;
       const normAttr = geo.attributes && geo.attributes.normal;
       if (!posAttr || !posAttr.count) return;
       const stride = Math.max(1, Math.floor(posAttr.count / 600));
       const mw = obj.matrixWorld.elements;
+      const pts = [];
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
       for (let i = 0; i < posAttr.count; i += stride) {
         const lx = posAttr.getX(i), ly = posAttr.getY(i), lz = posAttr.getZ(i);
         const w = mat4xVec4(mw, [lx, ly, lz, 1]);
@@ -444,9 +452,24 @@
           const len = Math.hypot(wn[0], wn[1], wn[2]) || 1;
           ny = wn[1] / len;
         }
-        if (ny > 0.75) points.push([w[0], w[1], w[2]]);
+        if (ny > 0.75) {
+          pts.push([w[0], w[1], w[2]]);
+          if (w[0] < minX) minX = w[0]; if (w[0] > maxX) maxX = w[0];
+          if (w[2] < minZ) minZ = w[2]; if (w[2] > maxZ) maxZ = w[2];
+        }
       }
+      if (pts.length) perMesh.push({ pts, footprint: (maxX - minX) * (maxZ - minZ) || 0.01 });
     });
+    if (!perMesh.length) return [];
+    // Passo 2: scarta le mesh con impronta "fuori scala" rispetto alla mediana
+    // (piste, piazzali, terreno esterno sono tipicamente enormi rispetto agli
+    // ambienti interni) — evita che l'analisi confonda l'esterno con l'interno.
+    const footprints = perMesh.map((m) => m.footprint).sort((a, b) => a - b);
+    const median = footprints[Math.floor(footprints.length / 2)] || 1;
+    let filtered = perMesh.filter((m) => m.footprint <= median * 6);
+    if (!filtered.length) filtered = perMesh; // rete di sicurezza: se il filtro scarta tutto, ripiega sul dataset intero
+    let points = [];
+    for (const m of filtered) points = points.concat(m.pts);
     if (points.length > maxSamples) {
       const strideOut = Math.ceil(points.length / maxSamples);
       return points.filter((_, i) => i % strideOut === 0);
@@ -742,6 +765,10 @@
       <button class="vp-btn" id="vp-place">📍 Posiziona nuovo punto</button>
       <div class="vp-list" id="vp-list"></div>
       <div class="vp-hint" style="margin-bottom:8px;">Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.</div>
+      <div id="vp-scale-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">📐 Dimensione marker selezionato: <span id="vp-marker-scale-val">1.0x</span></label>
+        <input type="range" id="vp-marker-scale" min="0.3" max="2.5" step="0.1" value="1" style="width:100%;">
+      </div>
       <button class="vp-btn" id="vp-reanalyze">🤖 Rianalizza mesh</button>
       <button class="vp-btn" id="vp-report">📊 Report struttura</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">Scala passeggeri: <span id="vp-scale-val">1.0x</span></label>
@@ -807,12 +834,25 @@
       }
     }
 
+    function updateScaleControl() {
+      const box = panel.querySelector("#vp-scale-control");
+      const slider = panel.querySelector("#vp-marker-scale");
+      const val = panel.querySelector("#vp-marker-scale-val");
+      if (selectedIndex === null || !currentNodes[selectedIndex]) {
+        box.style.display = "none";
+        return;
+      }
+      box.style.display = "block";
+      const s = currentNodes[selectedIndex].scale || 1;
+      slider.value = s;
+      val.textContent = s.toFixed(1) + "x";
+    }
+
     function renderList() {
       const list = panel.querySelector("#vp-list");
       list.innerHTML = currentNodes
-        .map((n, i) => `<div class="vp-node" style="flex-wrap:wrap;gap:4px;${i === selectedIndex ? "background:rgba(59,130,246,0.25);border:1px solid #3b82f6;" : ""}">
-          <span class="lbl" data-i="${i}" style="cursor:pointer;flex:1;min-width:80px;">${n.label}</span>
-          <input type="range" class="mscale" data-i="${i}" min="0.3" max="2.5" step="0.1" value="${n.scale || 1}" title="Dimensione marker" style="width:50px;">
+        .map((n, i) => `<div class="vp-node" style="${i === selectedIndex ? "background:rgba(59,130,246,0.25);border:1px solid #3b82f6;" : ""}">
+          <span class="lbl" data-i="${i}" style="cursor:pointer;flex:1;">${n.label}</span>
           <span class="del" data-i="${i}">✕</span>
         </div>`)
         .join("");
@@ -831,18 +871,13 @@
           placing = true;
           renderList();
           updatePlaceBtn();
+          updateScaleControl();
           if (selectedIndex !== null && !gripRafId) updateGrip();
           else if (selectedIndex === null) { grip.style.display = "none"; }
         };
       });
-      list.querySelectorAll(".mscale").forEach((el) => {
-        el.oninput = () => {
-          const i = parseInt(el.getAttribute("data-i"), 10);
-          currentNodes[i].scale = parseFloat(el.value);
-          applyMarkerScale(i);
-        };
-      });
       currentNodes.forEach((n, i) => applyMarkerScale(i));
+      updateScaleControl();
     }
     renderListRef = renderList;
     renderList();
@@ -854,7 +889,16 @@
       grip.style.display = "none";
       renderList();
       updatePlaceBtn();
+      updateScaleControl();
     };
+
+    panel.querySelector("#vp-marker-scale").addEventListener("input", (e) => {
+      if (selectedIndex === null || !currentNodes[selectedIndex]) return;
+      const v = parseFloat(e.target.value);
+      currentNodes[selectedIndex].scale = v;
+      panel.querySelector("#vp-marker-scale-val").textContent = v.toFixed(1) + "x";
+      applyMarkerScale(selectedIndex);
+    });
 
     function waitForSceneRefs() {
       return new Promise((resolve) => {
@@ -879,6 +923,7 @@
           selectedIndex = null;
           placing = false;
           grip.style.display = "none";
+          updateScaleControl();
         } else {
           const type = panel.querySelector("#vp-type").value;
           const label = panel.querySelector("#vp-label").value.trim() || TYPE_OPTIONS.find((o) => o.value === type).label;
