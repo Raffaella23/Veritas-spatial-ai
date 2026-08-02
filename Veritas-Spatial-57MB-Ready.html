@@ -391,8 +391,8 @@
     // suddivisione del bounding box
     const structural = runStructuralAnalysis(root);
     const order2 = ["spawn", "checkin", "security", "lounge", "gate"];
-    if (structural && structural.ordered.length >= 2) {
-      const path = structural.ordered;
+    if (structural && structural.flowOrder.length >= 2) {
+      const path = structural.flowOrder;
       const stepIdx = (i) => Math.round((i / (order2.length - 1)) * (path.length - 1));
       for (let i = 0; i < order2.length; i++) {
         const zone = path[Math.min(path.length - 1, stepIdx(i))];
@@ -467,14 +467,24 @@
     const footprints = perMesh.map((m) => m.footprint).sort((a, b) => a - b);
     const median = footprints[Math.floor(footprints.length / 2)] || 1;
     let filtered = perMesh.filter((m) => m.footprint <= median * 6);
-    if (!filtered.length) filtered = perMesh; // rete di sicurezza: se il filtro scarta tutto, ripiega sul dataset intero
+    const excluded = perMesh.filter((m) => m.footprint > median * 6);
+    if (!filtered.length) { filtered = perMesh; } // rete di sicurezza: se il filtro scarta tutto, ripiega sul dataset intero
+    // Centroide delle superfici escluse (piste/piazzali) — usato come riferimento
+    // direzionale "lato volo" per ordinare le zone interne dal lato terra
+    // (ingresso) al lato volo (gate), come farebbe un progettista aeroportuale.
+    let airsideAnchor = null;
+    if (excluded.length) {
+      let sx = 0, sz = 0, cnt = 0;
+      for (const m of excluded) for (const p of m.pts) { sx += p[0]; sz += p[2]; cnt++; }
+      if (cnt) airsideAnchor = [sx / cnt, 0, sz / cnt];
+    }
     let points = [];
     for (const m of filtered) points = points.concat(m.pts);
     if (points.length > maxSamples) {
       const strideOut = Math.ceil(points.length / maxSamples);
-      return points.filter((_, i) => i % strideOut === 0);
+      points = points.filter((_, i) => i % strideOut === 0);
     }
-    return points;
+    return { points, airsideAnchor };
   }
 
   function dist2(a, b) {
@@ -568,7 +578,8 @@
   const CORRIDOR_MIN_WIDTH = 1.5; // soglia indicativa di riferimento (m), non normativa certificata
 
   function runStructuralAnalysis(root) {
-    const points = extractNavigablePoints(root);
+    const extraction = extractNavigablePoints(root);
+    const points = extraction.points, airsideAnchor = extraction.airsideAnchor;
     if (points.length < 10) return null;
     const k = Math.min(10, Math.max(3, Math.round(points.length / 200)));
     const { centers, assign } = kmeansCluster(points, k);
@@ -577,17 +588,24 @@
     const zones = centers.map((c, i) => {
       const w = clusterWidths(points, assign, i);
       const distFromCenter = Math.hypot(c[0] - cx, c[2] - cz);
+      const distFromAirside = airsideAnchor ? Math.hypot(c[0] - airsideAnchor[0], c[2] - airsideAnchor[2]) : null;
       const role = w.widthMinor !== null && w.widthMajor !== null && w.widthMajor > w.widthMinor * 2 ? "corridoio" : "area";
       const flagged = role === "corridoio" && w.widthMinor !== null && w.widthMinor < CORRIDOR_MIN_WIDTH;
-      return { pos: c, ...w, role, flagged, distFromCenter };
+      return { pos: c, ...w, role, flagged, distFromCenter, distFromAirside };
     });
     zones.sort((a, b) => b.distFromCenter - a.distFromCenter);
     const nEntrances = Math.max(1, Math.round(zones.length * 0.25));
     zones.forEach((z, i) => { z.isEntranceCandidate = i < nEntrances; });
+    // Ordine di flusso: se abbiamo un riferimento "lato volo" (pista/piazzale),
+    // ordiniamo dal punto più lontano (lato terra/ingresso) al più vicino
+    // (lato volo/gate) — altrimenti ripieghiamo sulla catena nearest-neighbor.
+    const flowOrder = airsideAnchor
+      ? zones.slice().sort((a, b) => b.distFromAirside - a.distFromAirside)
+      : nearestNeighborOrder(zones.slice());
     const ordered = nearestNeighborOrder(zones.slice());
     const critici = zones.filter((z) => z.flagged).length;
     const score = Math.max(0, Math.min(100, 100 - critici * 15 - Math.max(0, 10 - zones.length) * 2));
-    return { zones, ordered, pointsAnalyzed: points.length, score, critici };
+    return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici };
   }
 
   let lastStructuralReport = null;
@@ -608,6 +626,7 @@
       <div style="max-width:480px;width:100%;max-height:80vh;overflow:auto;background:#11151f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;color:#e2e8f0;">
         <h2 style="margin:0 0 4px;font-size:14px;color:#93c5fd;letter-spacing:0.05em;">REPORT STRUTTURA (livello 1 — analisi geometrica)</h2>
         <p style="font-size:10.5px;color:#64748b;margin:0 0 16px;">Punteggio automatico calcolato solo su dati geometrici misurati — non è ancora un giudizio esperto AI (livello 2, in arrivo).</p>
+        <p style="font-size:10.5px;color:${report.hasAirsideReference ? "#4ade80" : "#fbbf24"};margin:0 0 16px;">${report.hasAirsideReference ? "✓ Riferimento lato-pista trovato: le zone sono ordinate lato terra → lato volo." : "⚠ Nessuna pista/piazzale riconosciuta nel file: l'ordine delle zone è solo per vicinanza, non per flusso reale."}</p>
         <div style="display:flex;gap:12px;margin-bottom:16px;">
           <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;text-align:center;">
             <div style="font-size:22px;font-weight:700;color:${report.score >= 70 ? "#4ade80" : report.score >= 40 ? "#fbbf24" : "#fca5a5"};">${report.score}</div>
@@ -767,7 +786,7 @@
       <div class="vp-hint" style="margin-bottom:8px;">Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.</div>
       <div id="vp-scale-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">📐 Dimensione marker selezionato: <span id="vp-marker-scale-val">1.0x</span></label>
-        <input type="range" id="vp-marker-scale" min="0.3" max="2.5" step="0.1" value="1" style="width:100%;">
+        <input type="range" id="vp-marker-scale" min="0.05" max="6" step="0.05" value="1" style="width:100%;">
       </div>
       <button class="vp-btn" id="vp-reanalyze">🤖 Rianalizza mesh</button>
       <button class="vp-btn" id="vp-report">📊 Report struttura</button>
@@ -845,7 +864,7 @@
       box.style.display = "block";
       const s = currentNodes[selectedIndex].scale || 1;
       slider.value = s;
-      val.textContent = s.toFixed(1) + "x";
+      val.textContent = s.toFixed(2) + "x";
     }
 
     function renderList() {
@@ -896,7 +915,7 @@
       if (selectedIndex === null || !currentNodes[selectedIndex]) return;
       const v = parseFloat(e.target.value);
       currentNodes[selectedIndex].scale = v;
-      panel.querySelector("#vp-marker-scale-val").textContent = v.toFixed(1) + "x";
+      panel.querySelector("#vp-marker-scale-val").textContent = v.toFixed(2) + "x";
       applyMarkerScale(selectedIndex);
     });
 
