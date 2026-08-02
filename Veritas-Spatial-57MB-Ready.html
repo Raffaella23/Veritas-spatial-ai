@@ -22,13 +22,101 @@
   const SUPABASE_ANON_KEY = "sb_publishable_C5R-fyvf7NKa-Zg2jtH8jA_lckexRNC";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const TYPE_OPTIONS = [
-    { value: "spawn", label: "Ingresso / Parcheggio" },
-    { value: "checkin", label: "Accettazione" },
-    { value: "security", label: "Controllo" },
-    { value: "lounge", label: "Lounge" },
-    { value: "gate", label: "Imbarco / Gate" },
-  ];
+  let LANG = "it";
+  try { LANG = localStorage.getItem("veritasLang") || "it"; } catch (e) {}
+
+  const I18N = {
+    it: {
+      login_subtitle: "Accedi per gestire i tuoi progetti",
+      email_label: "Email", password_label: "Password", login_btn: "Accedi",
+      no_account: "Non hai un account?", signup_link: "Registrati",
+      login_error_empty: "Inserisci email e password",
+      signup_subtitle: "Crea il tuo account", signup_btn: "Registrati",
+      has_account: "Hai già un account?", login_link: "Accedi",
+      signup_error: "Email valida e password di almeno 6 caratteri",
+      confirm_email_msg: "Controlla la tua email per confermare l'account, poi accedi.",
+      projects_title: "I tuoi progetti", projects_subtitle: "Seleziona un progetto o creane uno nuovo",
+      logout_label: "esci", no_projects: "Nessun progetto ancora",
+      new_project_label: "Nuovo progetto", new_project_placeholder: "Nome progetto",
+      type_airport: "Aeroporto", type_museum: "Museo", type_gaming: "Gaming",
+      create_open_btn: "Crea e apri",
+      type_spawn: "Ingresso / Parcheggio", type_checkin: "Accettazione", type_security: "Controllo",
+      type_lounge: "Lounge", type_gate: "Imbarco / Gate",
+      panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
+      place_new_btn: "📍 Posiziona nuovo punto", place_move_prefix: "🎯 Clicca sul pavimento per spostare: ",
+      hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
+      marker_scale_label: "📐 Dimensione marker selezionato:",
+      reanalyze_btn: "🤖 Rianalizza mesh", report_btn: "📊 Report struttura",
+      passenger_scale_label: "Scala passeggeri:", regen_btn: "↻ Rigenera simulazione",
+      save_btn: "💾 Salva progetto", saving: "Salvataggio...", saved: "Salvato ✓", error_generic: "Errore ✕",
+      confirm_reanalyze: "Questo sostituisce i punti attuali con una nuova analisi automatica della mesh. Continuare?",
+      alert_load_glb_first: "Carica prima un modello .glb", alert_need_2_points: "Servono almeno 2 punti per generare un percorso.",
+      alert_no_useful_points: "Non sono riuscito a identificare punti utili in questa mesh — posizionali manualmente.",
+      alert_analysis_failed: "Non sono riuscito a estrarre abbastanza punti navigabili da questa mesh.",
+      analyzing: "Analisi in corso...",
+      report_title: "REPORT STRUTTURA (livello 1 — analisi geometrica)",
+      report_desc: "Punteggio automatico calcolato solo su dati geometrici misurati — non è ancora un giudizio esperto AI (livello 2, in arrivo).",
+      airside_yes: "✓ Riferimento lato-pista trovato: le zone sono ordinate lato terra → lato volo.",
+      airside_no: "⚠ Nessuna pista/piazzale riconosciuta nel file: l'ordine delle zone è solo per vicinanza, non per flusso reale.",
+      score_label: "SCORE GEOMETRICO /100", zones_label: "ZONE RILEVATE", critical_label: "CRITICITÀ",
+      zone_word: "Zona", entrance_candidate: "(possibile ingresso)", below_threshold: "⚠ sotto soglia",
+      based_on_points: (n) => `Basato su ${n} punti campionati dalla mesh reale (vertici con normale verso l'alto = pavimenti/superfici calpestabili).`,
+      close_btn: "Chiudi", drag_hint: "Trascina per spostare il pannello",
+      reopen_tab: "📍 Punti",
+    },
+    en: {
+      login_subtitle: "Sign in to manage your projects",
+      email_label: "Email", password_label: "Password", login_btn: "Sign in",
+      no_account: "Don't have an account?", signup_link: "Sign up",
+      login_error_empty: "Enter email and password",
+      signup_subtitle: "Create your account", signup_btn: "Sign up",
+      has_account: "Already have an account?", login_link: "Sign in",
+      signup_error: "Valid email and a password of at least 6 characters",
+      confirm_email_msg: "Check your email to confirm your account, then sign in.",
+      projects_title: "Your projects", projects_subtitle: "Select a project or create a new one",
+      logout_label: "sign out", no_projects: "No projects yet",
+      new_project_label: "New project", new_project_placeholder: "Project name",
+      type_airport: "Airport", type_museum: "Museum", type_gaming: "Gaming",
+      create_open_btn: "Create and open",
+      type_spawn: "Entrance / Parking", type_checkin: "Check-in", type_security: "Security",
+      type_lounge: "Lounge", type_gate: "Boarding / Gate",
+      panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
+      place_new_btn: "📍 Place new point", place_move_prefix: "🎯 Click the floor to move: ",
+      hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
+      marker_scale_label: "📐 Selected marker size:",
+      reanalyze_btn: "🤖 Re-analyze mesh", report_btn: "📊 Structure report",
+      passenger_scale_label: "Passenger scale:", regen_btn: "↻ Regenerate simulation",
+      save_btn: "💾 Save project", saving: "Saving...", saved: "Saved ✓", error_generic: "Error ✕",
+      confirm_reanalyze: "This replaces the current points with a new automatic mesh analysis. Continue?",
+      alert_load_glb_first: "Load a .glb model first", alert_need_2_points: "You need at least 2 points to generate a path.",
+      alert_no_useful_points: "I couldn't identify useful points in this mesh — place them manually.",
+      alert_analysis_failed: "I couldn't extract enough navigable points from this mesh.",
+      analyzing: "Analyzing...",
+      report_title: "STRUCTURE REPORT (level 1 — geometric analysis)",
+      report_desc: "Automatic score based only on measured geometric data — not yet an AI expert judgment (level 2, coming soon).",
+      airside_yes: "✓ Airside reference found: zones are ordered landside → airside.",
+      airside_no: "⚠ No runway/apron recognized in the file: zone order is by proximity only, not real flow.",
+      score_label: "GEOMETRIC SCORE /100", zones_label: "ZONES DETECTED", critical_label: "ISSUES",
+      zone_word: "Zone", entrance_candidate: "(possible entrance)", below_threshold: "⚠ below threshold",
+      based_on_points: (n) => `Based on ${n} points sampled from the real mesh (vertices with an upward normal = floors/walkable surfaces).`,
+      close_btn: "Close", drag_hint: "Drag to move the panel",
+      reopen_tab: "📍 Points",
+    },
+  };
+  function t(key, ...args) {
+    const entry = (I18N[LANG] && I18N[LANG][key]) ?? (I18N.it && I18N.it[key]) ?? key;
+    return typeof entry === "function" ? entry(...args) : entry;
+  }
+  const TYPE_OPTIONS_DEF = ["spawn", "checkin", "security", "lounge", "gate"];
+  function getTypeOptions() {
+    return TYPE_OPTIONS_DEF.map((v) => ({ value: v, label: t("type_" + v) }));
+  }
+  let TYPE_OPTIONS = getTypeOptions();
+  function setLang(l) {
+    LANG = l;
+    try { localStorage.setItem("veritasLang", l); } catch (e) {}
+    TYPE_OPTIONS = getTypeOptions();
+  }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -61,7 +149,7 @@
     .v-proj-list{max-height:280px;overflow:auto;margin-bottom:14px;}
     .v-logout{position:absolute;top:16px;right:16px;font-size:10px;color:#64748b;cursor:pointer;}
 
-    #veritas-picker-panel{position:fixed;right:14px;top:70px;z-index:9000;width:250px;
+    #veritas-picker-panel{position:fixed;right:14px;top:70px;z-index:9000;width:250px;max-height:calc(100vh - 90px);overflow-y:auto;
       background:rgba(12,15,23,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:14px;
       padding:14px;font-family:'JetBrains Mono',monospace;color:#e2e8f0;backdrop-filter:blur(10px);
       box-shadow:0 8px 32px rgba(0,0,0,0.5);}
@@ -89,20 +177,35 @@
   document.body.appendChild(overlay);
   const card = overlay.querySelector("#v-card");
 
+  function langSwitcherHtml() {
+    return `<div style="position:absolute;top:16px;right:16px;display:flex;gap:4px;">
+      <button class="v-lang" data-l="it" style="font-size:9px;padding:3px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "it" ? "#fff" : "transparent"};color:${LANG === "it" ? "#000" : "#94a3b8"};cursor:pointer;">IT</button>
+      <button class="v-lang" data-l="en" style="font-size:9px;padding:3px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "en" ? "#fff" : "transparent"};color:${LANG === "en" ? "#000" : "#94a3b8"};cursor:pointer;">EN</button>
+    </div>`;
+  }
+  function wireLangSwitcher(container, onChange) {
+    container.querySelectorAll(".v-lang").forEach((el) => {
+      el.onclick = () => { setLang(el.getAttribute("data-l")); onChange(); };
+    });
+  }
+
   function showLogin(err) {
+    card.style.position = "relative";
     card.innerHTML = `
+      ${langSwitcherHtml()}
       <h1>VERITAS Spatial AI</h1>
-      <p class="sub">Accedi per gestire i tuoi progetti</p>
+      <p class="sub">${t("login_subtitle")}</p>
       ${err ? `<div class="v-error">${err}</div>` : ""}
-      <div class="v-field"><label>Email</label><input type="email" id="v-email" autocomplete="username"></div>
-      <div class="v-field"><label>Password</label><input type="password" id="v-pass" autocomplete="current-password"></div>
-      <button class="v-btn" id="v-login-btn">Accedi</button>
-      <div class="v-switch">Non hai un account? <a id="v-goto-signup">Registrati</a></div>
+      <div class="v-field"><label>${t("email_label")}</label><input type="email" id="v-email" autocomplete="username"></div>
+      <div class="v-field"><label>${t("password_label")}</label><input type="password" id="v-pass" autocomplete="current-password"></div>
+      <button class="v-btn" id="v-login-btn">${t("login_btn")}</button>
+      <div class="v-switch">${t("no_account")} <a id="v-goto-signup">${t("signup_link")}</a></div>
     `;
+    wireLangSwitcher(card, () => showLogin(err));
     card.querySelector("#v-login-btn").onclick = async () => {
       const email = card.querySelector("#v-email").value.trim();
       const password = card.querySelector("#v-pass").value;
-      if (!email || !password) return showLogin("Inserisci email e password");
+      if (!email || !password) return showLogin(t("login_error_empty"));
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) return showLogin(error.message);
       onAuthed();
@@ -111,22 +214,25 @@
   }
 
   function showSignup(err) {
+    card.style.position = "relative";
     card.innerHTML = `
+      ${langSwitcherHtml()}
       <h1>VERITAS Spatial AI</h1>
-      <p class="sub">Crea il tuo account</p>
+      <p class="sub">${t("signup_subtitle")}</p>
       ${err ? `<div class="v-error">${err}</div>` : ""}
-      <div class="v-field"><label>Email</label><input type="email" id="v-email" autocomplete="username"></div>
-      <div class="v-field"><label>Password</label><input type="password" id="v-pass" autocomplete="new-password"></div>
-      <button class="v-btn" id="v-signup-btn">Registrati</button>
-      <div class="v-switch">Hai già un account? <a id="v-goto-login">Accedi</a></div>
+      <div class="v-field"><label>${t("email_label")}</label><input type="email" id="v-email" autocomplete="username"></div>
+      <div class="v-field"><label>${t("password_label")}</label><input type="password" id="v-pass" autocomplete="new-password"></div>
+      <button class="v-btn" id="v-signup-btn">${t("signup_btn")}</button>
+      <div class="v-switch">${t("has_account")} <a id="v-goto-login">${t("login_link")}</a></div>
     `;
+    wireLangSwitcher(card, () => showSignup(err));
     card.querySelector("#v-signup-btn").onclick = async () => {
       const email = card.querySelector("#v-email").value.trim();
       const password = card.querySelector("#v-pass").value;
-      if (!email || password.length < 6) return showSignup("Email valida e password di almeno 6 caratteri");
+      if (!email || password.length < 6) return showSignup(t("signup_error"));
       const { error } = await sb.auth.signUp({ email, password });
       if (error) return showSignup(error.message);
-      showLogin("Controlla la tua email per confermare l'account, poi accedi.");
+      showLogin(t("confirm_email_msg"));
     };
     card.querySelector("#v-goto-login").onclick = () => showLogin();
   }
@@ -145,10 +251,12 @@
       .select("*")
       .order("updated_at", { ascending: false });
 
+    card.style.position = "relative";
     card.innerHTML = `
-      <div class="v-logout" id="v-logout">${userEmail} · esci</div>
-      <h1>I tuoi progetti</h1>
-      <p class="sub">Seleziona un progetto o creane uno nuovo</p>
+      ${langSwitcherHtml()}
+      <div class="v-logout" id="v-logout" style="right:60px;">${userEmail} · ${t("logout_label")}</div>
+      <h1>${t("projects_title")}</h1>
+      <p class="sub">${t("projects_subtitle")}</p>
       ${error ? `<div class="v-error">${error.message}</div>` : ""}
       <div class="v-proj-list" id="v-proj-list">
         ${(projects || [])
@@ -159,18 +267,19 @@
             </div>`
           )
           .join("")}
-        ${!projects || !projects.length ? `<div class="meta" style="text-align:center;padding:16px 0;">Nessun progetto ancora</div>` : ""}
+        ${!projects || !projects.length ? `<div class="meta" style="text-align:center;padding:16px 0;">${t("no_projects")}</div>` : ""}
       </div>
-      <div class="v-field"><label>Nuovo progetto</label><input type="text" id="v-new-name" placeholder="Nome progetto"></div>
+      <div class="v-field"><label>${t("new_project_label")}</label><input type="text" id="v-new-name" placeholder="${t("new_project_placeholder")}"></div>
       <div class="v-field">
         <select id="v-new-type">
-          <option value="aeroporto">Aeroporto</option>
-          <option value="museo">Museo</option>
-          <option value="gaming">Gaming</option>
+          <option value="aeroporto">${t("type_airport")}</option>
+          <option value="museo">${t("type_museum")}</option>
+          <option value="gaming">${t("type_gaming")}</option>
         </select>
       </div>
-      <button class="v-btn" id="v-create-btn">Crea e apri</button>
+      <button class="v-btn" id="v-create-btn">${t("create_open_btn")}</button>
     `;
+    wireLangSwitcher(card, () => showProjects());
 
     card.querySelector("#v-logout").onclick = async () => {
       await sb.auth.signOut();
@@ -182,7 +291,7 @@
     });
 
     card.querySelector("#v-create-btn").onclick = async () => {
-      const name = card.querySelector("#v-new-name").value.trim() || "Nuovo progetto";
+      const name = card.querySelector("#v-new-name").value.trim() || t("new_project_placeholder");
       const project_type = card.querySelector("#v-new-type").value;
       const { data: userData2 } = await sb.auth.getUser();
       const { data, error: insErr } = await sb
@@ -618,35 +727,39 @@
     modal.style.cssText = "position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'JetBrains Mono',monospace;";
     const rows = report.zones
       .map((z, i) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:11px;">
-        <span>${z.role === "corridoio" ? "↔" : "▢"} Zona ${i + 1} ${z.isEntranceCandidate ? "(possibile ingresso)" : ""}</span>
-        <span style="color:${z.flagged ? "#fca5a5" : "#94a3b8"};">${z.widthMinor !== null ? z.widthMinor.toFixed(2) + "m" : "n/d"} ${z.flagged ? "⚠ sotto soglia" : ""}</span>
+        <span>${z.role === "corridoio" ? "↔" : "▢"} ${t("zone_word")} ${i + 1} ${z.isEntranceCandidate ? t("entrance_candidate") : ""}</span>
+        <span style="color:${z.flagged ? "#fca5a5" : "#94a3b8"};">${z.widthMinor !== null ? z.widthMinor.toFixed(2) + "m" : "n/d"} ${z.flagged ? t("below_threshold") : ""}</span>
       </div>`)
       .join("");
     modal.innerHTML = `
-      <div style="max-width:480px;width:100%;max-height:80vh;overflow:auto;background:#11151f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;color:#e2e8f0;">
-        <h2 style="margin:0 0 4px;font-size:14px;color:#93c5fd;letter-spacing:0.05em;">REPORT STRUTTURA (livello 1 — analisi geometrica)</h2>
-        <p style="font-size:10.5px;color:#64748b;margin:0 0 16px;">Punteggio automatico calcolato solo su dati geometrici misurati — non è ancora un giudizio esperto AI (livello 2, in arrivo).</p>
-        <p style="font-size:10.5px;color:${report.hasAirsideReference ? "#4ade80" : "#fbbf24"};margin:0 0 16px;">${report.hasAirsideReference ? "✓ Riferimento lato-pista trovato: le zone sono ordinate lato terra → lato volo." : "⚠ Nessuna pista/piazzale riconosciuta nel file: l'ordine delle zone è solo per vicinanza, non per flusso reale."}</p>
+      <div style="max-width:480px;width:100%;max-height:80vh;overflow:auto;background:#11151f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;color:#e2e8f0;position:relative;">
+        ${langSwitcherHtml()}
+        <h2 style="margin:0 0 4px;font-size:14px;color:#93c5fd;letter-spacing:0.05em;">${t("report_title")}</h2>
+        <p style="font-size:10.5px;color:#64748b;margin:0 0 16px;">${t("report_desc")}</p>
+        <p style="font-size:10.5px;color:${report.hasAirsideReference ? "#4ade80" : "#fbbf24"};margin:0 0 16px;">${report.hasAirsideReference ? t("airside_yes") : t("airside_no")}</p>
         <div style="display:flex;gap:12px;margin-bottom:16px;">
           <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;text-align:center;">
             <div style="font-size:22px;font-weight:700;color:${report.score >= 70 ? "#4ade80" : report.score >= 40 ? "#fbbf24" : "#fca5a5"};">${report.score}</div>
-            <div style="font-size:9.5px;color:#64748b;">SCORE GEOMETRICO /100</div>
+            <div style="font-size:9.5px;color:#64748b;">${t("score_label")}</div>
           </div>
           <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;text-align:center;">
             <div style="font-size:22px;font-weight:700;">${report.zones.length}</div>
-            <div style="font-size:9.5px;color:#64748b;">ZONE RILEVATE</div>
+            <div style="font-size:9.5px;color:#64748b;">${t("zones_label")}</div>
           </div>
           <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:10px;padding:12px;text-align:center;">
             <div style="font-size:22px;font-weight:700;color:${report.critici ? "#fca5a5" : "#4ade80"};">${report.critici}</div>
-            <div style="font-size:9.5px;color:#64748b;">CRITICITÀ</div>
+            <div style="font-size:9.5px;color:#64748b;">${t("critical_label")}</div>
           </div>
         </div>
         <div style="margin-bottom:16px;">${rows}</div>
-        <p style="font-size:9.5px;color:#64748b;margin-bottom:16px;">Basato su ${report.pointsAnalyzed} punti campionati dalla mesh reale (vertici con normale verso l'alto = pavimenti/superfici calpestabili).</p>
-        <button id="vp-report-close" style="width:100%;padding:11px;border-radius:8px;border:none;background:#fff;color:#000;font-weight:600;font-family:inherit;font-size:12px;cursor:pointer;">Chiudi</button>
+        <p style="font-size:9.5px;color:#64748b;margin-bottom:16px;">${t("based_on_points", report.pointsAnalyzed)}</p>
+        <button id="vp-report-close" style="width:100%;padding:11px;border-radius:8px;border:none;background:#fff;color:#000;font-weight:600;font-family:inherit;font-size:12px;cursor:pointer;">${t("close_btn")}</button>
       </div>
     `;
     document.body.appendChild(modal);
+    modal.querySelectorAll(".v-lang").forEach((el) => {
+      el.onclick = () => { setLang(el.getAttribute("data-l")); showStructuralReport(report); };
+    });
     modal.querySelector("#vp-report-close").onclick = () => modal.remove();
     modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
   }
@@ -776,32 +889,91 @@
     panel.id = "veritas-picker-panel";
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="margin:0;">Punti • ${window.__veritasProjectName || ""}</h2>
-        <button id="vp-collapse" title="Nascondi pannello (per vedere il modello sotto)" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;">—</button>
+        <h2 id="vp-drag-handle" style="margin:0;cursor:grab;" title="${t("drag_hint")}">⠿ ${t("panel_title")} • ${window.__veritasProjectName || ""}</h2>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="vp-lang-mini" data-l="it" style="font-size:8px;padding:2px 4px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "it" ? "#fff" : "transparent"};color:${LANG === "it" ? "#000" : "#94a3b8"};cursor:pointer;">IT</button>
+          <button class="vp-lang-mini" data-l="en" style="font-size:8px;padding:2px 4px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "en" ? "#fff" : "transparent"};color:${LANG === "en" ? "#000" : "#94a3b8"};cursor:pointer;">EN</button>
+          <button id="vp-collapse" title="Nascondi pannello" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;border-radius:6px;width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;">—</button>
+        </div>
       </div>
       <select id="vp-type">${TYPE_OPTIONS.map((o) => `<option value="${o.value}">${o.label}</option>`).join("")}</select>
-      <input type="text" id="vp-label" placeholder="Etichetta (es. Gate B2)">
-      <button class="vp-btn" id="vp-place">📍 Posiziona nuovo punto</button>
+      <input type="text" id="vp-label" placeholder="${t("label_placeholder")}">
+      <button class="vp-btn" id="vp-place">${t("place_new_btn")}</button>
       <div class="vp-list" id="vp-list"></div>
-      <div class="vp-hint" style="margin-bottom:8px;">Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.</div>
+      <div class="vp-hint" style="margin-bottom:8px;">${t("hint_select")}</div>
       <div id="vp-scale-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
-        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">📐 Dimensione marker selezionato: <span id="vp-marker-scale-val">1.0x</span></label>
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("marker_scale_label")} <span id="vp-marker-scale-val">1.0x</span></label>
         <input type="range" id="vp-marker-scale" min="0.05" max="6" step="0.05" value="1" style="width:100%;">
       </div>
-      <button class="vp-btn" id="vp-reanalyze">🤖 Rianalizza mesh</button>
-      <button class="vp-btn" id="vp-report">📊 Report struttura</button>
-      <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">Scala passeggeri: <span id="vp-scale-val">1.0x</span></label>
+      <button class="vp-btn" id="vp-reanalyze">${t("reanalyze_btn")}</button>
+      <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
+      <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">${t("passenger_scale_label")} <span id="vp-scale-val">1.0x</span></label>
       <input type="range" id="vp-scale" min="0.03" max="1.5" step="0.01" value="0.12" style="width:100%;margin-bottom:10px;">
-      <button class="vp-btn primary" id="vp-regen">↻ Rigenera simulazione</button>
-      <button class="vp-btn" id="vp-save">💾 Salva progetto</button>
+      <button class="vp-btn primary" id="vp-regen">${t("regen_btn")}</button>
+      <button class="vp-btn" id="vp-save">${t("save_btn")}</button>
     `;
+    panel.querySelectorAll(".vp-lang-mini").forEach((el) => {
+      el.onclick = () => { setLang(el.getAttribute("data-l")); location.reload(); };
+    });
     document.body.appendChild(panel);
 
     const reopenTab = document.createElement("button");
     reopenTab.id = "veritas-reopen-tab";
-    reopenTab.textContent = "📍 Punti";
-    reopenTab.style.cssText = "position:fixed;right:14px;top:70px;z-index:9000;display:none;background:rgba(12,15,23,0.95);color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;";
+    reopenTab.textContent = t("reopen_tab");
+    reopenTab.style.cssText = "position:fixed;z-index:9000;display:none;background:rgba(12,15,23,0.95);color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;";
     document.body.appendChild(reopenTab);
+
+    function applySavedPosition() {
+      let posStr = null;
+      try { posStr = localStorage.getItem("veritasPanelPos"); } catch (e) {}
+      let pos = posStr ? JSON.parse(posStr) : null;
+      if (!pos) pos = { right: 280, top: 70 };
+      panel.style.right = "";
+      panel.style.left = pos.left != null ? pos.left + "px" : "";
+      panel.style.right = pos.left != null ? "" : pos.right + "px";
+      panel.style.top = pos.top + "px";
+      reopenTab.style.left = panel.style.left;
+      reopenTab.style.right = panel.style.right;
+      reopenTab.style.top = panel.style.top;
+    }
+    applySavedPosition();
+
+    function savePosition() {
+      const rect = panel.getBoundingClientRect();
+      const pos = { left: rect.left, top: rect.top };
+      try { localStorage.setItem("veritasPanelPos", JSON.stringify(pos)); } catch (e) {}
+      panel.style.left = rect.left + "px";
+      panel.style.right = "";
+      panel.style.top = rect.top + "px";
+      reopenTab.style.left = panel.style.left;
+      reopenTab.style.right = "";
+      reopenTab.style.top = panel.style.top;
+    }
+
+    (function enableDrag() {
+      const handle = panel.querySelector("#vp-drag-handle");
+      let dragging = false, dx = 0, dy = 0;
+      handle.addEventListener("mousedown", (e) => {
+        dragging = true;
+        const rect = panel.getBoundingClientRect();
+        dx = e.clientX - rect.left; dy = e.clientY - rect.top;
+        handle.style.cursor = "grabbing";
+        e.preventDefault();
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+        panel.style.left = Math.max(0, e.clientX - dx) + "px";
+        panel.style.right = "";
+        panel.style.top = Math.max(0, e.clientY - dy) + "px";
+      });
+      window.addEventListener("mouseup", () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.style.cursor = "grab";
+        savePosition();
+      });
+    })();
+
     panel.querySelector("#vp-collapse").onclick = () => {
       panel.style.display = "none";
       reopenTab.style.display = "block";
@@ -810,6 +982,9 @@
       panel.style.display = "block";
       reopenTab.style.display = "none";
     };
+
+    panel.style.display = "none";
+    reopenTab.style.display = "block";
 
     const grip = document.createElement("div");
     grip.id = "veritas-grip";
@@ -845,10 +1020,10 @@
     function updatePlaceBtn() {
       const btn = panel.querySelector("#vp-place");
       if (selectedIndex !== null) {
-        btn.textContent = "🎯 Clicca sul pavimento per spostare: " + currentNodes[selectedIndex].label;
+        btn.textContent = t("place_move_prefix") + currentNodes[selectedIndex].label;
         btn.classList.add("active");
       } else {
-        btn.textContent = "📍 Posiziona nuovo punto";
+        btn.textContent = t("place_new_btn");
         btn.classList.toggle("active", placing);
       }
     }
@@ -954,10 +1129,10 @@
     });
 
     panel.querySelector("#vp-reanalyze").onclick = () => {
-      if (!window.__veritasModelRoot) { alert("Carica prima un modello .glb"); return; }
-      if (currentNodes.length && !confirm("Questo sostituisce i punti attuali con una nuova analisi automatica della mesh. Continuare?")) return;
+      if (!window.__veritasModelRoot) { alert(t("alert_load_glb_first")); return; }
+      if (currentNodes.length && !confirm(t("confirm_reanalyze"))) return;
       const analyzed = analyzeMesh(window.__veritasModelRoot);
-      if (!analyzed || analyzed.length < 2) { alert("Non sono riuscito a identificare punti utili in questa mesh — posizionali manualmente."); return; }
+      if (!analyzed || analyzed.length < 2) { alert(t("alert_no_useful_points")); return; }
       currentNodes = analyzed;
       idCounter = currentNodes.length;
       selectedIndex = null;
@@ -967,13 +1142,13 @@
     };
 
     panel.querySelector("#vp-report").onclick = () => {
-      if (!window.__veritasModelRoot) { alert("Carica prima un modello .glb"); return; }
+      if (!window.__veritasModelRoot) { alert(t("alert_load_glb_first")); return; }
       const btn = panel.querySelector("#vp-report");
-      btn.textContent = "Analisi in corso...";
+      btn.textContent = t("analyzing");
       setTimeout(() => {
         const report = runStructuralAnalysis(window.__veritasModelRoot);
-        btn.textContent = "📊 Report struttura";
-        if (!report) { alert("Non sono riuscito a estrarre abbastanza punti navigabili da questa mesh."); return; }
+        btn.textContent = t("report_btn");
+        if (!report) { alert(t("alert_analysis_failed")); return; }
         lastStructuralReport = report;
         showStructuralReport(report);
       }, 30);
@@ -992,16 +1167,16 @@
     });
 
     panel.querySelector("#vp-regen").onclick = () => {
-      if (currentNodes.length < 2) { alert("Servono almeno 2 punti per generare un percorso."); return; }
+      if (currentNodes.length < 2) { alert(t("alert_need_2_points")); return; }
       applyNodesToScene();
     };
 
     panel.querySelector("#vp-save").onclick = async () => {
       const btn = panel.querySelector("#vp-save");
-      btn.textContent = "Salvataggio...";
+      btn.textContent = t("saving");
       const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.12 } });
-      btn.textContent = error ? "Errore ✕" : "Salvato ✓";
-      setTimeout(() => (btn.textContent = "💾 Salva progetto"), 1500);
+      btn.textContent = error ? t("error_generic") : t("saved");
+      setTimeout(() => (btn.textContent = t("save_btn")), 1500);
     };
   }
 })();
