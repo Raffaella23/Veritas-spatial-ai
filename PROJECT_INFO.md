@@ -194,3 +194,13 @@ Inoltre richiesto: le telecamere devono essere sensibili a dove si trova realmen
 4. Evitamento tra agenti (commit 38b4e3b)
 
 **Ancora aperto, non affrontato in questa sessione**: schermata "impostazioni poi avvio simulazione" (oggi la simulazione parte subito con i default invece di permettere di configurare tutto prima), scala passeggeri di progetti salvati prima del cambio di default (0.12x) che restano al valore vecchio salvato finche non si risalva manualmente, Livello 2 (AI vera con report/score via backend), bucket Storage per il .glb, editor dedicato telecamere, traduzione testo dentro il bundle minificato.
+
+---
+
+## 10. Sessione successiva — impostazioni pre-avvio, spawn multipli, dati reali, movimento intelligente
+
+**FATTO (commit 7ca88d9)**: schermata "impostazioni poi avvio simulazione". Dopo l'apertura/creazione di un progetto, prima che la scena 3D venga montata, appare uno schermo con due slider — scala passeggeri (0.02x-1x, precompilato dal valore salvato o 0.12 di default) e numero di passeggeri (6-60, precompilato dal valore salvato o 28 di default, prima era una costante fissa nel codice) — e un pulsante "Avvia simulazione" che applica i valori e solo allora sblocca il rendering. Testi aggiunti in IT/EN nel dizionario I18N esistente. Il numero di passeggeri viene ora salvato insieme alla scala passeggeri nei sim_params del progetto.
+
+**FATTO (commit fb6fd2a)**: spawn multipli. `generateTrajectory()` prima usava solo il primo nodo di tipo "spawn" trovato (`nodes.find`), quindi tutti gli agenti partivano dallo stesso punto. Ora usa `nodes.filter(nd => nd.type === "spawn")`: se il progetto ha piu' varchi/ingressi definiti, i gruppi di agenti (famiglia/comitiva) vengono distribuiti su tutti round-robin, ognuno con il proprio percorso in cache (chiave varco+gate). Se c'e' un solo spawn o nessuno, il comportamento resta identico a prima (compatibilita' con i progetti esistenti).
+
+**Verifica importante sui dati reali Fiumicino (OpenSky)**: prima di implementare, controllato lo stato reale — l'API OpenSky Network **non fornisce e non ha mai fornito numeri di passeggeri** (solo dati ADS-B: velivoli, non persone a bordo), e l'endpoint arrivi per aeroporto e' aggiornato a batch (dati del giorno precedente, non in tempo reale) e sta passando a autenticazione OAuth2 obbligatoria (client_id/secret), non piu' accesso anonimo libero. Il Core Python separato che chiamava OpenSky non e' mai stato collegato al viewer HTML (la label "KPI - LIVE DA PYTHON CORE" e' decorativa/ereditata, confermato gia' in sezione 6).
