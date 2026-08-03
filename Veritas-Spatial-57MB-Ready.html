@@ -68,6 +68,15 @@
       settings_scale_label: "Scala passeggeri",
       settings_agents_label: "Numero passeggeri",
       settings_start_btn: "▶ Avvia simulazione",
+      settings_opensky_btn: "🛰 Stima da traffico aereo reale (Fiumicino)",
+      settings_opensky_hint: "Stima approssimativa basata sui voli in arrivo a Fiumicino (dati OpenSky Network, aggiornati a batch — non in tempo reale, non sono dati ufficiali sui passeggeri). Richiede un client OpenSky gratuito.",
+      settings_opensky_need_creds: "Inserisci Client ID e Client Secret OpenSky (gratuiti, restano solo nel tuo browser) per usare questa stima.",
+      settings_opensky_client_id: "OpenSky Client ID",
+      settings_opensky_client_secret: "OpenSky Client Secret",
+      settings_opensky_save_creds: "Salva credenziali",
+      settings_opensky_loading: "Recupero voli in arrivo...",
+      settings_opensky_error: "Non sono riuscito a recuperare i dati OpenSky (credenziali non valide o servizio non raggiungibile). Puoi comunque impostare il numero a mano.",
+      settings_opensky_result: (n, pax) => `${n} voli in arrivo nelle ultime 24h ~ stima ${pax} passeggeri`,
     },
     en: {
       login_subtitle: "Sign in to manage your projects",
@@ -111,6 +120,15 @@
       settings_scale_label: "Passenger scale",
       settings_agents_label: "Number of passengers",
       settings_start_btn: "▶ Start simulation",
+      settings_opensky_btn: "🛰 Estimate from real air traffic (Fiumicino)",
+      settings_opensky_hint: "Rough estimate based on flights arriving at Fiumicino (OpenSky Network data, batch-updated — not real-time, not official passenger figures). Requires a free OpenSky client.",
+      settings_opensky_need_creds: "Enter your OpenSky Client ID and Client Secret (free, stays only in your browser) to use this estimate.",
+      settings_opensky_client_id: "OpenSky Client ID",
+      settings_opensky_client_secret: "OpenSky Client Secret",
+      settings_opensky_save_creds: "Save credentials",
+      settings_opensky_loading: "Fetching arriving flights...",
+      settings_opensky_error: "Could not fetch OpenSky data (invalid credentials or service unreachable). You can still set the number manually.",
+      settings_opensky_result: (n, pax) => `${n} flights arriving in the last 24h ~ estimated ${pax} passengers`,
     },
   };
   function t(key, ...args) {
@@ -352,6 +370,11 @@
         <label>${t("settings_agents_label")}: <span id="vs-agents-val"></span></label>
         <input type="range" id="vs-agents" min="6" max="60" step="1" style="width:100%;">
       </div>
+      <div class="v-field" id="vs-opensky-block">
+        <button class="v-btn" id="vs-opensky-btn" type="button" style="width:100%;">${t("settings_opensky_btn")}</button>
+        <p class="v-hint">${t("settings_opensky_hint")}</p>
+        <div id="vs-opensky-status" style="font-size:11px;color:#94a3b8;min-height:14px;"></div>
+      </div>
       <button class="v-btn" id="vs-start-btn">${t("settings_start_btn")}</button>
     `;
     wireLangSwitcher(card, () => showSettingsScreen(project));
@@ -372,12 +395,78 @@
       agentsVal.textContent = agentsInput.value;
     });
 
+    const openskyStatus = card.querySelector("#vs-opensky-status");
+    card.querySelector("#vs-opensky-btn").onclick = async () => {
+      await runOpenSkyEstimate(openskyStatus, agentsInput, agentsVal);
+    };
+
     card.querySelector("#vs-start-btn").onclick = () => {
       window.__veritasPassengerScale = parseFloat(scaleInput.value);
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
       overlay.classList.add("hidden");
       bootDone();
     };
+  }
+
+  // Stima (non ufficiale) del volume passeggeri da traffico aereo reale su
+  // Fiumicino (LIRF), tramite OpenSky Network. Nota bene: OpenSky non
+  // fornisce e non ha mai fornito numeri di passeggeri (solo dati ADS-B sui
+  // velivoli), e i dati di arrivo per aeroporto sono aggiornati a batch
+  // (giorno precedente), non in tempo reale. Questa e' quindi una stima
+  // approssimativa (voli in arrivo x media passeggeri/volo), non un dato
+  // ufficiale. Richiede un client OAuth2 gratuito (client_id/secret),
+  // salvato solo in localStorage del browser dell'utente.
+  async function runOpenSkyEstimate(statusEl, agentsInput, agentsVal) {
+    const LS_ID = "veritas_opensky_client_id", LS_SECRET = "veritas_opensky_client_secret";
+    let clientId = localStorage.getItem(LS_ID) || "";
+    let clientSecret = localStorage.getItem(LS_SECRET) || "";
+    if (!clientId || !clientSecret) {
+      statusEl.innerHTML = `<div style="color:#cbd5e1;margin-top:6px;">${t("settings_opensky_need_creds")}
+        <div style="margin-top:6px;"><input id="vs-os-id" placeholder="${t("settings_opensky_client_id")}" style="width:100%;margin-bottom:4px;"></div>
+        <div><input id="vs-os-secret" type="password" placeholder="${t("settings_opensky_client_secret")}" style="width:100%;margin-bottom:4px;"></div>
+        <button class="v-btn" id="vs-os-save" type="button" style="width:100%;">${t("settings_opensky_save_creds")}</button>
+      </div>`;
+      statusEl.querySelector("#vs-os-save").onclick = () => {
+        const idVal = statusEl.querySelector("#vs-os-id").value.trim();
+        const secVal = statusEl.querySelector("#vs-os-secret").value.trim();
+        if (!idVal || !secVal) return;
+        localStorage.setItem(LS_ID, idVal);
+        localStorage.setItem(LS_SECRET, secVal);
+        runOpenSkyEstimate(statusEl, agentsInput, agentsVal);
+      };
+      return;
+    }
+    statusEl.textContent = t("settings_opensky_loading");
+    try {
+      const tokenRes = await fetch("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
+      });
+      if (!tokenRes.ok) throw new Error("token");
+      const tokenData = await tokenRes.json();
+      const token = tokenData.access_token;
+
+      // Dati aggiornati a batch: l'ultimo giorno completo disponibile e' ieri.
+      const end = Math.floor(Date.now() / 1000) - 86400;
+      const begin = end - 86400;
+      const flightsRes = await fetch(`https://opensky-network.org/api/flights/arrival?airport=LIRF&begin=${begin}&end=${end}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!flightsRes.ok) throw new Error("flights");
+      const flights = await flightsRes.json();
+      const n = Array.isArray(flights) ? flights.length : 0;
+      const AVG_PAX_PER_FLIGHT = 140; // stima grezza, non dato OpenSky
+      const estimatedPax = n * AVG_PAX_PER_FLIGHT;
+      // mappa la stima sul range dello slider (6-60), scalando per non
+      // rappresentare 1 agente = 1 passeggero reale ma un campione visivo
+      const mapped = Math.max(6, Math.min(60, Math.round(estimatedPax / 200)));
+      agentsInput.value = mapped;
+      agentsVal.textContent = mapped;
+      statusEl.innerHTML = `<span style="color:#86efac;">${t("settings_opensky_result", n, estimatedPax)}</span>`;
+    } catch (e) {
+      statusEl.innerHTML = `<span style="color:#fca5a5;">${t("settings_opensky_error")}</span>`;
+    }
   }
 
   window.__veritasBoot = async function (renderApp) {
