@@ -502,13 +502,16 @@
 
   function generateTrajectory(nodes) {
     const totalFrames = window.__veritasTotalFrames || 361, agentCount = window.__veritasAgentCount || 28;
-    const TYPE_ORDER = ["spawn", "checkin", "security", "lounge"];
+    const TYPE_ORDER = ["checkin", "security", "lounge"];
     const trunk = [];
     for (const ty of TYPE_ORDER) { const n = nodes.find((nd) => nd.type === ty); if (n) trunk.push(n); }
+    // spawn multipli: se il progetto ha piu' punti di tipo "spawn" (piu' ingressi/varchi),
+    // i gruppi di agenti vengono distribuiti su tutti, non solo sul primo trovato
+    const spawnNodes = nodes.filter((nd) => nd.type === "spawn");
     const gates = nodes.filter((nd) => nd.type === "gate");
-    // se non ci sono nodi "trunk" riconosciuti o nessun gate, usa la sequenza
+    // se non ci sono nodi "trunk"/spawn riconosciuti o nessun gate, usa la sequenza
     // originale intera come unico ramo (comportamento di sicurezza)
-    const hasBranching = trunk.length >= 1 && gates.length >= 1;
+    const hasBranching = (spawnNodes.length + trunk.length) >= 1 && gates.length >= 1;
     const fallbackPath = nodes;
 
     // Espande una sequenza di nodi in un percorso reale, inserendo waypoint
@@ -540,8 +543,12 @@
       const archetype = group % 3 === 1 ? "family" : keys[i % keys.length];
       // stesso gruppo (famiglia/comitiva) va sempre allo stesso gate
       const gateIdx = gates.length ? group % gates.length : 0;
-      const rawPath = hasBranching ? trunk.concat([gates[gateIdx]]) : fallbackPath;
-      const cacheKey = gateIdx; // il tronco e uguale per tutti, cambia solo il gate finale
+      // ogni gruppo (famiglia/comitiva) entra sempre dallo stesso varco, ma varchi
+      // diversi tra i gruppi se il progetto ne definisce piu' di uno
+      const spawnIdx = spawnNodes.length ? group % spawnNodes.length : 0;
+      const startNodes = spawnNodes.length ? [spawnNodes[spawnIdx]] : [];
+      const rawPath = hasBranching ? startNodes.concat(trunk, [gates[gateIdx]]) : fallbackPath;
+      const cacheKey = spawnIdx + "_" + gateIdx; // percorso diverso per combinazione varco+gate
       if (!routeCache.has(cacheKey)) routeCache.set(cacheKey, expandRoute(rawPath));
       const { path, securityAt } = routeCache.get(cacheKey);
       const segLen = [];
