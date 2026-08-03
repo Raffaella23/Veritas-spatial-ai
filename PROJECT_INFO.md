@@ -183,3 +183,14 @@ Inoltre richiesto: le telecamere devono essere sensibili a dove si trova realmen
 **FATTO (commit 58ad7e3)**: evitamento ostacoli. Nuove funzioni `lineHasSupport()` (verifica se una linea retta tra due punti passa vicino a punti navigabili reali campionati, altrimenti la considera "bloccata"), `buildZoneGraph()` (collega tra loro le zone rilevate dall'analisi se il collegamento diretto e libero), `dijkstra()` (cammino minimo nel grafo), `findRoute()` (usa la linea diretta se libera, altrimenti passa per le zone). Il percorso di ogni agente viene ora "espanso" con `expandRoute()` inserendo waypoint intermedi dove serve — quindi gli agenti girano attorno a muri/ostacoli reali invece di attraversarli in linea retta. Funziona solo se e stata gia fatta un'analisi (Rianalizza mesh / Report struttura) in questa sessione, altrimenti ripiega sul comportamento precedente (linea diretta) per sicurezza.
 
 **Ancora da fare**: evitamento tra agenti (possono ancora sovrapporsi), schermata "impostazioni poi avvio simulazione".
+
+
+**FATTO (commit 38b4e3b)**: evitamento tra agenti. Nuova funzione `resolveOverlaps()` chiamata ad ogni frame gia calcolato — se due agenti sono piu vicini di 0.55m si spingono via a meta ciascuno lungo la normale tra le loro posizioni, con 3 iterazioni per stabilizzare i gruppi piu fitti (es. in coda al controllo). Gli agenti gia arrivati a destinazione (stato ARRIVED) sono esclusi dal calcolo.
+
+**Con questo commit sono COMPLETATI tutti e 4 i punti di realismo richiesti dalla cliente in questa sessione**:
+1. Distribuzione su piu gate (commit 385635d)
+2. Code reali al controllo sicurezza (commit 385635d)
+3. Evitamento ostacoli — routing sulle zone reali (commit 58ad7e3)
+4. Evitamento tra agenti (commit 38b4e3b)
+
+**Ancora aperto, non affrontato in questa sessione**: schermata "impostazioni poi avvio simulazione" (oggi la simulazione parte subito con i default invece di permettere di configurare tutto prima), scala passeggeri di progetti salvati prima del cambio di default (0.12x) che restano al valore vecchio salvato finche non si risalva manualmente, Livello 2 (AI vera con report/score via backend), bucket Storage per il .glb, editor dedicato telecamere, traduzione testo dentro il bundle minificato.
