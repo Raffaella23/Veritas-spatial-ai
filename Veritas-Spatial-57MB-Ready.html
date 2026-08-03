@@ -63,6 +63,11 @@
       based_on_points: (n) => `Basato su ${n} punti campionati dalla mesh reale (vertici con normale verso l'alto = pavimenti/superfici calpestabili).`,
       close_btn: "Chiudi", drag_hint: "Trascina per spostare il pannello",
       reopen_tab: "📍 Punti",
+      settings_title: "Impostazioni simulazione",
+      settings_subtitle: "Configura i parametri prima di avviare la simulazione",
+      settings_scale_label: "Scala passeggeri",
+      settings_agents_label: "Numero passeggeri",
+      settings_start_btn: "▶ Avvia simulazione",
     },
     en: {
       login_subtitle: "Sign in to manage your projects",
@@ -101,6 +106,11 @@
       based_on_points: (n) => `Based on ${n} points sampled from the real mesh (vertices with an upward normal = floors/walkable surfaces).`,
       close_btn: "Close", drag_hint: "Drag to move the panel",
       reopen_tab: "📍 Points",
+      settings_title: "Simulation settings",
+      settings_subtitle: "Configure the parameters before starting the simulation",
+      settings_scale_label: "Passenger scale",
+      settings_agents_label: "Number of passengers",
+      settings_start_btn: "▶ Start simulation",
     },
   };
   function t(key, ...args) {
@@ -324,8 +334,50 @@
     window.__veritasInitialNodes = project.nodes_config && project.nodes_config.length ? project.nodes_config : null;
     window.__veritasInitialCameras = project.camera_config && project.camera_config.length ? project.camera_config : null;
     window.__veritasPassengerScale = (project.sim_params && project.sim_params.passengerScale) || 0.12;
-    overlay.classList.add("hidden");
-    bootDone();
+    window.__veritasAgentCount = (project.sim_params && project.sim_params.agentCount) || 28;
+    showSettingsScreen(project);
+  }
+
+  function showSettingsScreen(project) {
+    card.style.position = "relative";
+    card.innerHTML = `
+      ${langSwitcherHtml()}
+      <h1>${t("settings_title")}</h1>
+      <p class="sub">${t("settings_subtitle")}</p>
+      <div class="v-field">
+        <label>${t("settings_scale_label")}: <span id="vs-scale-val"></span></label>
+        <input type="range" id="vs-scale" min="0.02" max="1" step="0.01" style="width:100%;">
+      </div>
+      <div class="v-field">
+        <label>${t("settings_agents_label")}: <span id="vs-agents-val"></span></label>
+        <input type="range" id="vs-agents" min="6" max="60" step="1" style="width:100%;">
+      </div>
+      <button class="v-btn" id="vs-start-btn">${t("settings_start_btn")}</button>
+    `;
+    wireLangSwitcher(card, () => showSettingsScreen(project));
+
+    const scaleInput = card.querySelector("#vs-scale");
+    const scaleVal = card.querySelector("#vs-scale-val");
+    scaleInput.value = window.__veritasPassengerScale;
+    scaleVal.textContent = parseFloat(scaleInput.value).toFixed(2) + "x";
+    scaleInput.addEventListener("input", () => {
+      scaleVal.textContent = parseFloat(scaleInput.value).toFixed(2) + "x";
+    });
+
+    const agentsInput = card.querySelector("#vs-agents");
+    const agentsVal = card.querySelector("#vs-agents-val");
+    agentsInput.value = window.__veritasAgentCount;
+    agentsVal.textContent = agentsInput.value;
+    agentsInput.addEventListener("input", () => {
+      agentsVal.textContent = agentsInput.value;
+    });
+
+    card.querySelector("#vs-start-btn").onclick = () => {
+      window.__veritasPassengerScale = parseFloat(scaleInput.value);
+      window.__veritasAgentCount = parseInt(agentsInput.value, 10);
+      overlay.classList.add("hidden");
+      bootDone();
+    };
   }
 
   window.__veritasBoot = async function (renderApp) {
@@ -449,7 +501,7 @@
   }
 
   function generateTrajectory(nodes) {
-    const totalFrames = 361, agentCount = 28;
+    const totalFrames = window.__veritasTotalFrames || 361, agentCount = window.__veritasAgentCount || 28;
     const TYPE_ORDER = ["spawn", "checkin", "security", "lounge"];
     const trunk = [];
     for (const ty of TYPE_ORDER) { const n = nodes.find((nd) => nd.type === ty); if (n) trunk.push(n); }
@@ -1391,7 +1443,7 @@
     panel.querySelector("#vp-save").onclick = async () => {
       const btn = panel.querySelector("#vp-save");
       btn.textContent = t("saving");
-      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.12 } });
+      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.12, agentCount: window.__veritasAgentCount || 28 } });
       btn.textContent = error ? t("error_generic") : t("saved");
       setTimeout(() => (btn.textContent = t("save_btn")), 1500);
     };
