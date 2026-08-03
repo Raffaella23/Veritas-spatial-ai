@@ -878,6 +878,16 @@
     assign("gateA", gates[1] || gates[0]);
     assign("lounge", (byType.lounge || [])[0]);
     assign("accettazione", (byType.checkin || [])[0]);
+    // Global (vista dall'alto): non e agganciata a un nodo singolo, ma deve
+    // comunque seguire la quota reale dell'edificio — altrimenti su una mesh
+    // con piano reale lontano da y=0 i passeggeri restano fuori inquadratura.
+    if (currentNodes.length) {
+      const avgY = currentNodes.reduce((s, n) => s + (n.pos[1] || 0), 0) / currentNodes.length;
+      const avgX = currentNodes.reduce((s, n) => s + n.pos[0], 0) / currentNodes.length;
+      const avgZ = currentNodes.reduce((s, n) => s + n.pos[2], 0) / currentNodes.length;
+      const g = presets.find((c) => c.id === "global");
+      if (g) { g.target = [avgX, avgY, avgZ]; g.pos = [avgX, avgY + 80, avgZ]; }
+    }
   }
 
   function applyNodesToScene() {
