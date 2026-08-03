@@ -356,6 +356,73 @@
     senior: { speed: 0.75 }, student: { speed: 1.25 }, crew: { speed: 1.4 }, vip: { speed: 1.15 },
   };
 
+  function lineHasSupport(a, b, points, sampleN, radius) {
+    sampleN = sampleN || 6; radius = radius || 2.5;
+    if (!points || !points.length) return true; // nessun dato -> non blocca (comportamento precedente)
+    let ok = 0;
+    for (let i = 0; i <= sampleN; i++) {
+      const t = i / sampleN;
+      const px = a[0] + (b[0] - a[0]) * t, pz = a[2] + (b[2] - a[2]) * t;
+      let found = false;
+      for (const p of points) { if (Math.hypot(p[0] - px, p[2] - pz) < radius) { found = true; break; } }
+      if (found) ok++;
+    }
+    return ok / (sampleN + 1) >= 0.7;
+  }
+
+  function buildZoneGraph(zones, points) {
+    const n = zones.length;
+    const adj = Array.from({ length: n }, () => []);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (lineHasSupport(zones[i].pos, zones[j].pos, points)) {
+          const d = Math.hypot(zones[i].pos[0] - zones[j].pos[0], zones[i].pos[2] - zones[j].pos[2]);
+          adj[i].push({ to: j, d }); adj[j].push({ to: i, d });
+        }
+      }
+    }
+    return adj;
+  }
+
+  function dijkstra(adj, start, end) {
+    const dist = new Array(adj.length).fill(Infinity), prev = new Array(adj.length).fill(-1), visited = new Array(adj.length).fill(false);
+    dist[start] = 0;
+    for (let iter = 0; iter < adj.length; iter++) {
+      let u = -1, best = Infinity;
+      for (let i = 0; i < adj.length; i++) if (!visited[i] && dist[i] < best) { best = dist[i]; u = i; }
+      if (u === -1) break;
+      visited[u] = true;
+      if (u === end) break;
+      for (const e of adj[u]) { if (dist[u] + e.d < dist[e.to]) { dist[e.to] = dist[u] + e.d; prev[e.to] = u; } }
+    }
+    if (dist[end] === Infinity) return null;
+    const path = [];
+    for (let c = end; c !== -1; c = prev[c]) path.unshift(c);
+    return path;
+  }
+
+  // Trova un percorso tra due punti che rispetta la geometria reale: se la
+  // linea diretta e "libera" (passa vicino a punti navigabili reali) la usa,
+  // altrimenti passa per le zone rilevate dall'analisi (evita di attraversare
+  // muri/ostacoli che non fanno parte dello spazio calpestabile).
+  function findRoute(fromPos, toPos) {
+    if (!lastZones || !lastZones.length || !lastNavigablePoints) return [toPos];
+    if (lineHasSupport(fromPos, toPos, lastNavigablePoints)) return [toPos];
+    let fi = 0, fd = Infinity, ti = 0, td = Infinity;
+    lastZones.forEach((z, i) => {
+      const df = Math.hypot(z.pos[0] - fromPos[0], z.pos[2] - fromPos[2]);
+      const dt = Math.hypot(z.pos[0] - toPos[0], z.pos[2] - toPos[2]);
+      if (df < fd) { fd = df; fi = i; }
+      if (dt < td) { td = dt; ti = i; }
+    });
+    if (fi === ti) return [toPos];
+    if (!lastZoneGraph) lastZoneGraph = buildZoneGraph(lastZones, lastNavigablePoints);
+    const route = dijkstra(lastZoneGraph, fi, ti);
+    if (!route) return [toPos];
+    return route.map((zi) => lastZones[zi].pos).concat([toPos]);
+  }
+  let lastZoneGraph = null;
+
   function generateTrajectory(nodes) {
     const totalFrames = 361, agentCount = 28;
     const TYPE_ORDER = ["spawn", "checkin", "security", "lounge"];
@@ -367,14 +434,39 @@
     const hasBranching = trunk.length >= 1 && gates.length >= 1;
     const fallbackPath = nodes;
 
+    // Espande una sequenza di nodi in un percorso reale, inserendo waypoint
+    // intermedi (dalle zone rilevate) dove la linea diretta non e "libera" —
+    // cosi gli agenti girano attorno agli ostacoli invece di attraversarli.
+    function expandRoute(rawNodes) {
+      const expanded = [{ pos: rawNodes[0].pos }];
+      let securityAt = null, cum = 0;
+      if (rawNodes[0].type === "security") securityAt = 0;
+      for (let s = 0; s < rawNodes.length - 1; s++) {
+        const from = rawNodes[s].pos, to = rawNodes[s + 1].pos;
+        const via = findRoute(from, to); // array di posizioni intermedie + destinazione finale
+        let prev = from;
+        for (const wp of via) {
+          expanded.push({ pos: wp });
+          cum += Math.hypot(wp[0] - prev[0], wp[2] - prev[2]);
+          prev = wp;
+        }
+        if (rawNodes[s + 1].type === "security") securityAt = cum;
+      }
+      return { path: expanded, securityAt };
+    }
+
     const keys = Object.keys(ARCHETYPES);
     const agents = [];
+    const routeCache = new Map();
     for (let i = 0; i < agentCount; i++) {
       const group = Math.floor(i / 3);
       const archetype = group % 3 === 1 ? "family" : keys[i % keys.length];
       // stesso gruppo (famiglia/comitiva) va sempre allo stesso gate
       const gateIdx = gates.length ? group % gates.length : 0;
-      const path = hasBranching ? trunk.concat([gates[gateIdx]]) : fallbackPath;
+      const rawPath = hasBranching ? trunk.concat([gates[gateIdx]]) : fallbackPath;
+      const cacheKey = gateIdx; // il tronco e uguale per tutti, cambia solo il gate finale
+      if (!routeCache.has(cacheKey)) routeCache.set(cacheKey, expandRoute(rawPath));
+      const { path, securityAt } = routeCache.get(cacheKey);
       const segLen = [];
       let totalLen = 0;
       for (let s = 0; s < path.length - 1; s++) {
@@ -383,7 +475,7 @@
         segLen.push(dd); totalLen += dd;
       }
       agents.push({
-        id: i, archetype, group, path, segLen, totalLen,
+        id: i, archetype, group, path, segLen, totalLen, securityAt,
         startDelay: (i * 0.9) % 18 + Math.random() * 0.6,
         speed: ARCHETYPES[archetype].speed * (0.9 + Math.random() * 0.2),
         waitAtControl: 4 + Math.random() * 8,
@@ -411,15 +503,10 @@
       for (const ag of agents) {
         const elapsed = t - ag.startDelay;
         if (elapsed < 0) continue;
-        const { path, segLen, totalLen } = ag;
+        const { path, segLen, totalLen, securityAt } = ag;
         if (totalLen <= 0 || path.length < 2) continue;
         let state = "MOVING";
         let dist = elapsed * ag.speed * 2.2;
-        // il controllo sicurezza e sempre il 2 nodo del ramo condiviso (dopo
-        // ingresso e accettazione) quando esiste una security nel trunk
-        const securityIdx = trunk.findIndex((n) => n.type === "security");
-        let securityAt = null;
-        if (securityIdx > 0) { securityAt = 0; for (let s = 0; s < securityIdx; s++) securityAt += segLen[s] || 0; }
         if (securityAt !== null) {
           if (dist > securityAt && dist < securityAt + ag.waitAtControl * ag.speed * 0.5) { state = "WAITING"; dist = securityAt; }
           else if (dist > securityAt && state !== "WAITING") dist += ag.waitAtControl * ag.speed * 0.2;
@@ -744,6 +831,7 @@
 
   let lastNavigablePoints = null;
   let lastFloorLevels = [0];
+  let lastZones = null;
 
   function runStructuralAnalysis(root) {
     const extraction = extractNavigablePoints(root);
@@ -777,6 +865,7 @@
     const ordered = nearestNeighborOrder(zones.slice());
     const critici = zones.filter((z) => z.flagged).length;
     const score = Math.max(0, Math.min(100, 100 - critici * 15 - Math.max(0, 10 - zones.length) * 2));
+    lastZones = zones;
     return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici, floorLevels: lastFloorLevels };
   }
 
