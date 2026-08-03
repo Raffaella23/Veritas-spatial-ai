@@ -173,3 +173,8 @@ Inoltre richiesto: le telecamere devono essere sensibili a dove si trova realmen
 **FATTO (commit 0c1194b)**: bug critico — i passeggeri risultavano invisibili/sotto il pavimento su edifici con quota reale diversa da 0. Causa: la telecamera "Global" (vista dall'alto) aveva pos/target fissi assoluti ([0,80,0] / [0,0,0]), scollegati dalla quota reale rilevata dopo il fix multipiano della sessione precedente. `syncCamerasToNodes()` ora calcola la quota media dei nodi correnti e riposiziona la camera Global di conseguenza ad ogni sincronizzazione.
 
 **Ancora da fare**: i 4 punti di realismo sopra elencati, la UX "impostazioni poi avvio simulazione".
+
+
+**FATTO (commit 385635d)**: `generateTrajectory()` riscritta per supportare percorsi divergenti — ogni agente segue un tronco condiviso (ingresso->accettazione->controllo->lounge, solo i tipi effettivamente presenti) poi devia verso UNO dei gate disponibili (round robin per gruppo/famiglia, cosi chi viaggia insieme arriva allo stesso gate). Aggiunta anche una coda visibile reale al controllo sicurezza: gli agenti in stato WAITING si dispongono in fila su 2 colonne dietro il varco invece di sovrapporsi nello stesso punto, con ordine di coda stabile basato sull'orario di arrivo. Se non ci sono gate multipli o nodi di tipo riconosciuto, ripiega sul comportamento precedente (percorso unico condiviso) per sicurezza.
+
+**Ancora da fare**: evitamento ostacoli (percorsi ancora rettilinei tra i nodi, non navigano attorno a muri reali della mesh), evitamento tra agenti (possono sovrapporsi), schermata "impostazioni poi avvio simulazione".
