@@ -156,3 +156,20 @@ Il repo contiene anche un **motore Python separato** (cartella `Assets/core/`) p
   - Il report struttura mostra ora "LIVELLI RILEVATI" e l'indicazione di piano per ogni zona
 
 **Prossimi passi aperti** (non affrontati in questa sessione): Livello 2 (ragionamento AI vero con Claude via backend/Supabase Edge Function, richiede chiave API Anthropic separata), bucket Storage per il `.glb`, editor dedicato per le 7 telecamere, traduzione del testo dentro il bundle minificato.
+
+
+---
+
+## 9. Sessione realismo simulazione (in corso)
+
+Richiesta cliente: il flusso passeggeri attuale e un'unica sequenza standard identica per tutti gli agenti — non realistico. Da migliorare in ordine, con commit + aggiornamento di questo file ad ogni passo:
+1. Distribuzione su piu gate/destinazioni diverse (non tutti allo stesso gate)
+2. Code reali che si accumulano ai varchi stretti (non solo attesa "invisibile")
+3. Evitamento ostacoli (i percorsi sono linee rette, non navigano attorno a muri reali)
+4. Evitamento tra agenti (possono sovrapporsi)
+
+Inoltre richiesto: le telecamere devono essere sensibili a dove si trova realmente il flusso passeggeri, non fisse su coordinate assolute pensate per edifici a quota zero. E una schermata di "impostazioni prima di avviare" la simulazione invece di partire subito con i default.
+
+**FATTO (commit 0c1194b)**: bug critico — i passeggeri risultavano invisibili/sotto il pavimento su edifici con quota reale diversa da 0. Causa: la telecamera "Global" (vista dall'alto) aveva pos/target fissi assoluti ([0,80,0] / [0,0,0]), scollegati dalla quota reale rilevata dopo il fix multipiano della sessione precedente. `syncCamerasToNodes()` ora calcola la quota media dei nodi correnti e riposiziona la camera Global di conseguenza ad ogni sincronizzazione.
+
+**Ancora da fare**: i 4 punti di realismo sopra elencati, la UX "impostazioni poi avvio simulazione".
