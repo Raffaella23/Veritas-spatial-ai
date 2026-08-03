@@ -423,6 +423,31 @@
   }
   let lastZoneGraph = null;
 
+  function resolveOverlaps(frameAgents) {
+    // evitamento tra agenti: spinge via chi e troppo vicino, cosi non si
+    // sovrappongono camminando — piu iterazioni per stabilizzare gruppi fitti
+    const MIN_SEP = 0.55, ITER = 3;
+    for (let it = 0; it < ITER; it++) {
+      for (let i = 0; i < frameAgents.length; i++) {
+        for (let j = i + 1; j < frameAgents.length; j++) {
+          const a = frameAgents[i], b = frameAgents[j];
+          if (a.state === "ARRIVED" || b.state === "ARRIVED") continue;
+          const dx = b.pos[0] - a.pos[0], dz = b.pos[2] - a.pos[2];
+          const d = Math.hypot(dx, dz);
+          if (d > 0 && d < MIN_SEP) {
+            const push = (MIN_SEP - d) / 2;
+            const nx = dx / d, nz = dz / d;
+            a.pos[0] -= nx * push; a.pos[2] -= nz * push;
+            b.pos[0] += nx * push; b.pos[2] += nz * push;
+          } else if (d === 0) {
+            // stessa posizione esatta: piccolo scarto casuale per separarli
+            a.pos[0] -= 0.1; b.pos[0] += 0.1;
+          }
+        }
+      }
+    }
+  }
+
   function generateTrajectory(nodes) {
     const totalFrames = 361, agentCount = 28;
     const TYPE_ORDER = ["spawn", "checkin", "security", "lounge"];
@@ -547,6 +572,7 @@
         lastPos.set(ag.id, pos);
         frameAgents.push({ id: ag.id, pos, rot, state, group: ag.group, archetype: ag.archetype, stress });
       }
+      resolveOverlaps(frameAgents);
       frames.push({ t, agents: frameAgents });
     }
     return { nodes, frames, duration: 180 };
