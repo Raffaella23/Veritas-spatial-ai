@@ -240,3 +240,17 @@ Decisione presa con la cliente: collegare il Core Python reale invece di continu
 4. Da fare quando si attiva: aggiungere nel viewer HTML un campo "URL Core API" (impostazioni) che punta a quell'URL, e sostituire la generazione traiettoria/KPI lato client con una chiamata a `/api/simulate` quando configurato — non ancora fatto, e' il prossimo passo dopo l'attivazione.
 
 Prossimo lavoro con questo backend (deciso con la cliente): Fase 5-6 della roadmap (motore di raccomandazioni + revenue/decision report), verticale ancora da confermare tra aeroporti/musei/generico.
+
+---
+
+## 12. Fase 5 — motore di raccomandazioni (commit 6768155)
+
+`Assets/core/recommendations.py` (nuovo file, nessun file esistente del Core toccato): funzione `generate_recommendations(kpi, context)` che legge il KPI report di `SimulationEngine` e produce una lista di raccomandazioni (problem/cause/recommendation/priority/expected_improvement/stima impatto revenue mensile). Regole: saturazione checkpoint >70% = priorita' alta, 40-70% = media; tempo di transito >30% oltre un ideale di 100s; violazioni compliance sempre priorita' alta; rallentamenti eccessivi rispetto ai completamenti = collo di bottiglia strutturale.
+
+`benchmarks.json` (nuovo): numeri di riferimento per stimare l'impatto in euro/mese (spesa airside aeroportuale, dwell time, capacita' oraria/prezzo biglietto musei). Fonti miste (report reali + stime dichiarate come tali nel file — vedi campo "notes" per ciascun settore, da validare meglio con dati proprietari quando disponibili).
+
+`api_server.py`: nuovo endpoint `POST /api/recommendations` (kpi + domain -> lista raccomandazioni), carica benchmarks.json all'avvio.
+
+**Bozza generata da un altro modello (Gemini/ChatGPT) su specifica esatta preparata da Claude (schema KPI, firma funzione, regole di soglia)**, poi verificata da Claude prima del push: ricostruito l'ambiente reale con tutte le dipendenze, test funzionale end-to-end della funzione + dell'endpoint con un KPI di esempio — output corretto.
+
+Ancora da fare: il backend resta NON attivato (vedi sezione 11) — questo endpoint esiste nel codice ma non e' raggiungibile finche' non si attiva un hosting.
