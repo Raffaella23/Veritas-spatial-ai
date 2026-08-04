@@ -254,3 +254,15 @@ Prossimo lavoro con questo backend (deciso con la cliente): Fase 5-6 della roadm
 **Bozza generata da un altro modello (Gemini/ChatGPT) su specifica esatta preparata da Claude (schema KPI, firma funzione, regole di soglia)**, poi verificata da Claude prima del push: ricostruito l'ambiente reale con tutte le dipendenze, test funzionale end-to-end della funzione + dell'endpoint con un KPI di esempio — output corretto.
 
 Ancora da fare: il backend resta NON attivato (vedi sezione 11) — questo endpoint esiste nel codice ma non e' raggiungibile finche' non si attiva un hosting.
+
+---
+
+## 13. Report VERITAS — demo gratuita per la vetrina (commit 0037cd5)
+
+Richiesta della cliente: mostrare qualcosa di credibile SENZA attivare (e pagare) il backend. Aggiunto un pulsante fisso "📊 Report VERITAS" (in basso a sinistra, appare dopo l'avvio della simulazione) nel viewer HTML, solo JS, zero costi.
+
+Cosa fa: calcola KPI REALI dalla traiettoria della simulazione client-side corrente (non dati finti) — agenti completati/attivi, tempo di transito medio (dal primo frame in cui ogni agente arriva a "ARRIVED"), saturazione ai checkpoint (% di agenti in stato "WAITING" sul totale frame-agente) — poi applica una versione JS della stessa logica di `recommendations.py` (soglie identiche) per generare raccomandazioni con priorita' e stima economica (usando gli stessi benchmark di `benchmarks.json`, duplicati qui in JS per poter girare senza backend).
+
+**Dichiarato onestamente nell'interfaccia stessa** (stringa `rep_disclaimer` in IT/EN): calcolato dalla simulazione corrente nel browser, non ancora il motore Python completo. La compliance (`violazioni_compliance`) e' lasciata `null` invece di inventare "0 violazioni", perche' la vera validazione accessibilita' esiste solo in `compliance.py` (Core Python, non attivo).
+
+Nota per la cliente: i due motori di raccomandazione (Python in `Assets/core/recommendations.py` e questa copia JS) hanno le stesse soglie ma sono due file separati — se si cambia una logica, va aggiornata in entrambi finche' il backend non sostituisce la versione JS.
