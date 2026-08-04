@@ -77,6 +77,32 @@
       settings_opensky_loading: "Recupero voli in arrivo...",
       settings_opensky_error: "Non sono riuscito a recuperare i dati OpenSky (credenziali non valide o servizio non raggiungibile). Puoi comunque impostare il numero a mano.",
       settings_opensky_result: (n, pax) => `${n} voli in arrivo nelle ultime 24h ~ stima ${pax} passeggeri`,
+      rep_open_btn: "📊 Report VERITAS",
+      rep_title: "Report VERITAS — raccomandazioni",
+      rep_disclaimer: "Calcolato dalla simulazione corrente in questo browser. Non e' ancora il motore Python completo (richiede backend attivo) ma riflette dati reali di questa simulazione, non valori inventati.",
+      rep_no_data: "Nessuna simulazione ancora caricata.",
+      rep_no_issues: "Nessuna criticita' rilevata in questa simulazione.",
+      rep_close: "Chiudi",
+      rep_month: "mese",
+      rep_kpi_completed: "Completati",
+      rep_kpi_transit: "Transito medio",
+      rep_kpi_saturation: "Saturazione varchi",
+      rep_problem_sat_high: "Saturazione elevata al checkpoint",
+      rep_cause_sat_high: "Tempo di attesa oltre la soglia accettabile, varchi insufficienti rispetto al flusso",
+      rep_rec_sat_high: "Aggiungere un varco attivo o gestione dinamica delle code",
+      rep_impr_sat_high: "Riduzione della saturazione di almeno il 25-30%",
+      rep_problem_sat_med: "Saturazione moderata al checkpoint",
+      rep_cause_sat_med: "Flussi non perfettamente bilanciati nei momenti di picco",
+      rep_rec_sat_med: "Ribilanciare la segnaletica e il personale di supporto",
+      rep_impr_sat_med: "Stabilizzazione sotto la soglia del 40%",
+      rep_problem_transit: "Tempo di transito superiore al target",
+      rep_cause_transit: "Colli di bottiglia geometrici o percorsi non ottimali",
+      rep_rec_transit: "Ridisegnare il layout dei corridoi critici",
+      rep_impr_transit: "Riduzione verso il tempo di transito ideale",
+      rep_problem_slow: "Possibile collo di bottiglia strutturale",
+      rep_cause_slow: "Numero elevato di rallentamenti rispetto ai completamenti",
+      rep_rec_slow: "Allargare i punti di strozzatura o creare percorsi alternativi",
+      rep_impr_slow: "Diminuzione dei rallentamenti del 50%",
     },
     en: {
       login_subtitle: "Sign in to manage your projects",
@@ -129,6 +155,32 @@
       settings_opensky_loading: "Fetching arriving flights...",
       settings_opensky_error: "Could not fetch OpenSky data (invalid credentials or service unreachable). You can still set the number manually.",
       settings_opensky_result: (n, pax) => `${n} flights arriving in the last 24h ~ estimated ${pax} passengers`,
+      rep_open_btn: "📊 VERITAS Report",
+      rep_title: "VERITAS Report — recommendations",
+      rep_disclaimer: "Computed from the current simulation in this browser. Not yet the full Python engine (needs an active backend), but reflects real data from this simulation, not made-up values.",
+      rep_no_data: "No simulation loaded yet.",
+      rep_no_issues: "No issues detected in this simulation.",
+      rep_close: "Close",
+      rep_month: "month",
+      rep_kpi_completed: "Completed",
+      rep_kpi_transit: "Avg transit",
+      rep_kpi_saturation: "Checkpoint saturation",
+      rep_problem_sat_high: "High checkpoint saturation",
+      rep_cause_sat_high: "Wait time above acceptable threshold, not enough gates for the flow",
+      rep_rec_sat_high: "Add an active checkpoint or dynamic queue management",
+      rep_impr_sat_high: "At least 25-30% saturation reduction",
+      rep_problem_sat_med: "Moderate checkpoint saturation",
+      rep_cause_sat_med: "Flows not fully balanced at peak times",
+      rep_rec_sat_med: "Rebalance signage and add temporary support staff",
+      rep_impr_sat_med: "Stabilize under the 40% threshold",
+      rep_problem_transit: "Transit time above target",
+      rep_cause_transit: "Geometric bottlenecks or suboptimal routing",
+      rep_rec_transit: "Redesign critical corridor layout",
+      rep_impr_transit: "Reduction toward the ideal transit time",
+      rep_problem_slow: "Possible structural bottleneck",
+      rep_cause_slow: "High number of slowdowns relative to completions",
+      rep_rec_slow: "Widen bottleneck points or add alternate routes",
+      rep_impr_slow: "50% reduction in slowdown events",
     },
   };
   function t(key, ...args) {
@@ -405,7 +457,141 @@
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
       overlay.classList.add("hidden");
       bootDone();
+      injectReportButton();
     };
+  }
+
+  // ============================================================
+  // Report VERITAS: raccomandazioni calcolate DAL VERO OUTPUT della
+  // simulazione client-side corrente (non dati finti, non ancora il
+  // motore Python reale - quello richiede il backend attivo).
+  // ============================================================
+  const REVENUE_BENCHMARKS = {
+    airport: { spend_per_extra_dwell_minute_eur: 0.25, avg_spend_per_passenger_airside_eur: 11.0 },
+    museum: { avg_hourly_capacity_before_overcrowding: 200.0, avg_ticket_price_eur: 11.97, shop_spend_conversion_pct: 25.0 },
+  };
+
+  function veritasComputeKpi(traj) {
+    const frames = traj.frames || [];
+    if (!frames.length) return null;
+    const lastFrame = frames[frames.length - 1];
+    const firstArrivalT = new Map();
+    let waitingCount = 0, totalCount = 0;
+    const everWaited = new Set();
+    for (const fr of frames) {
+      for (const a of fr.agents) {
+        totalCount++;
+        if (a.state === "WAITING") { waitingCount++; everWaited.add(a.id); }
+        if (a.state === "ARRIVED" && !firstArrivalT.has(a.id)) firstArrivalT.set(a.id, fr.t);
+      }
+    }
+    const completed = lastFrame.agents.filter((a) => a.state === "ARRIVED").length;
+    const active = lastFrame.agents.length - completed;
+    const transitTimes = Array.from(firstArrivalT.values());
+    const avgTransit = transitTimes.length ? transitTimes.reduce((s, v) => s + v, 0) / transitTimes.length : 0;
+    const duration = traj.duration || (lastFrame.t || 1);
+    return {
+      flusso_effettivo_p_s: totalCount ? +(completed / duration).toFixed(3) : 0,
+      rallentamenti: everWaited.size,
+      tempo_transito_medio_s: +avgTransit.toFixed(1),
+      saturazione_checkpoint_pct: totalCount ? +((waitingCount / totalCount) * 100).toFixed(1) : 0,
+      agenti_completati: completed,
+      agenti_attivi: active,
+      durata_simulazione_s: duration,
+      // la validazione di accessibilita' vera esiste solo nel Core Python
+      // (compliance.py), non calcolabile qui: la teniamo fuori invece di
+      // inventare un "0 violazioni" che darebbe un falso senso di sicurezza
+      violazioni_compliance: null,
+    };
+  }
+
+  function veritasGenerateRecommendations(kpi, domain) {
+    const benchmarks = REVENUE_BENCHMARKS;
+    const recs = [];
+    const DAILY_PASSENGERS = 5000, DAYS = 30;
+
+    if (kpi.saturazione_checkpoint_pct > 70) {
+      let impact = null;
+      if (domain === "airport") impact = +(DAILY_PASSENGERS * DAYS * 4 * benchmarks.airport.spend_per_extra_dwell_minute_eur).toFixed(2);
+      else if (domain === "museum") {
+        const b = benchmarks.museum;
+        const extraVisitors = b.avg_hourly_capacity_before_overcrowding * 0.05 * 8 * DAYS;
+        impact = +(extraVisitors * (b.avg_ticket_price_eur + b.avg_ticket_price_eur * (b.shop_spend_conversion_pct / 100) * 0.4)).toFixed(2);
+      }
+      recs.push({ problem: t("rep_problem_sat_high"), cause: t("rep_cause_sat_high"), recommendation: t("rep_rec_sat_high"), priority: "alta", expected_improvement: t("rep_impr_sat_high"), revenue: impact });
+    } else if (kpi.saturazione_checkpoint_pct >= 40) {
+      recs.push({ problem: t("rep_problem_sat_med"), cause: t("rep_cause_sat_med"), recommendation: t("rep_rec_sat_med"), priority: "media", expected_improvement: t("rep_impr_sat_med"), revenue: null });
+    }
+
+    const IDEAL = 100;
+    if (kpi.tempo_transito_medio_s > IDEAL * 1.3) {
+      const priority = kpi.tempo_transito_medio_s > IDEAL * 1.6 ? "alta" : "media";
+      let impact = null;
+      if (domain === "airport") {
+        const savedMins = (kpi.tempo_transito_medio_s - IDEAL) / 60;
+        impact = +(DAILY_PASSENGERS * DAYS * savedMins * benchmarks.airport.spend_per_extra_dwell_minute_eur * 0.5).toFixed(2);
+      } else if (domain === "museum") {
+        const b = benchmarks.museum;
+        impact = +((50 * DAYS) * b.avg_ticket_price_eur * (1 + b.shop_spend_conversion_pct / 100)).toFixed(2);
+      }
+      recs.push({ problem: t("rep_problem_transit"), cause: t("rep_cause_transit"), recommendation: t("rep_rec_transit"), priority, expected_improvement: t("rep_impr_transit"), revenue: impact });
+    }
+
+    if (kpi.rallentamenti > kpi.agenti_completati * 0.2) {
+      recs.push({ problem: t("rep_problem_slow"), cause: t("rep_cause_slow"), recommendation: t("rep_rec_slow"), priority: "media", expected_improvement: t("rep_impr_slow"), revenue: null });
+    }
+
+    return recs;
+  }
+
+  function injectReportButton() {
+    if (document.getElementById("veritas-report-btn")) return;
+    const btn = document.createElement("button");
+    btn.id = "veritas-report-btn";
+    btn.textContent = t("rep_open_btn");
+    btn.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:9998;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;";
+    btn.onclick = showReportModal;
+    document.body.appendChild(btn);
+  }
+
+  function showReportModal() {
+    const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+    const modal = document.createElement("div");
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#0f172a;color:#e2e8f0;border-radius:12px;padding:24px;max-width:520px;width:90%;max-height:80vh;overflow:auto;";
+    if (!traj) {
+      box.innerHTML = `<p>${t("rep_no_data")}</p><button class="v-btn" id="rep-close">${t("rep_close")}</button>`;
+    } else {
+      const kpi = veritasComputeKpi(traj);
+      const domainRaw = window.__veritasProjectType || "generic";
+      const domain = domainRaw === "airport" || domainRaw === "museum" ? domainRaw : "generic";
+      const recs = kpi ? veritasGenerateRecommendations(kpi, domain) : [];
+      const prColor = { alta: "#fca5a5", media: "#fcd34d", bassa: "#86efac" };
+      const kpiHtml = kpi ? `
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px;line-height:1.6;">
+          ${t("rep_kpi_completed")}: <b style="color:#e2e8f0;">${kpi.agenti_completati}</b> &middot;
+          ${t("rep_kpi_transit")}: <b style="color:#e2e8f0;">${kpi.tempo_transito_medio_s}s</b> &middot;
+          ${t("rep_kpi_saturation")}: <b style="color:#e2e8f0;">${kpi.saturazione_checkpoint_pct}%</b>
+        </div>` : "";
+      const recsHtml = recs.length ? recs.map((r) => `
+        <div style="border-left:3px solid ${prColor[r.priority]};padding:8px 12px;margin-bottom:10px;background:#1e293b;border-radius:0 6px 6px 0;">
+          <div style="font-size:13px;font-weight:600;">${r.problem}</div>
+          <div style="font-size:11px;color:#94a3b8;margin:2px 0;">${r.cause}</div>
+          <div style="font-size:12px;margin:4px 0;">➜ ${r.recommendation}</div>
+          <div style="font-size:11px;color:#64748b;">${r.expected_improvement}${r.revenue != null ? ` &middot; ~${r.revenue.toLocaleString("it-IT")}€/${t("rep_month")}` : ""}</div>
+        </div>`).join("") : `<p style="font-size:12px;color:#94a3b8;">${t("rep_no_issues")}</p>`;
+      box.innerHTML = `
+        <h2 style="margin-top:0;">${t("rep_title")}</h2>
+        <p style="font-size:11px;color:#64748b;">${t("rep_disclaimer")}</p>
+        ${kpiHtml}
+        ${recsHtml}
+        <button class="v-btn" id="rep-close" style="margin-top:10px;">${t("rep_close")}</button>`;
+    }
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+    box.querySelector("#rep-close").onclick = () => modal.remove();
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
   }
 
   // Stima (non ufficiale) del volume passeggeri da traffico aereo reale su
