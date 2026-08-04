@@ -1,0 +1,14 @@
+# Blueprint Render per il Core API di VERITAS Spatial AI.
+# Non attivo finche' non viene collegato manualmente su https://render.com
+# (New -> Blueprint -> collega questo repo -> Render legge questo file).
+services:
+  - type: web
+    name: veritas-core-api
+    runtime: python
+    plan: starter   # ~7$/mese, sempre attivo. Cambiare in "free" per test (si addormenta dopo inattivita').
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
