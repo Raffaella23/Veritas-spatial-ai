@@ -216,3 +216,27 @@ Inoltre richiesto: le telecamere devono essere sensibili a dove si trova realmen
 - **Nota onesta**: non e' collegato a nessun dataset reale di comportamento passeggeri (non ne esiste uno accessibile via API pubblica collegabile a una pagina statica) — resta un modello procedurale euristico, piu' vario e organico di prima ma non basato su dati reali. Il Social Force Model vero (Helbing 1995, contagio dello stress, coesione di gruppo) esiste solo nel Core Python separato, mai collegato al viewer.
 
 **Con questi 3 commit sono completati i punti richiesti dalla cliente in questa sessione**: schermata impostazioni pre-avvio, spawn multipli, stima OpenSky opt-in, movimento meno lineare/piu' organico.
+
+---
+
+## 11. Backend Core Python — predisposto ma NON ATTIVATO (commit 1cdfb3c)
+
+Decisione presa con la cliente: collegare il Core Python reale invece di continuare a duplicare la logica in JS. Nessun file del Core (`engine.py`, `agent.py`, `behaviour.py`, `compliance.py`, `path_loader.py`, `topology_analyzer.py`) e' stato toccato, come richiesto.
+
+**Nuovi file (root del repo)**:
+- `api_server.py` — wrapper FastAPI, due endpoint:
+  - `POST /api/analyze-topology` — scarica un .glb da URL pubblico, esegue `TopologyAnalyzer`, restituisce il grafo di navigazione (`{"nodes":..., "mission_profiles":...}`)
+  - `POST /api/simulate` — prende un grafo + lista agenti, fa girare `SimulationEngine` reale per N tick, restituisce KPI veri (flusso, tempo transito, saturazione, violazioni compliance — non piu' decorativi) + traiettoria per il viewer
+  - `GET /health`
+- `requirements.txt` — fastapi, uvicorn, pydantic, requests, numpy, trimesh, scikit-learn, plotly
+- `render.yaml` — blueprint per deploy su Render (non applicato finche' non colleghi manualmente il repo su render.com)
+
+**Verificato prima del commit** (nel sandbox, non in produzione): import reale contro il codice vero del Core = OK; test funzionale end-to-end di `/api/simulate` con un grafo minimo sintetico (3 nodi, 1 agente, 50 tick) = OK, KPI e traiettoria generati correttamente. **Non testato**: `/api/analyze-topology` con un .glb reale (serve un file vero, non disponibile in questa sessione) — da verificare al primo utilizzo reale.
+
+**Per attivare (quando deciso)**:
+1. render.com -> New -> Blueprint -> collega il repo Raffaella23/Veritas-spatial-ai (legge `render.yaml` automaticamente)
+2. Scegli piano Starter (~7$/mese, sempre attivo) o Free per test (si addormenta dopo inattivita', 30-60s di risveglio — sconsigliato per demo a clienti)
+3. Copia l'URL pubblico assegnato da Render
+4. Da fare quando si attiva: aggiungere nel viewer HTML un campo "URL Core API" (impostazioni) che punta a quell'URL, e sostituire la generazione traiettoria/KPI lato client con una chiamata a `/api/simulate` quando configurato — non ancora fatto, e' il prossimo passo dopo l'attivazione.
+
+Prossimo lavoro con questo backend (deciso con la cliente): Fase 5-6 della roadmap (motore di raccomandazioni + revenue/decision report), verticale ancora da confermare tra aeroporti/musei/generico.
