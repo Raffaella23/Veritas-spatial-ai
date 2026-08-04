@@ -47,7 +47,7 @@
       hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
       marker_scale_label: "📐 Dimensione marker selezionato:",
       reanalyze_btn: "🤖 Rianalizza mesh", report_btn: "📊 Report struttura",
-      passenger_scale_label: "Scala passeggeri:", regen_btn: "↻ Rigenera simulazione",
+      passenger_scale_label: "Scala passeggeri:", autofollow_label: "Segui automaticamente il piano con più passeggeri", regen_btn: "↻ Rigenera simulazione",
       save_btn: "💾 Salva progetto", saving: "Salvataggio...", saved: "Salvato ✓", error_generic: "Errore ✕",
       confirm_reanalyze: "Questo sostituisce i punti attuali con una nuova analisi automatica della mesh. Continuare?",
       alert_load_glb_first: "Carica prima un modello .glb", alert_need_2_points: "Servono almeno 2 punti per generare un percorso.",
@@ -125,7 +125,7 @@
       hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
       marker_scale_label: "📐 Selected marker size:",
       reanalyze_btn: "🤖 Re-analyze mesh", report_btn: "📊 Structure report",
-      passenger_scale_label: "Passenger scale:", regen_btn: "↻ Regenerate simulation",
+      passenger_scale_label: "Passenger scale:", autofollow_label: "Auto-follow the busiest floor", regen_btn: "↻ Regenerate simulation",
       save_btn: "💾 Save project", saving: "Saving...", saved: "Saved ✓", error_generic: "Error ✕",
       confirm_reanalyze: "This replaces the current points with a new automatic mesh analysis. Continue?",
       alert_load_glb_first: "Load a .glb model first", alert_need_2_points: "You need at least 2 points to generate a path.",
@@ -1404,6 +1404,40 @@
     }
   }
 
+  // Auto-follow telecamera: segue la quota (altezza) media reale dei
+  // passeggeri attualmente animati, invece del compromesso statico sulla
+  // quota media dell'edificio. Utile su edifici multipiano dove i
+  // passeggeri ai piani lontani dalla media restano piccoli/fuori fuoco.
+  // Legge/scrive direttamente gli oggetti Three.js reali esposti dal bundle
+  // (window.__veritasCamera / __veritasControls / __veritasPassengerGroups):
+  // nessuna modifica al bundle minificato.
+  function startCameraAutoFollow() {
+    if (window.__veritasAutoFollowInterval) return;
+    window.__veritasAutoFollowInterval = setInterval(() => {
+      const groups = window.__veritasPassengerGroups;
+      const cam = window.__veritasCamera;
+      const controls = window.__veritasControls;
+      if (!groups || !cam || !controls) return;
+      let sumY = 0, count = 0;
+      groups.forEach((pg) => {
+        if (pg.group && pg.group.visible) { sumY += pg.group.position.y; count++; }
+      });
+      if (!count) return;
+      const avgY = sumY / count;
+      const camOffsetY = cam.position.y - controls.target.y;
+      controls.target.y += (avgY - controls.target.y) * 0.15;
+      cam.position.y += (avgY + camOffsetY - cam.position.y) * 0.15;
+      controls.update();
+    }, 300);
+  }
+
+  function stopCameraAutoFollow() {
+    if (window.__veritasAutoFollowInterval) {
+      clearInterval(window.__veritasAutoFollowInterval);
+      window.__veritasAutoFollowInterval = null;
+    }
+  }
+
   function applyNodesToScene() {
     const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
     if (!traj) return;
@@ -1490,6 +1524,9 @@
       <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">${t("passenger_scale_label")} <span id="vp-scale-val">1.0x</span></label>
       <input type="range" id="vp-scale" min="0.03" max="1.5" step="0.01" value="0.12" style="width:100%;margin-bottom:10px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#94a3b8;margin-bottom:10px;">
+        <input type="checkbox" id="vp-autofollow"> ${t("autofollow_label")}
+      </label>
       <button class="vp-btn primary" id="vp-regen">${t("regen_btn")}</button>
       <button class="vp-btn" id="vp-save">${t("save_btn")}</button>
     `;
@@ -1746,6 +1783,12 @@
       const groups = window.__veritasPassengerGroups;
       if (groups) groups.forEach((pg) => { if (pg.group) pg.group.scale.setScalar(v); });
     });
+
+    const autoFollowChk = panel.querySelector("#vp-autofollow");
+    autoFollowChk.onchange = () => {
+      if (autoFollowChk.checked) startCameraAutoFollow();
+      else stopCameraAutoFollow();
+    };
 
     panel.querySelector("#vp-regen").onclick = () => {
       if (currentNodes.length < 2) { alert(t("alert_need_2_points")); return; }
