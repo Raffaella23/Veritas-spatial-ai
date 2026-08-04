@@ -47,8 +47,16 @@ from pydantic import BaseModel
 
 from core.engine import SimulationEngine
 from core.topology_analyzer import TopologyAnalyzer
+from core.recommendations import generate_recommendations
 
 app = FastAPI(title="VERITAS Spatial AI - Core API", version="0.1.0")
+
+_BENCHMARKS_PATH = os.path.join(BASE_DIR, "benchmarks.json")
+try:
+    with open(_BENCHMARKS_PATH, "r") as _f:
+        REVENUE_BENCHMARKS = json.load(_f)
+except FileNotFoundError:
+    REVENUE_BENCHMARKS = {}
 
 # CORS aperto durante la preparazione/test. Prima di andare in produzione con
 # clienti reali, restringere allow_origins al dominio effettivo del viewer
@@ -153,6 +161,20 @@ def simulate(req: SimulateRequest):
     finally:
         if graph_path and os.path.exists(graph_path):
             os.unlink(graph_path)
+
+
+class RecommendationsRequest(BaseModel):
+    kpi: Dict[str, Any]
+    domain: str = "generic"
+
+
+@app.post("/api/recommendations")
+def recommendations(req: RecommendationsRequest):
+    try:
+        context = {"domain": req.domain, "revenue_benchmarks": REVENUE_BENCHMARKS}
+        return {"recommendations": generate_recommendations(req.kpi, context)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

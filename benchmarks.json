@@ -1,0 +1,17 @@
+{
+  "airport": {
+    "avg_spend_per_passenger_airside_eur": 11.00,
+    "source": "SEA Group (Milan Airports) 2024-2025 Market Report",
+    "spend_per_extra_dwell_minute_eur": 0.25,
+    "source_2": "stima",
+    "notes": "Valore airside per hub europei medio-grandi; incremento/minuto extra e' stima da elasticita' retail (report ACI/Malpensa)."
+  },
+  "museum": {
+    "avg_hourly_capacity_before_overcrowding": 200.0,
+    "source": "stima",
+    "avg_ticket_price_eur": 11.97,
+    "shop_spend_conversion_pct": 25.0,
+    "source_2": "Association for Cultural Enterprises / Museum Retail Benchmarks",
+    "notes": "Capacita' oraria stimata per musei ~2000mq espositivi; prezzo medio da analisi musei d'arte europei."
+  }
+}
