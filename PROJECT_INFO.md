@@ -266,3 +266,13 @@ Cosa fa: calcola KPI REALI dalla traiettoria della simulazione client-side corre
 **Dichiarato onestamente nell'interfaccia stessa** (stringa `rep_disclaimer` in IT/EN): calcolato dalla simulazione corrente nel browser, non ancora il motore Python completo. La compliance (`violazioni_compliance`) e' lasciata `null` invece di inventare "0 violazioni", perche' la vera validazione accessibilita' esiste solo in `compliance.py` (Core Python, non attivo).
 
 Nota per la cliente: i due motori di raccomandazione (Python in `Assets/core/recommendations.py` e questa copia JS) hanno le stesse soglie ma sono due file separati — se si cambia una logica, va aggiornata in entrambi finche' il backend non sostituisce la versione JS.
+
+---
+
+## 14. Auto-follow telecamera multipiano (commit 3e44c19)
+
+Segnalato dalla cliente con screenshot: su edifici multipiano doveva alzare la scala passeggeri (fino a 0.29x) come workaround perche' la telecamera Global (fix precedente in 0c1194b) usa la quota MEDIA STATICA di tutti i nodi, quindi ai piani lontani dalla media i passeggeri restano piccoli/fuori fuoco.
+
+Scoperto durante l'indagine: `window.__veritasCamera`, `window.__veritasControls` (OrbitControls) e `window.__veritasPassengerGroups` (Map agentId -> {group: THREE.Group con posizione live aggiornata dal render loop ad ogni frame) sono gia' esposti come globali reali dal bundle minificato — quindi e' stato possibile implementare l'auto-follow **restando nello script boot, senza toccare il bundle**.
+
+Nuovo checkbox "Segui automaticamente il piano con più passeggeri" nel pannello Punti (sotto lo slider scala passeggeri). Se attivo: ogni 300ms calcola la quota Y media reale dei gruppi passeggeri attualmente visibili e sposta dolcemente (lerp) camera + target dell'OrbitControls verso quella quota, mantenendo la distanza verticale camera-target esistente (non cambia lo zoom/angolazione, solo l'altezza inseguita). Se disattivato, torna al comportamento precedente (quota media statica).
