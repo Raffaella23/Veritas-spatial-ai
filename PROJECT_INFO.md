@@ -276,3 +276,15 @@ Segnalato dalla cliente con screenshot: su edifici multipiano doveva alzare la s
 Scoperto durante l'indagine: `window.__veritasCamera`, `window.__veritasControls` (OrbitControls) e `window.__veritasPassengerGroups` (Map agentId -> {group: THREE.Group con posizione live aggiornata dal render loop ad ogni frame) sono gia' esposti come globali reali dal bundle minificato — quindi e' stato possibile implementare l'auto-follow **restando nello script boot, senza toccare il bundle**.
 
 Nuovo checkbox "Segui automaticamente il piano con più passeggeri" nel pannello Punti (sotto lo slider scala passeggeri). Se attivo: ogni 300ms calcola la quota Y media reale dei gruppi passeggeri attualmente visibili e sposta dolcemente (lerp) camera + target dell'OrbitControls verso quella quota, mantenendo la distanza verticale camera-target esistente (non cambia lo zoom/angolazione, solo l'altezza inseguita). Se disattivato, torna al comportamento precedente (quota media statica).
+
+---
+
+## 15. Sessione realismo — velocita' corretta, altri 3 punti ancora aperti (commit 0dcdd47)
+
+**FATTO**: velocita' passeggeri troppo veloce. Causa trovata: moltiplicatore fisso `×2.2` sulla velocita' di ogni agente (probabile residuo di tuning animazione). Corretto a `×1.0` (obiettivo esplicito Fase 1 della roadmap: "2.2 -> 1.0"), configurabile via `window.__veritasSpeedMultiplier` per eventuali preset futuri (Real Time/Review/Stress Test, Fase 1). Compensato aumentando la durata di default della simulazione da 361 a 800 frame (~180s -> ~400s), altrimenti con passi piu' lenti gli agenti non completavano il percorso nella finestra visibile. Corretto anche un bug collegato: la durata mostrata nell'interfaccia era hardcoded a 180s invece di calcolarsi dal numero di frame reale.
+
+**Segnalati dalla cliente nella stessa sessione, ANCORA DA FARE** (troppo grandi per essere improvvisati, serve scoping dedicato):
+1. **Sedia a rotelle non rappresentata**: confermato, non esiste nessun archetipo "mobilita' ridotta" — l'elenco attuale e' solo business/famiglia/tourist/senior/student/crew/vip. Va aggiunto un nuovo archetipo + una rappresentazione visiva diversa (la carrozzina non e' un semplice colore diverso, serve geometria/mesh dedicata).
+2. **Evidenziare strettoie e pendenze sul modello**: nuova funzionalita' di analisi/overlay visivo, non ancora scoping-ata.
+3. **Percorsi troppo meccanici, poca aderenza alla mesh reale**: la cliente vuole "il massimo grado di precisione" nel seguire il percorso — probabilmente serve aumentare la densita' di waypoint nel routing (oggi segmenti abbastanza diretti tra nodi trunk/gate con solo wobble/meandro estetico aggiunto in sessione precedente, non vera aderenza geometrica alla mesh).
+4. **Bug spawn "scendono dall'aereo"**: sospetto (non confermato) che sia un effetto collaterale dello spawn multiplo aggiunto in sessione precedente — se nel progetto esiste un secondo nodo tipo "spawn" auto-rilevato vicino all'aereo, ora viene usato anche quello. Chiesto alla cliente di controllare/cancellare eventuali punti duplicati nel pannello Punti prima di investigare oltre.
