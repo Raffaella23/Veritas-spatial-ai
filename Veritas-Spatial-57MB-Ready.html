@@ -776,7 +776,11 @@
   }
 
   function generateTrajectory(nodes) {
-    const totalFrames = window.__veritasTotalFrames || 361, agentCount = window.__veritasAgentCount || 28;
+    // durata aumentata da 361 a 800 frame (~180s -> ~400s) per compensare la
+    // velocita' ridotta a realistica: altrimenti con passi piu' lenti gli
+    // agenti non farebbero in tempo a completare il percorso nella finestra
+    // di simulazione
+    const totalFrames = window.__veritasTotalFrames || 800, agentCount = window.__veritasAgentCount || 28;
     const TYPE_ORDER = ["checkin", "security", "lounge"];
     const trunk = [];
     for (const ty of TYPE_ORDER) { const n = nodes.find((nd) => nd.type === ty); if (n) trunk.push(n); }
@@ -884,7 +888,9 @@
         const { path, segLen, totalLen, securityAt } = ag;
         if (totalLen <= 0 || path.length < 2) continue;
         let state = "MOVING";
-        let dist = elapsed * ag.speed * 2.2;
+        // velocita' realistica (Fase 1 roadmap: 2.2 -> 1.0). Configurabile per
+        // eventuali preset "Real Time / Review / Stress Test" futuri.
+        let dist = elapsed * ag.speed * (window.__veritasSpeedMultiplier || 1.0);
         if (securityAt !== null) {
           if (dist > securityAt && dist < securityAt + ag.waitAtControl * ag.speed * 0.5) { state = "WAITING"; dist = securityAt; }
           else if (dist > securityAt && state !== "WAITING") dist += ag.waitAtControl * ag.speed * 0.2;
@@ -939,7 +945,7 @@
       resolveOverlaps(frameAgents);
       frames.push({ t, agents: frameAgents });
     }
-    return { nodes, frames, duration: 180 };
+    return { nodes, frames, duration: totalFrames * 0.5 };
   }
 
 
