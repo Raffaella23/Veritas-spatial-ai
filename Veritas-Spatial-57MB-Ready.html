@@ -45,7 +45,7 @@
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
       place_new_btn: "📍 Posiziona nuovo punto", place_move_prefix: "🎯 Clicca sul pavimento per spostare: ",
       hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
-      marker_scale_label: "📐 Larghezza marker (X):", marker_depth_label: "📐 Profondità marker (Z):", pillar_height_label: "📏 Altezza pillar:",
+      marker_scale_label: "📐 Larghezza marker (X):", marker_depth_label: "📐 Profondità marker (Z):", pillar_height_label: "📏 Altezza pillar:", y_offset_label: "↕️ Regola quota (Y):", y_offset_hint: "Corregge manualmente l'altezza se il rilevamento automatico del piano sbaglia leggermente.",
       reanalyze_btn: "🤖 Rianalizza mesh", report_btn: "📊 Report struttura",
       passenger_scale_label: "Scala passeggeri:", autofollow_label: "Segui automaticamente il piano con più passeggeri", warn_dup_spawn: "Più punti di ingresso dello stesso tipo: i passeggeri si distribuiscono su tutti, controlla se sono voluti", regen_btn: "↻ Rigenera simulazione",
       save_btn: "💾 Salva progetto", saving: "Salvataggio...", saved: "Salvato ✓", error_generic: "Errore ✕",
@@ -124,7 +124,7 @@
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
       place_new_btn: "📍 Place new point", place_move_prefix: "🎯 Click the floor to move: ",
       hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
-      marker_scale_label: "📐 Marker width (X):", marker_depth_label: "📐 Marker depth (Z):", pillar_height_label: "📏 Pillar height:",
+      marker_scale_label: "📐 Marker width (X):", marker_depth_label: "📐 Marker depth (Z):", pillar_height_label: "📏 Pillar height:", y_offset_label: "↕️ Adjust height (Y):", y_offset_hint: "Manually correct the height if automatic floor detection is slightly off.",
       reanalyze_btn: "🤖 Re-analyze mesh", report_btn: "📊 Structure report",
       passenger_scale_label: "Passenger scale:", autofollow_label: "Auto-follow the busiest floor", warn_dup_spawn: "Multiple entry points of the same type: passengers spread across all of them, check if intended", regen_btn: "↻ Regenerate simulation",
       save_btn: "💾 Save project", saving: "Saving...", saved: "Saved ✓", error_generic: "Error ✕",
@@ -1432,7 +1432,10 @@
     if (!node) return;
     const factor = node.scale || 1;           // larghezza (asse X)
     const factorZ = node.scaleZ != null ? node.scaleZ : factor; // profondita' (asse Z), indipendente - default = larghezza per compatibilita' con progetti salvati prima di questa funzionalita'
-    const floorY = node.pos[1] || 0; // quota del piano su cui si trova il punto
+    // quota del piano su cui si trova il punto + eventuale correzione manuale
+    // in verticale (utile quando il rilevamento automatico del piano sbaglia
+    // di poco, invece di dover rimettere il punto da capo)
+    const floorY = (node.pos[1] || 0) + (node.yOffset || 0);
     const box = grp.children[index * 3], ring = grp.children[index * 3 + 1], sprite = grp.children[index * 3 + 2];
     const baseH = (box && box.geometry && box.geometry.parameters && box.geometry.parameters.height) || TYPE_BASE_HEIGHT[node.type] || 2;
     // altezza effettiva del pillar: se impostata esplicitamente in metri
@@ -1444,7 +1447,14 @@
     const scaleY = baseH ? pillarH / baseH : factor;
     if (box) { box.scale.set(factor, scaleY, factorZ); box.position.y = floorY + pillarH / 2; }
     if (ring) { ring.scale.set(factor, factorZ, 1); ring.position.y = floorY + 0.02; }
-    if (sprite) { sprite.scale.set(6 * factor, 1.5 * factor, 1); sprite.position.y = floorY + pillarH + 1.2; }
+    // dimensione del testo indipendente da larghezza/profondita' del pillar
+    // (prima scalava linearmente con "factor" - un pillar reso largo per
+    // seguire una strettoia reale produceva un'etichetta enorme che copriva
+    // meta' schermo, confermato da un video della cliente). Resta comunque
+    // leggermente proporzionale all'altezza del pillar, che e' gia' in metri
+    // assoluti e quindi un riferimento di scala piu' sensato.
+    const labelScale = Math.max(0.6, Math.min(2, pillarH / 1.7));
+    if (sprite) { sprite.scale.set(6 * labelScale, 1.5 * labelScale, 1); sprite.position.y = floorY + pillarH + 1.2; }
   }
 
   const CAMERA_OFFSETS = {
@@ -1609,6 +1619,11 @@
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("pillar_height_label")} <span id="vp-pillar-height-val">1.7</span>m</label>
         <input type="range" id="vp-pillar-height" min="0.1" max="3" step="0.1" value="1.7" style="width:100%;">
       </div>
+      <div style="margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("y_offset_label")} <span id="vp-y-offset-val">0.0</span>m</label>
+        <input type="range" id="vp-y-offset" min="-3" max="3" step="0.1" value="0" style="width:100%;">
+        <p class="v-hint">${t("y_offset_hint")}</p>
+      </div>
       <button class="vp-btn" id="vp-reanalyze">${t("reanalyze_btn")}</button>
       <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">${t("passenger_scale_label")} <span id="vp-scale-val">1.0x</span></label>
@@ -1751,6 +1766,9 @@
       val.textContent = s.toFixed(2) + "x";
       const sZ = currentNodes[selectedIndex].scaleZ != null ? currentNodes[selectedIndex].scaleZ : s;
       if (sliderZ) { sliderZ.value = sZ; valZ.textContent = sZ.toFixed(2) + "x"; }
+      const yOff = currentNodes[selectedIndex].yOffset || 0;
+      const yOffSlider = panel.querySelector("#vp-y-offset"), yOffVal = panel.querySelector("#vp-y-offset-val");
+      if (yOffSlider) { yOffSlider.value = yOff; yOffVal.textContent = yOff.toFixed(1); }
     }
 
     function renderList() {
@@ -1824,6 +1842,14 @@
       panel.querySelector("#vp-pillar-height-val").textContent = window.__veritasPillarHeightM.toFixed(1);
       // riapplica a TUTTI i pillar esistenti, non solo a quello selezionato
       currentNodes.forEach((n, i) => applyMarkerScale(i));
+    });
+
+    panel.querySelector("#vp-y-offset").addEventListener("input", (e) => {
+      if (selectedIndex === null || !currentNodes[selectedIndex]) return;
+      const v = parseFloat(e.target.value);
+      currentNodes[selectedIndex].yOffset = v;
+      panel.querySelector("#vp-y-offset-val").textContent = v.toFixed(1);
+      applyMarkerScale(selectedIndex);
     });
 
     function waitForSceneRefs() {
