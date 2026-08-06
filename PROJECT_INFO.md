@@ -317,3 +317,17 @@ E' arrivato un "prompt completo" preparato da una terza persona con l'aiuto di u
 **FATTO anche**: nuovo slider "Altezza pillar (m)" (0.1-3m, default 1.7) nel pannello Punti, sotto "Dimensione marker" — controlla l'altezza reale in metri dei pillar (prima l'altezza dipendeva solo da un fattore di scala generico legato al tipo di punto, non impostabile in modo assoluto/leggibile).
 
 **NON FATTO — mesh sedia a rotelle**: confermato di nuovo (vedi anche sezione 16) che serve accesso al bundle minificato/sorgente React, non allo script boot. Task gia' inviato altrove (COMPITO 4, vedi conversazione) per essere fatto da chi ha la sorgente non minificata.
+
+---
+
+## 18. Aderenza mesh reale, pillar rettangolari, velocita' leggibile (commit 120033b) + visione strategica cliente
+
+**FATTO — passeggeri che "fluttuano"/non aderiscono alla mesh**: causa trovata: la quota Y durante il movimento era pura interpolazione lineare tra due waypoint del percorso (nessun controllo della mesh reale sotto i piedi) — su rampe/dislivelli/cambi di piano questo produce un "volo" in diagonale invece di seguire il pavimento vero. Fix: ogni punto intermedio del percorso ora cerca il campione di mesh reale piu' vicino (gia' estratto da `extractNavigablePoints`, la stessa fonte usata per il fix dei marker) e usa la SUA quota Y reale se trovato entro 2.5m, altrimenti resta l'interpolazione lineare come fallback. Non e' ancora vero raycasting contro la geometria (richiederebbe THREE.js, non disponibile nello script boot), ma e' un netto miglioramento perche' sfrutta dati gia' campionati dalla mesh vera invece di ignorarla.
+
+**FATTO — pillar rettangolari**: prima larghezza e profondita' erano legate allo stesso fattore di scala (marker sempre "quadrati"). Ora `node.scale` (larghezza, asse X) e il nuovo `node.scaleZ` (profondita', asse Z) sono indipendenti, con nuovo slider "Profondità marker" nel pannello Punti. Compatibile con i progetti gia' salvati (se `scaleZ` non e' impostato, usa lo stesso valore di `scale` come prima).
+
+**FATTO — velocita' leggibile**: nuovo slider "Velocità di lettura" nella schermata impostazioni pre-avvio (0.3x-1.5x, default 0.6x per una demo piu' leggibile — 1.0x resta il passo realistico della Fase 1 roadmap). Usa il moltiplicatore `window.__veritasSpeedMultiplier` gia' predisposto in sessione precedente, ora davvero controllabile dall'utente invece che solo hardcoded nel default.
+
+**Verificato prompt esterno preparato da terzi con altra AI (vedi sezione 17)**: buona parte non corrispondeva al codice reale (funzioni inventate, uso di THREE.js dove non disponibile). Non eseguito alla lettera, sostituito con fix reali basati sul codice effettivo.
+
+**Visione strategica dichiarata dalla cliente (non ancora lavoro attivo, da tenere presente)**: l'obiettivo finale non e' solo "passeggeri che camminano bene", ma agenti realmente intelligenti che comprendono lo spazio (non solo seguono waypoint), configurabilita' massima dello spazio, ed **eventualmente agenti capaci di compiere azioni nel mondo virtuale** (ispirato a qualcosa visto su AI agents in VR) — esplicitamente collegato al modulo gaming che la cliente sta sviluppando in parallelo (vedi [[icebreaker-vr]], [[relic-quest]]). Nessun lavoro concreto ancora richiesto su questo punto, e' una direzione a lungo termine da tenere a mente per le prossime decisioni architetturali (es. quanto investire nel Core Python vs euristiche JS).
