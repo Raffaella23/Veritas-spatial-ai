@@ -45,7 +45,7 @@
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
       place_new_btn: "📍 Posiziona nuovo punto", place_move_prefix: "🎯 Clicca sul pavimento per spostare: ",
       hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
-      marker_scale_label: "📐 Dimensione marker selezionato:",
+      marker_scale_label: "📐 Dimensione marker selezionato:", pillar_height_label: "📏 Altezza pillar:",
       reanalyze_btn: "🤖 Rianalizza mesh", report_btn: "📊 Report struttura",
       passenger_scale_label: "Scala passeggeri:", autofollow_label: "Segui automaticamente il piano con più passeggeri", warn_dup_spawn: "Più punti di ingresso dello stesso tipo: i passeggeri si distribuiscono su tutti, controlla se sono voluti", regen_btn: "↻ Rigenera simulazione",
       save_btn: "💾 Salva progetto", saving: "Salvataggio...", saved: "Salvato ✓", error_generic: "Errore ✕",
@@ -123,7 +123,7 @@
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
       place_new_btn: "📍 Place new point", place_move_prefix: "🎯 Click the floor to move: ",
       hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
-      marker_scale_label: "📐 Selected marker size:",
+      marker_scale_label: "📐 Selected marker size:", pillar_height_label: "📏 Pillar height:",
       reanalyze_btn: "🤖 Re-analyze mesh", report_btn: "📊 Structure report",
       passenger_scale_label: "Passenger scale:", autofollow_label: "Auto-follow the busiest floor", warn_dup_spawn: "Multiple entry points of the same type: passengers spread across all of them, check if intended", regen_btn: "↻ Regenerate simulation",
       save_btn: "💾 Save project", saving: "Saving...", saved: "Saved ✓", error_generic: "Error ✕",
@@ -1362,6 +1362,14 @@
         applyNodesToScene();
         if (panelBuilt) renderListRef && renderListRef();
       }
+    } else {
+      // progetto con punti gia' salvati: non rieseguire analyzeMesh() (ricreerebbe
+      // i nodi da zero), ma i livelli pavimento vanno comunque calcolati subito,
+      // altrimenti restano a [0] e ogni nuovo marker cade a terra invece che
+      // sul piano corretto finche' non si preme manualmente "Rianalizza mesh".
+      const extraction = extractNavigablePoints(modelRoot);
+      lastNavigablePoints = extraction.points;
+      lastFloorLevels = detectFloorLevels(extraction.points);
     }
   };
 
@@ -1388,9 +1396,16 @@
     const floorY = node.pos[1] || 0; // quota del piano su cui si trova il punto
     const box = grp.children[index * 3], ring = grp.children[index * 3 + 1], sprite = grp.children[index * 3 + 2];
     const baseH = (box && box.geometry && box.geometry.parameters && box.geometry.parameters.height) || TYPE_BASE_HEIGHT[node.type] || 2;
-    if (box) { box.scale.set(factor, factor, factor); box.position.y = floorY + (baseH * factor) / 2; }
+    // altezza effettiva del pillar: se impostata esplicitamente in metri
+    // (window.__veritasPillarHeightM) quella vince sul fattore di scala
+    // generico, cosi' l'altezza e' un valore assoluto leggibile (es. "1.7m")
+    // invece di dipendere dall'altezza base per-tipo che varia (gate 3.5,
+    // security 2.2, ecc.)
+    const pillarH = window.__veritasPillarHeightM != null ? window.__veritasPillarHeightM : baseH * factor;
+    const scaleY = baseH ? pillarH / baseH : factor;
+    if (box) { box.scale.set(factor, scaleY, factor); box.position.y = floorY + pillarH / 2; }
     if (ring) { ring.scale.set(factor, factor, 1); ring.position.y = floorY + 0.02; }
-    if (sprite) { sprite.scale.set(6 * factor, 1.5 * factor, 1); sprite.position.y = floorY + baseH * factor + 1.2; }
+    if (sprite) { sprite.scale.set(6 * factor, 1.5 * factor, 1); sprite.position.y = floorY + pillarH + 1.2; }
   }
 
   const CAMERA_OFFSETS = {
@@ -1548,6 +1563,10 @@
       <div id="vp-scale-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("marker_scale_label")} <span id="vp-marker-scale-val">1.0x</span></label>
         <input type="range" id="vp-marker-scale" min="0.05" max="6" step="0.05" value="1" style="width:100%;">
+      </div>
+      <div style="margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("pillar_height_label")} <span id="vp-pillar-height-val">1.7</span>m</label>
+        <input type="range" id="vp-pillar-height" min="0.1" max="3" step="0.1" value="1.7" style="width:100%;">
       </div>
       <button class="vp-btn" id="vp-reanalyze">${t("reanalyze_btn")}</button>
       <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
@@ -1744,6 +1763,14 @@
       currentNodes[selectedIndex].scale = v;
       panel.querySelector("#vp-marker-scale-val").textContent = v.toFixed(2) + "x";
       applyMarkerScale(selectedIndex);
+    });
+
+    window.__veritasPillarHeightM = 1.7;
+    panel.querySelector("#vp-pillar-height").addEventListener("input", (e) => {
+      window.__veritasPillarHeightM = parseFloat(e.target.value);
+      panel.querySelector("#vp-pillar-height-val").textContent = window.__veritasPillarHeightM.toFixed(1);
+      // riapplica a TUTTI i pillar esistenti, non solo a quello selezionato
+      currentNodes.forEach((n, i) => applyMarkerScale(i));
     });
 
     function waitForSceneRefs() {
