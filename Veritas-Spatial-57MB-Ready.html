@@ -45,7 +45,7 @@
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
       place_new_btn: "📍 Posiziona nuovo punto", place_move_prefix: "🎯 Clicca sul pavimento per spostare: ",
       hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
-      marker_scale_label: "📐 Dimensione marker selezionato:", pillar_height_label: "📏 Altezza pillar:",
+      marker_scale_label: "📐 Larghezza marker (X):", marker_depth_label: "📐 Profondità marker (Z):", pillar_height_label: "📏 Altezza pillar:",
       reanalyze_btn: "🤖 Rianalizza mesh", report_btn: "📊 Report struttura",
       passenger_scale_label: "Scala passeggeri:", autofollow_label: "Segui automaticamente il piano con più passeggeri", warn_dup_spawn: "Più punti di ingresso dello stesso tipo: i passeggeri si distribuiscono su tutti, controlla se sono voluti", regen_btn: "↻ Rigenera simulazione",
       save_btn: "💾 Salva progetto", saving: "Salvataggio...", saved: "Salvato ✓", error_generic: "Errore ✕",
@@ -68,6 +68,7 @@
       settings_scale_label: "Scala passeggeri",
       settings_agents_label: "Numero passeggeri",
       settings_start_btn: "▶ Avvia simulazione",
+      settings_speed_label: "Velocità di lettura", settings_speed_hint: "1.0x = passo realistico. Valori più bassi rallentano tutto per renderlo più leggibile in una presentazione.",
       settings_opensky_btn: "🛰 Stima da traffico aereo reale (Fiumicino)",
       settings_opensky_hint: "Stima approssimativa basata sui voli in arrivo a Fiumicino (dati OpenSky Network, aggiornati a batch — non in tempo reale, non sono dati ufficiali sui passeggeri). Richiede un client OpenSky gratuito.",
       settings_opensky_need_creds: "Inserisci Client ID e Client Secret OpenSky (gratuiti, restano solo nel tuo browser) per usare questa stima.",
@@ -123,7 +124,7 @@
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
       place_new_btn: "📍 Place new point", place_move_prefix: "🎯 Click the floor to move: ",
       hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
-      marker_scale_label: "📐 Selected marker size:", pillar_height_label: "📏 Pillar height:",
+      marker_scale_label: "📐 Marker width (X):", marker_depth_label: "📐 Marker depth (Z):", pillar_height_label: "📏 Pillar height:",
       reanalyze_btn: "🤖 Re-analyze mesh", report_btn: "📊 Structure report",
       passenger_scale_label: "Passenger scale:", autofollow_label: "Auto-follow the busiest floor", warn_dup_spawn: "Multiple entry points of the same type: passengers spread across all of them, check if intended", regen_btn: "↻ Regenerate simulation",
       save_btn: "💾 Save project", saving: "Saving...", saved: "Saved ✓", error_generic: "Error ✕",
@@ -146,6 +147,7 @@
       settings_scale_label: "Passenger scale",
       settings_agents_label: "Number of passengers",
       settings_start_btn: "▶ Start simulation",
+      settings_speed_label: "Playback speed", settings_speed_hint: "1.0x = realistic pace. Lower values slow everything down for a more readable presentation.",
       settings_opensky_btn: "🛰 Estimate from real air traffic (Fiumicino)",
       settings_opensky_hint: "Rough estimate based on flights arriving at Fiumicino (OpenSky Network data, batch-updated — not real-time, not official passenger figures). Requires a free OpenSky client.",
       settings_opensky_need_creds: "Enter your OpenSky Client ID and Client Secret (free, stays only in your browser) to use this estimate.",
@@ -422,6 +424,11 @@
         <label>${t("settings_agents_label")}: <span id="vs-agents-val"></span></label>
         <input type="range" id="vs-agents" min="6" max="60" step="1" style="width:100%;">
       </div>
+      <div class="v-field">
+        <label>${t("settings_speed_label")}: <span id="vs-speed-val"></span></label>
+        <input type="range" id="vs-speed" min="0.3" max="1.5" step="0.05" style="width:100%;">
+        <p class="v-hint">${t("settings_speed_hint")}</p>
+      </div>
       <div class="v-field" id="vs-opensky-block">
         <button class="v-btn" id="vs-opensky-btn" type="button" style="width:100%;">${t("settings_opensky_btn")}</button>
         <p class="v-hint">${t("settings_opensky_hint")}</p>
@@ -447,6 +454,17 @@
       agentsVal.textContent = agentsInput.value;
     });
 
+    // velocita' di lettura della simulazione: 1.0 = passo realistico (Fase 1
+    // roadmap), valori piu' bassi rallentano tutto per renderlo piu'
+    // leggibile in una demo/presentazione, senza dover ritoccare il codice
+    const speedInput = card.querySelector("#vs-speed");
+    const speedVal = card.querySelector("#vs-speed-val");
+    speedInput.value = window.__veritasSpeedMultiplier || 0.6;
+    speedVal.textContent = parseFloat(speedInput.value).toFixed(2) + "x";
+    speedInput.addEventListener("input", () => {
+      speedVal.textContent = parseFloat(speedInput.value).toFixed(2) + "x";
+    });
+
     const openskyStatus = card.querySelector("#vs-opensky-status");
     card.querySelector("#vs-opensky-btn").onclick = async () => {
       await runOpenSkyEstimate(openskyStatus, agentsInput, agentsVal);
@@ -455,6 +473,7 @@
     card.querySelector("#vs-start-btn").onclick = () => {
       window.__veritasPassengerScale = parseFloat(scaleInput.value);
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
+      window.__veritasSpeedMultiplier = parseFloat(speedInput.value);
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
@@ -800,18 +819,37 @@
     // Espande una sequenza di nodi in un percorso reale, inserendo waypoint
     // intermedi (dalle zone rilevate) dove la linea diretta non e "libera" —
     // cosi gli agenti girano attorno agli ostacoli invece di attraversarli.
+    function realFloorYNear(x, z, maxRadius) {
+      // cerca il campione di mesh reale (gia' estratto da extractNavigablePoints)
+      // piu' vicino a (x,z): se trovato entro maxRadius, la sua quota Y e'
+      // molto piu' affidabile di una semplice interpolazione lineare tra due
+      // waypoint lontani, specialmente su rampe/dislivelli/cambi di piano.
+      if (!lastNavigablePoints || !lastNavigablePoints.length) return null;
+      let best = null, bestD = maxRadius;
+      for (const p of lastNavigablePoints) {
+        const d = Math.hypot(p[0] - x, p[2] - z);
+        if (d < bestD) { bestD = d; best = p[1]; }
+      }
+      return best;
+    }
+
     function densifySegment(from, to, maxSegLen) {
-      // suddivide un tratto rettilineo in piu' punti intermedi (interpolazione
-      // lineare sulla quota reale, incluso il dislivello) cosi' non resta un
-      // unico salto lungo e "meccanico": il movimento organico gia' esistente
-      // (easedT/serpeggio/meandro) ha piu' segmenti brevi su cui agire.
+      // suddivide un tratto rettilineo in piu' punti intermedi cosi' non resta
+      // un unico salto lungo e "meccanico": il movimento organico gia'
+      // esistente (easedT/serpeggio/meandro) ha piu' segmenti brevi su cui
+      // agire. La quota Y di ogni punto intermedio preferisce il campione di
+      // mesh reale piu' vicino (vedi realFloorYNear) invece della sola
+      // interpolazione lineare, per aderire davvero al pavimento/rampe reali.
       const dx = to[0] - from[0], dy = (to[1] || 0) - (from[1] || 0), dz = to[2] - from[2];
       const len = Math.hypot(dx, dz);
       const steps = Math.max(1, Math.ceil(len / maxSegLen));
       const pts = [];
       for (let k = 1; k <= steps; k++) {
         const tt = k / steps;
-        pts.push([from[0] + dx * tt, (from[1] || 0) + dy * tt, from[2] + dz * tt]);
+        const ix = from[0] + dx * tt, iz = from[2] + dz * tt;
+        const linearY = (from[1] || 0) + dy * tt;
+        const realY = realFloorYNear(ix, iz, 2.5);
+        pts.push([ix, realY != null ? realY : linearY, iz]);
       }
       return pts;
     }
@@ -1392,7 +1430,8 @@
     if (!grp) return;
     const node = currentNodes[index];
     if (!node) return;
-    const factor = node.scale || 1;
+    const factor = node.scale || 1;           // larghezza (asse X)
+    const factorZ = node.scaleZ != null ? node.scaleZ : factor; // profondita' (asse Z), indipendente - default = larghezza per compatibilita' con progetti salvati prima di questa funzionalita'
     const floorY = node.pos[1] || 0; // quota del piano su cui si trova il punto
     const box = grp.children[index * 3], ring = grp.children[index * 3 + 1], sprite = grp.children[index * 3 + 2];
     const baseH = (box && box.geometry && box.geometry.parameters && box.geometry.parameters.height) || TYPE_BASE_HEIGHT[node.type] || 2;
@@ -1403,8 +1442,8 @@
     // security 2.2, ecc.)
     const pillarH = window.__veritasPillarHeightM != null ? window.__veritasPillarHeightM : baseH * factor;
     const scaleY = baseH ? pillarH / baseH : factor;
-    if (box) { box.scale.set(factor, scaleY, factor); box.position.y = floorY + pillarH / 2; }
-    if (ring) { ring.scale.set(factor, factor, 1); ring.position.y = floorY + 0.02; }
+    if (box) { box.scale.set(factor, scaleY, factorZ); box.position.y = floorY + pillarH / 2; }
+    if (ring) { ring.scale.set(factor, factorZ, 1); ring.position.y = floorY + 0.02; }
     if (sprite) { sprite.scale.set(6 * factor, 1.5 * factor, 1); sprite.position.y = floorY + pillarH + 1.2; }
   }
 
@@ -1563,6 +1602,8 @@
       <div id="vp-scale-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("marker_scale_label")} <span id="vp-marker-scale-val">1.0x</span></label>
         <input type="range" id="vp-marker-scale" min="0.05" max="6" step="0.05" value="1" style="width:100%;">
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin:6px 0 4px;">${t("marker_depth_label")} <span id="vp-marker-depth-val">1.0x</span></label>
+        <input type="range" id="vp-marker-depth" min="0.05" max="6" step="0.05" value="1" style="width:100%;">
       </div>
       <div style="margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("pillar_height_label")} <span id="vp-pillar-height-val">1.7</span>m</label>
@@ -1698,6 +1739,8 @@
       const box = panel.querySelector("#vp-scale-control");
       const slider = panel.querySelector("#vp-marker-scale");
       const val = panel.querySelector("#vp-marker-scale-val");
+      const sliderZ = panel.querySelector("#vp-marker-depth");
+      const valZ = panel.querySelector("#vp-marker-depth-val");
       if (selectedIndex === null || !currentNodes[selectedIndex]) {
         box.style.display = "none";
         return;
@@ -1706,6 +1749,8 @@
       const s = currentNodes[selectedIndex].scale || 1;
       slider.value = s;
       val.textContent = s.toFixed(2) + "x";
+      const sZ = currentNodes[selectedIndex].scaleZ != null ? currentNodes[selectedIndex].scaleZ : s;
+      if (sliderZ) { sliderZ.value = sZ; valZ.textContent = sZ.toFixed(2) + "x"; }
     }
 
     function renderList() {
@@ -1762,6 +1807,14 @@
       const v = parseFloat(e.target.value);
       currentNodes[selectedIndex].scale = v;
       panel.querySelector("#vp-marker-scale-val").textContent = v.toFixed(2) + "x";
+      applyMarkerScale(selectedIndex);
+    });
+
+    panel.querySelector("#vp-marker-depth").addEventListener("input", (e) => {
+      if (selectedIndex === null || !currentNodes[selectedIndex]) return;
+      const v = parseFloat(e.target.value);
+      currentNodes[selectedIndex].scaleZ = v;
+      panel.querySelector("#vp-marker-depth-val").textContent = v.toFixed(2) + "x";
       applyMarkerScale(selectedIndex);
     });
 
