@@ -29,6 +29,15 @@
 (function () {
   "use strict";
 
+  // Backend Core Python reale (Render, piano gratuito) - simulazione fisica
+  // vera (Social Force Model, pathfinding su navmesh) al posto del solo
+  // generatore JS. Se il servizio dorme (inattivita'), la prima richiesta
+  // impiega 30-60s a risvegliarlo; in quel caso si ricade automaticamente
+  // sul generatore JS locale (vedi veritasTryBackendSimulate piu' sotto).
+  if (!window.__veritasApiBase) {
+    window.__veritasApiBase = "https://veritas-core-api-7g2x.onrender.com";
+  }
+
   const SUPABASE_URL = "https://neeykmvfwwjpdpbcqcdm.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_C5R-fyvf7NKa-Zg2jtH8jA_lckexRNC";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
