@@ -1896,10 +1896,77 @@
     }
   }
 
-  function applyNodesToScene() {
+  // --- Bridge Core Python (opzionale, con fallback automatico) ---
+  // window.__veritasApiBase va impostato (es. dalle impostazioni) con l'URL
+  // pubblico del backend Render, es. "https://veritas-core-api-7g2x.onrender.com".
+  // Se non impostato, o se il backend non risponde, si torna silenziosamente
+  // al generatore JS locale: nessun comportamento esistente cambia.
+  function veritasNodesToGraph(nodes) {
+    const out = { nodes: {}, mission_profiles: {} };
+    const order = [];
+    nodes.forEach((n, i) => {
+      const id = n.id || ("node_" + i);
+      out.nodes[id] = { pos: n.pos, meta: { type: n.type, label: n.label } };
+      order.push(id);
+    });
+    // MVP: un unico percorso condiviso, nell'ordine attuale dei nodi (come il
+    // fallback "nessuna diramazione" gia' presente in generateTrajectory).
+    // Codes multi-gate/coda reali restano solo nel generatore JS per ora.
+    out.mission_profiles.default = order;
+    return out;
+  }
+
+  function veritasDomainForProjectType() {
+    const pt = window.__veritasProjectType;
+    if (pt === "aeroporto") return "airport_security";
+    if (pt === "museo") return "museum_visitor";
+    if (pt === "gaming") return "gaming_player";
+    return "generic";
+  }
+
+  async function veritasTryBackendSimulate(nodes, agentCount) {
+    if (!window.__veritasApiBase) return null;
+    try {
+      const graph = veritasNodesToGraph(nodes);
+      const keys = Object.keys(ARCHETYPES);
+      const count = agentCount || window.__veritasAgentCount || 28;
+      const domain = veritasDomainForProjectType();
+      const agents = [];
+      for (let i = 0; i < count; i++) {
+        const archetype = keys[i % keys.length];
+        agents.push({
+          agent_id: "a" + i,
+          profile_id: "default",
+          profile_data: ARCHETYPES[archetype] || {},
+          domain,
+          group_id: "g" + Math.floor(i / 3),
+        });
+      }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/api/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ graph, agents, ticks: window.__veritasTotalFrames ? window.__veritasTotalFrames * 5 : 4000, dt: 0.1 }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!data || !data.trajectory || !data.trajectory.frames || !data.trajectory.frames.length) return null;
+      return data.trajectory;
+    } catch (e) {
+      console.warn("[VERITAS bridge] backend non raggiungibile, uso generatore JS locale:", e);
+      return null;
+    }
+  }
+  // --- Fine bridge Core Python ---
+
+  async function applyNodesToScene() {
     const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
     if (!traj) return;
-    const fresh = generateTrajectory(currentNodes);
+    let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
+    if (!fresh) fresh = generateTrajectory(currentNodes);
     traj.nodes = currentNodes;
     traj.frames.length = 0;
     traj.frames.push(...fresh.frames);
