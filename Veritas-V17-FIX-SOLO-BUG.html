@@ -7007,26 +7007,13 @@ setTimeout(()=>{
   }, 2000);
   
 
-  // --- FIX 5: NO AUTO-PLAY + overlay Pronto ---
-  function showReadyOverlay() {
-    if (document.getElementById('veritas-ready-overlay')) return;
-    const ov = document.createElement('div');
-    ov.id='veritas-ready-overlay';
-    ov.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10001;background:rgba(8,10,15,0.96);backdrop-filter:blur(18px);border:1px solid rgba(0,255,136,0.4);border-radius:16px;padding:24px 32px;text-align:center;color:white;font-family:JetBrains Mono,monospace;box-shadow:0 12px 40px rgba(0,0,0,0.6);';
-    ov.innerHTML='<div style="font-size:18px;color:#00ff88;margin-bottom:12px;font-weight:bold">✅ Pronto</div><div style="font-size:11px;color:#cbd5e1;margin-bottom:16px">GLB 100% - premi PLAY o dai ordine in chat</div><button id="veritas-play-btn" style="background:#00ff88;color:#000;border:none;border-radius:8px;padding:12px 24px;font-weight:bold;cursor:pointer;font-size:13px">▶ PLAY SIMULAZIONE</button>';
-    document.body.appendChild(ov);
-    const playBtn = document.getElementById('veritas-play-btn');
-    if (playBtn) {
-      playBtn.onclick = () => {
-        ov.remove();
-        const btn = [...document.querySelectorAll('button')].find(b=> /rigenera simulazione/i.test(b.textContent||''));
-        if (btn) btn.click();
-      };
-    }
-  }
-  // Mostra overlay dopo 1 sec dal caricamento
-  setTimeout(showReadyOverlay, 1000);
-  // --- FINE FIX 5 ---
+  // --- FIX 5 RIMOSSO (bug): mostrava un secondo overlay 'premi PLAY' fisso
+  // ~3s dopo il caricamento, indipendente dalla schermata impostazioni
+  // pre-avvio che gia' gestisce il boot reale (vedi window.__veritasBoot /
+  // pulsante 'Avvia simulazione'). Se l'utente aveva gia' avviato la
+  // simulazione da li', questo overlay ridondante compariva comunque e
+  // restava bloccato in scritta perche' il suo pulsante 'PLAY SIMULAZIONE'
+  // non veniva mai premuto (la simulazione era gia' partita).
 
 }, 2000);
 </script>
