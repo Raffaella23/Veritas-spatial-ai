@@ -1,4 +1,5 @@
 import json
+import math
 from typing import List, Optional
 from core.behaviour import SyntheticPlayer
 from core.compliance import AccessibilityValidator
@@ -43,6 +44,9 @@ class SimulationEngine:
 
         # --- Traiettoria nel tempo, per il viewer passivo (animazione) ---
         self.trajectory = []
+        # Ultima rotazione nota per agente (fallback quando l'agente e' fermo
+        # o e' appena arrivato e non ha piu' un target_path da cui calcolarla)
+        self._last_rot = {}
 
     def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None):
         """Aggiunge un agente con capacita' fisiche e capacita' cognitive (HumanAgent).
@@ -142,17 +146,34 @@ class SimulationEngine:
 
         # 4. Registra uno snapshot della scena per l'animazione nel viewer
         if self.tick_count % RECORD_EVERY == 0:
+            frame_agents = []
+            for a in self.agents:
+                # Rotazione (radianti, atan2(dz, dx)) dalla direzione verso il
+                # prossimo waypoint - stessa convenzione del generatore JS lato
+                # viewer, cosi' il bridge non deve indovinarla lato client.
+                # Se l'agente e' fermo/arrivato, mantiene l'ultima rotazione nota
+                # invece di scattare a 0.
+                rot = self._last_rot.get(a.agent_id, 0.0)
+                if a.target_path:
+                    direction = a.target_path[0]["pos"] - a.position
+                    dx, dz = float(direction[0]), float(direction[2])
+                    if dx != 0.0 or dz != 0.0:
+                        rot = math.atan2(dz, dx)
+                self._last_rot[a.agent_id] = rot
+
+                brain = getattr(a, "brain", None)
+                frame_agents.append({
+                    "id": a.agent_id,
+                    "pos": a.position.tolist(),
+                    "rot": round(rot, 4),
+                    "state": a.state.value,
+                    "group": getattr(brain, "group_id", None) if brain else None,
+                    "archetype": getattr(brain, "domain", None) if brain else None,
+                    "stress": round(getattr(brain, "stress_level", 0.0), 3) if brain else 0.0,
+                })
             self.trajectory.append({
                 "t": round(self.elapsed_time, 2),
-                "agents": [
-                    {
-                        "id": a.agent_id,
-                        "pos": a.position.tolist(),
-                        "state": a.state.value,
-                        "archetype": getattr(a.brain, "domain", None) if hasattr(a, "brain") else None,
-                    }
-                    for a in self.agents
-                ]
+                "agents": frame_agents,
             })
 
     def get_kpi_report(self) -> dict:
