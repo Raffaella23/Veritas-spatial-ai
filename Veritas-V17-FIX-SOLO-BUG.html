@@ -1548,9 +1548,6 @@
     const ordered = nearestNeighborOrder(zones.slice());
     const critici = zones.filter((z) => z.flagged).length;
     const score = Math.max(0, Math.min(100, 100 - critici * 15 - Math.max(0, 10 - zones.length) * 2));
-    lastZones = zones;
-    return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici, floorLevels: lastFloorLevels };
-  
     // === VERITAS AUTO-ASSIGNMENT INIETTATO DENTRO LA FUNZIONE (v4) ===
     try {
       lastZones = zones;
@@ -1617,6 +1614,8 @@
     }
     // === FINE AUTO-ASSIGNMENT ===
 
+    lastZones = zones;
+    return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici, floorLevels: lastFloorLevels };
 }
 
   let lastStructuralReport = null;
