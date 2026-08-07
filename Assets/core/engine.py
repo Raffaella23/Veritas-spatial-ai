@@ -162,13 +162,22 @@ class SimulationEngine:
                 self._last_rot[a.agent_id] = rot
 
                 brain = getattr(a, "brain", None)
+                # "archetype" e' il tipo visivo/comportamentale dell'agente
+                # (es. "wheelchair", "family") usato dal viewer per scegliere
+                # la resa grafica - preferito da profile["type"] se presente
+                # (impostato dal bridge JS dagli ARCHETYPES del viewer), con
+                # fallback al domain per compatibilita' con chi non lo passa.
+                archetype = None
+                if brain:
+                    profile = getattr(brain, "profile", None) or {}
+                    archetype = profile.get("type") or brain.domain
                 frame_agents.append({
                     "id": a.agent_id,
                     "pos": a.position.tolist(),
                     "rot": round(rot, 4),
                     "state": a.state.value,
                     "group": getattr(brain, "group_id", None) if brain else None,
-                    "archetype": getattr(brain, "domain", None) if brain else None,
+                    "archetype": archetype,
                     "stress": round(getattr(brain, "stress_level", 0.0), 3) if brain else 0.0,
                 })
             self.trajectory.append({
