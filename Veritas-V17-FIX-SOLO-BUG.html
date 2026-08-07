@@ -710,15 +710,16 @@
 
   const ARCHETYPES = {
     business: { speed: 1.35, width: 0.5, type: 'standard' },
-    family: { speed: 1.0, width: 0.6, type: 'family' },
+    family: { speed: 0.9, width: 0.6, type: 'family' },
     elderly: { speed: 0.85, width: 0.55, type: 'elderly' },
-    wheelchair: { speed: 0.75, width: 0.9, type: 'wheelchair', height: 0.6, turnRadius: 1.2, accessibleOnly: true },
-    tourist: { speed: 1.1, width: 0.6, type: 'standard' }, family: { speed: 0.9 }, tourist: { speed: 1 },
+    wheelchair: { speed: 0.85, width: 0.9, type: 'wheelchair', height: 0.6, turnRadius: 1.2, accessibleOnly: true },
+    tourist: { speed: 1, width: 0.6, type: 'standard' },
     senior: { speed: 0.75 }, student: { speed: 1.25 }, crew: { speed: 1.4 }, vip: { speed: 1.15 },
     // profilo mobilita' ridotta (Fase 2 roadmap): velocita' tipica di una
     // sedia a rotelle manuale. La rappresentazione visiva dedicata (mesh
     // diversa, non solo colore) va fatta nel bundle di rendering, non qui.
-    wheelchair: { speed: 0.85 },
+    // (bug precedente: questa chiave era duplicata sopra e sovrascriveva
+    // silenziosamente width/height/turnRadius/accessibleOnly - unificata)
   };
 
   function lineHasSupport(a, b, points, sampleN, radius) {
