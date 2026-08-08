@@ -41,6 +41,37 @@
 (function () {
   "use strict";
 
+  // Il bundle prova SEMPRE, ad ogni caricamento pagina, 3 percorsi GLB di
+  // default hardcoded (./airport.glb, ./Assets/models/airport.glb,
+  // ./veritas_airport.glb) che su questo deploy Vercel non esistono mai
+  // (404 garantito). Il problema non e' solo il rumore in console: per un
+  // bug di dipendenze in un useEffect del bundle, questo tentativo puo'
+  // ripartire da capo anche DOPO che l'utente ha gia' iniziato a caricare
+  // manualmente il proprio GLB (si vede in console: "handleFileSelected"
+  // seguito subito da un nuovo "Tentativo fetch ./airport.glb"), creando
+  // una corsa tra il caricamento vero e questo tentativo morto - che su
+  // file reali di molti MB (che impiegano secondi a essere letti/parsati)
+  // ha tutto il tempo di completare PRIMA e forzare lo stato a "fallback"
+  // mentre il caricamento vero e' ancora in corso, lasciando l'app in uno
+  // stato inconsistente. Non possiamo editare in sicurezza il bundle
+  // minificato, quindi intercettiamo qui queste 3 richieste specifiche e
+  // le facciamo fallire ISTANTANEAMENTE (invece che dopo un vero round-trip
+  // di rete), riducendo la finestra della corsa da centinaia di ms a
+  // sostanzialmente zero.
+  (function veritasKillDeadGlbAutoFetch() {
+    const deadPaths = new Set(["./airport.glb", "./Assets/models/airport.glb", "./veritas_airport.glb"]);
+    const origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      try {
+        const url = typeof input === "string" ? input : (input && input.url);
+        if (url && deadPaths.has(url)) {
+          return Promise.resolve(new Response(null, { status: 404, statusText: "Not Found" }));
+        }
+      } catch (e) {}
+      return origFetch(input, init);
+    };
+  })();
+
   // Backend Core Python reale (Render, piano gratuito) - simulazione fisica
   // vera (Social Force Model, pathfinding su navmesh) al posto del solo
   // generatore JS. Se il servizio dorme (inattivita'), la prima richiesta
