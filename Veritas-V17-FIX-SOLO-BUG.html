@@ -1971,16 +1971,49 @@
   }
   // --- Fine bridge Core Python ---
 
+  // La camminata degli agenti non deve partire da sola: le zone si
+  // aggiornano sempre in automatico (vedi blocchi VERITAS AUTO), ma la
+  // traiettoria animata viene calcolata solo dopo che l'utente preme
+  // play almeno una volta (window.__veritasSimStarted). Prima di allora
+  // applyNodesToScene() aggiorna comunque i marker/zone visibili, cosi'
+  // si puo' rivedere/spostare i punti prima di avviare la simulazione.
+  if (typeof window.__veritasSimStarted === "undefined") window.__veritasSimStarted = false;
+
+  function veritasShowPlayReady() {
+    if (window.__veritasSimStarted) return;
+    if (document.getElementById("veritas-play-ready")) return;
+    const badge = document.createElement("div");
+    badge.id = "veritas-play-ready";
+    badge.style.cssText = "position:fixed;right:20px;bottom:96px;z-index:9000;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border:1px solid rgba(0,255,136,0.4);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;color:#cbd5e1;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
+    badge.innerHTML = '<span style="font-size:12px;">✅ Zone pronte</span><button id="veritas-play-ready-btn" style="background:#00ff88;color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap;">▶ PLAY</button>';
+    document.body.appendChild(badge);
+    document.getElementById("veritas-play-ready-btn").onclick = () => {
+      window.__veritasSimStarted = true;
+      badge.remove();
+      applyNodesToScene();
+    };
+  }
+
+  setInterval(() => {
+    const badge = document.getElementById("veritas-play-ready");
+    if (window.__veritasSimStarted) {
+      if (badge) badge.remove();
+      return;
+    }
+    if (currentNodes && currentNodes.length >= 2 && !badge) veritasShowPlayReady();
+  }, 800);
+
   async function applyNodesToScene() {
     const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
     if (!traj) return;
-    let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
-    if (!fresh) fresh = generateTrajectory(currentNodes);
     traj.nodes = currentNodes;
-    traj.frames.length = 0;
-    traj.frames.push(...fresh.frames);
     currentNodes.forEach((n, i) => { moveHotspotVisual(i, n.pos[0], n.pos[2]); applyMarkerScale(i); });
     syncCamerasToNodes();
+    if (!window.__veritasSimStarted) return;
+    let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
+    if (!fresh) fresh = generateTrajectory(currentNodes);
+    traj.frames.length = 0;
+    traj.frames.push(...fresh.frames);
   }
 
   function projectToScreen(x, y, z, camera, w, h) {
@@ -2357,6 +2390,7 @@
 
     panel.querySelector("#vp-regen").onclick = () => {
       if (currentNodes.length < 2) { alert(t("alert_need_2_points")); return; }
+      window.__veritasSimStarted = true;
       applyNodesToScene();
     };
 
