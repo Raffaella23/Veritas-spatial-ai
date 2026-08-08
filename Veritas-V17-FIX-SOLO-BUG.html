@@ -1372,6 +1372,12 @@
   }
 
   function analyzeMesh(root) {
+    // NOTA FIX GATE MULTIPLI: "found[type]" ora e' un ARRAY per categoria
+    // (prima era un singolo oggetto con "if (found[type]) continue" che
+    // scartava silenziosamente ogni mesh successiva con nome corrispondente
+    // — per questo un GLB con sia "Gate A" che "Gate A1" nominati produceva
+    // sempre e solo UN gate). Cosi' tutte le mesh con nome riconosciuto
+    // vengono conservate, per ogni categoria (gate incluso).
     const found = {};
     const boxMin = [Infinity, Infinity, Infinity];
     const boxMax = [-Infinity, -Infinity, -Infinity];
@@ -1380,9 +1386,12 @@
       if (!obj.isMesh) return;
       const name = (obj.name || "").toLowerCase();
       for (const type in KEYWORDS) {
-        if (found[type]) continue;
         if (KEYWORDS[type].some((kw) => name.includes(kw))) {
-          found[type] = { type, label: obj.name || type, pos: worldPosOf(obj) };
+          if (!found[type]) found[type] = [];
+          const label = obj.name || type;
+          if (!found[type].some((f) => f.label === label)) {
+            found[type].push({ type, label, pos: worldPosOf(obj) });
+          }
         }
       }
       if (obj.geometry) {
@@ -1406,13 +1415,16 @@
       }
     });
 
+    const namedGates = found.gate || [];
     const foundCount = Object.keys(found).length;
     const nodes = [];
     let idc = 0;
     if (foundCount >= 3) {
       const order = ["spawn", "checkin", "security", "lounge", "gate"];
       for (const type of order) {
-        if (found[type]) nodes.push({ id: `auto_${idc++}`, type, label: found[type].label, pos: found[type].pos });
+        if (found[type]) {
+          for (const f of found[type]) nodes.push({ id: `auto_${idc++}`, type, label: f.label, pos: f.pos });
+        }
       }
       return nodes.length >= 2 ? nodes : null;
     }
@@ -1425,27 +1437,37 @@
       const path = structural.flowOrder;
       const stepIdx = (i) => Math.round((i / (order2.length - 1)) * (path.length - 1));
       for (let i = 0; i < order2.length; i++) {
+        // se abbiamo gia' trovato gate con un nome reale nella mesh, non
+        // sostituirli con un punto generico stimato dal clustering: i gate
+        // nominati sono un segnale piu' affidabile e vengono aggiunti dopo.
+        if (order2[i] === "gate" && namedGates.length) continue;
         const zone = path[Math.min(path.length - 1, stepIdx(i))];
         // altezza reale del punto preservata (non piu forzata a 0) — essenziale
         // per mesh con piu livelli, altrimenti i punti finiscono tutti a terra
         // anche quando la zona reale e a un piano superiore.
         nodes.push({ id: `auto_${idc++}`, type: order2[i], label: TYPE_OPTIONS.find((o) => o.value === order2[i]).label, pos: [zone.pos[0], zone.pos[1], zone.pos[2]], floorIdx: zone.floorIdx });
       }
+      for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos });
       return nodes;
     }
     // fallback estremo: nessun punto navigabile rilevabile -> bounding box grezzo
-    if (!isFinite(boxMin[0])) return null;
+    if (!isFinite(boxMin[0])) {
+      if (!namedGates.length) return null;
+      return namedGates.map((g) => ({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos }));
+    }
     const spanX = boxMax[0] - boxMin[0], spanZ = boxMax[2] - boxMin[2];
     const longAxis = spanX >= spanZ ? "x" : "z";
     const midOther = longAxis === "x" ? (boxMin[2] + boxMax[2]) / 2 : (boxMin[0] + boxMax[0]) / 2;
     const fracs = [0.05, 0.28, 0.5, 0.72, 0.95];
     for (let i = 0; i < order2.length; i++) {
+      if (order2[i] === "gate" && namedGates.length) continue;
       const t = fracs[i];
       let x, z;
       if (longAxis === "x") { x = boxMin[0] + spanX * t; z = midOther; }
       else { z = boxMin[2] + spanZ * t; x = midOther; }
       nodes.push({ id: `auto_${idc++}`, type: order2[i], label: TYPE_OPTIONS.find((o) => o.value === order2[i]).label, pos: [x, 0, z] });
     }
+    for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos });
     return nodes;
   }
 
