@@ -2225,6 +2225,30 @@
     applyNodesToScene();
     return node;
   };
+  // Rimuove uno o piu' nodi il cui label/type/id corrisponde al testo dato
+  // (case-insensitive, match parziale). Serve come via alternativa e
+  // garantita per eliminare una zona quando il pannello "Punti" non e'
+  // raggiungibile via UI (es. sovrapposto dal pannello statistiche): la
+  // chat comandi e' sempre visibile, quindi "rimuovi gate a1" funziona
+  // indipendentemente da eventuali problemi di posizionamento del pannello.
+  window.__veritasRemoveNode = function (query) {
+    const q = (query || "").toLowerCase().trim();
+    if (!q) return 0;
+    const before = currentNodes.length;
+    for (let i = currentNodes.length - 1; i >= 0; i--) {
+      const n = currentNodes[i];
+      const hay = ((n.label || "") + " " + (n.type || "") + " " + (n.id || "")).toLowerCase();
+      if (hay.includes(q)) currentNodes.splice(i, 1);
+    }
+    const removed = before - currentNodes.length;
+    if (removed > 0) {
+      idCounter = currentNodes.length;
+      if (selectedIndex !== null && selectedIndex >= currentNodes.length) selectedIndex = null;
+      if (typeof renderListRef === "function" && renderListRef) renderListRef();
+      applyNodesToScene();
+    }
+    return removed;
+  };
 
   // Posiziona la chat comandi appena sotto il pulsante "Ottimizza" del
   // pannello sinistro (suggerito dall'utente) invece che ancorata in basso
@@ -7299,6 +7323,18 @@ setTimeout(()=>{
   
   function handleCmd(text) {
     const t = text.toLowerCase();
+    if (t.includes('rimuovi') || t.includes('elimina') || t.includes('cancella')) {
+      const q = t.replace(/\b(rimuovi|elimina|cancella|zona|il|lo|la)\b/g, ' ').trim().replace(/\s+/g, ' ');
+      const n = (window.__veritasRemoveNode && window.__veritasRemoveNode(q)) || 0;
+      if (n > 0) {
+        addLog(`🗑️ Rimoss${n===1?'a':'e'} ${n} zona/e corrispondente/i a "${q}".`);
+        const btn = findRegenerateBtn();
+        if (btn && window.__veritasSimStarted) { addLog('🔄 Rigenero simulazione senza la zona rimossa...'); setTimeout(()=>btn.click(), 600); }
+      } else {
+        addLog(`⚠️ Nessuna zona trovata per "${q}". Controlla l'etichetta esatta.`);
+      }
+      return;
+    }
     if (t.includes('a1') || t.includes('assegna')) {
       const ok = ensureGateA1();
       if (ok) {
@@ -7360,11 +7396,17 @@ setTimeout(()=>{
   document.getElementById('gaming-chat-send').onclick = send;
   document.getElementById('gaming-chat-input').onkeydown = (e)=>{ if(e.key==='Enter') send(); };
   
-  // Auto-fix Gate A1 all'avvio
-  setTimeout(()=>{
-    ensureGateA1();
-    addLog('💡 Tutte le zone ora sono assegnabili. Se vedi zona non assegnata, scrivi "assegna gate a1"');
-  }, 2000);
+  // NOTA: rimosso l'auto-fix automatico di Gate A1 all'avvio (chiamava
+  // ensureGateA1() da solo 2s dopo il caricamento, senza alcuna azione
+  // dell'utente). Ora che analyzeMesh() rileva correttamente i gate reali
+  // nominati nella mesh (vedi fix "Gate A1 non assegnato automaticamente"),
+  // questo auto-fix era ridondante e rischiava di clonare un "Gate A1"
+  // sintetico (+4.2m da Gate A) PRIMA che il GLB reale finisse di caricare,
+  // creando una zona duplicata/fantasma scollegata dalla mesh vera - la
+  // fonte di confusione segnalata dall'utente. Il comando manuale in chat
+  // "assegna gate a1" resta disponibile come fallback esplicito per i GLB
+  // che non hanno alcun gate nominato.
+  addLog('💡 Scrivi "assegna gate a1" per clonare un gate, oppure "rimuovi <nome zona>" per eliminarne una.');
   
 
   // --- FIX 5 RIMOSSO (bug): mostrava un secondo overlay 'premi PLAY' fisso
