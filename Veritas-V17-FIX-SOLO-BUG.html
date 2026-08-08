@@ -2000,7 +2000,11 @@
       if (badge) badge.remove();
       return;
     }
-    if (currentNodes && currentNodes.length >= 2 && !badge) veritasShowPlayReady();
+    // Il badge deve comparire solo dopo che un vero modello .glb e' stato
+    // caricato e le sue zone auto-assegnate - non per i nodi demo/seed
+    // (currentNodes puo' gia' contenere placeholder di esempio prima che
+    // l'utente carichi qualcosa, vedi seedNodesIfNeeded()).
+    if (window.__veritasModelRoot && currentNodes && currentNodes.length >= 2 && !badge) veritasShowPlayReady();
   }, 800);
 
   async function applyNodesToScene() {
