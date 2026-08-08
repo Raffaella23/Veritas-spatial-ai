@@ -19,7 +19,19 @@
 </head>
 <body>
   <div id="root"></div>
-  
+
+  <!-- Schermata di avvio: visibile subito (nessun JS necessario per mostrarla),
+       cosi' invece di vedere l'app "gia' accesa" con dati demo si vede
+       chiaramente che sta partendo, incluso il risveglio del motore fisico
+       reale (Render, piano gratuito, puo' richiedere fino a 60s). -->
+  <div id="veritas-boot-splash" style="position:fixed;inset:0;z-index:99999;background:#05070a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;color:#e2e8f0;transition:opacity 0.4s ease;">
+    <div style="width:44px;height:44px;border:3px solid rgba(0,255,136,0.15);border-top-color:#00ff88;border-radius:50%;animation:veritas-boot-spin 0.9s linear infinite;margin-bottom:22px;"></div>
+    <div style="font-size:15px;font-weight:bold;letter-spacing:0.05em;margin-bottom:10px;">VERITAS SPATIAL AI</div>
+    <div id="veritas-boot-splash-msg" style="font-size:11.5px;color:#94a3b8;max-width:340px;text-align:center;line-height:1.6;padding:0 20px;">Avvio in corso...</div>
+    <button id="veritas-boot-splash-skip" style="display:none;margin-top:22px;background:transparent;border:1px solid rgba(255,255,255,0.18);color:#94a3b8;border-radius:8px;padding:8px 16px;font-size:11px;cursor:pointer;font-family:inherit;">Continua senza motore reale &rarr;</button>
+  </div>
+  <style>@keyframes veritas-boot-spin { to { transform: rotate(360deg); } }</style>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ============================================================
@@ -700,12 +712,40 @@
   // stato sempre visibile (in basso a sinistra) durante login/impostazioni,
   // cosi' quando si arriva alla schermata 3D il motore e' gia' pronto (o
   // si sa gia' che non lo e', senza sorprese).
-  function veritasWakeBackendStatus(msg, color) {
-    let el = document.getElementById("veritas-wake-status");
+  // Pilota la schermata di avvio a schermo intero (#veritas-boot-splash,
+  // gia' presente nell'HTML e visibile da subito senza bisogno di JS) -
+  // sostituisce il precedente piccolo badge in un angolo, che spariva da
+  // solo dopo pochi secondi e passava facilmente inosservato.
+  const VERITAS_SPLASH_MIN_MS = 1200; // mai un semplice "flash" invisibile
+  const veritasSplashStart = Date.now();
+
+  function veritasSetSplashMsg(msg, color) {
+    const msgEl = document.getElementById("veritas-boot-splash-msg");
+    if (msgEl) { msgEl.textContent = msg; msgEl.style.color = color || "#94a3b8"; }
+  }
+
+  function veritasHideSplash() {
+    const elapsed = Date.now() - veritasSplashStart;
+    const wait = Math.max(0, VERITAS_SPLASH_MIN_MS - elapsed);
+    setTimeout(() => {
+      const splash = document.getElementById("veritas-boot-splash");
+      if (!splash) return;
+      splash.style.opacity = "0";
+      setTimeout(() => { splash.style.display = "none"; }, 450);
+    }, wait);
+  }
+
+  // Badge piccolo e persistente (in alto al centro, lontano da chat/play/
+  // pannelli laterali) che continua a mostrare lo stato del risveglio
+  // anche dopo che lo splash a schermo intero e' gia' sparito (login e
+  // schermata impostazioni non devono restare bloccati in attesa del
+  // motore reale).
+  function veritasWakeBadge(msg, color) {
+    let el = document.getElementById("veritas-wake-badge");
     if (!el) {
       el = document.createElement("div");
-      el.id = "veritas-wake-status";
-      el.style.cssText = "position:fixed;left:20px;bottom:20px;z-index:20000;max-width:300px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
+      el.id = "veritas-wake-badge";
+      el.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20000;max-width:360px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:7px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:center;";
       document.body.appendChild(el);
     }
     el.style.border = "1px solid " + (color || "rgba(255,255,255,0.2)");
@@ -716,8 +756,15 @@
   }
 
   async function veritasWakeBackend() {
-    if (!window.__veritasApiBase) return;
-    const el = veritasWakeBackendStatus("🔄 Motore fisico reale: risveglio in corso (puo' richiedere fino a 60s se inattivo)...", "#facc15");
+    const skipBtn = document.getElementById("veritas-boot-splash-skip");
+    if (skipBtn) {
+      setTimeout(() => { skipBtn.style.display = "inline-block"; }, 15000);
+      skipBtn.onclick = veritasHideSplash;
+    }
+    if (!window.__veritasApiBase) { veritasHideSplash(); return; }
+    const startMsg = "🔄 Risveglio motore fisico reale (Render)... puo' richiedere fino a 60s se inattivo.";
+    veritasSetSplashMsg(startMsg, "#facc15");
+    veritasWakeBadge(startMsg, "#facc15");
     const deadline = Date.now() + 90000;
     while (Date.now() < deadline) {
       try {
@@ -726,19 +773,33 @@
         const res = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/health", { signal: controller.signal });
         clearTimeout(t);
         if (res.ok) {
-          veritasWakeBackendStatus("✅ Motore fisico reale pronto", "#00ff88");
-          setTimeout(() => { el.style.display = "none"; }, 5000);
+          veritasSetSplashMsg("Motore fisico reale pronto ✅", "#00ff88");
+          veritasHideSplash();
+          const badge = veritasWakeBadge("✅ Motore fisico reale pronto", "#00ff88");
+          setTimeout(() => { badge.style.display = "none"; }, 6000);
           return;
         }
       } catch (e) { /* non ancora pronto, ritenta */ }
       await new Promise((r) => setTimeout(r, 3000));
     }
-    veritasWakeBackendStatus("⚠ Motore reale non raggiungibile, si usera' il generatore JS locale", "#fb923c");
+    const failMsg = "⚠ Motore reale non raggiungibile: si user\u00e0 il generatore JS locale.";
+    veritasSetSplashMsg(failMsg, "#fb923c");
+    veritasHideSplash();
+    const badge = veritasWakeBadge(failMsg, "#fb923c");
+    setTimeout(() => { badge.style.display = "none"; }, 8000);
   }
 
   window.__veritasBoot = async function (renderApp) {
     veritasWakeBackend();
     const { data: sessionData } = await sb.auth.getSession();
+    // Lo splash a schermo intero copre solo questa primissima fase di
+    // avvio (garantita visibile per almeno VERITAS_SPLASH_MIN_MS, cosi'
+    // si vede sempre che l'app si sta accendendo): da qui in poi serve
+    // interagire (login, o schermata impostazioni/Avvia simulazione), e
+    // non deve restare bloccata dietro lo splash se il motore reale ci
+    // mette piu' tempo a svegliarsi. Il risveglio del backend continua
+    // comunque in parallelo con un piccolo indicatore non bloccante.
+    veritasHideSplash();
     if (sessionData?.session) {
       await showProjects();
     } else {
