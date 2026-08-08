@@ -740,18 +740,34 @@
   // anche dopo che lo splash a schermo intero e' gia' sparito (login e
   // schermata impostazioni non devono restare bloccati in attesa del
   // motore reale).
-  function veritasWakeBadge(msg, color) {
+  function veritasWakeBadge(msg, color, dismissible) {
     let el = document.getElementById("veritas-wake-badge");
     if (!el) {
       el = document.createElement("div");
       el.id = "veritas-wake-badge";
-      el.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20000;max-width:360px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:7px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:center;";
+      el.style.cssText = "position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20000;max-width:400px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:7px 30px 7px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:center;";
       document.body.appendChild(el);
     }
     el.style.border = "1px solid " + (color || "rgba(255,255,255,0.2)");
     el.style.color = color || "#cbd5e1";
     el.textContent = msg;
     el.style.display = "block";
+    el.style.position = "fixed"; // riafferma lo stile anche se il testContent lo aveva resettato
+    // Pulsante di chiusura: lo stato finale (pronto / non raggiungibile) NON
+    // si nasconde piu' da solo dopo pochi secondi. Prima spariva sempre in
+    // automatico (6-8s) — troppo poco se l'utente in quel momento sta
+    // guardando altrove (es. carica il GLB), risultando invisibile per chi
+    // non fissa il centro-alto dello schermo in quella precisa finestra.
+    // Ora resta finche' non viene chiusa esplicitamente.
+    let closeBtn = el.querySelector(".veritas-badge-close");
+    if (!closeBtn && dismissible) {
+      closeBtn = document.createElement("span");
+      closeBtn.className = "veritas-badge-close";
+      closeBtn.textContent = "\u2715";
+      closeBtn.style.cssText = "position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;opacity:0.6;";
+      closeBtn.onclick = () => { el.style.display = "none"; };
+      el.appendChild(closeBtn);
+    }
     return el;
   }
 
@@ -775,8 +791,7 @@
         if (res.ok) {
           veritasSetSplashMsg("Motore fisico reale pronto ✅", "#00ff88");
           veritasHideSplash();
-          const badge = veritasWakeBadge("✅ Motore fisico reale pronto", "#00ff88");
-          setTimeout(() => { badge.style.display = "none"; }, 6000);
+          veritasWakeBadge("✅ Motore fisico reale pronto — chiudi con la X", "#00ff88", true);
           return;
         }
       } catch (e) { /* non ancora pronto, ritenta */ }
@@ -785,8 +800,7 @@
     const failMsg = "⚠ Motore reale non raggiungibile: si user\u00e0 il generatore JS locale.";
     veritasSetSplashMsg(failMsg, "#fb923c");
     veritasHideSplash();
-    const badge = veritasWakeBadge(failMsg, "#fb923c");
-    setTimeout(() => { badge.style.display = "none"; }, 8000);
+    veritasWakeBadge(failMsg + " — chiudi con la X", "#fb923c", true);
   }
 
   window.__veritasBoot = async function (renderApp) {
