@@ -694,7 +694,50 @@
     }
   }
 
+  // Sveglia il backend Render (piano gratuito) in background fin dal primo
+  // istante di caricamento della pagina, invece di scoprire il ritardo di
+  // 30-60s solo quando si preme PLAY. Mostra un piccolo indicatore di
+  // stato sempre visibile (in basso a sinistra) durante login/impostazioni,
+  // cosi' quando si arriva alla schermata 3D il motore e' gia' pronto (o
+  // si sa gia' che non lo e', senza sorprese).
+  function veritasWakeBackendStatus(msg, color) {
+    let el = document.getElementById("veritas-wake-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "veritas-wake-status";
+      el.style.cssText = "position:fixed;left:20px;bottom:20px;z-index:20000;max-width:300px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
+      document.body.appendChild(el);
+    }
+    el.style.border = "1px solid " + (color || "rgba(255,255,255,0.2)");
+    el.style.color = color || "#cbd5e1";
+    el.textContent = msg;
+    el.style.display = "block";
+    return el;
+  }
+
+  async function veritasWakeBackend() {
+    if (!window.__veritasApiBase) return;
+    const el = veritasWakeBackendStatus("🔄 Motore fisico reale: risveglio in corso (puo' richiedere fino a 60s se inattivo)...", "#facc15");
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline) {
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/health", { signal: controller.signal });
+        clearTimeout(t);
+        if (res.ok) {
+          veritasWakeBackendStatus("✅ Motore fisico reale pronto", "#00ff88");
+          setTimeout(() => { el.style.display = "none"; }, 5000);
+          return;
+        }
+      } catch (e) { /* non ancora pronto, ritenta */ }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    veritasWakeBackendStatus("⚠ Motore reale non raggiungibile, si usera' il generatore JS locale", "#fb923c");
+  }
+
   window.__veritasBoot = async function (renderApp) {
+    veritasWakeBackend();
     const { data: sessionData } = await sb.auth.getSession();
     if (sessionData?.session) {
       await showProjects();
