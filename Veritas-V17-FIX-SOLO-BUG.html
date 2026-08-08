@@ -1385,12 +1385,21 @@
     root.traverse((obj) => {
       if (!obj.isMesh) return;
       const name = (obj.name || "").toLowerCase();
-      for (const type in KEYWORDS) {
-        if (KEYWORDS[type].some((kw) => name.includes(kw))) {
-          if (!found[type]) found[type] = [];
-          const label = obj.name || type;
-          if (!found[type].some((f) => f.label === label)) {
-            found[type].push({ type, label, pos: worldPosOf(obj) });
+      // Escludiamo mesh di terreno/piazzale/pista dal riconoscimento per nome:
+      // una mesh chiamata ad es. "Gate_A1_Apron" contiene "gate" ma e' in
+      // realta' un grande piazzale, non un punto puntuale — se la lasciamo
+      // passare, la zona "gate" finisce ancorata al centro di quella mesh
+      // enorme invece che al vero marker del gate (il sintomo e' un blocco
+      // verde gigante quando ci si avvicina con la camera "Gate A1 Close").
+      const isGroundLike = typeof EXCLUDE_KEYWORDS !== "undefined" && EXCLUDE_KEYWORDS.some((kw) => name.includes(kw));
+      if (!isGroundLike) {
+        for (const type in KEYWORDS) {
+          if (KEYWORDS[type].some((kw) => name.includes(kw))) {
+            if (!found[type]) found[type] = [];
+            const label = obj.name || type;
+            if (!found[type].some((f) => f.label === label)) {
+              found[type].push({ type, label, pos: worldPosOf(obj) });
+            }
           }
         }
       }
