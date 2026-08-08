@@ -2198,12 +2198,27 @@
     };
   }
 
+  // I passeggeri venivano animati dal bundle fin da subito (loop ambientale
+  // sui frame demo), quindi anche col trajectory-fetch gia' bloccato da
+  // __veritasSimStarted (vedi sotto) si vedevano comunque camminare prima
+  // di premere PLAY. Qui li nascondiamo esplicitamente finche' non si parte
+  // per davvero, agendo direttamente sugli oggetti Three.js reali esposti
+  // dal bundle (window.__veritasPassengerGroups: array di { group, ... }),
+  // senza toccare il bundle minificato.
+  function veritasSetPassengersVisible(visible) {
+    const groups = window.__veritasPassengerGroups;
+    if (!groups || !groups.forEach) return;
+    groups.forEach((pg) => { if (pg && pg.group) pg.group.visible = visible; });
+  }
+
   setInterval(() => {
     const badge = document.getElementById("veritas-play-ready");
     if (window.__veritasSimStarted) {
       if (badge) badge.remove();
+      veritasSetPassengersVisible(true);
       return;
     }
+    veritasSetPassengersVisible(false);
     // Il badge deve comparire solo dopo che un vero modello .glb e' stato
     // caricato e le sue zone auto-assegnate - non per i nodi demo/seed
     // (currentNodes puo' gia' contenere placeholder di esempio prima che
@@ -2217,6 +2232,7 @@
     traj.nodes = currentNodes;
     currentNodes.forEach((n, i) => { moveHotspotVisual(i, n.pos[0], n.pos[2]); applyMarkerScale(i); });
     syncCamerasToNodes();
+    veritasSetPassengersVisible(!!window.__veritasSimStarted);
     if (!window.__veritasSimStarted) return;
     let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
     if (!fresh) fresh = generateTrajectory(currentNodes);
