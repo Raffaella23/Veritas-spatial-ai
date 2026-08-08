@@ -2118,6 +2118,56 @@
     traj.frames.push(...fresh.frames);
   }
 
+  // Ponte globale verso i moduli caricati come <script type="module">
+  // (es. il modulo gaming/fisica CANNON): quelli hanno uno scope isolato e
+  // NON vedono currentNodes/applyNodesToScene come identificatori nudi.
+  // Prima si affidavano a window.__veritasNodes, che pero' non veniva mai
+  // valorizzato da nessuna parte - quindi ensureGateA1() e i comandi chat
+  // "assegna gate a1"/"blocca zona" restituivano sempre falso silenziosamente
+  // senza mai toccare i nodi reali visibili nel pannello o nella simulazione.
+  window.__veritasGetNodes = function () { return currentNodes; };
+  window.__veritasAddNode = function (node) {
+    currentNodes.push(node);
+    idCounter = currentNodes.length;
+    if (typeof renderListRef === "function" && renderListRef) renderListRef();
+    applyNodesToScene();
+    return node;
+  };
+
+  // Posiziona la chat comandi appena sotto il pulsante "Ottimizza" del
+  // pannello sinistro (suggerito dall'utente) invece che ancorata in basso
+  // a sinistra, dove si sovrapponeva alla barra play/timeline della scena
+  // 3D (rendendola inaccessibile). Il pannello sinistro e' renderizzato dal
+  // bundle React (fuori dal nostro controllo), quindi la agganciamo via
+  // getBoundingClientRect invece di un valore fisso, ricalcolando a
+  // intervalli - se il bottone non si trova ancora, resta in una posizione
+  // di sicurezza che comunque non copre i controlli di riproduzione.
+  function veritasPositionChat() {
+    const chat = document.getElementById("veritas-gaming-chat");
+    if (!chat) return;
+    const btn = [...document.querySelectorAll("button")].find((b) => /OTTIMIZZA/i.test(b.textContent || ""));
+    if (btn) {
+      const r = btn.getBoundingClientRect();
+      chat.style.top = r.bottom + 10 + "px";
+      chat.style.bottom = "auto";
+      chat.style.left = r.left + "px";
+      chat.style.width = Math.max(260, r.width) + "px";
+      chat.style.maxHeight = Math.max(200, window.innerHeight - r.bottom - 20) + "px";
+      chat.style.overflowY = "auto";
+    } else {
+      // fallback: nessun bottone Ottimizza trovato ancora (nessun GLB
+      // caricato) - stare comunque alti abbastanza da non coprire la
+      // barra play/timeline in fondo allo schermo.
+      chat.style.bottom = "90px";
+      chat.style.top = "auto";
+      chat.style.left = "20px";
+      chat.style.width = "320px";
+    }
+  }
+  veritasPositionChat();
+  setInterval(veritasPositionChat, 1000);
+  window.addEventListener("resize", veritasPositionChat);
+
   function projectToScreen(x, y, z, camera, w, h) {
     const view = mat4xVec4(camera.matrixWorldInverse.elements, [x, y, z, 1]);
     const clip = mat4xVec4(camera.projectionMatrix.elements, view);
@@ -7133,15 +7183,21 @@ setTimeout(()=>{
   
   function ensureGateA1() {
     try {
-      if (!window.__veritasNodes) return false;
-      const hasA1 = window.__veritasNodes.some(n=> /a1/i.test(n.label||n.type||n.id||''));
+      // Prima leggeva/scriveva window.__veritasNodes, un global mai
+      // valorizzato da nessun'altra parte del codice: la funzione
+      // ritornava sempre false silenziosamente, senza mai toccare i nodi
+      // reali visibili nel pannello o usati dalla simulazione. Ora usa il
+      // ponte esposto dallo script principale (window.__veritasGetNodes /
+      // window.__veritasAddNode), che opera sui nodi veri.
+      const nodes = (window.__veritasGetNodes && window.__veritasGetNodes()) || null;
+      if (!nodes) return false;
+      const hasA1 = nodes.some(n=> /a1/i.test(n.label||n.type||n.id||''));
       if (!hasA1) {
-        const gateA = window.__veritasNodes.find(n=> /gate\s*a$/i.test(n.label||'') || n.type==='gate_a');
-        if (gateA) {
+        const gateA = nodes.find(n=> /gate\s*a$/i.test(n.label||'') || n.type==='gate_a' || n.type==='gate');
+        if (gateA && window.__veritasAddNode) {
           const newNode = {...gateA, label:'Gate A1', type:'gate_a1', id:'gate_a1_auto', pos:[gateA.pos[0]+4.2, gateA.pos[1], gateA.pos[2]+0.8]};
-          window.__veritasNodes.push(newNode);
+          window.__veritasAddNode(newNode);
           console.log('[V17] Gate A1 creato', newNode);
-          if (window.__veritasUpdateNodesUI) try{window.__veritasUpdateNodesUI();}catch(e){}
           return true;
         }
       }
