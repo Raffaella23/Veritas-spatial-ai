@@ -2242,7 +2242,46 @@
     groups.forEach((pg) => { if (pg && pg.group) pg.group.visible = visible; });
   }
 
+  // Oltre ai passeggeri (nascosti sopra), il bundle ha una SUA barra di
+  // riproduzione in basso (play/pausa + scrubber frame) che parte da sola
+  // al caricamento, del tutto indipendente da __veritasSimStarted - e'
+  // quella la vera causa visibile del "play parte in automatico": lo
+  // confermano lo screenshot reale con l'icona pausa attiva a pagina
+  // appena caricata. Non possiamo leggere lo stato interno del bundle
+  // (minificato, nessuna sourcemap), ma possiamo riconoscere l'icona SVG
+  // "Pause" di lucide-react per la sua firma geometrica esatta (due rect
+  // 4x16 a x=6 e x=14) e cliccare il bottone che la contiene UNA SOLA
+  // volta, cosi' la timeline si ferma finche' non la riavvia l'utente
+  // (dal bottone stesso o dal nostro "PLAY").
+  let veritasAutoPauseDone = false;
+  function veritasFindBundlePauseButton() {
+    const svgs = document.querySelectorAll("svg");
+    for (const svg of svgs) {
+      const rects = svg.querySelectorAll("rect");
+      if (rects.length !== 2) continue;
+      const [r0, r1] = rects;
+      const isPauseIcon =
+        r0.getAttribute("x") === "14" && r0.getAttribute("width") === "4" && r0.getAttribute("height") === "16" &&
+        r1.getAttribute("x") === "6" && r1.getAttribute("width") === "4" && r1.getAttribute("height") === "16";
+      if (isPauseIcon) {
+        const btn = svg.closest("button");
+        if (btn) return btn;
+      }
+    }
+    return null;
+  }
+  function veritasAutoPauseBundleTimeline() {
+    if (veritasAutoPauseDone || window.__veritasSimStarted) return;
+    const btn = veritasFindBundlePauseButton();
+    if (btn) {
+      btn.click();
+      veritasAutoPauseDone = true;
+      console.log("[VERITAS] Timeline del bundle era in play automatico all'avvio - messa in pausa (bottone trovato via icona).");
+    }
+  }
+
   setInterval(() => {
+    veritasAutoPauseBundleTimeline();
     const badge = document.getElementById("veritas-play-ready");
     if (window.__veritasSimStarted) {
       if (badge) badge.remove();
