@@ -1961,10 +1961,34 @@
       out.nodes[id] = { pos: n.pos, meta: { type: n.type, label: n.label } };
       order.push(id);
     });
-    // MVP: un unico percorso condiviso, nell'ordine attuale dei nodi (come il
-    // fallback "nessuna diramazione" gia' presente in generateTrajectory).
-    // Codes multi-gate/coda reali restano solo nel generatore JS per ora.
-    out.mission_profiles.default = order;
+    // Il backend (path_loader.py) collega i waypoint del mission_profile
+    // con semplici linee rette, senza sapere nulla della mesh reale - non
+    // fa pathfinding. Percio' qui, PRIMA di mandare il percorso al motore
+    // Python, lo arricchiamo con findRoute() (la stessa funzione anti-muro
+    // gia' usata dal generatore JS locale, vedi generateTrajectory): tra
+    // ogni coppia di zone consecutive, se la linea diretta non e'
+    // supportata dai punti navigabili reali della mesh, inserisce i nodi
+    // di transito calcolati con Dijkstra sul grafo delle zone. Cosi' anche
+    // il motore fisico reale segue un percorso che rispetta i muri, invece
+    // di tagliare dritto zona-a-zona.
+    const routeIds = [order[0]];
+    for (let i = 1; i < order.length; i++) {
+      if (typeof findRoute === "function" && lastZones && lastZones.length && lastNavigablePoints && lastNavigablePoints.length) {
+        const via = findRoute(nodes[i - 1].pos, nodes[i].pos);
+        for (let k = 0; k < via.length - 1; k++) {
+          const wp = via[k];
+          // salta il primo elemento se coincide col nodo di partenza gia'
+          // aggiunto un istante fa (findRoute include lo start del percorso
+          // a zone come primo punto del detour)
+          if (k === 0 && Math.hypot(wp[0] - nodes[i - 1].pos[0], wp[2] - nodes[i - 1].pos[2]) < 0.01) continue;
+          const wpId = "wp_" + i + "_" + k;
+          out.nodes[wpId] = { pos: wp, meta: { type: "waypoint" } };
+          routeIds.push(wpId);
+        }
+      }
+      routeIds.push(order[i]);
+    }
+    out.mission_profiles.default = routeIds;
     return out;
   }
 
