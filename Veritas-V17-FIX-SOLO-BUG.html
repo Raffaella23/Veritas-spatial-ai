@@ -1933,6 +1933,24 @@
     return "generic";
   }
 
+  // Notifica visibile per far capire se stiamo davvero usando il motore
+  // fisico reale (Render) o se siamo ricaduti sul generatore JS locale -
+  // prima non c'era alcun segnale visibile e sembrava che "non cambiasse
+  // mai niente", anche quando il fallback scattava silenziosamente.
+  function veritasBridgeNotify(msg, color) {
+    let el = document.getElementById("veritas-bridge-status");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "veritas-bridge-status";
+      el.style.cssText = "position:fixed;left:20px;bottom:420px;z-index:9500;max-width:300px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
+      document.body.appendChild(el);
+    }
+    el.style.border = "1px solid " + (color || "rgba(255,255,255,0.2)");
+    el.style.color = color || "#cbd5e1";
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+
   async function veritasTryBackendSimulate(nodes, agentCount) {
     if (!window.__veritasApiBase) return null;
     try {
@@ -1951,8 +1969,15 @@
           group_id: "g" + Math.floor(i / 3),
         });
       }
+      veritasBridgeNotify("Connessione al motore fisico reale (Render)... se e' inattivo da un po' puo' richiedere fino a 60s", "#facc15");
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
+      // Il piano gratuito Render si addormenta dopo inattivita' e puo'
+      // impiegare 30-60s a risvegliarsi alla prima richiesta: un timeout
+      // troppo corto (prima 20s) abortiva sempre durante il risveglio,
+      // facendo ricadere silenziosamente sul generatore JS locale ad ogni
+      // primo tentativo - dando l'impressione che il backend non fosse
+      // mai davvero collegato.
+      const timeout = setTimeout(() => controller.abort(), 70000);
       const res = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/api/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1962,10 +1987,16 @@
       clearTimeout(timeout);
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      if (!data || !data.trajectory || !data.trajectory.frames || !data.trajectory.frames.length) return null;
+      if (!data || !data.trajectory || !data.trajectory.frames || !data.trajectory.frames.length) {
+        veritasBridgeNotify("Motore reale: risposta vuota, uso generatore JS locale (fallback)", "#fb923c");
+        return null;
+      }
+      veritasBridgeNotify("✅ Motore fisico reale attivo (Social Force Model, Render)", "#00ff88");
+      setTimeout(() => { const el = document.getElementById("veritas-bridge-status"); if (el) el.style.display = "none"; }, 6000);
       return data.trajectory;
     } catch (e) {
       console.warn("[VERITAS bridge] backend non raggiungibile, uso generatore JS locale:", e);
+      veritasBridgeNotify("⚠ Motore reale non raggiungibile, uso generatore JS locale (fallback): " + (e && e.message || e), "#fb923c");
       return null;
     }
   }
