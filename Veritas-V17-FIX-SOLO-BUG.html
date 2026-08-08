@@ -2487,6 +2487,14 @@
       try { posStr = localStorage.getItem("veritasPanelPos"); } catch (e) {}
       let pos = posStr ? JSON.parse(posStr) : null;
       if (!pos) pos = { right: 280, top: 70 };
+      // Difesa: se la posizione salvata (da una finestra/risoluzione diversa)
+      // cade fuori dallo schermo attuale, il pannello risulta invisibile pur
+      // esistendo nel DOM (sembra "sparito"). Si riporta dentro i bordi.
+      const maxLeft = Math.max(0, window.innerWidth - 60);
+      const maxTop = Math.max(0, window.innerHeight - 60);
+      if (pos.left != null) pos.left = Math.min(Math.max(0, pos.left), maxLeft);
+      if (pos.right != null) pos.right = Math.min(Math.max(0, pos.right), maxLeft);
+      pos.top = Math.min(Math.max(0, pos.top), maxTop);
       panel.style.right = "";
       panel.style.left = pos.left != null ? pos.left + "px" : "";
       panel.style.right = pos.left != null ? "" : pos.right + "px";
@@ -2542,8 +2550,11 @@
       reopenTab.style.display = "none";
     };
 
-    panel.style.display = "none";
-    reopenTab.style.display = "block";
+    // Il pannello Punti parte ora APERTO all'avvio: prima partiva sempre
+    // chiuso dietro una piccola tab "📍 Punti" facile da non notare, con
+    // l'effetto di sembrare sparito. Resta comunque richiudibile con "—".
+    panel.style.display = "block";
+    reopenTab.style.display = "none";
 
     const grip = document.createElement("div");
     grip.id = "veritas-grip";
