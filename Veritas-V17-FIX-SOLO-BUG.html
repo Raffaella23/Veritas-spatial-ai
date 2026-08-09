@@ -2484,6 +2484,11 @@
         <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">${t("pillar_height_label")} <span id="vp-pillar-height-val">1.7</span>m</label>
         <input type="range" id="vp-pillar-height" min="0.1" max="3" step="0.1" value="1.7" style="width:100%;">
       </div>
+      <div id="vp-node-y-control" style="display:none;margin-bottom:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px;">
+        <label style="display:block;font-size:9.5px;color:#93c5fd;margin-bottom:4px;">🔼 Quota verticale punto (Y) <span id="vp-node-y-val">0.00</span>m</label>
+        <input type="range" id="vp-node-y" min="-10" max="30" step="0.05" value="0" style="width:100%;">
+        <div style="font-size:8.5px;color:#64748b;margin-top:4px;">Sposta manualmente su/giu' il punto selezionato, per i casi in cui il click sulla mesh non lo aggancia dove serve.</div>
+      </div>
       <button class="vp-btn" id="vp-reanalyze">${t("reanalyze_btn")}</button>
       <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">${t("passenger_scale_label")} <span id="vp-scale-val">1.0x</span></label>
@@ -2627,8 +2632,12 @@
       const val = panel.querySelector("#vp-marker-scale-val");
       const sliderZ = panel.querySelector("#vp-marker-depth");
       const valZ = panel.querySelector("#vp-marker-depth-val");
+      const yBox = panel.querySelector("#vp-node-y-control");
+      const ySlider = panel.querySelector("#vp-node-y");
+      const yVal = panel.querySelector("#vp-node-y-val");
       if (selectedIndex === null || !currentNodes[selectedIndex]) {
         box.style.display = "none";
+        if (yBox) yBox.style.display = "none";
         return;
       }
       box.style.display = "block";
@@ -2637,6 +2646,12 @@
       val.textContent = s.toFixed(2) + "x";
       const sZ = currentNodes[selectedIndex].scaleZ != null ? currentNodes[selectedIndex].scaleZ : s;
       if (sliderZ) { sliderZ.value = sZ; valZ.textContent = sZ.toFixed(2) + "x"; }
+      if (yBox) {
+        yBox.style.display = "block";
+        const y = currentNodes[selectedIndex].pos[1] || 0;
+        if (ySlider) ySlider.value = y;
+        if (yVal) yVal.textContent = y.toFixed(2);
+      }
     }
 
     function renderList() {
@@ -2702,6 +2717,15 @@
       currentNodes[selectedIndex].scaleZ = v;
       panel.querySelector("#vp-marker-depth-val").textContent = v.toFixed(2) + "x";
       applyMarkerScale(selectedIndex);
+    });
+
+    panel.querySelector("#vp-node-y").addEventListener("input", (e) => {
+      if (selectedIndex === null || !currentNodes[selectedIndex]) return;
+      const v = parseFloat(e.target.value);
+      currentNodes[selectedIndex].pos[1] = v;
+      panel.querySelector("#vp-node-y-val").textContent = v.toFixed(2);
+      const n = currentNodes[selectedIndex];
+      moveHotspotVisual(selectedIndex, n.pos[0], n.pos[2]);
     });
 
     window.__veritasPillarHeightM = 1.7;
