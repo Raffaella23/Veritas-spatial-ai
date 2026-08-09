@@ -2325,16 +2325,37 @@
 
   async function applyNodesToScene() {
     const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
-    if (!traj) return;
+    if (!traj) {
+      console.warn("[VERITAS] applyNodesToScene: __veritasGetTrajectory() non ha restituito nulla - impossibile aggiornare marker/simulazione.");
+      return;
+    }
     traj.nodes = currentNodes;
     currentNodes.forEach((n, i) => { moveHotspotVisual(i, n.pos[0], n.pos[2]); applyMarkerScale(i); });
     syncCamerasToNodes();
     veritasSetPassengersVisible(!!window.__veritasSimStarted);
     if (!window.__veritasSimStarted) return;
-    let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
-    if (!fresh) fresh = generateTrajectory(currentNodes);
-    traj.frames.length = 0;
-    traj.frames.push(...fresh.frames);
+    // FIX: la generazione traiettoria (backend + fallback JS) non era
+    // protetta - un'eccezione qui (es. eccezione durante generateTrajectory)
+    // diventava un unhandled promise rejection silenzioso: nessun errore
+    // visibile, nessun passeggero, nessun indizio del perche'. Ora ogni
+    // fallimento (eccezione o traiettoria vuota) e' loggato in console E
+    // mostrato come banner a schermo, cosi' si vede subito cosa non va
+    // invece di dover indovinare.
+    try {
+      let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
+      if (!fresh) fresh = generateTrajectory(currentNodes);
+      if (!fresh || !fresh.frames || !fresh.frames.length) {
+        console.warn("[VERITAS] Traiettoria generata vuota (0 frame) - nessun passeggero visibile.", { nodeCount: currentNodes.length, types: currentNodes.map((n) => n.type) });
+        veritasBridgeNotify("⚠ Traiettoria generata vuota — nessun passeggero visibile. Serve almeno una zona 'spawn' e una 'gate'.", "#fb923c");
+        return;
+      }
+      traj.frames.length = 0;
+      traj.frames.push(...fresh.frames);
+      console.log("[VERITAS] Traiettoria aggiornata:", fresh.frames.length, "frame,", currentNodes.length, "punti.");
+    } catch (e) {
+      console.error("[VERITAS] Errore nella generazione della traiettoria:", e);
+      veritasBridgeNotify("⚠ Errore nella generazione della simulazione: " + (e && e.message || e), "#ef4444");
+    }
   }
 
   // Ponte globale verso i moduli caricati come <script type="module">
