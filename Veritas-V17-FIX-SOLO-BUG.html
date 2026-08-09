@@ -2717,6 +2717,7 @@
           const warnIcon = isDupSpawn ? `<span title="${t("warn_dup_spawn")}" style="margin-right:4px;">⚠️</span>` : "";
           return `<div class="vp-node" style="${i === selectedIndex ? "background:rgba(59,130,246,0.25);border:1px solid #3b82f6;" : ""}">
           <span class="lbl" data-i="${i}" style="cursor:pointer;flex:1;">${warnIcon}${n.label}</span>
+          <span class="dup" data-i="${i}" title="Duplica zona" style="cursor:pointer;margin-right:2px;">⧉</span>
           <span class="del" data-i="${i}">✕</span>
         </div>`;
         })
@@ -2727,6 +2728,29 @@
           currentNodes.splice(i, 1);
           if (selectedIndex === i) selectedIndex = null;
           renderList();
+        };
+      });
+      // Duplicazione zona: comune in ogni software CAD/architettura, prima
+      // mancava e ogni zona andava ricreata a mano da zero ogni volta.
+      list.querySelectorAll(".dup").forEach((el) => {
+        el.onclick = (ev) => {
+          ev.stopPropagation();
+          const i = parseInt(el.getAttribute("data-i"), 10);
+          const src = currentNodes[i];
+          if (!src) return;
+          const clone = JSON.parse(JSON.stringify(src));
+          clone.id = `node_${idCounter++}`;
+          clone.label = (src.label || "") + " (copia)";
+          // piccolo scarto in XZ cosi' non si sovrappone esattamente
+          // all'originale e si vede subito che e' un punto nuovo
+          clone.pos = [src.pos[0] + 1.5, src.pos[1], src.pos[2] + 1.5];
+          currentNodes.splice(i + 1, 0, clone);
+          selectedIndex = i + 1;
+          placing = false;
+          renderList();
+          applyNodesToScene();
+          updatePlaceBtn();
+          updateScaleControl();
         };
       });
       list.querySelectorAll(".lbl").forEach((el) => {
