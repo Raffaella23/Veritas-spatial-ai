@@ -1589,6 +1589,33 @@
     }
     let points = [];
     for (const m of filtered) points = points.concat(m.pts);
+    // Scarta le bande di quota minoritarie: cime di muri, pilastri, banchi,
+    // arredi hanno anch'esse normale verso l'alto e passavano il filtro
+    // sopra (che guarda solo l'impronta XZ), finendo mescolate nel
+    // clustering con il vero pavimento — risultato: alcune zone
+    // auto-rilevate finiscono "in aria" sopra un muro o un pilastro invece
+    // che a terra. Si raggruppano i punti in bande da 0.4m e si tengono solo
+    // quelle con una massa di campioni comparabile alla banda piu' popolata
+    // (un vero piano superiore ha molta piu' area di un paio di pilastri, e
+    // resta quindi incluso — questo non rompe il supporto multi-livello).
+    if (points.length > 20) {
+      const bandSize = 0.4;
+      const bucketOf = (y) => Math.round(y / bandSize);
+      const counts = new Map();
+      for (const p of points) {
+        const b = bucketOf(p[1]);
+        counts.set(b, (counts.get(b) || 0) + 1);
+      }
+      let maxCount = 0;
+      counts.forEach((c) => { if (c > maxCount) maxCount = c; });
+      const minKeepCount = Math.max(3, maxCount * 0.12);
+      const keptBuckets = new Set();
+      counts.forEach((c, b) => { if (c >= minKeepCount) keptBuckets.add(b); });
+      const floorFiltered = points.filter((p) => keptBuckets.has(bucketOf(p[1])));
+      if (floorFiltered.length >= Math.min(20, points.length * 0.3)) {
+        points = floorFiltered;
+      }
+    }
     if (points.length > maxSamples) {
       const strideOut = Math.ceil(points.length / maxSamples);
       points = points.filter((_, i) => i % strideOut === 0);
