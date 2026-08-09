@@ -2712,7 +2712,14 @@
         el.onclick = () => {
           const i = parseInt(el.getAttribute("data-i"), 10);
           selectedIndex = selectedIndex === i ? null : i;
-          placing = true;
+          // FIX: selezionare NON arma piu' automaticamente "click per
+          // spostare". Prima ogni click successivo sul canvas (anche solo
+          // per orbitare la vista, o per selezionare un'altra zona)
+          // spostava la zona appena sistemata li' per sbaglio, facendo
+          // perdere le regolazioni fatte con lo slider/numero quota Y.
+          // Ora bisogna premere esplicitamente il pulsante "Clicca sul
+          // pavimento per spostare" per armare un singolo spostamento.
+          placing = false;
           renderList();
           updatePlaceBtn();
           updateScaleControl();
@@ -2728,6 +2735,14 @@
     syncCamerasToNodes();
 
     panel.querySelector("#vp-place").onclick = () => {
+      if (selectedIndex !== null) {
+        // il pulsante mostra gia' "Clicca sul pavimento per spostare: X":
+        // qui si arma esplicitamente UN singolo spostamento, invece di
+        // lasciarlo sempre armato fin dalla selezione.
+        placing = true;
+        updatePlaceBtn();
+        return;
+      }
       selectedIndex = null;
       placing = !placing;
       grip.style.display = "none";
