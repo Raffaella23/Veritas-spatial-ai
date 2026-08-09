@@ -6978,7 +6978,15 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     setTimeout(() => waitFor(check, cb, tries - 1), 250);
   }
 
-  const NATIVE_ANCHORS = ["CAMERE", "KPI", "Python Core"];
+  // Ancore per i pannelli nativi da nascondere di default (CAMERE/ARCHETIPI a
+  // sinistra, KPI a destra sono entrambi <aside>; il box di upload nativo al
+  // centro duplica il nostro upload widget). NOTA v4: la vecchia euristica
+  // richiedeva position:fixed/absolute sull'ancestor, ma questi pannelli sono
+  // figli flex (className tipo "hidden lg:flex flex-col") con position:static
+  // -- per questo restavano sempre visibili nonostante nativeVisible=false.
+  // Fix: preferiamo la landmark semantica (aside/nav) piu' vicina; in fallback
+  // usiamo solo dimensione ragionevole, senza vincoli di position.
+  const NATIVE_ANCHORS = ["CAMERE", "KPI", "Trascina qui"];
   let nativePanels = [];
   let nativeVisible = false;
 
@@ -6987,11 +6995,15 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     let node;
     while ((node = walker.nextNode())) {
       if (node.textContent && node.textContent.indexOf(text) !== -1) {
+        let probe = node.parentElement;
+        for (let i = 0; i < 10 && probe && probe !== document.body; i++) {
+          const tag = probe.tagName;
+          if (tag === "ASIDE" || tag === "NAV") return probe;
+          probe = probe.parentElement;
+        }
         let el = node.parentElement;
         for (let i = 0; i < 8 && el && el !== document.body; i++) {
-          let cs;
-          try { cs = getComputedStyle(el); } catch (e) { el = el.parentElement; continue; }
-          if ((cs.position === "fixed" || cs.position === "absolute") && el.offsetWidth > 80 && el.offsetHeight > 40) {
+          if (el.offsetWidth > 140 && el.offsetHeight > 80 && el.offsetWidth < window.innerWidth * 0.9) {
             return el;
           }
           el = el.parentElement;
@@ -7025,7 +7037,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     const iv = setInterval(() => {
       huntNativePanels();
       n++;
-      if (n > 60) clearInterval(iv);
+      if (n > 90) clearInterval(iv);
     }, 500);
   }
 
@@ -7552,5 +7564,3 @@ window.__veritasLoadSplatFile = loadSplatFile;
 
 </body>
 </html>
-
-<!-- rebuild trigger -->
