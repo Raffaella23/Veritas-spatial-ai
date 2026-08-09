@@ -2396,6 +2396,29 @@
     const rect = canvasEl.getBoundingClientRect();
     const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
     const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    // === FIX: aggancio reale alla mesh cliccata ===
+    // Prima si tenta un vero raycast contro il modello caricato (stesso
+    // meccanismo BVH gia' usato per il cammino degli agenti in
+    // realFloorYNear): il punto risultante e' ESATTAMENTE dove si e'
+    // cliccato sulla mesh. Prima invece si stimava solo l'intersezione con
+    // un piano orizzontale a una quota "rilevata" (o 0 di default se non si
+    // era mai lanciato Rianalizza/Report struttura) — se la quota reale del
+    // pavimento del modello non coincideva esattamente, il punto restava
+    // sospeso anche cliccando sulla mesh vera.
+    const veritasModelRootForPlacement = window.__veritasModelRoot;
+    if (veritasModelRootForPlacement && window.THREE && window.THREE.Raycaster) {
+      try {
+        const veritasPlaceRaycaster = new window.THREE.Raycaster();
+        veritasPlaceRaycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
+        const veritasPlaceHits = veritasPlaceRaycaster.intersectObject(veritasModelRootForPlacement, true);
+        if (veritasPlaceHits && veritasPlaceHits.length) {
+          const h = veritasPlaceHits[0].point;
+          return { x: h.x, y: h.y, z: h.z };
+        }
+      } catch (e) { /* nessun hit sulla mesh: ripiega sul metodo a piani sotto */ }
+    }
+
     const invProj = camera.projectionMatrixInverse.elements;
     const invView = camera.matrixWorld.elements;
     let p = mat4xVec4(invProj, [ndcX, ndcY, -1, 1]);
