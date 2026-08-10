@@ -1059,10 +1059,35 @@
     // i gruppi di agenti vengono distribuiti su tutti, non solo sul primo trovato
     const spawnNodes = nodes.filter((nd) => nd.type === "spawn");
     const gates = nodes.filter((nd) => nd.type === "gate");
-    // se non ci sono nodi "trunk"/spawn riconosciuti o nessun gate, usa la sequenza
-    // originale intera come unico ramo (comportamento di sicurezza)
-    const hasBranching = (spawnNodes.length + trunk.length) >= 1 && gates.length >= 1;
-    const fallbackPath = nodes;
+    // I passeggeri devono SEMPRE partire dall'ingresso/parcheggio.
+    //
+    // La condizione precedente era (spawnNodes.length + trunk.length) >= 1:
+    // bastava un checkin perche' risultasse vera anche con ZERO ingressi, e
+    // in quel caso startNodes restava vuoto e il percorso cominciava
+    // dall'accettazione. Gli agenti comparivano cosi' a meta' strada invece
+    // che all'ingresso.
+    //
+    // Ora si pretende un vero punto di partenza. Se il progetto non ne
+    // dichiara nessuno se ne elegge uno: la zona piu' lontana dai gate lungo
+    // il flusso, che e' la definizione operativa di "ingresso" in questo
+    // motore (il lato terra, opposto al lato volo).
+    let entryNodes = spawnNodes;
+    if (!entryNodes.length && nodes.length) {
+      let best = null, bestD = -1;
+      const ref = gates.length ? gates[0].pos : nodes[nodes.length - 1].pos;
+      for (const nd of nodes) {
+        if (nd.type === "gate") continue;
+        const d = Math.hypot(nd.pos[0] - ref[0], nd.pos[2] - ref[2]);
+        if (d > bestD) { bestD = d; best = nd; }
+      }
+      if (best) entryNodes = [best];
+    }
+    const hasBranching = entryNodes.length >= 1 && gates.length >= 1;
+    // Anche il percorso di riserva deve cominciare dall'ingresso, non da un
+    // punto qualsiasi dell'elenco.
+    const fallbackPath = entryNodes.length
+      ? entryNodes.slice(0, 1).concat(nodes.filter((nd) => nd !== entryNodes[0]))
+      : nodes;
 
     // Espande una sequenza di nodi in un percorso reale, inserendo waypoint
     // intermedi (dalle zone rilevate) dove la linea diretta non e "libera" —
@@ -1269,8 +1294,8 @@
       const gateIdx = gates.length ? group % gates.length : 0;
       // ogni gruppo (famiglia/comitiva) entra sempre dallo stesso varco, ma varchi
       // diversi tra i gruppi se il progetto ne definisce piu' di uno
-      const spawnIdx = spawnNodes.length ? group % spawnNodes.length : 0;
-      const startNodes = spawnNodes.length ? [spawnNodes[spawnIdx]] : [];
+      const spawnIdx = entryNodes.length ? group % entryNodes.length : 0;
+      const startNodes = entryNodes.length ? [entryNodes[spawnIdx]] : [];
       const rawPath = hasBranching ? startNodes.concat(trunk, [gates[gateIdx]]) : fallbackPath;
       const cacheKey = spawnIdx + "_" + gateIdx; // percorso diverso per combinazione varco+gate
       if (!routeCache.has(cacheKey)) routeCache.set(cacheKey, expandRoute(rawPath));
@@ -1905,7 +1930,7 @@
         // Aggiorna scena e UI
         setTimeout(() => {
           try {
-            if (typeof applyNodesToScene === 'function') applyNodesToScene();
+            if (typeof applyNodesToScene === 'function') applyNodesToScene(true);
             if (typeof renderListRef === 'function' && renderListRef) renderListRef();
             
             // Notifica verde
@@ -2018,7 +2043,7 @@
         currentNodes = analyzed;
         idCounter = currentNodes.length;
         console.log('[VERITAS AUTO v5] Auto-assegnati', currentNodes.length, 'nodi da analyzeMesh');
-        applyNodesToScene();
+        applyNodesToScene(true);
         if (panelBuilt && renderListRef) renderListRef();
         
         // Notifica
@@ -2044,7 +2069,7 @@
           }
           currentNodes = newNodes;
           idCounter = newNodes.length;
-          applyNodesToScene();
+          applyNodesToScene(true);
           if (panelBuilt && renderListRef) renderListRef();
           const notif = document.createElement('div');
           notif.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#00c851,#00a844);color:white;padding:24px 32px;border-radius:16px;font-family:Inter,monospace;z-index:10000;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);font-size:14px;';
@@ -2426,7 +2451,10 @@
     if (window.__veritasModelRoot && currentNodes && currentNodes.length >= 2 && !badge) veritasShowPlayReady();
   }, 800);
 
-  async function applyNodesToScene() {
+  // force: ricalcola i frame anche a simulazione non avviata. Serve al
+  // caricamento di un nuovo modello, quando le zone cambiano ma i frame in
+  // memoria descrivono ancora il layout precedente.
+  async function applyNodesToScene(force) {
     const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
     if (!traj) {
       console.warn("[VERITAS] applyNodesToScene: __veritasGetTrajectory() non ha restituito nulla - impossibile aggiornare marker/simulazione.");
@@ -2436,7 +2464,13 @@
     currentNodes.forEach((n, i) => { moveHotspotVisual(i, n.pos[0], n.pos[2]); applyMarkerScale(i); });
     syncCamerasToNodes();
     veritasSetPassengersVisible(!!window.__veritasSimStarted);
-    if (!window.__veritasSimStarted) return;
+    // Senza questo ricalcolo i frame restano quelli del layout precedente:
+    // traj.nodes viene sostituito e i marker si spostano sulle zone nuove, ma
+    // gli agenti continuano a percorrere il tracciato vecchio e compaiono
+    // FUORI dal modello appena caricato. Misurato: nuvola agenti di 93x71m
+    // su una sala di 50x24m, con moto regolare (quindi percorso coerente ma
+    // in un'altra scena, non un difetto di collisione).
+    if (!window.__veritasSimStarted && !force) return;
     // FIX: la generazione traiettoria (backend + fallback JS) non era
     // protetta - un'eccezione qui (es. eccezione durante generateTrajectory)
     // diventava un unhandled promise rejection silenzioso: nessun errore
