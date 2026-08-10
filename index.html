@@ -778,6 +778,11 @@
   // anche dopo che lo splash a schermo intero e' gia' sparito (login e
   // schermata impostazioni non devono restare bloccati in attesa del
   // motore reale).
+  function veritasHideWakeBadge() {
+    const el = document.getElementById("veritas-wake-badge");
+    if (el) el.style.display = "none";
+  }
+
   function veritasWakeBadge(msg, color, dismissible) {
     let el = document.getElementById("veritas-wake-badge");
     if (!el) {
@@ -829,7 +834,13 @@
         if (res.ok) {
           veritasSetSplashMsg("Motore fisico reale pronto ✅", "#00ff88");
           veritasHideSplash();
-          veritasWakeBadge("✅ Motore fisico reale pronto — chiudi con la X", "#00ff88", true);
+          // Nessun badge di conferma: lo stesso stato e' gia' mostrato dalla
+          // pastiglia in topbar ("Motore reale pronto", pallino verde), e
+          // averlo due volte a schermo era solo rumore -- per giunta
+          // sovrapposto al badge giallo di connessione, che diceva l'opposto.
+          // Il badge di FALLIMENTO resta, perche' quello porta
+          // un'informazione che la pastiglia da sola non spiega.
+          veritasHideWakeBadge();
           return;
         }
       } catch (e) { /* non ancora pronto, ritenta */ }
@@ -1265,7 +1276,29 @@
 
     function expandRoute(rawNodes) {
       const MAX_SEG_LEN = 3.5; // metri: sopra questa lunghezza un tratto viene suddiviso
-      const expanded = [{ pos: rawNodes[0].pos }];
+      // Aggancio della quota al pavimento vero.
+      //
+      // La quota di una zona e' il baricentro del suo cluster, cioe' la MEDIA
+      // delle quote dei campioni: su un modello reale un cluster mescola
+      // pavimento, gradini, pedane e arredi, e la media finisce a mezz'aria.
+      // Gli agenti ereditavano quella quota e camminavano sospesi o affondati
+      // invece di appoggiare il piede a terra.
+      //
+      // Qui ogni punto del percorso viene calato sul pavimento reale con il
+      // raycast gia' usato per lo spostamento manuale dei punti, invece di
+      // fidarsi della media. Si fa una volta per percorso -- i percorsi sono
+      // in cache per combinazione ingresso/gate -- e non a ogni fotogramma,
+      // che moltiplicherebbe i raycast per agenti per frame.
+      const snapToFloor = (p) => {
+        if (!p) return p;
+        try {
+          const y = realFloorYNear(p[0], p[2], 2.0);
+          if (y != null && isFinite(y)) return [p[0], y, p[2]];
+        } catch (e) { /* senza modello o senza raycaster si tiene la quota originale */ }
+        return p;
+      };
+
+      const expanded = [{ pos: snapToFloor(rawNodes[0].pos) }];
       let securityAt = null, cum = 0;
       if (rawNodes[0].type === "security") securityAt = 0;
       for (let s = 0; s < rawNodes.length - 1; s++) {
@@ -1273,7 +1306,8 @@
         const via = findRoute(from, to); // array di posizioni intermedie + destinazione finale
         let prev = from;
         for (const wp of via) {
-          for (const dp of densifySegment(prev, wp, MAX_SEG_LEN)) {
+          for (const dp0 of densifySegment(prev, wp, MAX_SEG_LEN)) {
+            const dp = snapToFloor(dp0);
             expanded.push({ pos: dp });
             cum += Math.hypot(dp[0] - prev[0], dp[2] - prev[2]);
             prev = dp;
