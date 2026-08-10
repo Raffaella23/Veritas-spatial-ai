@@ -7807,16 +7807,27 @@ let grid = null;   // { minX, minZ, nx, nz, heights: Float32Array, floorY, sourc
 // Estrazione occlusori
 // ---------------------------------------------------------------
 
-// Dalla mesh: vertici su superfici VERTICALI (normale quasi orizzontale).
-// Se la geometria non ha normali si tengono tutti i vertici -- la fascia
-// di quota piu' avanti scarta comunque pavimento e soffitto, quindi il
-// caso senza normali degrada in modo sicuro invece di perdere i muri.
+// Dalla mesh: superfici VERTICALI, campionate per TRIANGOLI e non per vertici.
+//
+// Campionare i vertici sembra piu' semplice ma non regge la geometria reale:
+// un muro modellato come scatola ha vertici solo alla base e in cima (y=0 e
+// y=3), quindi nella fascia utile a mezza altezza non cade NESSUN vertice e
+// il muro sparisce dall'analisi. Su una mesh scansionata e densa il difetto
+// non si vedrebbe; su un modello CAD pulito fa fallire tutto.
+//
+// Lavorando sui triangoli si usa invece l'ESTENSIONE VERTICALE di ciascuna
+// faccia: un triangolo che va da 0 a 3m attraversa la fascia e viene
+// registrato, indipendentemente da dove stanno i suoi vertici.
+//
+// Ogni occlusore e' [x, z, quotaSommita', quotaBase]: servono entrambe le
+// quote perche' un ostacolo conta solo se la sua estensione verticale
+// interseca davvero l'altezza dell'occhio.
 function occludersFromMesh(root) {
   root.updateMatrixWorld(true);
   const out = [];
-  const v = new THREE.Vector3();
-  const n = new THREE.Vector3();
-  const nm = new THREE.Matrix3();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3(), nrm = new THREE.Vector3();
+
   root.traverse((obj) => {
     if (!obj.isMesh || !obj.geometry) return;
     const name = (obj.name || "").toLowerCase();
@@ -7824,16 +7835,50 @@ function occludersFromMesh(root) {
     const geo = obj.geometry;
     const pa = geo.attributes && geo.attributes.position;
     if (!pa || !pa.count) return;
-    const na = geo.attributes && geo.attributes.normal;
-    const stride = Math.max(1, Math.floor(pa.count / 1200));
-    nm.getNormalMatrix(obj.matrixWorld);
-    for (let i = 0; i < pa.count; i += stride) {
-      if (na) {
-        n.set(na.getX(i), na.getY(i), na.getZ(i)).applyMatrix3(nm).normalize();
-        if (Math.abs(n.y) > HORIZONTAL_NORMAL_MAX) continue;
+    const index = geo.index;
+    const triCount = Math.floor((index ? index.count : pa.count) / 3);
+    if (!triCount) return;
+    const mw = obj.matrixWorld;
+    // Su mesh molto dense si salta qualche triangolo: la copertura resta
+    // ampiamente sufficiente per una griglia da 0.4m.
+    const triStride = Math.max(1, Math.floor(triCount / 20000));
+
+    for (let t = 0; t < triCount; t += triStride) {
+      const i0 = index ? index.getX(t * 3) : t * 3;
+      const i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+      const i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+      a.set(pa.getX(i0), pa.getY(i0), pa.getZ(i0)).applyMatrix4(mw);
+      b.set(pa.getX(i1), pa.getY(i1), pa.getZ(i1)).applyMatrix4(mw);
+      c.set(pa.getX(i2), pa.getY(i2), pa.getZ(i2)).applyMatrix4(mw);
+
+      // Normale geometrica reale: non ci si fida dell'attributo, che puo'
+      // mancare o essere interpolato per lo shading.
+      ab.subVectors(b, a); ac.subVectors(c, a);
+      nrm.crossVectors(ab, ac);
+      const len = nrm.length();
+      if (len < 1e-9) continue;
+      nrm.divideScalar(len);
+      if (Math.abs(nrm.y) > HORIZONTAL_NORMAL_MAX) continue; // pavimento o soffitto
+
+      const top = Math.max(a.y, b.y, c.y);
+      const bottom = Math.min(a.y, b.y, c.y);
+
+      // Proiettato su XZ un triangolo verticale e' quasi un segmento: si
+      // percorre la sua coppia di estremi piu' distante, cosi' l'impronta
+      // finisce nella griglia per intero invece che in una cella sola.
+      const pts = [[a.x, a.z], [b.x, b.z], [c.x, c.z]];
+      let p0 = pts[0], p1 = pts[1], best = -1;
+      for (let i = 0; i < 3; i++) {
+        for (let j = i + 1; j < 3; j++) {
+          const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
+          if (d > best) { best = d; p0 = pts[i]; p1 = pts[j]; }
+        }
       }
-      v.set(pa.getX(i), pa.getY(i), pa.getZ(i)).applyMatrix4(obj.matrixWorld);
-      out.push([v.x, v.y, v.z, 0]);
+      const steps = Math.max(1, Math.min(400, Math.ceil(best / (CELL * 0.5))));
+      for (let s = 0; s <= steps; s++) {
+        const u = s / steps;
+        out.push([p0[0] + (p1[0] - p0[0]) * u, p0[1] + (p1[1] - p0[1]) * u, top, bottom, 0]);
+      }
     }
   });
   return out;
@@ -7879,7 +7924,10 @@ function occludersFromSplat(root) {
       r = Math.max(sx, sy, sz) * scaleFactor;
     }
     if (!isFinite(r) || r < 0) r = 0;
-    out.push([v.x, v.y, v.z, Math.min(r, 2)]);
+    r = Math.min(r, 2);
+    // Stesso formato della mesh: [x, z, sommita', base, raggio]. Per una
+    // gaussiana sommita' e base sono il centro piu' o meno il semiasse.
+    out.push([v.x, v.z, v.y + r, v.y - r, r]);
   }
   return out;
 }
@@ -7888,11 +7936,41 @@ function occludersFromSplat(root) {
 // Costruzione del campo di altezze
 // ---------------------------------------------------------------
 
-function floorReference() {
+// Quota di riferimento del pavimento.
+//
+// NON si usa la mediana: i punti "navigabili" comprendono anche le facce
+// superiori di muri e pilastri (pure loro hanno normale verso l'alto), e su
+// un modello con molti muri e poco pavimento la mediana finisce sulle CIME
+// DEI MURI. Con il riferimento a 3m invece che a 0 la fascia utile si sposta
+// sopra gli ostacoli e ogni muro viene scartato perche' "troppo basso":
+// la griglia resta vuota e la percezione non risponde piu' nulla.
+//
+// Il decimo percentile resta ancorato alla superficie calpestabile piu'
+// bassa ed e' insensibile a quei punti alti.
+// Limite noto: su un edificio multipiano questo fissa il piano terra. Una
+// percezione per piano richiederebbe una griglia per livello.
+function floorReference(occluders) {
+  // Si parte dalla BASE DEGLI OCCLUSORI: muri, pilastri e arredi poggiano
+  // sul pavimento, quindi il loro piede e' il riferimento piu' affidabile.
+  //
+  // Non si usano i punti navigabili: quelli comprendono anche le facce
+  // superiori dei muri (pure loro hanno normale verso l'alto) e su un
+  // modello con molti muri e poco pavimento il filtro a monte scarta
+  // proprio la banda del pavimento perche' minoritaria, lasciando SOLO
+  // punti in cima ai muri. Con il riferimento a 3m invece che a 0 la fascia
+  // utile si sposta sopra gli ostacoli, ogni muro viene scartato perche'
+  // "troppo basso" e la griglia resta vuota.
+  //
+  // Il decimo percentile invece del minimo assoluto evita che un singolo
+  // vertice sotto quota sposti tutto.
+  if (occluders && occluders.length) {
+    const bottoms = occluders.map((o) => o[3]).sort((a, b) => a - b);
+    return bottoms[Math.floor(bottoms.length * 0.1)];
+  }
   const pts = window.__veritasAutoPoints;
   if (pts && pts.length) {
     const ys = pts.map((p) => p[1]).sort((a, b) => a - b);
-    return ys[Math.floor(ys.length / 2)];
+    return ys[Math.floor(ys.length * 0.1)];
   }
   return 0;
 }
@@ -7911,14 +7989,21 @@ function stamp(heights, nx, nz, cx, cz, h, radiusCells) {
 
 function buildGrid(occluders, source) {
   if (!occluders.length) return null;
-  const floorY = floorReference();
+  const floorY = floorReference(occluders);
 
-  // Solo cio' che sta nella fascia utile: sopra la caviglia e sotto la
-  // testa. Un pavimento non occlude, un soffitto nemmeno.
+  // Un ostacolo conta se la sua ESTENSIONE VERTICALE interseca la fascia
+  // utile, non se un suo vertice ci cade dentro: un muro da 0 a 3m attraversa
+  // la fascia pur non avendo geometria a mezza altezza.
+  // L'altezza registrata e' quella della sommita': serve intera per poter
+  // rispondere a quote occhio diverse (in piedi contro seduto).
+  const bandTop = floorY + OCCLUDER_MAX_H;
+  const bandBottom = floorY + OCCLUDER_MIN_H;
   const band = [];
   for (const o of occluders) {
-    const h = o[1] - floorY;
-    if (h >= OCCLUDER_MIN_H && h <= OCCLUDER_MAX_H) band.push([o[0], o[2], h, o[3]]);
+    const top = o[2], bottom = o[3];
+    if (top <= bandBottom) continue;   // troppo basso: ci si vede sopra
+    if (bottom >= bandTop) continue;   // sospeso sopra la testa
+    band.push([o[0], o[1], top - floorY, o[4]]);
   }
   if (band.length < 10) return null;
 
