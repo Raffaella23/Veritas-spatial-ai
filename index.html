@@ -1554,27 +1554,80 @@
       const posAttr = geo.attributes && geo.attributes.position;
       const normAttr = geo.attributes && geo.attributes.normal;
       if (!posAttr || !posAttr.count) return;
-      const stride = Math.max(1, Math.floor(posAttr.count / 600));
+      // Campionamento per AREA, non per vertice.
+      //
+      // Prendere i vertici pesa ogni superficie per quanti punti ha, non per
+      // quanto e' estesa: un pavimento di 1200 m2 modellato come rettangolo
+      // ha 4 vertici, mentre otto muri ne hanno decine. Il pavimento
+      // risultava quindi minoritario, il filtro a bande di quota lo
+      // scartava come "banda secondaria" e sopravvivevano solo le CIME DEI
+      // MURI -- da cui le zone che restavano sospese a 3m invece di posarsi
+      // a terra, e gli agenti che nascevano in quota.
+      //
+      // Campionando ogni triangolo in proporzione alla sua area il pavimento
+      // torna dominante perche' e' effettivamente la superficie piu' estesa.
+      // Il reticolo baricentrico e' deterministico di proposito: con
+      // campioni casuali la stessa scena darebbe zone diverse a ogni
+      // analisi, inaccettabile in uno strumento professionale.
+      const index = geo.index;
+      const triCount = Math.floor((index ? index.count : posAttr.count) / 3);
+      if (!triCount) return;
       const mw = obj.matrixWorld.elements;
       const pts = [];
       let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-      for (let i = 0; i < posAttr.count; i += stride) {
-        const lx = posAttr.getX(i), ly = posAttr.getY(i), lz = posAttr.getZ(i);
-        const w = mat4xVec4(mw, [lx, ly, lz, 1]);
-        let ny = 1;
+      const triStride = Math.max(1, Math.floor(triCount / 4000));
+      for (let t = 0; t < triCount; t += triStride) {
+        const i0 = index ? index.getX(t * 3) : t * 3;
+        const i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+        const i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+        const A = mat4xVec4(mw, [posAttr.getX(i0), posAttr.getY(i0), posAttr.getZ(i0), 1]);
+        const B = mat4xVec4(mw, [posAttr.getX(i1), posAttr.getY(i1), posAttr.getZ(i1), 1]);
+        const C = mat4xVec4(mw, [posAttr.getX(i2), posAttr.getY(i2), posAttr.getZ(i2), 1]);
+        const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2];
+        const vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+        const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+        const L = Math.hypot(cx, cy, cz);
+        if (L < 1e-9) continue;
+        const area = L / 2;
+        // Il VERSO va preso dall'attributo normale quando c'e': il prodotto
+        // vettoriale dipende dall'ordine dei vertici nel buffer, e su questo
+        // modello il pavimento ha avvolgimento orario, quindi la normale
+        // geometrica punta in basso e la superficie calpestabile piu' estesa
+        // veniva scartata. L'attributo descrive l'orientamento voluto
+        // dall'autore; la geometria resta come riserva se manca.
+        let ny;
         if (normAttr) {
-          const nx0 = normAttr.getX(i), ny0 = normAttr.getY(i), nz0 = normAttr.getZ(i);
-          const wn = mat4xVec4(mw, [nx0, ny0, nz0, 0]);
-          const len = Math.hypot(wn[0], wn[1], wn[2]) || 1;
-          ny = wn[1] / len;
+          const n0 = mat4xVec4(mw, [normAttr.getX(i0), normAttr.getY(i0), normAttr.getZ(i0), 0]);
+          const n1 = mat4xVec4(mw, [normAttr.getX(i1), normAttr.getY(i1), normAttr.getZ(i1), 0]);
+          const n2 = mat4xVec4(mw, [normAttr.getX(i2), normAttr.getY(i2), normAttr.getZ(i2), 0]);
+          const sx = n0[0] + n1[0] + n2[0], sy = n0[1] + n1[1] + n2[1], sz = n0[2] + n1[2] + n2[2];
+          const sl = Math.hypot(sx, sy, sz) || 1;
+          ny = sy / sl;
+        } else {
+          ny = Math.abs(cy) / L; // senza attributo l'orizzontalita' basta
         }
-        if (ny > 0.75) {
-          pts.push([w[0], w[1], w[2]]);
-          if (w[0] < minX) minX = w[0]; if (w[0] > maxX) maxX = w[0];
-          if (w[2] < minZ) minZ = w[2]; if (w[2] > maxZ) maxZ = w[2];
+        if (ny < 0.75) continue; // non rivolta verso l'alto: non calpestabile
+        // Il tetto va tenuto alto: comprimendolo, un triangolo di pavimento
+        // da 600 m2 e una cima di muro da 10 m2 finirebbero con un numero di
+        // campioni simile, la proporzionalita' all'area si perderebbe e il
+        // filtro a bande di quota non riuscirebbe piu' a distinguere il
+        // pavimento (vasto) dalle cime dei muri (strisce sottili). Il
+        // campionamento complessivo resta comunque limitato da maxSamples.
+        const n = Math.max(1, Math.min(40, Math.round(Math.sqrt(area / 0.5))));
+        for (let a1 = 0; a1 < n; a1++) {
+          for (let a2 = 0; a2 + a1 < n; a2++) {
+            const w1 = (a1 + 1 / 3) / n, w2 = (a2 + 1 / 3) / n, w0 = 1 - w1 - w2;
+            if (w0 < 0) continue;
+            const px = A[0] * w0 + B[0] * w1 + C[0] * w2;
+            const py = A[1] * w0 + B[1] * w1 + C[1] * w2;
+            const pz = A[2] * w0 + B[2] * w1 + C[2] * w2;
+            pts.push([px, py, pz]);
+            if (px < minX) minX = px; if (px > maxX) maxX = px;
+            if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
+          }
         }
       }
-      if (pts.length) perMesh.push({ pts, footprint: (maxX - minX) * (maxZ - minZ) || 0.01 });
+      if (pts.length) perMesh.push({ pts, footprint: (maxX - minX) * (maxZ - minZ) || 0.01, box: [minX, maxX, minZ, maxZ] });
     });
     if (!perMesh.length) return [];
     // Passo 2: scarta le mesh con impronta "fuori scala" rispetto alla mediana
@@ -1582,8 +1635,44 @@
     // ambienti interni) — evita che l'analisi confonda l'esterno con l'interno.
     const footprints = perMesh.map((m) => m.footprint).sort((a, b) => a - b);
     const median = footprints[Math.floor(footprints.length / 2)] || 1;
-    let filtered = perMesh.filter((m) => m.footprint <= median * 6);
-    const excluded = perMesh.filter((m) => m.footprint > median * 6);
+
+    // L'impronta fuori scala da sola non basta a riconoscere una pista.
+    // In un ambiente semplice la superficie piu' estesa E' IL PAVIMENTO: su
+    // una sala di 1200 m2 con otto muri sottili il pavimento supera di
+    // centoventi volte la mediana e veniva scartato come "terreno esterno",
+    // lasciando in piedi solo le cime dei muri -- da cui zone e agenti
+    // sospesi a 3m invece che a terra.
+    //
+    // Il discriminante vero e' un altro: una pista si ESTENDE OLTRE
+    // l'edificio, un pavimento interno sta DENTRO l'ingombro delle altre
+    // superfici. Si scarta quindi solo cio' che e' insieme fuori scala e in
+    // buona parte fuori dall'ingombro del resto del modello.
+    const overlapRatio = (box, other) => {
+      if (!other) return 0;
+      const w = Math.max(0, Math.min(box[1], other[1]) - Math.max(box[0], other[0]));
+      const d = Math.max(0, Math.min(box[3], other[3]) - Math.max(box[2], other[2]));
+      const area = (box[1] - box[0]) * (box[3] - box[2]);
+      return area > 0 ? (w * d) / area : 0;
+    };
+    const unionBox = (list) => {
+      if (!list.length) return null;
+      let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+      for (const m of list) {
+        if (m.box[0] < a) a = m.box[0]; if (m.box[1] > b) b = m.box[1];
+        if (m.box[2] < c) c = m.box[2]; if (m.box[3] > d) d = m.box[3];
+      }
+      return [a, b, c, d];
+    };
+    const isOutOfScale = (m) => {
+      if (m.footprint <= median * 6) return false;
+      const rest = perMesh.filter((o) => o !== m);
+      if (!rest.length) return false;
+      // Contenuto nell'ingombro del resto del modello => e' il pavimento
+      // dell'ambiente, non un piazzale che gli sta intorno.
+      return overlapRatio(m.box, unionBox(rest)) < 0.7;
+    };
+    let filtered = perMesh.filter((m) => !isOutOfScale(m));
+    const excluded = perMesh.filter((m) => isOutOfScale(m));
     if (!filtered.length) { filtered = perMesh; } // rete di sicurezza: se il filtro scarta tutto, ripiega sul dataset intero
     // Centroide delle superfici escluse (piste/piazzali) — usato come riferimento
     // direzionale "lato volo" per ordinare le zone interne dal lato terra
