@@ -2345,6 +2345,50 @@
   }
 
   async function veritasTryBackendSimulate(nodes, agentCount) {
+  // Porta la traiettoria del backend nella forma che il renderer sa leggere:
+  // frames[].agents[] con pos come terna di numeri. Il Core Python puo'
+  // nominare i campi in modo diverso (position/p, oppure {x,y,z} invece di
+  // un array), e in quel caso il renderer leggeva undefined e non disegnava
+  // nessun passeggero -- senza un errore, quindi senza modo di accorgersene.
+  //
+  // Restituisce null se la maggior parte degli agenti resta illeggibile:
+  // meglio ricadere sul generatore locale, che funziona, che mostrare una
+  // scena vuota.
+  function veritasNormalizeTrajectory(traj) {
+    if (!traj || !Array.isArray(traj.frames) || !traj.frames.length) return null;
+    const toVec = (v) => {
+      if (!v) return null;
+      if (Array.isArray(v) && v.length >= 3) {
+        const [x, y, z] = v;
+        return (isFinite(x) && isFinite(y) && isFinite(z)) ? [+x, +y, +z] : null;
+      }
+      if (typeof v === "object" && isFinite(v.x) && isFinite(v.z)) {
+        return [+v.x, isFinite(v.y) ? +v.y : 0, +v.z];
+      }
+      return null;
+    };
+    let total = 0, ok = 0;
+    for (const f of traj.frames) {
+      const list = f && (f.agents || f.a);
+      if (!Array.isArray(list)) continue;
+      if (!f.agents) f.agents = list;
+      for (const ag of list) {
+        if (!ag) continue;
+        total++;
+        const p = toVec(ag.pos) || toVec(ag.position) || toVec(ag.p);
+        if (p) { ag.pos = p; ok++; }
+      }
+    }
+    if (!total) { console.warn("[VERITAS bridge] la traiettoria remota non contiene agenti"); return null; }
+    const ratio = ok / total;
+    if (ratio < 0.5) {
+      console.warn("[VERITAS bridge] posizioni illeggibili nella traiettoria remota:", ok, "su", total,
+                   "- esempio agente:", JSON.stringify((traj.frames.find((f) => (f.agents || []).length) || {}).agents?.[0] || null).slice(0, 200));
+      return null;
+    }
+    return traj;
+  }
+
     if (!window.__veritasApiBase) return null;
     try {
       const graph = veritasNodesToGraph(nodes);
@@ -2382,6 +2426,17 @@
       const data = await res.json();
       if (!data || !data.trajectory || !data.trajectory.frames || !data.trajectory.frames.length) {
         veritasBridgeNotify("Motore reale: risposta vuota, uso generatore JS locale (fallback)", "#fb923c");
+        return null;
+      }
+      // La risposta del backend veniva usata cosi' com'era, senza verificare
+      // che il renderer sapesse leggerla. Sintomo osservato: con il motore
+      // reale collegato i passeggeri sparivano, mentre con il generatore
+      // locale comparivano correttamente -- cioe' i frame arrivavano ma le
+      // posizioni non erano nella forma attesa, e nessuno se ne accorgeva.
+      // Meglio una simulazione locale che funziona di una remota invisibile.
+      const normalized = veritasNormalizeTrajectory(data.trajectory);
+      if (!normalized) {
+        veritasBridgeNotify("Motore reale: formato traiettoria non leggibile, uso generatore JS locale (fallback)", "#fb923c");
         return null;
       }
       veritasBridgeNotify("✅ Motore fisico reale attivo (Social Force Model, Render)", "#00ff88");
@@ -7579,12 +7634,43 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   function countMeshes(r) { let n = 0; r.traverse((o) => { if (o.isMesh) n++; }); return n; }
   function buildBVH(r) { r.traverse((o) => { if (o.isMesh && o.geometry && !o.geometry.boundsTree) { try { o.geometry.computeBoundsTree(); } catch (e) {} } }); }
 
+  // Appoggia il modello sul piano di riferimento.
+  //
+  // Il file viene aggiunto alla scena con l'origine decisa da chi l'ha
+  // modellato: se quell'origine sta a meta' altezza dell'edificio, meta'
+  // modello finisce SOTTO la griglia a quota zero. Non e' un difetto del
+  // file, e' che nessuno lo stava appoggiando.
+  //
+  // Portare il punto piu' basso a quota 0 rende anche coerente tutto il
+  // resto: la quota del pavimento, l'aggancio del piede degli agenti e la
+  // fascia di altezza usata per gli occlusori partono tutti dal presupposto
+  // che il calpestio stia intorno allo zero.
+  //
+  // Si sposta solo in verticale: la posizione in pianta e' scelta da chi ha
+  // modellato e spostarla scollegherebbe il modello da eventuali zone gia'
+  // salvate per quel progetto.
+  function groundModel(rootObj) {
+    try {
+      rootObj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(rootObj);
+      if (!isFinite(box.min.y) || box.isEmpty()) return;
+      const drop = box.min.y;
+      if (Math.abs(drop) < 1e-4) return;
+      rootObj.position.y -= drop;
+      rootObj.updateMatrixWorld(true);
+      console.log("[VERITAS AI-OS] modello appoggiato al piano: spostato di", (-drop).toFixed(2), "m in verticale");
+    } catch (e) {
+      console.warn("[VERITAS AI-OS] impossibile appoggiare il modello al piano:", e);
+    }
+  }
+
   function placeIntoScene(rootObj, fileName) {
     const scene = window.__veritasScene;
     if (!scene) { log("error", "Scena 3D non ancora pronta. Riprova tra qualche secondo."); return; }
     if (window.__vaioCustomRoot) { try { scene.remove(window.__vaioCustomRoot); } catch (e) {} }
     rootObj.name = "vaio_custom_model:" + fileName;
     scene.add(rootObj);
+    groundModel(rootObj);
     window.__vaioCustomRoot = rootObj;
     window.__veritasModelRoot = rootObj;
     buildBVH(rootObj);
