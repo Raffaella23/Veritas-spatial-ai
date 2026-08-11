@@ -2,6 +2,10 @@
 
 > Istruzioni operative per Claude Code su questo repository.
 > **Leggi tutto questo file prima di scrivere una sola riga di codice.**
+>
+> ⚠️ **Poi leggi `HANDOFF_AI.md`**, che descrive lo stato REALE del progetto
+> dopo la sessione dell'11 agosto 2026 e corregge diversi punti qui sotto
+> ormai superati. Dove i due file divergono, vale `HANDOFF_AI.md`.
 
 ---
 
@@ -15,6 +19,7 @@ Prima di qualsiasi modifica, **studia la documentazione nell'ordine seguente**. 
 | 2 | `CONTEXT.md` | ~5 KB | Snapshot architetturale (V13). Principi non negoziabili: Core-First, Dumb Viewer, Single Source of Truth, Behaviour Driven, Rule of Three. Contiene anche il Decision Log. |
 | 3 | `design_brief.md` | ~6,5 KB | Brief di design del prodotto. |
 | 4 | `handoff.md` | ~1 KB | Nota di passaggio di consegne, sintetica. |
+| 5 | `HANDOFF_AI.md` | ~12 KB | **Stato reale a fine sessione 11/08/2026**: difetti risolti con le cause misurate, cosa resta aperto, ricette operative, contratto del bridge Python. Prevale su questo file dove divergono. |
 
 Dopo averli letti, **verifica lo stato reale del codice** (vedi §3): la documentazione descrive in parte un'architettura *target* che non è ancora stata realizzata.
 
@@ -44,9 +49,16 @@ Proprietaria: Raffaella Ciani (architetto + sviluppatrice XR, "RC XRArch", Meta 
 
 ### Branch
 
-- **`main`** — produzione. `index.html` (217 byte) è un meta-refresh che rimanda a `Veritas-V17-FIX-SOLO-BUG.html`.
-- **`veritas-ai-os-preview`** — branch di anteprima, pubblicato via GitHub Pages su
-  **https://raffaella23.github.io/Veritas-spatial-ai/** — qui `index.html` è la build nuova completa (~1,09 MB).
+- **`main`** — produzione **e sorgente del deploy Render**. `index.html` (217 byte) è ancora
+  un meta-refresh verso `Veritas-V17-FIX-SOLO-BUG.html`, cioè la build VECCHIA: il frontend
+  nuovo non è ancora stato promosso qui. I file Python del Core invece sì, perché Render
+  ridistribuisce automaticamente a ogni push su questa branch.
+- **`veritas-ai-os-preview`** — anteprima pubblicata via GitHub Pages su
+  **https://raffaella23.github.io/Veritas-spatial-ai/** — qui `index.html` è la build nuova
+  completa (~1,13 MB), con shell AI-OS, layer percettivo e tutte le correzioni della
+  sessione 11/08/2026.
+- **`claude/...`** — branch di lavoro temporanee delle sessioni AI. Non sono deliverable:
+  possono essere cancellate quando il loro contenuto è confluito altrove.
 
 ### File rilevanti (radice)
 
@@ -87,6 +99,11 @@ File singolo autocontenuto da 1.076.223 byte. Contiene **8 blocchi `<script>`**.
 | 5 | `type="module"` | 896 | Patch three-mesh-bvh, espone `window.THREE` |
 | 6 | `type="module"` | 12.096 | Modulo gaming/CANNON — costruisce una propria chat UI |
 | 7 | classico | 9.321 | Chat "V17" — costruisce **un'altra** chat UI |
+
+⚠️ **Questa tabella descrive `Veritas-V17-FIX-SOLO-BUG.html`, non la build AI-OS.**
+Nella build su `veritas-ai-os-preview` i blocchi sono 9: le due vecchie chat sono state
+rimosse, e si sono aggiunti shell AI-OS, modulo Gaussian Splat e layer percettivo.
+Lo schema aggiornato è in `HANDOFF_AI.md` §1.
 
 ### 🔴 Regola assoluta
 
@@ -172,11 +189,14 @@ Pubblicato solo sul branch `veritas-ai-os-preview`. **`main` è intatto.**
 
    Comportamento del percorso mesh **preservato identico**. Single Source of Truth rispettata: nessuna duplicazione di logica.
 
-2. **`vaio_module_v2.js`** (~29 KB) — nuova shell UI minimale: topbar (brand + status + menu Spatial Layers / Analysis-Report / Editor zone), console AI unica in basso con parser di comandi in linguaggio naturale (regole, nessun costo LLM), widget upload GLB/GLTF/FBX (max 150 MB), occultamento dei pannelli nativi.
+2. **Shell UI minimale** (~29 KB, il blocco 6 — ⚠️ *non* esiste come file `vaio_module_v2.js`,
+   è inlinata): topbar (brand + status + menu Spatial Layers / Analysis-Report / Editor zone), console AI unica in basso con parser di comandi in linguaggio naturale (regole, nessun costo LLM), widget upload GLB/GLTF/FBX (max 150 MB), occultamento dei pannelli nativi.
 
    ⚠️ **Bug già corretto, non reintrodurlo:** i pannelli nativi CAMERE e KPI sono `<aside>` con `position: static` dentro un layout flex. La prima euristica cercava solo ancestor `position: fixed|absolute` e quindi non li trovava mai. La versione corretta riconosce la landmark semantica (`<aside>` / `<nav>`) e ha come fallback solo un criterio dimensionale.
 
-3. **`vaio_splat_module.js`** (~9 KB) — supporto **Gaussian Splatting**. Upload `.ply .splat .ksplat .spz .sog` via libreria **Spark** (`@sparkjsdev/spark` 2.1.0, aggiunta all'importmap). Estrae i centri delle gaussiane come nuvola di punti e li passa a `window.__veritasAnalyzePointCloud`: **stessa pipeline provata delle mesh, nessuna reinvenzione.** Non è visualizzazione soltanto — produce zone reali, punteggio e criticità.
+3. **Modulo Gaussian Splat** (~9 KB, il blocco 7 — ⚠️ *non* esiste come file
+   `vaio_splat_module.js`, è inlinato). ⚠️ **Oggi NON funziona**: Spark richiede three r179+
+   mentre l'importmap fissa 0.171 — vedi `HANDOFF_AI.md` §4a. Supporto **Gaussian Splatting**. Upload `.ply .splat .ksplat .spz .sog` via libreria **Spark** (`@sparkjsdev/spark` 2.1.0, aggiunta all'importmap). Estrae i centri delle gaussiane come nuvola di punti e li passa a `window.__veritasAnalyzePointCloud`: **stessa pipeline provata delle mesh, nessuna reinvenzione.** Non è visualizzazione soltanto — produce zone reali, punteggio e criticità.
 
 4. Blocchi 6 e 7 (le due vecchie chat) **rimossi**. Titolo cambiato in `VERITAS AI-OS`.
 
@@ -184,7 +204,9 @@ Pubblicato solo sul branch `veritas-ai-os-preview`. **`main` è intatto.**
 
 ## 7. Bug noto, non ancora corretto
 
-In `showReportModal` (blocco 2) il confronto è su `project_type === "airport" || "museum"`, ma i valori reali salvati sono in italiano: **`"aeroporto"` / `"museo"`**. Risultato: le raccomandazioni ricadono sempre sul dominio "generic". Da sistemare.
+✅ **RISOLTO** nella sessione 11/08/2026: i `project_type` salvati sono in italiano
+(`"aeroporto"`, `"museo"`) mentre benchmark e raccomandazioni sono indicizzati in inglese,
+quindi ogni report ricadeva sul dominio "generic". Ora c'è una normalizzazione esplicita.
 
 ---
 
@@ -211,6 +233,9 @@ In `showReportModal` (blocco 2) il confronto è su `project_type === "airport" |
 ---
 
 ## 10. Prossimi passi aperti
+
+> ⚠️ Questa lista è quella di *prima* della sessione 11/08/2026. Per lo stato
+> aggiornato, con le priorità in ordine di valore, vedi `HANDOFF_AI.md` §4.
 
 - Verifica visiva dell'anteprima AI-OS da parte di Raffaella → poi merge su `main` (con aggiornamento del redirect in `index.html`).
 - Correzione del bug `project_type` italiano/inglese (§7).
