@@ -2006,14 +2006,19 @@
       console.warn("[VERITAS] motore geometrico fallito, uso KMeans:", e);
       return null;
     }
-    if (!out || !out.zones || out.zones.length < 2) {
-      console.warn("[VERITAS] il motore geometrico ha prodotto",
-                   out && out.zones ? out.zones.length : 0,
-                   "zone: sotto le due necessarie per costruire un percorso, uso KMeans.",
-                   out ? { areaNavigabile: out.totalNavigableM2, strettoie: (out.bottlenecks || []).length,
-                           varchi: (out.gateways || []).length, livelli: (out.levels || []).length } : null);
-      return null;
-    }
+    if (!out || !out.zones) return null;
+
+    // Le MISURE si tengono sempre, anche quando le zone non bastano a
+    // costruire un percorso. Erano la cosa piu' preziosa e prima venivano
+    // buttate insieme al resto.
+    lastMeasures = {
+      areaNavigabileM2: out.totalNavigableM2 || 0,
+      strettoie: out.bottlenecks || [],
+      varchi: out.gateways || [],
+      livelli: (out.levels || []).length,
+      zoneRilevate: out.zones.length,
+    };
+    if (out.zones.length < 2) return null;
 
     lastBottlenecks = out.bottlenecks || [];
     lastGateways = out.gateways || [];
@@ -2038,6 +2043,64 @@
   }
 
   let lastBottlenecks = [], lastGateways = [], lastNavigableAreaM2 = 0;
+  let lastMeasures = null, lastVerdict = null;
+
+  // Riconoscimento del tipo di ambiente.
+  //
+  // Gli utenti caricano cio' che hanno: una stanza singola, un terminal
+  // articolato, un livello di gioco, una scansione a gaussiane. Decidere a
+  // priori "se meno di due zone allora KMeans" significa applicare la stessa
+  // ricetta a casi che non si somigliano. Qui invece si guardano le misure
+  // gia' calcolate e si dichiara cosa si ha davanti, poi si sceglie.
+  //
+  // Nessun costo di modello linguistico: sono soglie su grandezze misurate.
+  function classifyEnvironment(points, misure) {
+    const m = misure || {};
+    const area = m.areaNavigabileM2 || 0;
+    const zone = m.zoneRilevate || 0;
+    const varchi = (m.varchi || []).length;
+    const livelli = m.livelli || 1;
+    const daSplat = !!window.__veritasSplatRoot;
+
+    let tipo, motivo, strategia;
+    if (!area) {
+      tipo = "non misurabile";
+      motivo = "il motore geometrico non ha riconosciuto superficie calpestabile";
+      strategia = "kmeans";
+    } else if (zone >= 2 && varchi >= 1) {
+      tipo = "ambiente articolato";
+      motivo = zone + " ambienti separati da " + varchi + " varchi reali";
+      strategia = "motore";
+    } else if (zone <= 1) {
+      tipo = "ambiente unico";
+      motivo = "un solo spazio continuo di " + area.toFixed(0) + " m2, senza divisioni reali";
+      strategia = "funzionale";
+    } else {
+      tipo = "ambiente articolato";
+      motivo = zone + " ambienti riconosciuti";
+      strategia = "motore";
+    }
+    if (livelli > 1) motivo += ", su " + livelli + " livelli";
+    if (daSplat) motivo += " (scansione a gaussiane)";
+
+    return { tipo, motivo, strategia, area, zone, varchi, livelli, daSplat, punti: points.length };
+  }
+
+  // Dichiara a voce alta cosa ha capito: e' il comportamento che ci si
+  // aspetta da un'analisi automatica, e permette all'utente di correggere
+  // subito se il riconoscimento e' sbagliato.
+  function announceVerdict(v) {
+    const strettoie = (lastMeasures && lastMeasures.strettoie) || [];
+    let msg = "Ho riconosciuto un " + v.tipo + ": " + v.motivo + ". Area calpestabile "
+            + v.area.toFixed(0) + " m2.";
+    if (strettoie.length) {
+      const piuStretta = strettoie[0];
+      msg += " Passaggio piu' stretto: " + piuStretta.widthM.toFixed(2) + " m.";
+    }
+    console.log("[VERITAS] " + msg + " Strategia zone: " + v.strategia + ".");
+    try { if (window.__veritasAnnounce) window.__veritasAnnounce(msg); } catch (e) {}
+  }
+
 
   function structuralAnalysisFromPoints(points, airsideAnchor) {
     lastNavigablePoints = points;
@@ -2050,6 +2113,10 @@
     // e' disponibile o non produce almeno due zone si ricade su KMeans, che
     // resta invariato: nessuna regressione possibile.
     const zonesEngine = zonesFromPerceptionEngine(points);
+    lastVerdict = classifyEnvironment(points, lastMeasures);
+    window.__veritasVerdict = lastVerdict;
+    announceVerdict(lastVerdict);
+
     if (zonesEngine) {
       const cxE = zonesEngine.reduce((a, z) => a + z.pos[0], 0) / zonesEngine.length;
       const czE = zonesEngine.reduce((a, z) => a + z.pos[2], 0) / zonesEngine.length;
@@ -2108,7 +2175,15 @@
 
 
     lastZones = zones;
-    return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici, floorLevels: lastFloorLevels };
+    // Le misure del motore geometrico accompagnano il risultato anche quando
+    // le zone sono state ricavate con KMeans: sono dati veri e servono al
+    // report a prescindere da chi ha deciso dove stanno i punti.
+    return { zones, ordered, flowOrder, hasAirsideReference: !!airsideAnchor, pointsAnalyzed: points.length, score, critici, floorLevels: lastFloorLevels,
+             misure: lastMeasures, verdetto: lastVerdict,
+             bottlenecks: (lastMeasures && lastMeasures.strettoie) || [],
+             gateways: (lastMeasures && lastMeasures.varchi) || [],
+             navigableAreaM2: (lastMeasures && lastMeasures.areaNavigabileM2) || 0,
+             engine: "kmeans" };
 }
 
   function runStructuralAnalysis(root) {
@@ -7744,6 +7819,12 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     consoleInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
     consoleInputEl.addEventListener("focus", () => { consoleEl.classList.add("open"); scheduleCollapse(); });
   }
+
+  // Canale per far parlare l'analisi nella conversazione. Il blocco boot e'
+  // uno script classico e non vede le funzioni di questo modulo: senza questo
+  // ponte il verdetto finirebbe solo nella console del browser, dove l'utente
+  // non guarda.
+  window.__veritasAnnounce = function (testo) { log("assistant", testo); };
 
   function getNodesSafe() {
     try { return (window.__veritasGetNodes && window.__veritasGetNodes()) || []; } catch (e) { return []; }
