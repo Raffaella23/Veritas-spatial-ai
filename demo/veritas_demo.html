@@ -1,0 +1,791 @@
+<title>VERITAS Spatial AI — Demo Accessibilità</title>
+<style>
+/* ── Token palette ─────────────────────────────────────────── */
+:root {
+  --bg:          #f0f4f7;
+  --surface:     #ffffff;
+  --surface2:    #f7fafc;
+  --border:      rgba(0,130,100,.16);
+  --accent:      #007358;
+  --accent-dim:  rgba(0,115,88,.10);
+  --danger:      #c0202a;
+  --danger-dim:  rgba(192,32,42,.09);
+  --ok:          #0a7a48;
+  --ok-dim:      rgba(10,122,72,.09);
+  --text:        #0c1820;
+  --text-muted:  #3a5868;
+  --text-dim:    #7a9aaa;
+  --mono: 'SF Mono','JetBrains Mono','Fira Code','Courier New',monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  /* canvas wall colour – must match JS WALL_COLOR */
+  --wall: #f0f4f7;
+  --legend-grad-start: #c0d8ea;
+}
+@media (prefers-color-scheme:dark) {
+  :root:not([data-theme="light"]) {
+    --bg:         #060c14;
+    --surface:    #0b1624;
+    --surface2:   #0e1a2c;
+    --border:     rgba(0,200,160,.11);
+    --accent:     #00c8a0;
+    --accent-dim: rgba(0,200,160,.13);
+    --danger:     #f03848;
+    --danger-dim: rgba(240,56,72,.15);
+    --ok:         #18bc70;
+    --ok-dim:     rgba(24,188,112,.12);
+    --text:       #c4d4e0;
+    --text-muted: #4a6878;
+    --text-dim:   #3a5a6a;
+    --wall:       #060c14;
+    --legend-grad-start: #0b1e36;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:         #060c14;
+  --surface:    #0b1624;
+  --surface2:   #0e1a2c;
+  --border:     rgba(0,200,160,.11);
+  --accent:     #00c8a0;
+  --accent-dim: rgba(0,200,160,.13);
+  --danger:     #f03848;
+  --danger-dim: rgba(240,56,72,.15);
+  --ok:         #18bc70;
+  --ok-dim:     rgba(24,188,112,.12);
+  --text:       #c4d4e0;
+  --text-muted: #4a6878;
+  --text-dim:   #3a5a6a;
+  --wall:       #060c14;
+  --legend-grad-start: #0b1e36;
+}
+
+/* ── Reset & base ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:14px;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Topbar ────────────────────────────────────────────────── */
+.topbar{display:flex;align-items:center;gap:12px;padding:0 18px;height:44px;
+  flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border)}
+.logo{font-family:var(--mono);font-size:14px;font-weight:700;
+  letter-spacing:.12em;color:var(--accent)}
+.topbar-sub{font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-muted)}
+.topbar-sp{flex:1}
+#t-status{font-family:var(--mono);font-size:11px;color:var(--text-muted);
+  transition:color .3s}
+#t-status.ready{color:var(--accent)}
+#t-status.alert{color:var(--danger)}
+.icon-btn{background:none;border:1px solid var(--border);color:var(--text-muted);
+  font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;
+  font-family:var(--mono);letter-spacing:.04em;transition:border-color .2s,color .2s}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Workspace ─────────────────────────────────────────────── */
+.workspace{display:flex;flex:1;min-height:0}
+
+/* ── Canvas side ───────────────────────────────────────────── */
+.canvas-area{flex:1;min-width:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:20px;gap:12px;
+  background:var(--bg);position:relative}
+.canvas-wrap{position:relative;display:inline-flex}
+#plan{display:block;max-width:100%;height:auto;border-radius:3px}
+#callouts{position:absolute;inset:0;pointer-events:none}
+
+.legend{display:flex;align-items:center;gap:18px;font-size:11px;color:var(--text-muted)}
+.li{display:flex;align-items:center;gap:6px}
+.sw{height:5px;border-radius:3px;flex-shrink:0}
+
+/* callout labels */
+.clabel{position:absolute;transform:translate(-50%,-100%);margin-top:-6px;
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  padding:3px 8px;border-radius:4px;white-space:nowrap;
+  background:rgba(6,12,20,.88);border:1px solid;backdrop-filter:blur(4px)}
+.clabel.danger{color:var(--danger);border-color:var(--danger)}
+.clabel.ok{color:var(--ok);border-color:var(--ok)}
+.clabel-line{position:absolute;width:1px;background:currentColor;opacity:.6;
+  transform-origin:top center}
+
+/* ── Panel ─────────────────────────────────────────────────── */
+.panel{width:290px;flex-shrink:0;border-left:1px solid var(--border);
+  background:var(--surface);display:flex;flex-direction:column;overflow-y:auto}
+
+.ph{padding:18px 18px 14px;border-bottom:1px solid var(--border)}
+.ph-label{font-family:var(--mono);font-size:9px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--text-muted);margin-bottom:12px}
+.sl-row{display:flex;align-items:center;gap:10px}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:3px;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:var(--accent);cursor:pointer;
+  border:2px solid var(--surface);box-shadow:0 0 0 2px var(--accent-dim)}
+#tv{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);
+  min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.norm{font-size:10px;color:var(--text-muted);margin-top:5px}
+
+.psec{padding:12px 18px 6px;font-family:var(--mono);font-size:9px;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--text-muted);
+  border-top:1px solid var(--border)}
+
+/* stat rows */
+.sr{display:flex;justify-content:space-between;align-items:baseline;
+  padding:6px 18px;border-bottom:1px solid var(--border)}
+.sl{font-size:11px;color:var(--text-muted)}
+.sv{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+
+/* zone card */
+.zcard{margin:6px 10px;padding:10px 11px;border-radius:5px;font-size:12px;
+  background:var(--accent-dim);border:1px solid var(--border)}
+.zname{font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  font-weight:700;color:var(--accent);margin-bottom:5px}
+.zst{display:flex;gap:14px;color:var(--text-muted);font-size:11px}
+.zn{font-family:var(--mono);color:var(--text);font-variant-numeric:tabular-nums}
+
+/* alert card */
+.acard{margin:6px 10px;padding:10px 12px;border-radius:5px;font-size:12px;
+  background:var(--danger-dim);border:1px solid rgba(240,56,72,.25);
+  border-left:3px solid var(--danger)}
+.aw{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--danger);
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.au{font-size:12px;font-weight:400}
+.ad{color:var(--text-muted);font-size:11px;margin-top:3px}
+.aloc{color:var(--text-dim);font-size:10px;font-family:var(--mono);margin-top:3px}
+
+/* ok badge */
+.okbadge{margin:6px 10px;padding:8px 12px;border-radius:5px;
+  background:var(--ok-dim);border:1px solid rgba(24,188,112,.22);
+  display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ok)}
+.okbadge-w{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* no alert */
+.no-alert{margin:8px 10px;padding:8px 12px;font-size:11px;color:var(--text-dim);
+  text-align:center;font-family:var(--mono)}
+
+/* legend gradient — theme-aware via custom property */
+#sw-grad{background:linear-gradient(90deg,var(--legend-grad-start),var(--accent))}
+</style>
+
+<div class="topbar">
+  <span class="logo">VERITAS</span>
+  <span class="topbar-sub">Spatial AI · Demo</span>
+  <span class="topbar-sp"></span>
+  <span id="t-status">AVVIO…</span>
+  <button class="icon-btn" id="theme-btn">☽ SCURO</button>
+</div>
+
+<div class="workspace">
+  <div class="canvas-area" id="canvas-area">
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="plan"></canvas>
+      <div id="callouts"></div>
+    </div>
+    <div class="legend">
+      <span class="li">
+        <span class="sw" id="sw-grad" style="width:52px"></span>
+        clearance 0 → max
+      </span>
+      <span class="li">
+        <span class="sw" style="width:16px;background:var(--danger)"></span>
+        strettoia
+      </span>
+      <span class="li">
+        <span class="sw" style="width:16px;background:var(--ok)"></span>
+        varco conforme
+      </span>
+      <span class="li">
+        <span class="sw" style="width:16px;background:rgba(0,180,255,.5)"></span>
+        asse mediale
+      </span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <div class="ph">
+      <div class="ph-label">Soglia strettoia</div>
+      <div class="sl-row">
+        <input type="range" id="thr" min="0.60" max="3.00" step="0.05" value="0.90">
+        <output id="tv">0.90 m</output>
+      </div>
+      <div class="norm">↳ DM 236/89 Art. 8.1.6 — minimo 0.90 m</div>
+    </div>
+
+    <div class="psec">Sommario</div>
+    <div id="summary"></div>
+
+    <div class="psec">Zone identificate</div>
+    <div id="zones"></div>
+
+    <div class="psec">Strettoie</div>
+    <div id="bots"></div>
+  </aside>
+</div>
+
+<script type="module">
+// ═══════════════════════════════════════════════════════════
+// VERITAS Perception Engine  (inline — no external deps)
+// ═══════════════════════════════════════════════════════════
+
+const PERCEPTION_DEFAULTS = {
+  cellSize: 0.05, floorTolerance: 1.2, closeRadius: 2,
+  minClearance: 0.45, minZoneArea: 1.5, minZoneFraction: 0.01,
+  axisPruning: 3, minSeparationDeg: 135, mergeGatewayM: 3.0, padding: 3,
+};
+
+function buildOccupancyGrid(points, levelY, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const flat = points instanceof Float32Array;
+  const n = flat ? points.length / 3 : points.length;
+  const at = i => flat ? [points[i*3],points[i*3+1],points[i*3+2]] : (Array.isArray(points[i]) ? points[i] : [points[i].x,points[i].y,points[i].z]);
+  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity,kept=0;
+  for (let i=0;i<n;i++){
+    const [x,y,z]=at(i);
+    if(Math.abs(y-levelY)>o.floorTolerance)continue;
+    if(x<minX)minX=x;if(x>maxX)maxX=x;if(z<minZ)minZ=z;if(z>maxZ)maxZ=z;kept++;
+  }
+  if(!kept)return null;
+  const pad=o.padding;
+  const w=Math.ceil((maxX-minX)/o.cellSize)+1+pad*2;
+  const h=Math.ceil((maxZ-minZ)/o.cellSize)+1+pad*2;
+  const originX=minX-pad*o.cellSize, originZ=minZ-pad*o.cellSize;
+  const free=new Uint8Array(w*h);
+  for(let i=0;i<n;i++){
+    const [x,y,z]=at(i);
+    if(Math.abs(y-levelY)>o.floorTolerance)continue;
+    const cx=Math.floor((x-originX)/o.cellSize), cz=Math.floor((z-originZ)/o.cellSize);
+    if(cx<0||cx>=w||cz<0||cz>=h)continue;
+    free[cz*w+cx]=1;
+  }
+  return{w,h,cellSize:o.cellSize,minX:originX,minZ:originZ,free,levelY,sampled:kept};
+}
+
+function closeHoles(grid,radius=PERCEPTION_DEFAULTS.closeRadius){
+  if(radius<=0)return grid;
+  const{w,h}=grid;
+  const morph1D=(src,wantMax,outside)=>{
+    const tmp=new Uint8Array(w*h);
+    for(let z=0;z<h;z++){const row=z*w;for(let x=0;x<w;x++){let acc=wantMax?0:1;for(let d=-radius;d<=radius;d++){const nx=x+d;const v=(nx<0||nx>=w)?outside:src[row+nx];acc=wantMax?Math.max(acc,v):Math.min(acc,v);}tmp[row+x]=acc;}}
+    const dst=new Uint8Array(w*h);
+    for(let x=0;x<w;x++){for(let z=0;z<h;z++){let acc=wantMax?0:1;for(let d=-radius;d<=radius;d++){const nz=z+d;const v=(nz<0||nz>=h)?outside:tmp[nz*w+x];acc=wantMax?Math.max(acc,v):Math.min(acc,v);}dst[z*w+x]=acc;}}
+    return dst;
+  };
+  return{...grid,free:morph1D(morph1D(grid.free,true,0),false,0)};
+}
+
+function edt1d(f,n,d,arg,v,z){
+  let k=0;v[0]=0;z[0]=-Infinity;z[1]=Infinity;
+  for(let q=1;q<n;q++){let s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);while(s<=z[k]){k--;s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);}k++;v[k]=q;z[k]=s;z[k+1]=Infinity;}
+  k=0;for(let q=0;q<n;q++){while(z[k+1]<q)k++;const dq=q-v[k];d[q]=dq*dq+f[v[k]];arg[q]=v[k];}
+}
+function distanceTransform(grid){
+  const{w,h,free,cellSize}=grid;const INF=1e12;
+  const m=Math.max(w,h);
+  const f=new Float64Array(m),d=new Float64Array(m),arg=new Int32Array(m),v=new Int32Array(m),z=new Float64Array(m+1);
+  const sq=new Float64Array(w*h);const srcZ=new Int32Array(w*h);
+  for(let i=0;i<w*h;i++)sq[i]=free[i]?INF:0;
+  for(let x=0;x<w;x++){for(let y=0;y<h;y++)f[y]=sq[y*w+x];edt1d(f,h,d,arg,v,z);for(let y=0;y<h;y++){sq[y*w+x]=d[y];srcZ[y*w+x]=arg[y];}}
+  const featX=new Int32Array(w*h),featZ=new Int32Array(w*h);
+  for(let y=0;y<h;y++){for(let x=0;x<w;x++)f[x]=sq[y*w+x];edt1d(f,w,d,arg,v,z);for(let x=0;x<w;x++){sq[y*w+x]=d[x];const sx=arg[x];featX[y*w+x]=sx;featZ[y*w+x]=srcZ[y*w+sx];}}
+  const dist=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)dist[i]=Math.sqrt(sq[i])*cellSize;
+  return{dist,featX,featZ};
+}
+
+function extractMedialAxis(grid,ft,opts={}){
+  const o={...PERCEPTION_DEFAULTS,...opts};
+  const{w,h,free}=grid;const{dist,featX,featZ}=ft;
+  const axis=new Uint8Array(w*h);
+  const thr2=o.axisPruning*o.axisPruning;
+  const cosMax=Math.cos(o.minSeparationDeg*Math.PI/180);
+  for(let z=1;z<h-1;z++){for(let x=1;x<w-1;x++){
+    const i=z*w+x;if(!free[i]||dist[i]<=0)continue;
+    const fx=featX[i],fz=featZ[i];const ax=fx-x,az=fz-z;const la=Math.hypot(ax,az);if(!la)continue;
+    let isAxis=false;
+    for(let dz=-1;dz<=1&&!isAxis;dz++){for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dz)continue;const ni=(z+dz)*w+(x+dx);if(!free[ni])continue;
+      const ddx=featX[ni]-fx,ddz=featZ[ni]-fz;if(ddx*ddx+ddz*ddz<thr2)continue;
+      const bx=featX[ni]-x,bz=featZ[ni]-z;const lb=Math.hypot(bx,bz);if(!lb)continue;
+      const cos=(ax*bx+az*bz)/(la*lb);if(cos<=cosMax){isAxis=true;break;}
+    }}
+    if(isAxis)axis[i]=1;
+  }}
+  return axis;
+}
+
+function findBottlenecks(grid,ft,axis,opts={}){
+  const o={...PERCEPTION_DEFAULTS,...opts};
+  const{w,h,cellSize,minX,minZ,levelY}=grid;const{dist}=ft;
+  const halfCell=cellSize/2;const seen=new Uint8Array(w*h);const out=[];
+  for(let start=0;start<w*h;start++){
+    if(!axis[start]||seen[start]||dist[start]-halfCell>=o.minClearance)continue;
+    const stack=[start];seen[start]=1;
+    let sumX=0,sumZ=0,cells=0,worst=Infinity,worstIdx=start;
+    while(stack.length){
+      const i=stack.pop();const x=i%w,z=(i-x)/w;
+      sumX+=x;sumZ+=z;cells++;
+      if(dist[i]<worst){worst=dist[i];worstIdx=i;}
+      for(let dz=-1;dz<=1;dz++){for(let dx=-1;dx<=1;dx++){
+        if(!dx&&!dz)continue;const nx=x+dx,nz=z+dz;
+        if(nx<0||nx>=w||nz<0||nz>=h)continue;
+        const ni=nz*w+nx;if(seen[ni]||!axis[ni]||dist[ni]-halfCell>=o.minClearance)continue;
+        seen[ni]=1;stack.push(ni);
+      }}
+    }
+    const wx=worstIdx%w,wz=(worstIdx-wx)/w;const widthM=worst*2;
+    out.push({
+      worldX:minX+(wx+.5)*cellSize,worldZ:minZ+(wz+.5)*cellSize,y:levelY,
+      centroidX:minX+(sumX/cells+.5)*cellSize,centroidZ:minZ+(sumZ/cells+.5)*cellSize,
+      clearanceM:+worst.toFixed(3),widthM:+widthM.toFixed(3),
+      uncertaintyM:+cellSize.toFixed(3),
+      widthConservativeM:+Math.max(0,widthM-cellSize).toFixed(3),cells,
+    });
+  }
+  out.sort((a,b)=>a.widthM-b.widthM);return out;
+}
+
+function segmentZones(grid,ft,opts={}){
+  const o={...PERCEPTION_DEFAULTS,...opts};
+  const{w,h,free,cellSize,minX,minZ,levelY}=grid;const{dist}=ft;
+  const labels=new Int32Array(w*h).fill(-1);
+  const order=[];
+  for(let i=0;i<w*h;i++)if(free[i]&&dist[i]>0)order.push(i);
+  order.sort((a,b)=>dist[b]-dist[a]);
+  const totalAreaM2=order.length*cellSize*cellSize;
+  const minArea=Math.max(o.minZoneArea,totalAreaM2*o.minZoneFraction);
+  let next=0;
+  for(const i of order){
+    const x=i%w,z=(i-x)/w;let best=-1,bestD=-1;
+    for(let dz=-1;dz<=1;dz++){for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dz)continue;const nx=x+dx,nz=z+dz;
+      if(nx<0||nx>=w||nz<0||nz>=h)continue;const ni=nz*w+nx;
+      if(labels[ni]===-1)continue;if(dist[ni]>bestD){bestD=dist[ni];best=labels[ni];}
+    }}
+    labels[i]=best!==-1?best:next++;
+  }
+  const gw=new Map();const key=(a,b)=>a<b?a*next+b:b*next+a;
+  for(let z=0;z<h;z++){for(let x=0;x<w;x++){
+    const i=z*w+x;const A=labels[i];if(A===-1)continue;
+    for(const[dx,dz]of[[1,0],[0,1]]){
+      const nx=x+dx,nz=z+dz;if(nx>=w||nz>=h)continue;
+      const ni=nz*w+nx;const B=labels[ni];if(B===-1||B===A)continue;
+      const k=key(A,B);const c=Math.min(dist[i],dist[ni]);
+      const cur=gw.get(k);if(!cur||c>cur.clearance)gw.set(k,{a:A,b:B,clearance:c,idx:i});
+    }
+  }}
+  const parent=new Int32Array(next).map((_,i)=>i);
+  const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
+  const union=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent[Math.max(ra,rb)]=Math.min(ra,rb);};
+  const pairs=[...gw.values()].sort((p,q)=>q.clearance-p.clearance);
+  for(const p of pairs)if(p.clearance*2>=o.mergeGatewayM)union(p.a,p.b);
+  const areaOf=()=>{
+    const a=new Map();const cellA=cellSize*cellSize;
+    for(let i=0;i<w*h;i++){if(labels[i]===-1)continue;const R=find(labels[i]);a.set(R,(a.get(R)||0)+cellA);}
+    return a;
+  };
+  for(let pass=0;pass<6;pass++){
+    const area=areaOf();let merged=false;
+    for(const p of pairs){const ra=find(p.a),rb=find(p.b);if(ra===rb)continue;
+      if((area.get(ra)||0)<minArea||(area.get(rb)||0)<minArea){union(ra,rb);merged=true;}}
+    if(!merged)break;
+  }
+  for(let i=0;i<w*h;i++)if(labels[i]!==-1)labels[i]=find(labels[i]);
+  const cellArea=cellSize*cellSize;const acc=new Map();
+  for(let i=0;i<w*h;i++){
+    const L=labels[i];if(L===-1)continue;
+    let a=acc.get(L);
+    if(!a){a={label:L,cells:0,sumX:0,sumZ:0,maxClearance:0};acc.set(L,a);}
+    const x=i%w,z=(i-x)/w;a.cells++;a.sumX+=x;a.sumZ+=z;
+    if(dist[i]>a.maxClearance)a.maxClearance=dist[i];
+  }
+  const zones=[];
+  for(const a of acc.values()){
+    const areaM2=a.cells*cellArea;if(areaM2<minArea)continue;
+    zones.push({label:a.label,areaM2:+areaM2.toFixed(2),
+      centroidX:minX+(a.sumX/a.cells+.5)*cellSize,
+      centroidZ:minZ+(a.sumZ/a.cells+.5)*cellSize,
+      y:levelY,maxClearanceM:+a.maxClearance.toFixed(3),
+      kind:a.maxClearance*2>=3?'ambiente':'corridoio'});
+  }
+  zones.sort((a,b)=>b.areaM2-a.areaM2);
+  const live=[];
+  for(const p of pairs){
+    const ra=find(p.a),rb=find(p.b);if(ra===rb)continue;
+    const x=p.idx%w,z=(p.idx-x)/w;
+    live.push({from:ra,to:rb,clearanceM:+p.clearance.toFixed(3),
+      widthM:+(p.clearance*2).toFixed(3),uncertaintyM:+cellSize.toFixed(3),
+      widthConservativeM:+Math.max(0,p.clearance*2-cellSize).toFixed(3),
+      worldX:minX+(x+.5)*cellSize,worldZ:minZ+(z+.5)*cellSize,y:levelY});
+  }
+  live.sort((a,b)=>a.widthM-b.widthM);
+  return{labels,zones,gateways:live};
+}
+
+function perceiveLevel(points,levelY,opts={}){
+  const o={...PERCEPTION_DEFAULTS,...opts};
+  let grid=buildOccupancyGrid(points,levelY,o);if(!grid)return null;
+  grid=closeHoles(grid,o.closeRadius);
+  const ft=distanceTransform(grid);
+  const axis=extractMedialAxis(grid,ft,o);
+  const bottlenecks=findBottlenecks(grid,ft,axis,o);
+  const{labels,zones,gateways}=segmentZones(grid,ft,o);
+  let freeCells=0,maxClear=0;
+  for(let i=0;i<grid.free.length;i++){if(!grid.free[i])continue;freeCells++;if(ft.dist[i]>maxClear)maxClear=ft.dist[i];}
+  return{grid,dist:ft.dist,axis,labels,zones,gateways,bottlenecks,
+    navigableAreaM2:+(freeCells*grid.cellSize*grid.cellSize).toFixed(2),
+    maxClearanceM:+maxClear.toFixed(3)};
+}
+
+// ═══════════════════════════════════════════════════════════
+// Demo scenario: Terminal airport con due varchi
+// ═══════════════════════════════════════════════════════════
+
+function makeRng(seed){
+  return()=>{seed|=0;seed=(seed+0x6D2B79F5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};
+}
+
+function buildDemoCloud(narrowM=0.85,wideM=1.40,step=0.08){
+  const rnd=makeRng(20260810);const jit=()=>(rnd()-.5)*step*.4;
+  const pts=[];
+  const addRect=(x0,x1,z0,z1)=>{
+    for(let x=x0;x<=x1;x+=step)
+      for(let z=z0;z<=z1;z+=step)
+        pts.push([x+jit(),0,z+jit()]);
+  };
+  // Terminal A  (18 × 14 m)
+  addRect(0,18,0,14);
+  // Terminal B  (18 × 14 m)
+  addRect(24,42,0,14);
+  // Security corridor — narrow (narrowM wide, center at z=10)
+  const nc=10, nh=narrowM/2;
+  addRect(18,24,nc-nh,nc+nh);
+  // Service passage — wide (wideM wide, center at z=3.5)
+  const wc=3.5, wh=wideM/2;
+  addRect(18,24,wc-wh,wc+wh);
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Canvas rendering
+// ═══════════════════════════════════════════════════════════
+
+// Heatmap: clearance 0 → maxClear maps dark-blue → teal-accent
+function lerp(a,b,t){return a+(b-a)*t;}
+
+function heatmapRGB(clearM,maxClear){
+  if(clearM<=0)return[8,14,22];
+  const t=Math.min(clearM/Math.min(maxClear,5),1);
+  // 0 → near-black blue → deep teal → bright accent
+  let r,g,b;
+  if(t<.25){const s=t/.25;r=lerp(8,4,s);g=lerp(14,55,s);b=lerp(22,80,s);}
+  else if(t<.55){const s=(t-.25)/.30;r=lerp(4,0,s);g=lerp(55,120,s);b=lerp(80,120,s);}
+  else{const s=(t-.55)/.45;r=lerp(0,0,s);g=lerp(120,200,s);b=lerp(120,160,s);}
+  return[r,g,b];
+}
+
+// Light theme needs lighter base
+function heatmapRGBLight(clearM,maxClear){
+  if(clearM<=0)return[232,238,244]; // light wall color
+  const t=Math.min(clearM/Math.min(maxClear,5),1);
+  // light: pale blue → medium teal → accent teal
+  let r,g,b;
+  if(t<.3){const s=t/.3;r=lerp(200,140,s);g=lerp(220,200,s);b=lerp(240,240,s);}
+  else if(t<.6){const s=(t-.3)/.3;r=lerp(140,60,s);g=lerp(200,180,s);b=lerp(240,220,s);}
+  else{const s=(t-.6)/.4;r=lerp(60,0,s);g=lerp(180,160,s);b=lerp(220,180,s);}
+  return[r,g,b];
+}
+
+const CELL_PX=2;
+
+function renderStatic(canvas,result,isDark){
+  const{grid,dist,axis,bottlenecks}=result;
+  const{w,h,free}=grid;
+  const cw=w*CELL_PX, ch=h*CELL_PX;
+  canvas.width=cw; canvas.height=ch;
+  const ctx=canvas.getContext('2d');
+  const img=ctx.createImageData(cw,ch);
+  const data=img.data;
+
+  // Wall background fill
+  const wallR=isDark?6:240, wallG=isDark?12:244, wallB=isDark?20:247;
+  for(let i=0;i<data.length;i+=4){data[i]=wallR;data[i+1]=wallG;data[i+2]=wallB;data[i+3]=255;}
+
+  const maxClear=result.maxClearanceM;
+  const rgbFn=isDark?heatmapRGB:heatmapRGBLight;
+
+  for(let gz=0;gz<h;gz++){
+    for(let gx=0;gx<w;gx++){
+      const gi=gz*w+gx;
+      if(!free[gi])continue;
+      const[r,g,b]=rgbFn(dist[gi],maxClear);
+      for(let py=0;py<CELL_PX;py++){
+        for(let px=0;px<CELL_PX;px++){
+          const ci=((gz*CELL_PX+py)*cw+(gx*CELL_PX+px))*4;
+          data[ci]=r;data[ci+1]=g;data[ci+2]=b;data[ci+3]=255;
+        }
+      }
+    }
+  }
+
+  // Medial axis — faint cyan
+  for(let i=0;i<w*h;i++){
+    if(!axis[i])continue;
+    const gx=i%w, gz=(i-gx)/w;
+    for(let py=0;py<CELL_PX;py++){
+      for(let px=0;px<CELL_PX;px++){
+        const ci=((gz*CELL_PX+py)*cw+(gx*CELL_PX+px))*4;
+        data[ci]=isDark?0:0;data[ci+1]=isDark?180:120;data[ci+2]=isDark?255:200;data[ci+3]=70;
+      }
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+  return ctx;
+}
+
+function renderAlerts(ctx,result,threshold,isDark,t){
+  const{grid,dist,axis,bottlenecks}=result;
+  const{w,h,cellSize,minX,minZ}=grid;
+
+  ctx.save();
+  const pulse=(.55+.45*Math.sin(t*.0025));
+
+  for(const bot of bottlenecks){
+    if(bot.widthM>=threshold)continue; // not alert at current threshold
+    // Find and highlight all cells of this bottleneck
+    const bx=Math.round((bot.worldX-minX)/cellSize);
+    const bz=Math.round((bot.worldZ-minZ)/cellSize);
+    // Draw pulsing glow around the worst point
+    const cx=(bx+.5)*CELL_PX, cy=(bz+.5)*CELL_PX;
+    const r=isDark?240:192, g=isDark?56:32, b=isDark?72:42;
+    const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,30*pulse);
+    grad.addColorStop(0,`rgba(${r},${g},${b},${.45*pulse})`);
+    grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  }
+
+  // Highlight bottleneck cells
+  for(let gz=0;gz<h;gz++){
+    for(let gx=0;gx<w;gx++){
+      const gi=gz*w+gx;
+      if(!axis[gi]||dist[gi]*2>=threshold)continue;
+      const r=isDark?240:192, g=isDark?56:32, bv=isDark?72:42;
+      ctx.fillStyle=`rgba(${r},${g},${bv},${.7*pulse+.15})`;
+      ctx.fillRect(gx*CELL_PX,gz*CELL_PX,CELL_PX,CELL_PX);
+    }
+  }
+
+  // Gateways (OK)
+  for(const gw of result.gateways){
+    if(gw.widthM<threshold)continue;
+    const cx=Math.round((gw.worldX-minX)/cellSize)*CELL_PX;
+    const cy=Math.round((gw.worldZ-minZ)/cellSize)*CELL_PX;
+    ctx.strokeStyle=isDark?'rgba(24,188,112,.6)':'rgba(10,122,72,.6)';
+    ctx.lineWidth=2;
+    const s=8;
+    ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);
+    ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function worldToCanvas(worldX,worldZ,grid){
+  const{minX,minZ,cellSize}=grid;
+  return{
+    cx:((worldX-minX)/cellSize+.5)*CELL_PX,
+    cy:((worldZ-minZ)/cellSize+.5)*CELL_PX,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// Callouts (HTML overlay)
+// ═══════════════════════════════════════════════════════════
+
+function buildCallouts(container,result,threshold,scale){
+  container.innerHTML='';
+  const{grid,bottlenecks,gateways}=result;
+
+  const place=(worldX,worldZ,label,cls)=>{
+    const{cx,cy}=worldToCanvas(worldX,worldZ,grid);
+    const div=document.createElement('div');
+    div.className=`clabel ${cls}`;
+    div.textContent=label;
+    div.style.left=`${cx*scale}px`;
+    div.style.top=`${cy*scale-8}px`;
+    container.appendChild(div);
+  };
+
+  for(const bot of bottlenecks){
+    const isAlert=bot.widthM<threshold;
+    if(isAlert){
+      place(bot.worldX,bot.worldZ,`${bot.widthM.toFixed(2)} m ⚠`,'danger');
+    }
+  }
+  for(const gw of gateways){
+    if(gw.widthM>=threshold){
+      place(gw.worldX,gw.worldZ,`${gw.widthM.toFixed(2)} m ✓`,'ok');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Panel UI
+// ═══════════════════════════════════════════════════════════
+
+function updatePanel(result,threshold){
+  const{zones,bottlenecks,gateways,navigableAreaM2,maxClearanceM}=result;
+
+  // Summary
+  const alerts=bottlenecks.filter(b=>b.widthM<threshold);
+  document.getElementById('summary').innerHTML=`
+    <div class="sr"><span class="sl">Area navigabile</span><span class="sv">${navigableAreaM2} m²</span></div>
+    <div class="sr"><span class="sl">Clearance massima</span><span class="sv">${(maxClearanceM*2).toFixed(2)} m</span></div>
+    <div class="sr"><span class="sl">Zone identificate</span><span class="sv">${zones.length}</span></div>
+    <div class="sr"><span class="sl">Varchi misurati</span><span class="sv">${gateways.length+bottlenecks.length}</span></div>
+    <div class="sr"><span class="sl">Strettoie (< ${threshold.toFixed(2)} m)</span>
+      <span class="sv" style="color:${alerts.length?'var(--danger)':'var(--ok)'}">${alerts.length}</span></div>
+  `;
+
+  // Zones
+  const names=['Terminale A','Terminale B','Zona C','Zona D','Zona E'];
+  document.getElementById('zones').innerHTML=zones.map((z,i)=>`
+    <div class="zcard">
+      <div class="zname">${names[i]||'Zona '+(i+1)}</div>
+      <div class="zst">
+        <span>area <span class="zn">${z.areaM2} m²</span></span>
+        <span>largh. max <span class="zn">${(z.maxClearanceM*2).toFixed(2)} m</span></span>
+      </div>
+    </div>
+  `).join('');
+
+  // Bottlenecks
+  const alertCards=bottlenecks.filter(b=>b.widthM<threshold).map(b=>`
+    <div class="acard">
+      <div class="aw">${b.widthM.toFixed(2)}<span class="au"> m</span></div>
+      <div class="ad">Sotto soglia di ${threshold.toFixed(2)} m — varco non conforme</div>
+      <div class="aloc">± ${b.uncertaintyM.toFixed(3)} m · conserv. ${b.widthConservativeM.toFixed(2)} m</div>
+    </div>
+  `).join('');
+  const okCards=gateways.filter(g=>g.widthM>=threshold).map(g=>`
+    <div class="okbadge">
+      <span class="okbadge-w">${g.widthM.toFixed(2)} m</span>
+      varco conforme
+    </div>
+  `).join('');
+  document.getElementById('bots').innerHTML=
+    alertCards+okCards+(alertCards||okCards?'':'<div class="no-alert">nessuna strettoia</div>');
+}
+
+// ═══════════════════════════════════════════════════════════
+// Theme
+// ═══════════════════════════════════════════════════════════
+
+function isDarkMode(){
+  const t=document.documentElement.getAttribute('data-theme');
+  if(t==='dark')return true;if(t==='light')return false;
+  return window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+document.getElementById('theme-btn').addEventListener('click',()=>{
+  const r=document.documentElement;const cur=r.getAttribute('data-theme');
+  if(!cur||cur==='light'){r.setAttribute('data-theme','dark');document.getElementById('theme-btn').textContent='☀ CHIARO';}
+  else{r.setAttribute('data-theme','light');document.getElementById('theme-btn').textContent='☽ SCURO';}
+  redraw();
+});
+
+// ═══════════════════════════════════════════════════════════
+// Main
+// ═══════════════════════════════════════════════════════════
+
+const canvas=document.getElementById('plan');
+const callouts=document.getElementById('callouts');
+const thrSlider=document.getElementById('thr');
+const thrVal=document.getElementById('tv');
+const status=document.getElementById('t-status');
+
+let result=null;
+let staticCtx=null;
+let raf=null;
+let t0=performance.now();
+
+function getThreshold(){return parseFloat(thrSlider.value);}
+
+function redraw(){
+  if(!result)return;
+  cancelAnimationFrame(raf);
+  const dark=isDarkMode();
+  staticCtx=renderStatic(canvas,result,dark);
+  captureStaticFrame();
+  const scale=canvas.getBoundingClientRect().width/canvas.width||1;
+  buildCallouts(callouts,result,getThreshold(),scale);
+  updatePanel(result,getThreshold());
+  t0=performance.now();
+  raf=requestAnimationFrame(animate);
+}
+
+function animate(now){
+  if(!result||!staticCtx)return;
+  raf=requestAnimationFrame(animate);
+  const t=now-t0;
+  const dark=isDarkMode();
+  // Restore static frame then draw dynamic alerts on top
+  staticCtx.putImageData(staticCtx._staticImg,0,0);
+  renderAlerts(staticCtx,result,getThreshold(),dark,t);
+}
+
+// Store static imagedata after first render
+function captureStaticFrame(){
+  if(!staticCtx)return;
+  staticCtx._staticImg=staticCtx.getImageData(0,0,canvas.width,canvas.height);
+}
+
+thrSlider.addEventListener('input',()=>{
+  thrVal.textContent=`${parseFloat(thrSlider.value).toFixed(2)} m`;
+  if(result){
+    const scale=canvas.getBoundingClientRect().width/canvas.width||1;
+    buildCallouts(callouts,result,getThreshold(),scale);
+    updatePanel(result,getThreshold());
+    const alerts=result.bottlenecks.filter(b=>b.widthM<getThreshold());
+    status.textContent=alerts.length?`${alerts.length} STRETTOIA RILEVATA`:'NESSUNA STRETTOIA';
+    status.className=alerts.length?'alert':'ready';
+  }
+});
+
+async function run(){
+  status.textContent='GENERAZIONE NUVOLA…';
+  await new Promise(r=>setTimeout(r,10));
+
+  status.textContent='ANALISI IN CORSO…';
+  await new Promise(r=>setTimeout(r,10));
+
+  const pts=buildDemoCloud(0.85,1.40,0.05);
+  result=perceiveLevel(pts,0,{cellSize:0.10,minClearance:0.45,mergeGatewayM:2.5});
+
+  if(!result){status.textContent='ERRORE';return;}
+
+  const dark=isDarkMode();
+  staticCtx=renderStatic(canvas,result,dark);
+  captureStaticFrame();
+
+  const scale=canvas.getBoundingClientRect().width/canvas.width||1;
+  buildCallouts(callouts,result,getThreshold(),scale);
+  updatePanel(result,getThreshold());
+
+  const alerts=result.bottlenecks.filter(b=>b.widthM<getThreshold());
+  status.textContent=alerts.length?`${alerts.length} STRETTOIA RILEVATA`:'PRONTO';
+  status.className=alerts.length?'alert':'ready';
+
+  cancelAnimationFrame(raf);
+  t0=performance.now();
+  raf=requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize',()=>{
+  if(!result)return;
+  const scale=canvas.getBoundingClientRect().width/canvas.width||1;
+  buildCallouts(callouts,result,getThreshold(),scale);
+});
+
+run();
+
+// expose for testing
+window.__veritasDemoReady=()=>!!result;
+</script>

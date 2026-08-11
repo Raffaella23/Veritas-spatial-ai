@@ -1,698 +1,666 @@
-// ============================================================
-// VERITAS -- Perception Layer
-//
-// FASE A -- Percezione dello spazio: cosa e' visibile da dove.
-//   Costruisce un campo di altezze degli occlusori (muri, pareti, banchi,
-//   arredi) e risponde a domande di visibilita': linea di vista fra due
-//   punti, isovista di un punto, visibilita' fra le zone rilevate.
-//
-// FASE B -- Percezione degli agenti: cosa vede un singolo agente.
-//   Interroga la Fase A con i parametri percettivi del suo archetipo
-//   (Agent Skin): campo visivo, portata, ALTEZZA OCCHIO.
-//
-// Perche' un campo di altezze e non una griglia booleana: un bancone alto
-// 1.10m non occlude chi sta in piedi (occhio ~1.65m) ma occlude chi e' in
-// sedia a rotelle (occhio ~1.20m). Con una griglia booleana quella
-// differenza non e' rappresentabile, e l'analisi di accessibilita' -- che
-// per CONTEXT.md appartiene al Core -- diventerebbe finta.
-//
-// Riuso, non reinvenzione: le zone e la nuvola di punti navigabili
-// arrivano dalla pipeline gia' provata (window.__veritasAutoZones /
-// __veritasAutoPoints, prodotti da structuralAnalysisFromPoints). Qui si
-// aggiunge solo cio' che quella pipeline scarta per costruzione: la
-// geometria VERTICALE. extractNavigablePoints tiene i punti con normale
-// verso l'alto (ny > 0.75) perche' cerca il pavimento; gli occlusori sono
-// esattamente il complemento e non esistono da nessuna parte nel sistema.
-// ============================================================
+/**
+ * VERITAS — Motore di Percezione
+ * =============================================================================
+ * Misura oggettiva dello spazio navigabile a partire da una nuvola di punti.
+ *
+ * Sostituisce il clustering KMeans nel compito per cui KMeans non è adatto:
+ * KMeans cerca grumi attorno a un centroide, ma un corridoio è una striscia
+ * sottile e allungata — o viene fuso con la stanza adiacente, o spezzato a caso.
+ * Qui la topologia viene dedotta dalla geometria, non indovinata.
+ *
+ * Pipeline:
+ *   1. Griglia di occupazione   punti → celle libere/occupate, per livello
+ *   2. Chiusura morfologica     tappa i buchi del campionamento (falsi ostacoli)
+ *   3. Feature transform        distanza esatta E identità dell'ostacolo più vicino
+ *   4. Asse mediale potato      solo le creste tra ostacoli DISTINTI (vedi §3)
+ *   5. Strettoie                minimi di clearance lungo l'asse, sotto soglia
+ *   6. Watershed + fusione      zone separate da costrizioni reali, non da rumore
+ *
+ * La larghezza di un passaggio è  clearance × 2  — una misura, non una stima.
+ *
+ * NESSUNA dipendenza: né THREE, né il bundle minificato. Opera su array di punti
+ * puri, esattamente come il resto della pipeline a valle di extractNavigablePoints
+ * (CLAUDE.md §5). Questo lo rende utilizzabile identico per mesh GLB/FBX e per i
+ * centri delle gaussiane di uno splat.
+ *
+ * Costo lineare nel numero di celle, indipendente dal numero di punti in
+ * ingresso: una nuvola da 5 milioni di gaussiane costa quanto una da 50.000
+ * sulla stessa area. KMeans, al contrario, cresce col numero di punti.
+ */
 
-import * as THREE from "three";
-
-// Stessa lista del blocco boot: superfici di scala territoriale che non
-// fanno parte dell'ambiente navigabile interno.
-const EXCLUDE_KEYWORDS = [
-  "runway", "taxiway", "pista", "piazzale", "apron", "tarmac", "road",
-  "strada", "terreno", "ground", "asphalt", "asfalto", "parcheggio_auto",
-  "landscape", "terrain",
-];
-
-const CELL = 0.4;            // lato cella della griglia, metri
-const MAX_GRID_CELLS = 900000;
-const HORIZONTAL_NORMAL_MAX = 0.5;  // |ny| sotto questa soglia => superficie verticale
-const OCCLUDER_MIN_H = 0.25; // sotto questa quota sul pavimento non occlude nessuno
-const OCCLUDER_MAX_H = 2.6;  // sopra la testa: soffitti e travi non occludono la vista orizzontale
-const ISOVIST_RAYS = 72;     // un raggio ogni 5 gradi
-const ISOVIST_MAX_RANGE = 60;
-const SPLAT_MIN_OPACITY = 0.25;
-
-// Altezza occhio per archetipo (Agent Skin). I nomi combaciano con
-// ARCHETYPES del blocco boot -- lo skin aggiunge la percezione, non
-// riscrive il movimento (design_brief §3: Agent Core != Agent Skin).
-const PERCEPTION_PROFILES = {
-  business:   { eyeHeight: 1.65, fovDeg: 100, range: 25, label: "Business" },
-  family:     { eyeHeight: 1.55, fovDeg: 120, range: 18, label: "Famiglia" },
-  elderly:    { eyeHeight: 1.58, fovDeg: 100, range: 14, label: "Anziano" },
-  wheelchair: { eyeHeight: 1.20, fovDeg: 120, range: 18, label: "Sedia a rotelle" },
-  tourist:    { eyeHeight: 1.65, fovDeg: 140, range: 30, label: "Turista" },
-  senior:     { eyeHeight: 1.58, fovDeg: 100, range: 14, label: "Senior" },
-  student:    { eyeHeight: 1.70, fovDeg: 130, range: 28, label: "Studente" },
-  crew:       { eyeHeight: 1.70, fovDeg: 110, range: 30, label: "Staff" },
-  vip:        { eyeHeight: 1.68, fovDeg: 110, range: 25, label: "VIP" },
-  child:      { eyeHeight: 1.05, fovDeg: 120, range: 15, label: "Bambino" },
+export const PERCEPTION_DEFAULTS = {
+  /** Lato della cella in metri. 0.04 = vede una porta, 0.02 = vede uno scalino. */
+  cellSize: 0.05,
+  /** Banda verticale attorno alla quota del piano (m). */
+  floorTolerance: 1.2,
+  /** Raggio in celle della chiusura morfologica che tappa i buchi di campionamento. */
+  closeRadius: 2,
+  /** Sotto questa clearance (m) il passaggio è segnalato. 0.45 m ⇒ varco di 90 cm. */
+  minClearance: 0.45,
+  /** Area minima assoluta (m²) perché una zona sia tale e non un frammento. */
+  minZoneArea: 1.5,
+  /**
+   * Area minima RELATIVA all'area navigabile totale. Una soglia solo assoluta
+   * non regge il cambio di scala: 2 m² sono un ripostiglio in un appartamento
+   * e puro rumore in un terminal da 1200 m². Vale la più severa delle due.
+   */
+  minZoneFraction: 0.01,
+  /**
+   * Potatura dell'asse mediale, in celle. Una cresta è autentica solo se i suoi
+   * vicini "vedono" ostacoli distanti almeno così tanto fra loro: separa i muri
+   * opposti di un corridoio dal rumore di rasterizzazione di un muro solo.
+   */
+  axisPruning: 3,
+  /**
+   * Angolo minimo (gradi) che i due ostacoli devono sottendere al punto perché
+   * sia asse mediale autentico. Un corridoio ha muri opposti (~180°); il
+   * vertice convesso di una stanza ha due facce a ~90°. 135° separa i due casi.
+   */
+  minSeparationDeg: 135,
+  /**
+   * Due zone adiacenti con un varco più largo di questo (m) non sono separate
+   * da nulla di reale: vengono fuse. Una porta o un varco resta una divisione.
+   */
+  mergeGatewayM: 3.0,
+  /** Celle di margine aggiunte attorno ai dati: il bordo deve essere ostacolo. */
+  padding: 3,
 };
-const DEFAULT_PROFILE = "business";
 
-let grid = null;   // { minX, minZ, nx, nz, heights: Float32Array, floorY, source, occluderCount }
+/* ========================================================================== *
+ * 1. Griglia di occupazione
+ * ========================================================================== */
 
-// ---------------------------------------------------------------
-// Estrazione occlusori
-// ---------------------------------------------------------------
+/**
+ * Rasterizza i punti navigabili di un livello in una griglia 2D sul piano XZ.
+ * Una cella è LIBERA se contiene almeno un punto campionato.
+ */
+export function buildOccupancyGrid(points, levelY, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const flat = points instanceof Float32Array;
+  const n = flat ? points.length / 3 : points.length;
 
-// Dalla mesh: superfici VERTICALI, campionate per TRIANGOLI e non per vertici.
-//
-// Campionare i vertici sembra piu' semplice ma non regge la geometria reale:
-// un muro modellato come scatola ha vertici solo alla base e in cima (y=0 e
-// y=3), quindi nella fascia utile a mezza altezza non cade NESSUN vertice e
-// il muro sparisce dall'analisi. Su una mesh scansionata e densa il difetto
-// non si vedrebbe; su un modello CAD pulito fa fallire tutto.
-//
-// Lavorando sui triangoli si usa invece l'ESTENSIONE VERTICALE di ciascuna
-// faccia: un triangolo che va da 0 a 3m attraversa la fascia e viene
-// registrato, indipendentemente da dove stanno i suoi vertici.
-//
-// Ogni occlusore e' [x, z, quotaSommita', quotaBase]: servono entrambe le
-// quote perche' un ostacolo conta solo se la sua estensione verticale
-// interseca davvero l'altezza dell'occhio.
-function occludersFromMesh(root) {
-  root.updateMatrixWorld(true);
-  const out = [];
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-  const ab = new THREE.Vector3(), ac = new THREE.Vector3(), nrm = new THREE.Vector3();
+  const at = (i) => {
+    if (flat) return [points[i * 3], points[i * 3 + 1], points[i * 3 + 2]];
+    const p = points[i];
+    return Array.isArray(p) ? p : [p.x, p.y, p.z];
+  };
 
-  root.traverse((obj) => {
-    if (!obj.isMesh || !obj.geometry) return;
-    const name = (obj.name || "").toLowerCase();
-    if (EXCLUDE_KEYWORDS.some((kw) => name.includes(kw))) return;
-    const geo = obj.geometry;
-    const pa = geo.attributes && geo.attributes.position;
-    if (!pa || !pa.count) return;
-    const index = geo.index;
-    const triCount = Math.floor((index ? index.count : pa.count) / 3);
-    if (!triCount) return;
-    const mw = obj.matrixWorld;
-    // Su mesh molto dense si salta qualche triangolo: la copertura resta
-    // ampiamente sufficiente per una griglia da 0.4m.
-    const triStride = Math.max(1, Math.floor(triCount / 20000));
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, kept = 0;
+  for (let i = 0; i < n; i++) {
+    const [x, y, z] = at(i);
+    if (Math.abs(y - levelY) > o.floorTolerance) continue;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z;
+    if (z > maxZ) maxZ = z;
+    kept++;
+  }
+  if (kept === 0) return null;
 
-    for (let t = 0; t < triCount; t += triStride) {
-      const i0 = index ? index.getX(t * 3) : t * 3;
-      const i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
-      const i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
-      a.set(pa.getX(i0), pa.getY(i0), pa.getZ(i0)).applyMatrix4(mw);
-      b.set(pa.getX(i1), pa.getY(i1), pa.getZ(i1)).applyMatrix4(mw);
-      c.set(pa.getX(i2), pa.getY(i2), pa.getZ(i2)).applyMatrix4(mw);
+  const pad = o.padding;
+  const w = Math.ceil((maxX - minX) / o.cellSize) + 1 + pad * 2;
+  const h = Math.ceil((maxZ - minZ) / o.cellSize) + 1 + pad * 2;
+  const originX = minX - pad * o.cellSize;
+  const originZ = minZ - pad * o.cellSize;
 
-      // Normale geometrica reale: non ci si fida dell'attributo, che puo'
-      // mancare o essere interpolato per lo shading.
-      ab.subVectors(b, a); ac.subVectors(c, a);
-      nrm.crossVectors(ab, ac);
-      const len = nrm.length();
-      if (len < 1e-9) continue;
-      nrm.divideScalar(len);
-      if (Math.abs(nrm.y) > HORIZONTAL_NORMAL_MAX) continue; // pavimento o soffitto
+  const free = new Uint8Array(w * h);
+  for (let i = 0; i < n; i++) {
+    const [x, y, z] = at(i);
+    if (Math.abs(y - levelY) > o.floorTolerance) continue;
+    const cx = Math.floor((x - originX) / o.cellSize);
+    const cz = Math.floor((z - originZ) / o.cellSize);
+    if (cx < 0 || cx >= w || cz < 0 || cz >= h) continue;
+    free[cz * w + cx] = 1;
+  }
 
-      const top = Math.max(a.y, b.y, c.y);
-      const bottom = Math.min(a.y, b.y, c.y);
+  return { w, h, cellSize: o.cellSize, minX: originX, minZ: originZ, free,
+           levelY, sampled: kept };
+}
 
-      // Proiettato su XZ un triangolo verticale e' quasi un segmento: si
-      // percorre la sua coppia di estremi piu' distante, cosi' l'impronta
-      // finisce nella griglia per intero invece che in una cella sola.
-      const pts = [[a.x, a.z], [b.x, b.z], [c.x, c.z]];
-      let p0 = pts[0], p1 = pts[1], best = -1;
-      for (let i = 0; i < 3; i++) {
-        for (let j = i + 1; j < 3; j++) {
-          const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
-          if (d > best) { best = d; p0 = pts[i]; p1 = pts[j]; }
+/**
+ * Chiusura morfologica (dilatazione seguita da erosione), separabile.
+ *
+ * Serve a un problema molto concreto: il campionamento è discreto, quindi in
+ * mezzo a un'area perfettamente percorribile può capitare una cella dove non è
+ * atterrato alcun punto. Senza questo passaggio quella cella verrebbe letta come
+ * ostacolo, la distance transform ci misurerebbe attorno una clearance
+ * bassissima, e il sistema segnalerebbe una strettoia inesistente.
+ *
+ * È la differenza tra una lettura "precisa e puntuale" e una piena di falsi
+ * positivi. Implementata con due passate 1D per asse: O(celle × raggio).
+ */
+export function closeHoles(grid, radius = PERCEPTION_DEFAULTS.closeRadius) {
+  if (radius <= 0) return grid;
+  const { w, h } = grid;
+
+  // Dilatazione/erosione separabili: max (o min) su finestra scorrevole 1D.
+  const morph1D = (src, wantMax, outsideValue) => {
+    const tmp = new Uint8Array(w * h);
+    // orizzontale
+    for (let z = 0; z < h; z++) {
+      const row = z * w;
+      for (let x = 0; x < w; x++) {
+        let acc = wantMax ? 0 : 1;
+        for (let d = -radius; d <= radius; d++) {
+          const nx = x + d;
+          const v = (nx < 0 || nx >= w) ? outsideValue : src[row + nx];
+          acc = wantMax ? Math.max(acc, v) : Math.min(acc, v);
+        }
+        tmp[row + x] = acc;
+      }
+    }
+    // verticale
+    const dst = new Uint8Array(w * h);
+    for (let x = 0; x < w; x++) {
+      for (let z = 0; z < h; z++) {
+        let acc = wantMax ? 0 : 1;
+        for (let d = -radius; d <= radius; d++) {
+          const nz = z + d;
+          const v = (nz < 0 || nz >= h) ? outsideValue : tmp[nz * w + x];
+          acc = wantMax ? Math.max(acc, v) : Math.min(acc, v);
+        }
+        dst[z * w + x] = acc;
+      }
+    }
+    return dst;
+  };
+
+  const dilated = morph1D(grid.free, true, 0);  // fuori = occupato
+  const closed = morph1D(dilated, false, 0);    // erosione: il bordo resta muro
+  return { ...grid, free: closed };
+}
+
+/* ========================================================================== *
+ * 2. Feature transform euclidea esatta (Felzenszwalb & Huttenlocher, 2012)
+ * ========================================================================== */
+
+/** Trasformata 1D con argmin: restituisce distanza quadratica e sorgente. */
+function edt1d(f, n, d, arg, v, z) {
+  let k = 0;
+  v[0] = 0;
+  z[0] = -Infinity;
+  z[1] = Infinity;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) {
+      k--;
+      s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    }
+    k++;
+    v[k] = q;
+    z[k] = s;
+    z[k + 1] = Infinity;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) {
+    while (z[k + 1] < q) k++;
+    const dq = q - v[k];
+    d[q] = dq * dq + f[v[k]];
+    arg[q] = v[k];
+  }
+}
+
+/**
+ * Distanza euclidea ESATTA di ogni cella libera dall'ostacolo più vicino (in
+ * metri) E identità di quell'ostacolo.
+ *
+ * Esatta e non approssimata (chamfer/city-block) di proposito: questo numero è
+ * ciò che il prodotto vende. Una larghezza dichiarata a un progettista deve
+ * essere ripetibile e difendibile, non "circa".
+ *
+ * Le coordinate dell'ostacolo più vicino (`featX`/`featZ`) sono ciò che rende
+ * possibile potare l'asse mediale — vedi extractMedialAxis.
+ *
+ * @returns {{dist:Float32Array, featX:Int32Array, featZ:Int32Array}}
+ */
+export function distanceTransform(grid) {
+  const { w, h, free, cellSize } = grid;
+  const INF = 1e12;
+  const m = Math.max(w, h);
+  const f = new Float64Array(m), d = new Float64Array(m);
+  const arg = new Int32Array(m), v = new Int32Array(m), z = new Float64Array(m + 1);
+
+  const sq = new Float64Array(w * h);
+  const srcZ = new Int32Array(w * h);
+  for (let i = 0; i < w * h; i++) sq[i] = free[i] ? INF : 0;
+
+  // Passata sulle colonne: sorgente = riga dell'ostacolo più vicino in colonna.
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) f[y] = sq[y * w + x];
+    edt1d(f, h, d, arg, v, z);
+    for (let y = 0; y < h; y++) { sq[y * w + x] = d[y]; srcZ[y * w + x] = arg[y]; }
+  }
+
+  // Passata sulle righe: combina, ottenendo la sorgente 2D completa.
+  const featX = new Int32Array(w * h);
+  const featZ = new Int32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) f[x] = sq[y * w + x];
+    edt1d(f, w, d, arg, v, z);
+    for (let x = 0; x < w; x++) {
+      sq[y * w + x] = d[x];
+      const sx = arg[x];
+      featX[y * w + x] = sx;
+      featZ[y * w + x] = srcZ[y * w + sx];
+    }
+  }
+
+  const dist = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) dist[i] = Math.sqrt(sq[i]) * cellSize;
+  return { dist, featX, featZ };
+}
+
+/* ========================================================================== *
+ * 3. Asse mediale potato
+ * ========================================================================== */
+
+/**
+ * I massimi locali della distance transform sono la mezzeria naturale dei
+ * percorsi: dove si cammina davvero.
+ *
+ * Il criterio ingenuo — "è una cresta se domina i vicini" — non funziona: la
+ * rasterizzazione di un muro rettilineo produce microvariazioni che generano
+ * creste spurie a una-due celle dal muro, con clearance minuscola. Quelle
+ * false strettoie dominano poi qualsiasi classifica per larghezza.
+ *
+ * Criterio corretto, in due condizioni (feature transform):
+ *
+ *  a) SEPARAZIONE — esiste un vicino il cui ostacolo più vicino è lontano dal
+ *     proprio. Due muri opposti di un corridoio distano quanto il corridoio è
+ *     largo; due celle dello stesso muro distano una cella.
+ *
+ *  b) ANGOLO DI SEPARAZIONE — i due ostacoli devono stare su lati OPPOSTI. In
+ *     un corridoio l'angolo che sottendono al centro è ~180°; nel vertice
+ *     convesso di una stanza le due facce del muro formano ~90°. Senza questa
+ *     seconda condizione ogni angolo di ogni stanza genera una falsa strettoia
+ *     con clearance quasi nulla, che poi domina qualunque classifica per
+ *     larghezza. Verificato sul campo: quattro falsi allarmi per stanza.
+ */
+export function extractMedialAxis(grid, ft, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const { w, h, free } = grid;
+  const { dist, featX, featZ } = ft;
+  const axis = new Uint8Array(w * h);
+  const thr2 = o.axisPruning * o.axisPruning;
+  const cosMax = Math.cos(o.minSeparationDeg * Math.PI / 180);
+
+  for (let z = 1; z < h - 1; z++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = z * w + x;
+      if (!free[i] || dist[i] <= 0) continue;
+      const fx = featX[i], fz = featZ[i];
+      // Vettore dal punto verso il proprio ostacolo più vicino.
+      const ax = fx - x, az = fz - z;
+      const la = Math.hypot(ax, az);
+      if (la === 0) continue;
+
+      let isAxis = false;
+      for (let dz = -1; dz <= 1 && !isAxis; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dz) continue;
+          const ni = (z + dz) * w + (x + dx);
+          if (!free[ni]) continue;
+          const ddx = featX[ni] - fx, ddz = featZ[ni] - fz;
+          if (ddx * ddx + ddz * ddz < thr2) continue;        // (a) separazione
+          const bx = featX[ni] - x, bz = featZ[ni] - z;
+          const lb = Math.hypot(bx, bz);
+          if (lb === 0) continue;
+          const cos = (ax * bx + az * bz) / (la * lb);       // (b) angolo
+          if (cos <= cosMax) { isAxis = true; break; }
         }
       }
-      const steps = Math.max(1, Math.min(400, Math.ceil(best / (CELL * 0.5))));
-      for (let s = 0; s <= steps; s++) {
-        const u = s / steps;
-        out.push([p0[0] + (p1[0] - p0[0]) * u, p0[1] + (p1[1] - p0[1]) * u, top, bottom, 0]);
+      if (isAxis) axis[i] = 1;
+    }
+  }
+  return axis;
+}
+
+/* ========================================================================== *
+ * 4. Strettoie
+ * ========================================================================== */
+
+/**
+ * Le strettoie sono le componenti connesse dell'asse mediale in cui la
+ * clearance scende sotto soglia. Ogni componente diventa UN segnale — non
+ * cinquanta celle rosse adiacenti — con la sua misura peggiore e la sua
+ * posizione nel mondo, pronta da far pulsare sul modello.
+ */
+export function findBottlenecks(grid, ft, axis, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const { w, h, cellSize, minX, minZ, levelY } = grid;
+  const { dist } = ft;
+  const halfCell = cellSize / 2;
+  const seen = new Uint8Array(w * h);
+  const out = [];
+
+  for (let start = 0; start < w * h; start++) {
+    // Il confronto usa la stima CONSERVATIVA: la rasterizzazione dilata lo
+    // spazio libero di circa mezza cella per lato, quindi la misura grezza
+    // sovrastima la larghezza. Sovrastimare, in analisi di sicurezza, è
+    // l'errore che non ci si può permettere.
+    if (!axis[start] || seen[start] || dist[start] - halfCell >= o.minClearance) continue;
+
+    const stack = [start];
+    seen[start] = 1;
+    let sumX = 0, sumZ = 0, cells = 0, worst = Infinity, worstIdx = start;
+
+    while (stack.length) {
+      const i = stack.pop();
+      const x = i % w, z = (i - x) / w;
+      sumX += x; sumZ += z; cells++;
+      if (dist[i] < worst) { worst = dist[i]; worstIdx = i; }
+
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dz) continue;
+          const nx = x + dx, nz = z + dz;
+          if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+          const ni = nz * w + nx;
+          if (seen[ni] || !axis[ni] || dist[ni] - halfCell >= o.minClearance) continue;
+          seen[ni] = 1;
+          stack.push(ni);
+        }
       }
     }
-  });
+
+    // Il punto peggiore è più utile del baricentro: è lì che si va a guardare.
+    const wx = worstIdx % w, wz = (worstIdx - wx) / w;
+    const widthM = worst * 2;
+    out.push({
+      worldX: minX + (wx + 0.5) * cellSize,
+      worldZ: minZ + (wz + 0.5) * cellSize,
+      y: levelY,
+      centroidX: minX + (sumX / cells + 0.5) * cellSize,
+      centroidZ: minZ + (sumZ / cells + 0.5) * cellSize,
+      clearanceM: +worst.toFixed(3),
+      widthM: +widthM.toFixed(3),
+      /** Incertezza della misura: una cella. La rasterizzazione non fa meglio. */
+      uncertaintyM: +cellSize.toFixed(3),
+      /** Valore da usare per il giudizio: mai sovrastimare un passaggio. */
+      widthConservativeM: +Math.max(0, widthM - cellSize).toFixed(3),
+      cells,
+      lengthM: +(cells * cellSize).toFixed(2),
+    });
+  }
+
+  out.sort((a, b) => a.widthM - b.widthM); // il peggiore per primo
   return out;
 }
 
-function findSplatMesh(root) {
-  let found = null;
-  root.traverse((o) => { if (!found && o.packedSplats) found = o; });
-  return found;
-}
+/* ========================================================================== *
+ * 5. Segmentazione a watershed, con fusione per varco
+ * ========================================================================== */
 
-// Dallo splat: ogni gaussiana e' un ellissoide, non un punto. Si tiene il
-// centro E il raggio (semiasse maggiore), cosi' una gaussiana larga occlude
-// un'area invece di una sola cella -- e' il passaggio da "soli centri" a
-// "ellissoidi come ostacoli" previsto come Fase B dello splat.
-function occludersFromSplat(root) {
-  const mesh = findSplatMesh(root);
-  if (!mesh) return [];
-  mesh.updateMatrixWorld(true);
-  const packed = mesh.packedSplats;
-  const total = packed ? packed.numSplats : 0;
-  if (!total) return [];
-  const stride = Math.max(1, Math.floor(total / 60000));
-  const out = [];
-  const v = new THREE.Vector3();
-  // Il raggio e' un semiasse locale: va portato in scala mondo, altrimenti
-  // su uno splat non unitario le gaussiane occluderebbero l'area sbagliata.
-  const worldScale = new THREE.Vector3();
-  mesh.getWorldScale(worldScale);
-  const scaleFactor = Math.max(worldScale.x, worldScale.y, worldScale.z) || 1;
-  for (let i = 0; i < total; i += stride) {
-    let s;
-    try { s = packed.getSplat(i); } catch (e) { continue; }
-    if (!s || s.opacity < SPLAT_MIN_OPACITY) continue;
-    v.copy(s.center);
-    mesh.localToWorld(v);
-    let r = 0;
-    const sc = s.scales;
-    if (sc) {
-      const sx = sc.x != null ? sc.x : (sc[0] || 0);
-      const sy = sc.y != null ? sc.y : (sc[1] || 0);
-      const sz = sc.z != null ? sc.z : (sc[2] || 0);
-      r = Math.max(sx, sy, sz) * scaleFactor;
+/**
+ * Segmenta lo spazio seguendo la forma reale: i massimi della distance
+ * transform sono i cuori delle aree ampie, e la crescita si arresta nei punti
+ * stretti — che è dove un progettista traccerebbe il confine.
+ *
+ * Il numero di zone emerge dai dati: non c'è nessun `k` da indovinare.
+ *
+ * Due zone vengono poi FUSE se il varco che le separa è più largo di
+ * `mergeGatewayM`: senza questo passaggio l'asse mediale di una stanza
+ * quadrata (una X) genera quattro sotto-zone d'angolo che non corrispondono a
+ * niente di reale.
+ *
+ * @returns {{labels:Int32Array, zones:Array, gateways:Array}}
+ */
+export function segmentZones(grid, ft, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const { w, h, free, cellSize, minX, minZ, levelY } = grid;
+  const { dist } = ft;
+  const labels = new Int32Array(w * h).fill(-1);
+
+  // Celle libere ordinate dalla più ampia alla più stretta: l'acqua scende.
+  const order = [];
+  for (let i = 0; i < w * h; i++) if (free[i] && dist[i] > 0) order.push(i);
+  order.sort((a, b) => dist[b] - dist[a]);
+
+  // Soglia di frammento: la più severa fra assoluta e proporzionale alla scena.
+  const totalAreaM2 = order.length * cellSize * cellSize;
+  const minArea = Math.max(o.minZoneArea, totalAreaM2 * o.minZoneFraction);
+
+  // Assegnazione in un'unica passata: quando arrivo a una cella, tutte quelle
+  // più ampie sono già etichettate, quindi il vicino "a monte" esiste già.
+  let next = 0;
+  for (const i of order) {
+    const x = i % w, z = (i - x) / w;
+    let best = -1, bestD = -1;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue;
+        const nx = x + dx, nz = z + dz;
+        if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+        const ni = nz * w + nx;
+        if (labels[ni] === -1) continue;
+        if (dist[ni] > bestD) { bestD = dist[ni]; best = labels[ni]; }
+      }
     }
-    if (!isFinite(r) || r < 0) r = 0;
-    r = Math.min(r, 2);
-    // Stesso formato della mesh: [x, z, sommita', base, raggio]. Per una
-    // gaussiana sommita' e base sono il centro piu' o meno il semiasse.
-    out.push([v.x, v.z, v.y + r, v.y - r, r]);
+    labels[i] = best !== -1 ? best : next++;  // nessun vicino a monte ⇒ nuovo massimo
   }
-  return out;
-}
 
-// ---------------------------------------------------------------
-// Costruzione del campo di altezze
-// ---------------------------------------------------------------
-
-// Quota di riferimento del pavimento.
-//
-// NON si usa la mediana: i punti "navigabili" comprendono anche le facce
-// superiori di muri e pilastri (pure loro hanno normale verso l'alto), e su
-// un modello con molti muri e poco pavimento la mediana finisce sulle CIME
-// DEI MURI. Con il riferimento a 3m invece che a 0 la fascia utile si sposta
-// sopra gli ostacoli e ogni muro viene scartato perche' "troppo basso":
-// la griglia resta vuota e la percezione non risponde piu' nulla.
-//
-// Il decimo percentile resta ancorato alla superficie calpestabile piu'
-// bassa ed e' insensibile a quei punti alti.
-// Limite noto: su un edificio multipiano questo fissa il piano terra. Una
-// percezione per piano richiederebbe una griglia per livello.
-function floorReference(occluders) {
-  // Si parte dalla BASE DEGLI OCCLUSORI: muri, pilastri e arredi poggiano
-  // sul pavimento, quindi il loro piede e' il riferimento piu' affidabile.
-  //
-  // Non si usano i punti navigabili: quelli comprendono anche le facce
-  // superiori dei muri (pure loro hanno normale verso l'alto) e su un
-  // modello con molti muri e poco pavimento il filtro a monte scarta
-  // proprio la banda del pavimento perche' minoritaria, lasciando SOLO
-  // punti in cima ai muri. Con il riferimento a 3m invece che a 0 la fascia
-  // utile si sposta sopra gli ostacoli, ogni muro viene scartato perche'
-  // "troppo basso" e la griglia resta vuota.
-  //
-  // Il decimo percentile invece del minimo assoluto evita che un singolo
-  // vertice sotto quota sposti tutto.
-  if (occluders && occluders.length) {
-    const bottoms = occluders.map((o) => o[3]).sort((a, b) => a - b);
-    return bottoms[Math.floor(bottoms.length * 0.1)];
-  }
-  const pts = window.__veritasAutoPoints;
-  if (pts && pts.length) {
-    const ys = pts.map((p) => p[1]).sort((a, b) => a - b);
-    return ys[Math.floor(ys.length * 0.1)];
-  }
-  return 0;
-}
-
-function stamp(heights, nx, nz, cx, cz, h, radiusCells) {
-  for (let dz = -radiusCells; dz <= radiusCells; dz++) {
-    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
-      if (dx * dx + dz * dz > radiusCells * radiusCells) continue;
-      const x = cx + dx, z = cz + dz;
-      if (x < 0 || z < 0 || x >= nx || z >= nz) continue;
-      const idx = z * nx + x;
-      if (h > heights[idx]) heights[idx] = h;
+  // Varchi: per ogni coppia adiacente, la clearance massima sul confine comune.
+  const gw = new Map();
+  const key = (a, b) => (a < b ? a * next + b : b * next + a);
+  for (let z = 0; z < h; z++) {
+    for (let x = 0; x < w; x++) {
+      const i = z * w + x;
+      const A = labels[i];
+      if (A === -1) continue;
+      for (const [dx, dz] of [[1, 0], [0, 1]]) {
+        const nx = x + dx, nz = z + dz;
+        if (nx >= w || nz >= h) continue;
+        const ni = nz * w + nx;
+        const B = labels[ni];
+        if (B === -1 || B === A) continue;
+        const k = key(A, B);
+        const c = Math.min(dist[i], dist[ni]);
+        const cur = gw.get(k);
+        if (!cur || c > cur.clearance) gw.set(k, { a: A, b: B, clearance: c, idx: i });
+      }
     }
   }
-}
 
-function buildGrid(occluders, source) {
-  if (!occluders.length) return null;
-  const floorY = floorReference(occluders);
+  // Union-find: fondi le coppie il cui varco non è una vera costrizione.
+  const parent = new Int32Array(next).map((_, i) => i);
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb); };
 
-  // Un ostacolo conta se la sua ESTENSIONE VERTICALE interseca la fascia
-  // utile, non se un suo vertice ci cade dentro: un muro da 0 a 3m attraversa
-  // la fascia pur non avendo geometria a mezza altezza.
-  // L'altezza registrata e' quella della sommita': serve intera per poter
-  // rispondere a quote occhio diverse (in piedi contro seduto).
-  const bandTop = floorY + OCCLUDER_MAX_H;
-  const bandBottom = floorY + OCCLUDER_MIN_H;
-  const band = [];
-  for (const o of occluders) {
-    const top = o[2], bottom = o[3];
-    if (top <= bandBottom) continue;   // troppo basso: ci si vede sopra
-    if (bottom >= bandTop) continue;   // sospeso sopra la testa
-    band.push([o[0], o[1], top - floorY, o[4]]);
-  }
-  if (band.length < 10) return null;
+  const pairs = [...gw.values()].sort((p, q) => q.clearance - p.clearance);
+  for (const p of pairs) if (p.clearance * 2 >= o.mergeGatewayM) union(p.a, p.b);
 
-  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  const extend = (x, z) => {
-    if (x < minX) minX = x; if (x > maxX) maxX = x;
-    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  /*
+   * Assorbimento dei frammenti.
+   *
+   * Il watershed lascia sempre qualche scheggia di pochi metri quadri attorno
+   * a pilastri e spigoli: geometricamente sono bacini distinti, ma nessun
+   * progettista li chiamerebbe "ambienti". Scartarli soltanto dal report non
+   * basta — restano etichette vive e continuano a generare varchi fantasma.
+   * Vanno fusi nel vicino con cui comunicano più ampiamente, finché non ne
+   * resta nessuno sotto la soglia di area.
+   */
+  const areaOf = () => {
+    const a = new Map();
+    const cellA = cellSize * cellSize;
+    for (let i = 0; i < w * h; i++) {
+      if (labels[i] === -1) continue;
+      const R = find(labels[i]);
+      a.set(R, (a.get(R) || 0) + cellA);
+    }
+    return a;
   };
-  for (const b of band) extend(b[0], b[1]);
-  // La griglia deve coprire anche il calpestabile, non solo i muri:
-  // altrimenti un punto navigabile appena fuori bordo non e' interrogabile.
-  const nav = window.__veritasAutoPoints;
-  if (nav && nav.length) for (const p of nav) extend(p[0], p[2]);
-
-  minX -= CELL * 2; minZ -= CELL * 2; maxX += CELL * 2; maxZ += CELL * 2;
-  const nx = Math.max(1, Math.ceil((maxX - minX) / CELL));
-  const nz = Math.max(1, Math.ceil((maxZ - minZ) / CELL));
-  if (nx * nz > MAX_GRID_CELLS) {
-    console.warn("[VERITAS Perception] area troppo estesa per la griglia:", nx, "x", nz);
-    return null;
+  for (let pass = 0; pass < 6; pass++) {
+    const area = areaOf();
+    let merged = false;
+    for (const p of pairs) {                 // già ordinati per varco decrescente
+      const ra = find(p.a), rb = find(p.b);
+      if (ra === rb) continue;
+      if ((area.get(ra) || 0) < minArea || (area.get(rb) || 0) < minArea) {
+        union(ra, rb);
+        merged = true;
+      }
+    }
+    if (!merged) break;
   }
 
-  const heights = new Float32Array(nx * nz);
-  for (const b of band) {
-    const cx = Math.floor((b[0] - minX) / CELL);
-    const cz = Math.floor((b[1] - minZ) / CELL);
-    const rc = b[3] > 0 ? Math.min(6, Math.round(b[3] / CELL)) : 0;
-    stamp(heights, nx, nz, cx, cz, b[2], rc);
+  for (let i = 0; i < w * h; i++) if (labels[i] !== -1) labels[i] = find(labels[i]);
+
+  // Statistiche per zona.
+  const cellArea = cellSize * cellSize;
+  const acc = new Map();
+  for (let i = 0; i < w * h; i++) {
+    const L = labels[i];
+    if (L === -1) continue;
+    let a = acc.get(L);
+    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0 }; acc.set(L, a); }
+    const x = i % w, z = (i - x) / w;
+    a.cells++; a.sumX += x; a.sumZ += z;
+    if (dist[i] > a.maxClearance) a.maxClearance = dist[i];
   }
 
-  let occupied = 0;
-  for (let i = 0; i < heights.length; i++) if (heights[i] > 0) occupied++;
-
-  return { minX, minZ, nx, nz, heights, floorY, source, occluderCount: band.length, occupied };
-}
-
-function cellHeight(g, x, z) {
-  if (x < 0 || z < 0 || x >= g.nx || z >= g.nz) return 0;
-  return g.heights[z * g.nx + x];
-}
-
-// ---------------------------------------------------------------
-// Query di visibilita'
-// ---------------------------------------------------------------
-
-// Raggio orizzontale all'altezza occhio (isovista 2.5D standard): una cella
-// interrompe la vista se il suo occlusore piu' alto arriva all'occhio.
-// Le celle dei due estremi sono ignorate, altrimenti un agente appoggiato a
-// un muro non vedrebbe nulla.
-function losOnGrid(g, ax, az, bx, bz, eyeHeight) {
-  let x = Math.floor((ax - g.minX) / CELL);
-  let z = Math.floor((az - g.minZ) / CELL);
-  const xEnd = Math.floor((bx - g.minX) / CELL);
-  const zEnd = Math.floor((bz - g.minZ) / CELL);
-  if (x === xEnd && z === zEnd) return true;
-
-  const dx = bx - ax, dz = bz - az;
-  const stepX = dx > 0 ? 1 : -1;
-  const stepZ = dz > 0 ? 1 : -1;
-  const tDeltaX = dx !== 0 ? Math.abs(CELL / dx) : Infinity;
-  const tDeltaZ = dz !== 0 ? Math.abs(CELL / dz) : Infinity;
-  const nextBoundX = g.minX + (x + (stepX > 0 ? 1 : 0)) * CELL;
-  const nextBoundZ = g.minZ + (z + (stepZ > 0 ? 1 : 0)) * CELL;
-  let tMaxX = dx !== 0 ? (nextBoundX - ax) / dx : Infinity;
-  let tMaxZ = dz !== 0 ? (nextBoundZ - az) / dz : Infinity;
-
-  const guard = g.nx + g.nz + 4;
-  for (let i = 0; i < guard; i++) {
-    if (tMaxX < tMaxZ) { x += stepX; tMaxX += tDeltaX; }
-    else { z += stepZ; tMaxZ += tDeltaZ; }
-    if (x === xEnd && z === zEnd) return true;
-    if (x < 0 || z < 0 || x >= g.nx || z >= g.nz) return false;
-    if (cellHeight(g, x, z) >= eyeHeight) return false;
+  const zones = [];
+  for (const a of acc.values()) {
+    const areaM2 = a.cells * cellArea;
+    if (areaM2 < minArea) continue;
+    zones.push({
+      label: a.label,
+      areaM2: +areaM2.toFixed(2),
+      centroidX: minX + (a.sumX / a.cells + 0.5) * cellSize,
+      centroidZ: minZ + (a.sumZ / a.cells + 0.5) * cellSize,
+      y: levelY,
+      maxClearanceM: +a.maxClearance.toFixed(3),
+      // Un'area ampia è un ambiente; una stretta e lunga è un corridoio.
+      kind: a.maxClearance * 2 >= 3.0 ? 'ambiente' : 'corridoio',
+    });
   }
-  return true;
-}
+  zones.sort((a, b) => b.areaM2 - a.areaM2);
 
-// Marcia lungo un raggio finche' non incontra un occlusore alto quanto
-// l'occhio; restituisce la distanza percorsa e se si e' fermato per
-// occlusione o per fine portata.
-function castRay(g, ox, oz, dirX, dirZ, eyeHeight, maxRange) {
-  const stepLen = CELL * 0.5;
-  const steps = Math.ceil(maxRange / stepLen);
-  for (let i = 1; i <= steps; i++) {
-    const d = i * stepLen;
-    const px = ox + dirX * d, pz = oz + dirZ * d;
-    const cx = Math.floor((px - g.minX) / CELL);
-    const cz = Math.floor((pz - g.minZ) / CELL);
-    if (cx < 0 || cz < 0 || cx >= g.nx || cz >= g.nz) return { dist: d, blocked: false };
-    if (cellHeight(g, cx, cz) >= eyeHeight) return { dist: d, blocked: true };
+  // I varchi sopravvissuti alla fusione sono le connessioni reali fra zone:
+  // "il passaggio fra la sala A e la sala B è largo 84 cm".
+  const live = [];
+  for (const p of pairs) {
+    const ra = find(p.a), rb = find(p.b);
+    if (ra === rb) continue;
+    const x = p.idx % w, z = (p.idx - x) / w;
+    live.push({
+      from: ra, to: rb,
+      clearanceM: +p.clearance.toFixed(3),
+      widthM: +(p.clearance * 2).toFixed(3),
+      uncertaintyM: +cellSize.toFixed(3),
+      widthConservativeM: +Math.max(0, p.clearance * 2 - cellSize).toFixed(3),
+      worldX: minX + (x + 0.5) * cellSize,
+      worldZ: minZ + (z + 0.5) * cellSize,
+      y: levelY,
+    });
   }
-  return { dist: maxRange, blocked: false };
+  live.sort((a, b) => a.widthM - b.widthM);
+
+  return { labels, zones, gateways: live };
 }
 
-function polygonArea(poly) {
-  let a = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    a += (poly[j][0] + poly[i][0]) * (poly[j][1] - poly[i][1]);
-  }
-  return Math.abs(a / 2);
-}
+/* ========================================================================== *
+ * 6. Onestà della risoluzione
+ * ========================================================================== */
 
-function polygonPerimeter(poly) {
-  let p = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    p += Math.hypot(poly[i][0] - poly[j][0], poly[i][1] - poly[j][1]);
-  }
-  return p;
-}
-
-// Isovista: l'insieme dello spazio visibile da un punto (Benedikt 1979).
-// Le metriche restituite sono quelle classiche dell'analisi spaziale --
-// area, compattezza, occlusivita', deriva -- non indicatori inventati.
-function isovist(pos, opts) {
-  const g = grid;
+/**
+ * Stima la spaziatura tipica fra i punti della nuvola, in metri.
+ *
+ * Perché è indispensabile: nessuna griglia può essere più fine dei dati che la
+ * alimentano. Se si chiede una cella da 2 cm a una nuvola campionata ogni 3 cm,
+ * fra un punto e l'altro restano celle vuote che la pipeline legge come muri —
+ * e il risultato non è "meno preciso", è **sbagliato**: comparirebbero decine di
+ * strettoie inesistenti larghe quanto una cella.
+ *
+ * Un prodotto che vende misure deve accorgersene e dirlo, non produrre in
+ * silenzio un numero che sembra plausibile.
+ *
+ * Metodo: si rasterizza a grana grossa per stimare l'area realmente coperta,
+ * poi spaziatura ≈ √(area / numero di punti).
+ */
+export function estimatePointSpacing(points, levelY, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+  const probe = Math.max(0.2, o.cellSize * 4);
+  const g = buildOccupancyGrid(points, levelY, { ...o, cellSize: probe, padding: 1 });
   if (!g) return null;
-  opts = opts || {};
-  const eyeHeight = opts.eyeHeight != null ? opts.eyeHeight : PERCEPTION_PROFILES[DEFAULT_PROFILE].eyeHeight;
-  const maxRange = opts.range || ISOVIST_MAX_RANGE;
-  const rays = opts.rays || ISOVIST_RAYS;
+  let cells = 0;
+  for (let i = 0; i < g.free.length; i++) if (g.free[i]) cells++;
+  const areaM2 = cells * probe * probe;
+  return Math.sqrt(areaM2 / Math.max(1, g.sampled));
+}
 
-  const poly = [];
-  let blockedRays = 0, sum = 0, min = Infinity, max = 0;
-  for (let i = 0; i < rays; i++) {
-    const a = (i / rays) * Math.PI * 2;
-    const dx = Math.cos(a), dz = Math.sin(a);
-    const r = castRay(g, pos[0], pos[2], dx, dz, eyeHeight, maxRange);
-    poly.push([pos[0] + dx * r.dist, pos[2] + dz * r.dist]);
-    if (r.blocked) blockedRays++;
-    sum += r.dist;
-    if (r.dist < min) min = r.dist;
-    if (r.dist > max) max = r.dist;
+/* ========================================================================== *
+ * 7. Orchestratore
+ * ========================================================================== */
+
+/**
+ * Percezione completa di un livello.
+ * Restituisce SOLO misure oggettive: nessun giudizio, nessuna soglia normativa.
+ * Il giudizio è responsabilità del domain pack, che dichiara le proprie soglie.
+ */
+export function perceiveLevel(points, levelY, opts = {}) {
+  const o = { ...PERCEPTION_DEFAULTS, ...opts };
+
+  // La risoluzione richiesta è sostenibile dai dati?
+  const spacingM = estimatePointSpacing(points, levelY, o);
+  const recommendedCellM = spacingM ? +(spacingM * 1.5).toFixed(3) : null;
+  const underSampled = recommendedCellM !== null && o.cellSize < recommendedCellM;
+  const resolution = {
+    cellSizeM: o.cellSize,
+    pointSpacingM: spacingM ? +spacingM.toFixed(4) : null,
+    recommendedCellM,
+    underSampled,
+    warning: underSampled
+      ? `Cella di ${o.cellSize} m più fine della nuvola (spaziatura ~${spacingM.toFixed(3)} m). ` +
+        `Le misure non sono affidabili: usare almeno ${recommendedCellM} m, oppure una nuvola più densa.`
+      : null,
+  };
+
+  let grid = buildOccupancyGrid(points, levelY, o);
+  if (!grid) return null;
+  grid = closeHoles(grid, o.closeRadius);
+
+  const ft = distanceTransform(grid);
+  const axis = extractMedialAxis(grid, ft, o);
+  const bottlenecks = findBottlenecks(grid, ft, axis, o);
+  const { labels, zones, gateways } = segmentZones(grid, ft, o);
+
+  let freeCells = 0, maxClearance = 0;
+  for (let i = 0; i < grid.free.length; i++) {
+    if (!grid.free[i]) continue;
+    freeCells++;
+    if (ft.dist[i] > maxClearance) maxClearance = ft.dist[i];
   }
-
-  const area = polygonArea(poly);
-  const perimeter = polygonPerimeter(poly);
-  let cx = 0, cz = 0;
-  for (const p of poly) { cx += p[0]; cz += p[1]; }
-  cx /= poly.length; cz /= poly.length;
 
   return {
-    polygon: poly,
-    area: +area.toFixed(1),
-    perimeter: +perimeter.toFixed(1),
-    meanRadius: +(sum / rays).toFixed(2),
-    minRadius: +min.toFixed(2),
-    maxRadius: +max.toFixed(2),
-    // quanto lo spazio e' chiuso: quota di direzioni che incontrano un muro
-    occlusivity: +(blockedRays / rays).toFixed(3),
-    // 1 = cerchio perfetto (spazio aperto e regolare), verso 0 = frastagliato
-    compactness: perimeter > 0 ? +((4 * Math.PI * area) / (perimeter * perimeter)).toFixed(3) : 0,
-    // quanto il baricentro del visibile e' spostato: indica una direzione
-    // dominante di apertura, cioe' dove lo spazio "spinge" lo sguardo
-    drift: +Math.hypot(cx - pos[0], cz - pos[2]).toFixed(2),
-    eyeHeight,
+    levelY,
+    grid, dist: ft.dist, axis, labels,
+    zones, gateways, bottlenecks,
+    resolution,
+    navigableAreaM2: +(freeCells * grid.cellSize * grid.cellSize).toFixed(2),
+    maxClearanceM: +maxClearance.toFixed(3),
+    pointsSampled: grid.sampled,
+    cellSize: grid.cellSize,
   };
 }
 
-// ---------------------------------------------------------------
-// API pubblica -- Fase A
-// ---------------------------------------------------------------
-
-function currentZones() {
-  const z = window.__veritasAutoZones;
-  return Array.isArray(z) ? z : [];
-}
-
-function zoneLabel(i, zone) {
-  const nodes = (window.__veritasGetNodes && window.__veritasGetNodes()) || [];
-  let best = null, bestD = Infinity;
-  for (const n of nodes) {
-    if (!n.pos) continue;
-    const d = Math.hypot(n.pos[0] - zone.pos[0], n.pos[2] - zone.pos[2]);
-    if (d < bestD) { bestD = d; best = n; }
+/**
+ * Percezione su tutti i livelli rilevati.
+ * @param {Array} points         nuvola navigabile (mesh o centri di gaussiane)
+ * @param {number[]} floorLevels quote dei piani (da detectFloorLevels)
+ */
+export function perceive(points, floorLevels = [0], opts = {}) {
+  const levels = [];
+  for (const y of floorLevels) {
+    const r = perceiveLevel(points, y, opts);
+    if (r) levels.push(r);
   }
-  if (best && bestD < 8) return best.label || best.type || ("Zona " + (i + 1));
-  return (zone.role === "corridoio" ? "Corridoio " : "Zona ") + (i + 1);
-}
-
-function build(opts) {
-  opts = opts || {};
-  const root = window.__veritasModelRoot;
-  if (!root) return { ok: false, reason: "no_model" };
-
-  const splatRoot = window.__veritasSplatRoot;
-  let occluders = [];
-  let source = "mesh";
-  if (splatRoot && (root === splatRoot || findSplatMesh(root))) {
-    occluders = occludersFromSplat(splatRoot);
-    source = "splat";
-  }
-  if (!occluders.length) {
-    occluders = occludersFromMesh(root);
-    source = "mesh";
-  }
-  if (!occluders.length) return { ok: false, reason: "no_occluders" };
-
-  grid = buildGrid(occluders, source);
-  if (!grid) return { ok: false, reason: "grid_failed" };
-
   return {
-    ok: true,
-    source: grid.source,
-    occluders: grid.occluderCount,
-    cells: grid.nx * grid.nz,
-    occupiedCells: grid.occupied,
-    gridSize: [grid.nx, grid.nz],
-    cellSize: CELL,
-    floorY: +grid.floorY.toFixed(2),
+    levels,
+    bottlenecks: levels.flatMap((l, i) => l.bottlenecks.map(b => ({ ...b, floorIdx: i })))
+                       .sort((a, b) => a.widthM - b.widthM),
+    gateways: levels.flatMap((l, i) => l.gateways.map(g => ({ ...g, floorIdx: i })))
+                    .sort((a, b) => a.widthM - b.widthM),
+    zones: levels.flatMap((l, i) => l.zones.map(z => ({ ...z, floorIdx: i }))),
+    totalNavigableM2: +levels.reduce((s, l) => s + l.navigableAreaM2, 0).toFixed(2),
   };
 }
-
-function ensureGrid() {
-  if (grid) return true;
-  const r = build();
-  return !!(r && r.ok);
-}
-
-// Matrice di visibilita' fra zone + individuazione delle zone che non si
-// vedono da nessun ingresso. E' la domanda di wayfinding che conta davvero
-// nei tre domini: un gate che non si vede, una sala che nessuno trova, una
-// zona di mappa fuori da ogni linea di tiro.
-function analyzeZoneVisibility(opts) {
-  if (!ensureGrid()) return null;
-  opts = opts || {};
-  const eyeHeight = opts.eyeHeight != null ? opts.eyeHeight : PERCEPTION_PROFILES[DEFAULT_PROFILE].eyeHeight;
-  const zones = currentZones();
-  if (zones.length < 2) return null;
-
-  const n = zones.length;
-  const matrix = [];
-  for (let i = 0; i < n; i++) {
-    const row = [];
-    for (let j = 0; j < n; j++) {
-      row.push(i === j ? true : losOnGrid(grid, zones[i].pos[0], zones[i].pos[2], zones[j].pos[0], zones[j].pos[2], eyeHeight));
-    }
-    matrix.push(row);
-  }
-
-  const entrances = [];
-  zones.forEach((z, i) => { if (z.isEntranceCandidate) entrances.push(i); });
-
-  const items = zones.map((z, i) => {
-    const iso = isovist(z.pos, { eyeHeight, range: opts.range || ISOVIST_MAX_RANGE });
-    const seenFrom = matrix.reduce((acc, row, j) => acc + (j !== i && row[i] ? 1 : 0), 0);
-    const visibleFromEntrance = entrances.some((e) => e !== i && matrix[e][i]);
-    return {
-      index: i,
-      label: zoneLabel(i, z),
-      pos: z.pos,
-      role: z.role,
-      isEntranceCandidate: !!z.isEntranceCandidate,
-      seenFromZones: seenFrom,
-      visibleFromEntrance: entrances.length ? visibleFromEntrance : null,
-      isovistArea: iso ? iso.area : null,
-      occlusivity: iso ? iso.occlusivity : null,
-      compactness: iso ? iso.compactness : null,
-    };
-  });
-
-  const hidden = items.filter((it) => it.visibleFromEntrance === false && !it.isEntranceCandidate);
-  const areas = items.map((it) => it.isovistArea).filter((a) => a != null);
-  const meanArea = areas.length ? areas.reduce((s, a) => s + a, 0) / areas.length : 0;
-
-  return {
-    eyeHeight,
-    zones: items,
-    matrix,
-    entrances: entrances.length,
-    hidden: hidden.map((h) => h.label),
-    meanIsovistArea: +meanArea.toFixed(1),
-    // quota di coppie di zone che si vedono: misura di leggibilita'
-    // complessiva dello spazio
-    intervisibility: +(matrix.reduce((acc, row, i) => acc + row.filter((v, j) => v && i !== j).length, 0) / Math.max(1, n * (n - 1))).toFixed(3),
-    source: grid.source,
-  };
-}
-
-// Confronto in piedi / seduto sulla stessa geometria: le zone che spariscono
-// alla quota occhio piu' bassa sono un problema di accessibilita' reale,
-// non un'ipotesi.
-function accessibilityComparison(opts) {
-  opts = opts || {};
-  const standing = analyzeZoneVisibility({ eyeHeight: PERCEPTION_PROFILES.business.eyeHeight, range: opts.range });
-  const seated = analyzeZoneVisibility({ eyeHeight: PERCEPTION_PROFILES.wheelchair.eyeHeight, range: opts.range });
-  if (!standing || !seated) return null;
-  const lost = [];
-  standing.zones.forEach((z, i) => {
-    const s = seated.zones[i];
-    if (!s) return;
-    if (z.visibleFromEntrance === true && s.visibleFromEntrance === false) lost.push(z.label);
-  });
-  const areaDrop = standing.meanIsovistArea > 0
-    ? +(((standing.meanIsovistArea - seated.meanIsovistArea) / standing.meanIsovistArea) * 100).toFixed(1)
-    : 0;
-  return {
-    standingEye: standing.eyeHeight,
-    seatedEye: seated.eyeHeight,
-    meanAreaStanding: standing.meanIsovistArea,
-    meanAreaSeated: seated.meanIsovistArea,
-    areaDropPct: areaDrop,
-    zonesLostFromEntrance: lost,
-    intervisibilityStanding: standing.intervisibility,
-    intervisibilitySeated: seated.intervisibility,
-  };
-}
-
-// ---------------------------------------------------------------
-// API pubblica -- Fase B: percezione del singolo agente
-// ---------------------------------------------------------------
-
-function profileFor(skin) {
-  if (!skin) return PERCEPTION_PROFILES[DEFAULT_PROFILE];
-  const key = String(skin).toLowerCase();
-  return PERCEPTION_PROFILES[key] || PERCEPTION_PROFILES[DEFAULT_PROFILE];
-}
-
-function agentPositions() {
-  const groups = window.__veritasPassengerGroups;
-  if (!groups || typeof groups.forEach !== "function") return [];
-  const out = [];
-  groups.forEach((entry) => {
-    const g = entry && entry.group ? entry.group : entry;
-    if (g && g.position && g.visible !== false) out.push([g.position.x, g.position.y, g.position.z]);
-  });
-  return out;
-}
-
-function angleDiff(a, b) {
-  let d = a - b;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return Math.abs(d);
-}
-
-// Cosa percepisce un agente in una data posa. Restituisce dati, non
-// decisioni: la scelta di cosa farne appartiene al comportamento.
-function perceive(pos, heading, skin, opts) {
-  if (!ensureGrid()) return null;
-  opts = opts || {};
-  const prof = profileFor(skin);
-  const eyeHeight = opts.eyeHeight != null ? opts.eyeHeight : prof.eyeHeight;
-  const range = opts.range != null ? opts.range : prof.range;
-  const halfFov = ((opts.fovDeg != null ? opts.fovDeg : prof.fovDeg) * Math.PI) / 180 / 2;
-  const hasHeading = typeof heading === "number" && isFinite(heading);
-
-  const inCone = (tx, tz) => {
-    const d = Math.hypot(tx - pos[0], tz - pos[2]);
-    if (d > range) return { ok: false, d };
-    if (hasHeading && angleDiff(Math.atan2(tz - pos[2], tx - pos[0]), heading) > halfFov) return { ok: false, d };
-    return { ok: losOnGrid(grid, pos[0], pos[2], tx, tz, eyeHeight), d };
-  };
-
-  const visibleZones = [];
-  currentZones().forEach((z, i) => {
-    const r = inCone(z.pos[0], z.pos[2]);
-    if (r.ok) visibleZones.push({ index: i, label: zoneLabel(i, z), distance: +r.d.toFixed(2), pos: z.pos });
-  });
-  visibleZones.sort((a, b) => a.distance - b.distance);
-
-  let visibleAgents = 0, crowdNear = 0;
-  for (const a of agentPositions()) {
-    const d = Math.hypot(a[0] - pos[0], a[2] - pos[2]);
-    if (d < 0.05) continue;
-    if (d <= 2.5) crowdNear++;
-    const r = inCone(a[0], a[2]);
-    if (r.ok) visibleAgents++;
-  }
-
-  const iso = isovist(pos, { eyeHeight, range, rays: 36 });
-
-  return {
-    skin: prof.label,
-    eyeHeight,
-    fovDeg: opts.fovDeg != null ? opts.fovDeg : prof.fovDeg,
-    range,
-    heading: hasHeading ? +heading.toFixed(3) : null,
-    visibleZones,
-    nearestVisibleZone: visibleZones.length ? visibleZones[0] : null,
-    visibleAgents,
-    // densita' locale in persone/m2 nel raggio di contatto (2.5m)
-    localDensity: +(crowdNear / (Math.PI * 2.5 * 2.5)).toFixed(3),
-    enclosure: iso ? iso.occlusivity : null,
-    openness: iso ? iso.area : null,
-    isolated: visibleZones.length === 0,
-  };
-}
-
-// Stesso punto, tutti gli archetipi: mostra che la percezione dipende dallo
-// skin e non dal core.
-function perceiveAllProfiles(pos, heading) {
-  if (!ensureGrid()) return null;
-  const out = {};
-  Object.keys(PERCEPTION_PROFILES).forEach((k) => {
-    const p = perceive(pos, heading, k);
-    if (p) out[k] = { label: p.skin, eyeHeight: p.eyeHeight, visibleZones: p.visibleZones.length, openness: p.openness, enclosure: p.enclosure };
-  });
-  return out;
-}
-
-// ---------------------------------------------------------------
-// Esposizione sul bridge window.__veritas*
-// ---------------------------------------------------------------
-
-window.__veritasPerception = {
-  build,
-  isovist: (pos, opts) => (ensureGrid() ? isovist(pos, opts) : null),
-  hasLineOfSight: (a, b, eyeHeight) =>
-    ensureGrid() ? losOnGrid(grid, a[0], a[2], b[0], b[2], eyeHeight != null ? eyeHeight : PERCEPTION_PROFILES[DEFAULT_PROFILE].eyeHeight) : null,
-  analyzeZoneVisibility,
-  accessibilityComparison,
-  perceive,
-  perceiveAllProfiles,
-  profiles: PERCEPTION_PROFILES,
-  isReady: () => !!grid,
-  reset: () => { grid = null; },
-  stats: () => (grid ? { source: grid.source, cells: grid.nx * grid.nz, occupied: grid.occupied, occluders: grid.occluderCount, floorY: grid.floorY } : null),
-};
-
-window.__veritasPerceive = perceive;
-
-// La griglia descrive la geometria caricata: quando cambia il modello va
-// ricostruita, altrimenti risponderebbe sulla scena precedente.
-(function hookModelReload() {
-  const prev = window.__veritasOnModelLoaded;
-  window.__veritasOnModelLoaded = function (root) {
-    grid = null;
-    if (typeof prev === "function") return prev.apply(this, arguments);
-  };
-})();
-
-console.log("[VERITAS Perception] layer percettivo pronto — window.__veritasPerception");
