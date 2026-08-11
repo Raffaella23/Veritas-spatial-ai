@@ -2377,17 +2377,38 @@
       }
       return null;
     };
+    // Identificativo e stato vanno riportati alla convenzione del renderer.
+    //
+    // Il Core Python numera gli agenti come stringhe ("a0", "a1") e usa gli
+    // stati in minuscolo ("moving"); il generatore locale usa indici numerici
+    // (0, 1) e stati in maiuscolo ("MOVING"). Il renderer associa ogni agente
+    // del frame al proprio gruppo 3D TRAMITE L'ID: con "a0" non trova il
+    // gruppo 0 e non disegna nulla. E' questo, non le coordinate, a far
+    // sparire i passeggeri quando subentra il motore reale -- verificato
+    // confrontando andata e ritorno, che coincidono: nodo inviato
+    // [2.871, 0.252, -0.129], agente ricevuto [2.289, 0.270, -0.276].
+    const idNumerico = (v, fallback) => {
+      if (typeof v === "number" && isFinite(v)) return v;
+      if (typeof v === "string") {
+        const m = v.match(/(\d+)\s*$/);
+        if (m) return parseInt(m[1], 10);
+      }
+      return fallback;
+    };
+
     let total = 0, ok = 0;
     for (const f of traj.frames) {
       const list = f && (f.agents || f.a);
       if (!Array.isArray(list)) continue;
       if (!f.agents) f.agents = list;
-      for (const ag of list) {
-        if (!ag) continue;
+      list.forEach((ag, i) => {
+        if (!ag) return;
         total++;
         const p = toVec(ag.pos) || toVec(ag.position) || toVec(ag.p);
         if (p) { ag.pos = p; ok++; }
-      }
+        ag.id = idNumerico(ag.id, i);
+        if (typeof ag.state === "string") ag.state = ag.state.toUpperCase();
+      });
     }
     if (!total) { console.warn("[VERITAS bridge] la traiettoria remota non contiene agenti"); return null; }
     const ratio = ok / total;
