@@ -361,10 +361,36 @@ larghezza di un passaggio risulta `clearance × 2`: una **misura**, non una
 stima — indispensabile per un report che deve reggere un confronto
 normativo.
 
-**Non è ancora integrato**: `index.html` usa tuttora KMeans. L'integrazione
-va fatta con verifica su modelli reali, non di corsa. Il punto d'innesto è
-`structuralAnalysisFromPoints` nel blocco 2, che riceve già la nuvola di
-punti nel formato giusto.
+**Stato: collegato, non ancora in uso.** Il modulo è inlinato in
+`index.html` ed esposto come `window.__veritasPerceptionEngine`;
+`structuralAnalysisFromPoints` lo interroga per primo e ricade su KMeans se
+non ottiene almeno due zone. KMeans è rimasto intatto: nessuna regressione
+possibile.
+
+Adattamenti già fatti per farlo funzionare su nuvole da mesh:
+- la cella non è più il predefinito di 5 cm (pensato per Gaussian Splat) ma
+  viene derivata dalla spaziatura reale dei punti, con un minimo di 5 cm;
+- il campionamento di `extractNavigablePoints` è molto più denso (tetto per
+  triangolo da 40 a 150, `maxSamples` da 4.000 a 40.000). Con la nuvola rada
+  di prima il motore riconosceva **3,15 m² su 1.200**: quasi tutte le celle
+  risultavano vuote.
+
+Misurato dopo gli adattamenti, sul modello di prova: **1.193,63 m² di area
+navigabile riconosciuta su una sala che ne misura 1.200 al lordo dei muri.**
+La misura è quindi corretta.
+
+**La decisione che resta.** Su quel modello il motore restituisce UNA zona, e
+ha ragione: è un unico ambiente, e il varco fra i due muri di controllo è
+largo 4 m, sopra `mergeGatewayM` (3 m) oltre il quale due spazi non sono
+separati da nulla di reale. Ma la pipeline a valle ha bisogno di almeno due
+punti per costruire un percorso spawn → gate, e quindi ricade su KMeans.
+
+Le due cose non sono in contraddizione: servono a scopi diversi. La strada
+giusta è **usare il motore per le MISURE** (area navigabile, larghezze,
+strettoie, varchi — dati veri da mettere nel report) e continuare a
+suddividere in waypoint con un altro criterio quando l'ambiente è unico.
+Oggi invece è tutto o niente. Questo è il prossimo passo, e va disegnato
+prima di scriverlo.
 
 ⚠️ Non confondere i due moduli, entrambi nati come `veritas_perception.js`:
 `veritas_perception.js` misura **dove si cammina e quanto è largo**;
