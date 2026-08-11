@@ -469,7 +469,7 @@
     window.__veritasProjectName = project.name;
     window.__veritasInitialNodes = project.nodes_config && project.nodes_config.length ? project.nodes_config : null;
     window.__veritasInitialCameras = project.camera_config && project.camera_config.length ? project.camera_config : null;
-    window.__veritasPassengerScale = (project.sim_params && project.sim_params.passengerScale) || 0.12;
+    window.__veritasPassengerScale = (project.sim_params && project.sim_params.passengerScale) || 0.82 /* scala umana: la mesh passeggero misura 2.08m ad altezza piena, quindi 0.82 la porta a ~1.70m. Il precedente 0.12 la rendeva alta 25cm: su un modello in scala reale 1:1 gli agenti erano grandi come una scarpa, di fatto invisibili, e non tornavano i confronti dimensionali. */
     window.__veritasAgentCount = (project.sim_params && project.sim_params.agentCount) || 28;
     showSettingsScreen(project);
   }
@@ -2326,6 +2326,29 @@
       routeIds.push(order[i]);
     }
     out.mission_profiles.default = routeIds;
+
+    // Un solo percorso per tutti gli agenti li fa arrivare impilati.
+    //
+    // Misurato: con "default" come unico profilo, l'agente 0 parte
+    // dall'ingresso [2.29, -0.28], raggiunge [-7.07, -0.94] entro il frame
+    // 400 e li' resta. Tutti e 28 i gruppi finivano in quell'unico punto,
+    // perfettamente sovrapposti: a scala 0.12 sono un puntino, che a schermo
+    // e' indistinguibile dal non vedere nessuno. Il motore Python, a
+    // differenza del generatore locale, non ha ne' scaglionamento delle
+    // partenze ne' destinazioni diverse: segue il percorso che gli diamo,
+    // e gliene stavamo dando uno solo.
+    //
+    // Si costruisce quindi un profilo per ogni gate, come fa il generatore
+    // locale ramificando su spawn/gate: stesso tronco comune, ultimo tratto
+    // diverso. Gli agenti vengono poi distribuiti fra i profili.
+    const gateIds = order.filter((id) => {
+      const m = out.nodes[id] && out.nodes[id].meta;
+      return m && m.type === "gate";
+    });
+    if (gateIds.length > 1) {
+      const tronco = routeIds.filter((id) => !gateIds.includes(id));
+      gateIds.forEach((gid, i) => { out.mission_profiles["gate_" + i] = tronco.concat([gid]); });
+    }
     return out;
   }
 
@@ -2467,12 +2490,16 @@
       const keys = Object.keys(ARCHETYPES);
       const count = agentCount || window.__veritasAgentCount || 28;
       const domain = veritasDomainForProjectType();
+      // Distribuisce gli agenti sui profili disponibili: con un profilo solo
+      // arriverebbero tutti nello stesso punto, sovrapposti.
+      const profiliDisponibili = Object.keys(graph.mission_profiles || {}).filter((k) => k !== "default");
+      const profili = profiliDisponibili.length ? profiliDisponibili : ["default"];
       const agents = [];
       for (let i = 0; i < count; i++) {
         const archetype = keys[i % keys.length];
         agents.push({
           agent_id: "a" + i,
-          profile_id: "default",
+          profile_id: profili[Math.floor(i / 3) % profili.length],
           profile_data: ARCHETYPES[archetype] || {},
           domain,
           group_id: "g" + Math.floor(i / 3),
@@ -2868,7 +2895,7 @@
       <button class="vp-btn" id="vp-reanalyze">${t("reanalyze_btn")}</button>
       <button class="vp-btn" id="vp-report">${t("report_btn")}</button>
       <label style="display:block;font-size:9.5px;color:#64748b;margin:6px 0 4px;">${t("passenger_scale_label")} <span id="vp-scale-val">1.0x</span></label>
-      <input type="range" id="vp-scale" min="0.03" max="1.5" step="0.01" value="0.12" style="width:100%;margin-bottom:10px;">
+      <input type="range" id="vp-scale" min="0.03" max="1.5" step="0.01" value="0.82" style="width:100%;margin-bottom:10px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#94a3b8;margin-bottom:10px;">
         <input type="checkbox" id="vp-autofollow"> ${t("autofollow_label")}
       </label>
@@ -3225,7 +3252,7 @@
 
     const scaleSlider = panel.querySelector("#vp-scale");
     const scaleVal = panel.querySelector("#vp-scale-val");
-    scaleSlider.value = window.__veritasPassengerScale || 0.12;
+    scaleSlider.value = window.__veritasPassengerScale || 0.82;
     scaleVal.textContent = parseFloat(scaleSlider.value).toFixed(2) + "x";
     scaleSlider.addEventListener("input", () => {
       const v = parseFloat(scaleSlider.value);
@@ -3250,7 +3277,7 @@
     panel.querySelector("#vp-save").onclick = async () => {
       const btn = panel.querySelector("#vp-save");
       btn.textContent = t("saving");
-      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.12, agentCount: window.__veritasAgentCount || 28 } });
+      const { error } = await window.__veritasSaveProject({ nodes_config: currentNodes, sim_params: { passengerScale: window.__veritasPassengerScale || 0.82, agentCount: window.__veritasAgentCount || 28 } });
       btn.textContent = error ? t("error_generic") : t("saved");
       setTimeout(() => (btn.textContent = t("save_btn")), 1500);
     };
