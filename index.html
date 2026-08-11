@@ -2345,9 +2345,40 @@
       const m = out.nodes[id] && out.nodes[id].meta;
       return m && m.type === "gate";
     });
+
+    // Con piu' gate si ramifica sull'ultimo tratto.
     if (gateIds.length > 1) {
       const tronco = routeIds.filter((id) => !gateIds.includes(id));
       gateIds.forEach((gid, i) => { out.mission_profiles["gate_" + i] = tronco.concat([gid]); });
+    }
+
+    // Con UN SOLO gate la ramificazione sopra non scatta e tutti gli agenti
+    // tornano a condividere lo stesso identico percorso: partono insieme,
+    // camminano identici e arrivano sovrapposti, che e' il difetto osservato.
+    // La maggior parte degli spazi reali rilevati automaticamente ha un solo
+    // gate, quindi il caso non e' un'eccezione.
+    //
+    // Si differenzia allora la PARTENZA: un ingresso reale e' largo, e le
+    // persone non entrano tutte dallo stesso centimetro. Si generano piu'
+    // punti d'ingresso distribuiti a ventaglio attorno alla zona di spawn,
+    // perpendicolarmente alla direzione di marcia, e ogni profilo parte dal
+    // proprio. E' una differenza fisica plausibile, non un espediente
+    // grafico, e non richiede modifiche al Core Python.
+    const VARIANTI = 8;
+    const primo = order[0], secondo = order[1];
+    if (gateIds.length <= 1 && primo && secondo && routeIds.length > 1) {
+      const a = out.nodes[primo].pos, b = out.nodes[secondo].pos;
+      let dx = b[0] - a[0], dz = b[2] - a[2];
+      const len = Math.hypot(dx, dz) || 1;
+      // normale orizzontale alla direzione di marcia
+      const nx = -dz / len, nz = dx / len;
+      const coda = routeIds.slice(1);
+      for (let v = 0; v < VARIANTI; v++) {
+        const off = (v - (VARIANTI - 1) / 2) * 1.2; // 1.2m fra una fila e l'altra
+        const id = "spawn_v" + v;
+        out.nodes[id] = { pos: [a[0] + nx * off, a[1], a[2] + nz * off], meta: { type: "spawn" } };
+        out.mission_profiles["ingresso_" + v] = [id].concat(coda);
+      }
     }
     return out;
   }
@@ -7219,6 +7250,8 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       acc_running: "Confronto la vista in piedi con quella da seduto...",
       acc_res: (drop, lost) => `Da seduto si perde il ${drop}% di campo visivo.` + (lost ? ` Zone che spariscono dall'ingresso: ${lost}.` : " Nessuna zona sparisce dall'ingresso."),
       perc_nomodel: "Carica e analizza prima un ambiente 3D.",
+      scale_bad: "Fattore di scala non valido. Esempio: \"scala modello 2.5\".",
+      scale_done: (f) => `Modello riscalato di ${f}x e riappoggiato al piano. Rianalizzo lo spazio...`,
       workflow: "Upload → l'AI legge lo spazio → identifica le zone → parli con l'AI → configuri gli agenti → avvii la simulazione → osservi → analizzi → report."
     },
     en: {
@@ -7251,6 +7284,8 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       acc_running: "Comparing standing view with seated view...",
       acc_res: (drop, lost) => `Seated, ${drop}% of the visual field is lost.` + (lost ? ` Zones disappearing from the entrance: ${lost}.` : " No zone disappears from the entrance."),
       perc_nomodel: "Upload and analyze a 3D environment first.",
+      scale_bad: "Invalid scale factor. Example: \"scale model 2.5\".",
+      scale_done: (f) => `Model rescaled by ${f}x and re-grounded. Re-analyzing the space...`,
       workflow: "Upload → AI reads the space → identifies zones → you talk to the AI → configure agents → run simulation → observe → analyze → report."
     }
   };
@@ -7655,6 +7690,21 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
     // Niente \b in coda: "visibilita" non ha confine di parola fra la "t" e
     // la "a" finale, e la versione con \b non agganciava mai la forma italiana.
+    m = t.match(/\b(scala|scale)\b\s+(?:il\s+|the\s+)?(?:modello|model)\s+([\d.,]+)/);
+    if (m) {
+      const f = parseFloat(m[2].replace(",", "."));
+      const root = window.__veritasModelRoot;
+      if (!root) { log("system", S.no_model); return; }
+      if (!isFinite(f) || f <= 0) { log("assistant", S.scale_bad); return; }
+      root.scale.multiplyScalar(f);
+      root.updateMatrixWorld(true);
+      groundModel(root);
+      if (window.__veritasPerception) window.__veritasPerception.reset();
+      log("assistant", S.scale_done(f));
+      try { if (window.__veritasOnModelLoaded) window.__veritasOnModelLoaded(root); } catch (e) { console.error(e); }
+      return;
+    }
+
     if (/(visibilit|visibility|cosa si vede|sightline|wayfinding)/.test(t)) { runVisibility(); return; }
     if (/(accessibilit|accessibility|sedia a rotelle|wheelchair)/.test(t)) { runAccessibility(); return; }
 
@@ -7778,10 +7828,31 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       const box = new THREE.Box3().setFromObject(rootObj);
       if (!isFinite(box.min.y) || box.isEmpty()) return;
       const drop = box.min.y;
-      if (Math.abs(drop) < 1e-4) return;
-      rootObj.position.y -= drop;
-      rootObj.updateMatrixWorld(true);
-      console.log("[VERITAS AI-OS] modello appoggiato al piano: spostato di", (-drop).toFixed(2), "m in verticale");
+      if (Math.abs(drop) > 1e-4) {
+        rootObj.position.y -= drop;
+        rootObj.updateMatrixWorld(true);
+        console.log("[VERITAS AI-OS] modello appoggiato al piano: spostato di", (-drop).toFixed(2), "m in verticale");
+      }
+      // Dimensioni reali, dette in chiaro.
+      //
+      // Gli agenti sono a scala umana (1.71m): se il modello NON e' in scala
+      // 1:1 in metri, il confronto salta e non c'e' modo di accorgersene a
+      // occhio. Invece di indovinare un fattore di conversione con
+      // un'euristica che puo' sbagliare, si dichiarano le misure: chi ha
+      // progettato lo spazio sa se il suo terminal e' lungo 120 metri o 12,
+      // e con il comando "scala modello <n>" lo corregge in un colpo.
+      const dim = box.getSize(new THREE.Vector3());
+      const alt = dim.y * (rootObj.scale.y || 1);
+      console.log("[VERITAS AI-OS] dimensioni modello:",
+                  dim.x.toFixed(1) + " x " + dim.z.toFixed(1) + " m in pianta,",
+                  dim.y.toFixed(1) + " m di altezza",
+                  "- un agente e' alto 1.71m, quindi il modello vale circa",
+                  (alt / 1.71).toFixed(1), "persone in altezza");
+      if (dim.y < 2.2) {
+        console.warn("[VERITAS AI-OS] il modello e' piu' basso di una persona:",
+                     "quasi certamente non e' in metri. Usa \"scala modello <fattore>\" per correggerlo,",
+                     "es. \"scala modello", (3 / dim.y).toFixed(1) + "\" per portarlo a un'altezza di 3m.");
+      }
     } catch (e) {
       console.warn("[VERITAS AI-OS] impossibile appoggiare il modello al piano:", e);
     }
