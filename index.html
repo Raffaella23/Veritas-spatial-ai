@@ -2457,7 +2457,17 @@
           group_id: "g" + Math.floor(i / 3),
         });
       }
-      console.log("[VERITAS bridge] chiamo il motore reale:", window.__veritasApiBase, "-", count, "agenti,", (graph && graph.nodes ? graph.nodes.length : "?"), "nodi");
+      // graph.nodes e' un DIZIONARIO (id -> {pos, meta}), non un array: la
+      // versione precedente ne leggeva .length e stampava sempre "undefined".
+      // Qui si stampano anche le coordinate spedite, perche' e' il confronto
+      // fra queste e quelle che tornano indietro a dire da che parte sta il
+      // disallineamento: se partono grandi e tornano piccole le trasforma il
+      // motore, se partono gia' piccole il problema e' a monte, nelle zone.
+      const idsInviati = Object.keys(graph && graph.nodes ? graph.nodes : {});
+      console.log("[VERITAS bridge] chiamo il motore reale:", window.__veritasApiBase,
+                  "-", count, "agenti,", idsInviati.length, "nodi",
+                  "- posizioni inviate:", JSON.stringify(idsInviati.slice(0, 4).map((k) => graph.nodes[k].pos)),
+                  "- profili missione:", JSON.stringify(Object.keys(graph.mission_profiles || {})));
       veritasBridgeNotify("Connessione al motore fisico reale (Render)... se e' inattivo da un po' puo' richiedere fino a 60s", "#facc15");
       const controller = new AbortController();
       // Il piano gratuito Render si addormenta dopo inattivita' e puo'
