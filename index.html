@@ -2355,7 +2355,6 @@
     el.style.display = "block";
   }
 
-  async function veritasTryBackendSimulate(nodes, agentCount) {
   // Porta la traiettoria del backend nella forma che il renderer sa leggere:
   // frames[].agents[] con pos come terna di numeri. Il Core Python puo'
   // nominare i campi in modo diverso (position/p, oppure {x,y,z} invece di
@@ -2440,6 +2439,7 @@
     return traj;
   }
 
+  async function veritasTryBackendSimulate(nodes, agentCount) {
     if (!window.__veritasApiBase) return null;
     try {
       const graph = veritasNodesToGraph(nodes);
@@ -2457,6 +2457,7 @@
           group_id: "g" + Math.floor(i / 3),
         });
       }
+      console.log("[VERITAS bridge] chiamo il motore reale:", window.__veritasApiBase, "-", count, "agenti,", (graph && graph.nodes ? graph.nodes.length : "?"), "nodi");
       veritasBridgeNotify("Connessione al motore fisico reale (Render)... se e' inattivo da un po' puo' richiedere fino a 60s", "#facc15");
       const controller = new AbortController();
       // Il piano gratuito Render si addormenta dopo inattivita' e puo'
@@ -2485,11 +2486,24 @@
       // locale comparivano correttamente -- cioe' i frame arrivavano ma le
       // posizioni non erano nella forma attesa, e nessuno se ne accorgeva.
       // Meglio una simulazione locale che funziona di una remota invisibile.
+      // Diagnostica SEMPRE presente. Finora si scriveva in console solo
+      // quando la traiettoria remota veniva rifiutata: se invece veniva
+      // accettata non restava alcuna traccia, quindi cercare "[VERITAS
+      // bridge]" non dava nulla e non si poteva distinguere "il ponte non e'
+      // stato chiamato" da "il ponte ha accettato la risposta".
+      const primoConAgenti = data.trajectory.frames.find((f) => (f.agents || f.a || []).length) || {};
+      const esempio = (primoConAgenti.agents || primoConAgenti.a || [])[0] || null;
+      console.log("[VERITAS bridge] risposta dal motore reale:",
+                  data.trajectory.frames.length, "frame,",
+                  "campi agente:", esempio ? Object.keys(esempio).join(",") : "(nessun agente)",
+                  "- esempio:", JSON.stringify(esempio).slice(0, 220));
+
       const normalized = veritasNormalizeTrajectory(data.trajectory, nodes);
       if (!normalized) {
-        veritasBridgeNotify("Motore reale: formato traiettoria non leggibile, uso generatore JS locale (fallback)", "#fb923c");
+        veritasBridgeNotify("Motore reale: traiettoria non utilizzabile per questa scena, uso generatore JS locale (fallback)", "#fb923c");
         return null;
       }
+      console.log("[VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale");
       veritasBridgeNotify("✅ Motore fisico reale attivo (Social Force Model, Render)", "#00ff88");
       setTimeout(() => { const el = document.getElementById("veritas-bridge-status"); if (el) el.style.display = "none"; }, 6000);
       return data.trajectory;
