@@ -71,7 +71,20 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "veritas-core-api"}
+    # Oltre a dire che il servizio e' vivo, dichiara COSA sa fare. Serve a
+    # capire dal browser, senza strumenti da sviluppatore, se il deploy in
+    # esecuzione e' aggiornato: aprendo l'indirizzo si legge la risposta.
+    # Senza questo, l'unico modo per accorgersi che il servizio era rimasto
+    # indietro era osservare gli agenti comportarsi male, cioe' troppo tardi.
+    return {
+        "status": "ok",
+        "service": "veritas-core-api",
+        "versione": "2026-08-11",
+        "funzioni": {
+            # partenze sfasate: senza questa gli agenti avanzano tutti in blocco
+            "start_delay": True,
+        },
+    }
 
 
 class TopologyRequest(BaseModel):
