@@ -117,6 +117,9 @@ class AgentSpec(BaseModel):
     profile_data: Dict[str, Any] = {}
     domain: Optional[str] = None
     group_id: Optional[str] = None
+    # Secondi di attesa prima che l'agente si metta in moto. Senza
+    # sfasamento gli agenti partono tutti insieme e avanzano in blocco.
+    start_delay: float = 0.0
 
 
 class SimulateRequest(BaseModel):
@@ -146,7 +149,7 @@ def simulate(req: SimulateRequest):
 
         engine = SimulationEngine(graph_path=graph_path, dt=req.dt, vvff_rules=req.vvff_rules)
         for a in req.agents:
-            engine.add_agent(a.agent_id, a.profile_id, a.profile_data, domain=a.domain, group_id=a.group_id)
+            engine.add_agent(a.agent_id, a.profile_id, a.profile_data, domain=a.domain, group_id=a.group_id, start_delay=a.start_delay)
         if req.emergency:
             engine.trigger_emergency(True)
 
