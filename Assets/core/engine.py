@@ -44,11 +44,12 @@ class SimulationEngine:
 
         # --- Traiettoria nel tempo, per il viewer passivo (animazione) ---
         self.trajectory = []
+        self._agent_start_delay = {}
         # Ultima rotazione nota per agente (fallback quando l'agente e' fermo
         # o e' appena arrivato e non ha piu' un target_path da cui calcolarla)
         self._last_rot = {}
 
-    def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None):
+    def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None, start_delay: float = 0.0):
         """Aggiunge un agente con capacita' fisiche e capacita' cognitive (HumanAgent).
 
         - profile_id: seleziona il percorso (mission_profile) da seguire nel grafo.
@@ -56,6 +57,12 @@ class SimulationEngine:
           'museum_visitor', 'gaming_player'); se omesso, usa profile_id come dominio.
         - group_id: se valorizzato, lega l'agente a un gruppo sociale coeso (famiglia,
           gruppo turistico) - vedi HumanAgent per la logica di coesione/contagio.
+        - start_delay: secondi di attesa prima che l'agente inizi a muoversi.
+          Senza questo tutti gli agenti partono nello stesso istante dallo stesso
+          punto e procedono in blocco, sovrapposti: a schermo sembra un unico
+          gruppo compatto invece di un flusso. Le persone non entrano tutte nello
+          stesso secondo, quindi lo sfasamento non e' un espediente grafico ma la
+          condizione minima perche' densita' e code abbiano senso.
         """
         # 1. Creiamo il corpo (SyntheticPlayer)
         agent = SyntheticPlayer(agent_id, start_pos=[0.0, 0.0, 0.0])
@@ -69,6 +76,8 @@ class SimulationEngine:
         agent.set_path(waypoints)
         if waypoints:
             agent.position = waypoints[0]["pos"].copy()
+
+        self._agent_start_delay[agent_id] = max(0.0, float(start_delay or 0.0))
 
         # 4. Validatore di accessibilita' calibrato sul dominio di questo agente,
         # con le regole VVFF reali (larghezza minima uscite) se disponibili
@@ -89,6 +98,13 @@ class SimulationEngine:
         self.elapsed_time += self.dt
 
         for agent in self.agents:
+            # Agente non ancora entrato: resta fermo al proprio punto di
+            # partenza finche' non scatta il suo ritardo. Viene comunque
+            # registrato nei frame, cosi' il viewer non deve gestire comparse
+            # e sparizioni.
+            if self.elapsed_time < self._agent_start_delay.get(agent.agent_id, 0.0):
+                continue
+
             # Prepara i dati ambientali per il 'cervello' dell'agente
             lookup_node_id = agent.current_node_id or (agent.target_path[0]["node_id"] if agent.target_path else None)
             node_meta = self.path_loader.get_node_metadata(lookup_node_id) if lookup_node_id else {}

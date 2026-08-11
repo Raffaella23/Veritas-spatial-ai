@@ -2531,6 +2531,11 @@
         agents.push({
           agent_id: "a" + i,
           profile_id: profili[Math.floor(i / 3) % profili.length],
+          // Stesso scaglionamento del generatore locale: i gruppi entrano a
+          // ondate invece che tutti insieme. Senza questo il motore reale fa
+          // partire ogni agente nello stesso istante e il flusso diventa un
+          // blocco compatto che si muove all'unisono.
+          start_delay: (Math.floor(i / 3) * 3.5) % 42,
           profile_data: ARCHETYPES[archetype] || {},
           domain,
           group_id: "g" + Math.floor(i / 3),
