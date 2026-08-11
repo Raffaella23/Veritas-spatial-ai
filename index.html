@@ -2365,7 +2365,7 @@
   // Restituisce null se la maggior parte degli agenti resta illeggibile:
   // meglio ricadere sul generatore locale, che funziona, che mostrare una
   // scena vuota.
-  function veritasNormalizeTrajectory(traj) {
+  function veritasNormalizeTrajectory(traj, nodes) {
     if (!traj || !Array.isArray(traj.frames) || !traj.frames.length) return null;
     const toVec = (v) => {
       if (!v) return null;
@@ -2396,6 +2396,46 @@
       console.warn("[VERITAS bridge] posizioni illeggibili nella traiettoria remota:", ok, "su", total,
                    "- esempio agente:", JSON.stringify((traj.frames.find((f) => (f.agents || []).length) || {}).agents?.[0] || null).slice(0, 200));
       return null;
+    }
+
+    // Leggibile non vuol dire sensato. Sintomo osservato: i passeggeri si
+    // vedevano camminare con il generatore locale e sparivano nell'istante in
+    // cui arrivava la risposta del motore reale, che sostituisce la
+    // traiettoria. Numeri validi ma in un altro sistema di riferimento (spazio
+    // del grafo, coordinate normalizzate, scala diversa) portano gli agenti
+    // fuori dall'inquadratura: a schermo e' indistinguibile dallo sparire.
+    //
+    // Si confronta quindi l'ingombro delle posizioni remote con quello delle
+    // zone: se non si sovrappongono, la traiettoria non descrive QUESTA scena
+    // e va rifiutata invece di sostituire una simulazione che funziona.
+    if (Array.isArray(nodes) && nodes.length) {
+      let nx0 = Infinity, nx1 = -Infinity, nz0 = Infinity, nz1 = -Infinity;
+      for (const n of nodes) {
+        if (!n || !n.pos) continue;
+        nx0 = Math.min(nx0, n.pos[0]); nx1 = Math.max(nx1, n.pos[0]);
+        nz0 = Math.min(nz0, n.pos[2]); nz1 = Math.max(nz1, n.pos[2]);
+      }
+      if (isFinite(nx0) && isFinite(nz0)) {
+        // margine generoso: gli agenti possono uscire dall'ingombro delle zone
+        // (ingressi, parcheggi, aree esterne) senza che sia un errore
+        const spanX = Math.max(10, nx1 - nx0), spanZ = Math.max(10, nz1 - nz0);
+        const mx0 = nx0 - spanX, mx1 = nx1 + spanX, mz0 = nz0 - spanZ, mz1 = nz1 + spanZ;
+        let dentro = 0, contati = 0;
+        for (const f of traj.frames) {
+          for (const ag of (f.agents || [])) {
+            if (!ag || !Array.isArray(ag.pos)) continue;
+            contati++;
+            if (ag.pos[0] >= mx0 && ag.pos[0] <= mx1 && ag.pos[2] >= mz0 && ag.pos[2] <= mz1) dentro++;
+          }
+        }
+        if (contati && dentro / contati < 0.2) {
+          console.warn("[VERITAS bridge] la traiettoria remota non descrive questa scena:",
+                       dentro, "posizioni su", contati, "dentro l'area attesa",
+                       "[x", mx0.toFixed(1), mx1.toFixed(1), "| z", mz0.toFixed(1), mz1.toFixed(1), "]",
+                       "- esempio posizione remota:", JSON.stringify((traj.frames.find((f) => (f.agents || []).length) || {}).agents?.[0]?.pos || null));
+          return null;
+        }
+      }
     }
     return traj;
   }
@@ -2445,7 +2485,7 @@
       // locale comparivano correttamente -- cioe' i frame arrivavano ma le
       // posizioni non erano nella forma attesa, e nessuno se ne accorgeva.
       // Meglio una simulazione locale che funziona di una remota invisibile.
-      const normalized = veritasNormalizeTrajectory(data.trajectory);
+      const normalized = veritasNormalizeTrajectory(data.trajectory, nodes);
       if (!normalized) {
         veritasBridgeNotify("Motore reale: formato traiettoria non leggibile, uso generatore JS locale (fallback)", "#fb923c");
         return null;
