@@ -538,6 +538,17 @@
       window.__veritasPassengerScale = parseFloat(scaleInput.value);
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
       window.__veritasSpeedMultiplier = parseFloat(speedInput.value);
+      // Questo bottone si chiama "Avvia simulazione": deve dichiarare che la
+      // simulazione e' partita. Non lo faceva, e lo stato restava falso anche
+      // dopo che l'utente aveva avviato.
+      //
+      // Conseguenza osservata: applyNodesToScene chiama
+      // veritasSetPassengersVisible(!!__veritasSimStarted), quindi al
+      // caricamento di un modello i passeggeri venivano NASCOSTI e non
+      // tornavano piu'. Senza caricare nulla invece non si passava di li' e i
+      // passeggeri restavano visibili: da qui la differenza fra "premo play
+      // senza modello e li vedo" e "carico il modello e spariscono".
+      window.__veritasSimStarted = true;
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
