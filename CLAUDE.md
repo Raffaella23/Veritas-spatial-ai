@@ -379,7 +379,26 @@ Misurato dopo gli adattamenti, sul modello di prova: **1.193,63 m² di area
 navigabile riconosciuta su una sala che ne misura 1.200 al lordo dei muri.**
 La misura è quindi corretta.
 
-**La decisione che resta.** Su quel modello il motore restituisce UNA zona, e
+**RISOLTO l'11/08/2026 con il riconoscimento del tipo di ambiente.**
+`classifyEnvironment` guarda le misure gia' calcolate (area navigabile,
+zone, varchi, livelli, provenienza da splat) e dichiara cosa ha davanti,
+scegliendo poi la strategia. Le MISURE si tengono sempre, anche quando le
+zone non bastano a costruire un percorso: erano la cosa piu' preziosa e
+prima venivano scartate insieme al resto.
+
+Il verdetto viene annunciato in chat via `window.__veritasAnnounce`, non
+solo in console, perche' un'analisi automatica deve dire cosa ha capito e
+permettere all'utente di correggerla subito. Verificato sul modello di
+prova: *"Ho riconosciuto un ambiente unico: un solo spazio continuo di
+1194 m2, senza divisioni reali"*.
+
+Nessun costo di modello linguistico: sono soglie su grandezze misurate.
+
+Restano da affinare le strategie: oggi `funzionale` non e' ancora
+implementata come distribuzione dei waypoint per funzione lungo l'asse del
+flusso, e si ricade su KMeans. E' il prossimo passo.
+
+**La decisione originaria, per memoria.** Su quel modello il motore restituisce UNA zona, e
 ha ragione: è un unico ambiente, e il varco fra i due muri di controllo è
 largo 4 m, sopra `mergeGatewayM` (3 m) oltre il quale due spazi non sono
 separati da nulla di reale. Ma la pipeline a valle ha bisogno di almeno due
