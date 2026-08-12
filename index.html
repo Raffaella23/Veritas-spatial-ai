@@ -3116,14 +3116,77 @@
   // pubblico del backend Render, es. "https://veritas-core-api-7g2x.onrender.com".
   // Se non impostato, o se il backend non risponde, si torna silenziosamente
   // al generatore JS locale: nessun comportamento esistente cambia.
+  // Isovista reale: da un punto, quanto spazio si vede davvero.
+  // Si tirano raggi orizzontali a 360 gradi all'altezza degli occhi e si
+  // misura fin dove arrivano prima di incontrare la geometria. L'area che
+  // ne risulta e' l'isovista della letteratura di space syntax (Benedikt,
+  // 1979): una MISURA, non una stima.
+  //
+  // L'altezza conta: un bancone a 1,10 m non ostruisce chi sta in piedi ma
+  // chiude l'orizzonte a chi e' seduto in carrozzina. Per questo si calcola
+  // a due quote e si mandano entrambe al motore, che sceglie in base
+  // all'archetipo. E' il confronto in piedi/seduto, misurato sulla mesh.
+  const VERITAS_ISOVIST_RAYS = 32;
+  const VERITAS_ISOVIST_MAX_M = 60;
+
+  function veritasComputeIsovist(pos, eyeHeight) {
+    const T = window.THREE;
+    const root = window.__veritasModelRoot;
+    if (!T || !T.Raycaster || !root) return null;
+    const rc = new T.Raycaster();
+    rc.far = VERITAS_ISOVIST_MAX_M;
+    // firstHitOnly e' la scorciatoia di three-mesh-bvh: senza BVH viene
+    // ignorato, con BVH evita di ordinare tutti gli impatti quando ne serve uno.
+    rc.firstHitOnly = true;
+    const origin = new T.Vector3(pos[0], (pos[1] || 0) + eyeHeight, pos[2]);
+    const dir = new T.Vector3();
+    const r = [];
+    for (let i = 0; i < VERITAS_ISOVIST_RAYS; i++) {
+      const a = (i / VERITAS_ISOVIST_RAYS) * Math.PI * 2;
+      dir.set(Math.cos(a), 0, Math.sin(a)).normalize();
+      rc.set(origin, dir);
+      let d = VERITAS_ISOVIST_MAX_M;
+      try {
+        const hit = rc.intersectObject(root, true)[0];
+        if (hit && isFinite(hit.distance)) d = hit.distance;
+      } catch (e) { /* mesh non interrogabile: resta il cap */ }
+      r.push(d);
+    }
+    // Area dell'isovista come somma di spicchi triangolari fra raggi adiacenti.
+    const dth = (Math.PI * 2) / VERITAS_ISOVIST_RAYS;
+    let area = 0;
+    for (let i = 0; i < r.length; i++) area += 0.5 * r[i] * r[(i + 1) % r.length] * Math.sin(dth);
+    const mean = r.reduce((a, b) => a + b, 0) / r.length;
+    return {
+      area_m2: +area.toFixed(1),
+      mean_free_m: +mean.toFixed(2),
+      min_free_m: +Math.min.apply(null, r).toFixed(2),
+      max_free_m: +Math.max.apply(null, r).toFixed(2),
+    };
+  }
+
   function veritasNodesToGraph(nodes) {
     const out = { nodes: {}, mission_profiles: {} };
     const order = [];
+    const canIsovist = !!(window.THREE && window.THREE.Raycaster && window.__veritasModelRoot);
+    let isovistOk = 0;
     nodes.forEach((n, i) => {
       const id = n.id || ("node_" + i);
-      out.nodes[id] = { pos: n.pos, meta: { type: n.type, label: n.label } };
+      const meta = { type: n.type, label: n.label };
+      if (canIsovist) {
+        const standing = veritasComputeIsovist(n.pos, 1.65);
+        const seated = veritasComputeIsovist(n.pos, 1.20);
+        if (standing && seated) { meta.isovist = { standing, seated }; isovistOk++; }
+      }
+      out.nodes[id] = { pos: n.pos, meta };
       order.push(id);
     });
+    // Senza questa riga un'isovista muta (mesh non interrogabile, BVH non
+    // montato) sarebbe indistinguibile da una calcolata: il motore
+    // ricadrebbe sulla stima per archetipo e i grafici tornerebbero piatti
+    // senza che nulla lo segnali.
+    console.log("[VERITAS bridge] isovista calcolata su " + isovistOk + "/" + nodes.length +
+                " zone" + (canIsovist ? "" : " (mesh o THREE non disponibili: si usera' la stima per archetipo)"));
     // Il backend (path_loader.py) collega i waypoint del mission_profile
     // con semplici linee rette, senza sapere nulla della mesh reale - non
     // fa pathfinding. Percio' qui, PRIMA di mandare il percorso al motore
@@ -3439,6 +3502,22 @@
         return null;
       }
       console.log("[VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale");
+      // Dati percettivi: cosa ogni agente ha VISTO e come lo ha interpretato.
+      // Si tengono qui, lato client, invece di rileggerli poi dal server:
+      // il backend ne conserva una copia sola e globale, quindi con piu'
+      // utenti collegati chi apre il report vedrebbe la simulazione di un
+      // altro. Questi sono i dati di QUESTA simulazione.
+      if (data.perception) {
+        window.__veritasPerceptionReport = data.perception;
+        const nAg = Object.keys(data.perception.agent_cognitive_maps || {}).length;
+        console.log("[VERITAS bridge] percezione:", data.perception.perception_samples,
+                    "campioni,", nAg, "mappe cognitive");
+      } else {
+        // Backend piu' vecchio del frontend: il report percettivo non esiste.
+        // Meglio saperlo subito che trovare un pulsante che non fa nulla.
+        window.__veritasPerceptionReport = null;
+        console.warn("[VERITAS bridge] il backend non ha restituito dati percettivi (deploy Render non aggiornato?)");
+      }
       veritasBridgeNotify("✅ Motore fisico reale attivo (Social Force Model, Render)", "#00ff88");
       setTimeout(() => { const el = document.getElementById("veritas-bridge-status"); if (el) el.style.display = "none"; }, 6000);
       return data.trajectory;
@@ -8088,6 +8167,9 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       no_model: "Carica prima un ambiente 3D.",
       layers_title: "Spatial Layers", layer_zones: "Zone", layer_agents: "Agenti", layer_advanced: "Pannelli avanzati",
       report_title: "Analysis / Report", report_struct: "Report struttura", report_sell: "Report VERITAS (KPI)",
+      report_perception: "Percezione agenti",
+      opening_perception: "Apro il report di percezione (cosa hanno visto gli agenti)...",
+      no_perception: "Nessun dato percettivo: avvia prima una simulazione con il motore reale collegato (Render).",
       agents_title: "Agent Skin attivi", cad_toggle: "Editor zone",
       not_understood: (t) => `Non ho ancora un comando per "${t}". Prova: "analizza lo spazio", "report struttura", "avvia simulazione", "rimuovi <zona>", "duplica <zona>", "simula N persone da <zona>", "velocita' 0.8".`,
       no_zone_found: (q) => `Nessuna zona trovata per "${q}".`, zone_removed: (n, q) => `Rimossa/e ${n} zona/e per "${q}".`, zone_dup: (l) => `Zona "${l}" duplicata.`,
@@ -8122,6 +8204,9 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       no_model: "Load a 3D environment first.",
       layers_title: "Spatial Layers", layer_zones: "Zones", layer_agents: "Agents", layer_advanced: "Advanced panels",
       report_title: "Analysis / Report", report_struct: "Structure report", report_sell: "VERITAS report (KPIs)",
+      report_perception: "Agent perception",
+      opening_perception: "Opening the perception report (what the agents saw)...",
+      no_perception: "No perception data: run a simulation first with the real engine connected (Render).",
       agents_title: "Active agent skins", cad_toggle: "Zone editor",
       not_understood: (t) => `No command yet for "${t}". Try: "analyze the space", "structure report", "start simulation", "remove <zone>", "duplicate <zone>", "simulate N people from <zone>", "speed 0.8".`,
       no_zone_found: (q) => `No zone found for "${q}".`, zone_removed: (n, q) => `Removed ${n} zone(s) for "${q}".`, zone_dup: (l) => `Zone "${l}" duplicated.`,
@@ -8168,6 +8253,43 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     #vaio-toolbar button:hover{background:rgba(48,48,52,.7);} #vaio-toolbar button:active{transform:scale(.96);}
     #vaio-toolbar button.active{background:rgba(10,132,255,.32);border-color:rgba(10,132,255,.55);color:#fff;}
 
+    /* Report di percezione */
+    #vaio-perception-modal{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;}
+    #vaio-perception-modal .vaio-pr-back{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);}
+    #vaio-perception-modal .vaio-pr-win{position:relative;width:min(920px,92vw);max-height:88vh;display:flex;flex-direction:column;
+      background:rgba(18,18,22,.97);border:1px solid rgba(255,255,255,.12);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.7);}
+    #vaio-perception-modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;
+      border-bottom:1px solid rgba(255,255,255,.10);color:#f2f2f7;font-size:13.5px;font-weight:600;letter-spacing:.02em;flex-shrink:0;}
+    #vaio-perception-modal header button{background:transparent;border:none;color:#a1a1a6;font-size:15px;cursor:pointer;padding:2px 6px;border-radius:6px;}
+    #vaio-perception-modal header button:hover{background:rgba(255,255,255,.10);color:#f2f2f7;}
+    #vaio-perception-modal .vaio-pr-body{overflow-y:auto;padding:18px;color:#e5e5ea;font-size:12.5px;line-height:1.5;}
+    #vaio-perception-modal h3{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8e8e93;margin:22px 0 10px;font-weight:600;}
+    #vaio-perception-modal h3:first-child{margin-top:0;}
+    #vaio-perception-modal h4{font-size:13px;color:#f2f2f7;margin:0 0 8px;font-weight:600;display:flex;align-items:center;gap:8px;}
+    #vaio-perception-modal .vaio-pr-tag{font-size:10.5px;font-weight:500;color:#0a84ff;background:rgba(10,132,255,.14);
+      border:1px solid rgba(10,132,255,.3);border-radius:100px;padding:2px 8px;}
+    #vaio-perception-modal .vaio-pr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+    #vaio-perception-modal .vaio-pr-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+      border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;}
+    #vaio-perception-modal .vaio-pr-card span{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8e8e93;}
+    #vaio-perception-modal .vaio-pr-card strong{font-size:20px;font-weight:600;color:#f2f2f7;}
+    #vaio-perception-modal .vaio-pr-agent{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+      border-radius:12px;padding:14px;margin-bottom:12px;}
+    #vaio-perception-modal .vaio-pr-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:#a1a1a6;margin-bottom:8px;}
+    #vaio-perception-modal .vaio-pr-legend i{display:inline-block;width:9px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+    #vaio-perception-modal .vaio-pr-axis{display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-top:4px;}
+    #vaio-perception-modal .vaio-pr-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:11.5px;}
+    #vaio-perception-modal .vaio-pr-table th{text-align:left;padding:7px 8px;color:#8e8e93;font-weight:600;font-size:10.5px;
+      text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(255,255,255,.10);}
+    #vaio-perception-modal .vaio-pr-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);color:#d1d1d6;}
+    #vaio-perception-modal .vaio-pr-note{margin-top:20px;padding:12px;background:rgba(255,159,10,.08);
+      border:1px solid rgba(255,159,10,.24);border-radius:10px;color:#d1d1d6;font-size:11.5px;}
+    #vaio-perception-modal .vaio-pr-warn{padding:11px 13px;margin-bottom:16px;background:rgba(255,69,58,.10);
+      border:1px solid rgba(255,69,58,.30);border-radius:10px;color:#ffb3ae;font-size:11.5px;line-height:1.45;}
+    #vaio-perception-modal .vaio-pr-posture{font-size:10.5px;font-weight:500;color:#8e8e93;margin-left:auto;}
+    #vaio-perception-modal .vaio-pr-meas{font-size:11.5px;color:#a1a1a6;margin-bottom:8px;}
+    #vaio-perception-modal .vaio-pr-meas b{color:#f2f2f7;font-weight:600;}
     #vaio-layers-menu,#vaio-report-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:200px;background:rgba(20,20,24,.85);
       backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px;
       display:none;flex-direction:column;gap:2px;box-shadow:0 16px 40px rgba(0,0,0,.4);}
@@ -8374,6 +8496,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
           <div id="vaio-report-menu">
             <button id="vaio-report-struct"><span>${S.report_struct}</span></button>
             <button id="vaio-report-sell"><span>${S.report_sell}</span></button>
+            <button id="vaio-report-perception"><span>${S.report_perception}</span></button>
           </div>
         </div>
         <button id="vaio-cadtoggle">✎ ${S.cad_toggle}</button>
@@ -8424,12 +8547,160 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
     byId("vaio-report-struct").onclick = (e) => { e.stopPropagation(); log("assistant", S.opening_report); if (!clickIfExists("vp-report")) log("system", S.no_model); };
     byId("vaio-report-sell").onclick = (e) => { e.stopPropagation(); log("assistant", S.opening_sellreport); if (!clickIfExists("veritas-report-btn")) log("system", S.no_model); };
+    byId("vaio-report-perception").onclick = (e) => {
+      e.stopPropagation();
+      const rep = window.__veritasPerceptionReport;
+      if (!rep || !rep.perception_timeline || !rep.perception_timeline.length) { log("system", S.no_perception); return; }
+      log("assistant", S.opening_perception);
+      showPerceptionReport(rep);
+    };
 
     byId("vaio-cadtoggle").onclick = () => {
       if (!byId("veritas-picker-panel")) { log("system", S.no_model); return; }
       cadVisible = !cadVisible;
       applyCadVisibility();
     };
+  }
+
+  // --- Report di percezione ---------------------------------------------
+  // Mostra cosa ogni agente ha VISTO durante la simulazione e come lo ha
+  // interpretato. Il grafico e' SVG scritto a mano invece che con una
+  // libreria: il file deve restare autocontenuto e una dipendenza da CDN in
+  // piu' sarebbe l'ennesimo punto in cui la pagina puo' rompersi offline.
+  const COMFORT_COLORS = { low: "#ef4444", medium: "#f59e0b", high: "#22c55e" };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Traccia due serie 0..1 sullo stesso riquadro. Ritorna SVG inline.
+  function sparkline(samples, w, h) {
+    if (samples.length < 2) return '<div style="color:#94a3b8;font-size:12px;">Un solo campione: niente da tracciare.</div>';
+    const pad = 4;
+    const iw = w - pad * 2, ih = h - pad * 2;
+    const path = (key) => samples.map((s, i) => {
+      const x = pad + (i / (samples.length - 1)) * iw;
+      const y = pad + (1 - Math.max(0, Math.min(1, s[key]))) * ih;
+      return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+    }).join(" ");
+    return '<svg width="100%" viewBox="0 0 ' + w + " " + h + '" preserveAspectRatio="none" style="display:block;background:rgba(255,255,255,.03);border-radius:8px;">'
+      + '<line x1="' + pad + '" y1="' + (pad + ih * 0.5) + '" x2="' + (pad + iw) + '" y2="' + (pad + ih * 0.5) + '" stroke="rgba(255,255,255,.10)" stroke-width="1"/>'
+      + '<path d="' + path("vis") + '" fill="none" stroke="#38bdf8" stroke-width="2"/>'
+      + '<path d="' + path("stress") + '" fill="none" stroke="#f97316" stroke-width="2"/>'
+      + "</svg>";
+  }
+
+  function showPerceptionReport(rep) {
+    const old = byId("vaio-perception-modal");
+    if (old) old.remove();
+
+    // Raggruppa la timeline per agente, conservando l'ordine dei tick.
+    const perAgent = {};
+    (rep.perception_timeline || []).forEach((r) => {
+      (perAgent[r.agent_id] = perAgent[r.agent_id] || []).push({
+        tick: r.tick, vis: (r.visibility_pct || 0) / 100, stress: r.stress || 0,
+        archetype: r.archetype, node: r.node_id, posture: r.posture,
+        area: r.isovist_area_m2, near: r.nearest_obstacle_m,
+      });
+    });
+
+    let body = "";
+
+    // Dichiarare la provenienza dei numeri e' la prima cosa: un grafico piatto
+    // con la stima per archetipo significa "geometria non letta", non "spazio
+    // uniforme", e senza questo avviso i due casi sono indistinguibili.
+    if (rep.perception_source !== "isovist") {
+      const stimato = rep.perception_source === "mixed";
+      body += '<div class="vaio-pr-warn">' + (stimato
+        ? "Parte delle zone non ha un'isovista misurata: per quelle il valore viene da una stima per archetipo, uguale in ogni punto."
+        : "Nessuna isovista misurata: tutti i valori vengono da una stima per archetipo. Distinguono le persone, non i luoghi — le curve saranno piatte. Carica un modello 3D e rilancia la simulazione per avere misure reali.")
+        + "</div>";
+    }
+
+    const nAgents = Object.keys(perAgent).length;
+    body += '<div class="vaio-pr-cards">'
+      + card("Agenti", nAgents)
+      + card("Campioni", rep.perception_samples || 0)
+      + card("Zone", Object.keys(rep.zone_comfort_analysis || {}).length)
+      + card("Durata", (rep.simulation_duration_s || 0).toFixed(1) + " s")
+      + "</div>";
+
+    // Una scheda per agente: andamento nel tempo + memoria delle zone.
+    body += "<h3>Cosa ha visto ogni agente</h3>";
+    Object.keys(perAgent).forEach((id) => {
+      const s = perAgent[id];
+      const arch = s[0].archetype || "?";
+      const visAvg = s.reduce((a, b) => a + b.vis, 0) / s.length;
+      const stressMax = s.reduce((a, b) => Math.max(a, b.stress), 0);
+      const areas = s.map((x) => x.area).filter((x) => x != null);
+      const nears = s.map((x) => x.near).filter((x) => x != null);
+      const postura = s[0].posture === "seated" ? "seduto · occhio 1,20 m" : "in piedi · occhio 1,65 m";
+      body += '<div class="vaio-pr-agent">'
+        + "<h4>" + esc(id) + ' <span class="vaio-pr-tag">' + esc(arch) + "</span>"
+        + '<span class="vaio-pr-posture">' + esc(postura) + "</span></h4>"
+        + (areas.length
+            ? '<div class="vaio-pr-meas">Isovista vista: da <b>' + Math.min.apply(null, areas).toFixed(0)
+              + "</b> a <b>" + Math.max.apply(null, areas).toFixed(0) + "</b> m²"
+              + (nears.length ? " · ostacolo più vicino <b>" + Math.min.apply(null, nears).toFixed(2) + "</b> m" : "")
+              + "</div>"
+            : "")
+        + '<div class="vaio-pr-legend">'
+        + '<span><i style="background:#38bdf8"></i>visibilità percepita — media ' + (visAvg * 100).toFixed(1) + "%</span>"
+        + '<span><i style="background:#f97316"></i>stress — picco ' + stressMax.toFixed(2) + "</span>"
+        + "</div>"
+        + sparkline(s, 600, 90)
+        + '<div class="vaio-pr-axis"><span>tick ' + s[0].tick + "</span><span>tick " + s[s.length - 1].tick + "</span></div>";
+
+      const cog = (rep.agent_cognitive_maps || {})[id] || {};
+      const zones = Object.keys(cog);
+      if (zones.length) {
+        body += '<table class="vaio-pr-table"><tr><th>Zona</th><th>Visite</th><th>Visibilità</th><th>Stress medio</th><th>Comfort</th></tr>';
+        zones.forEach((z) => {
+          const d = cog[z];
+          body += "<tr><td>" + esc(z) + "</td><td>" + d.visits + "</td><td>" + d.avg_visibility_pct.toFixed(1)
+            + "%</td><td>" + d.avg_stress.toFixed(3) + '</td><td style="color:' + (COMFORT_COLORS[d.comfort_level] || "#e5e5ea")
+            + ';font-weight:700">' + esc(d.comfort_level).toUpperCase() + "</td></tr>";
+        });
+        body += "</table>";
+      }
+      body += "</div>";
+    });
+
+    // Stessa zona, agenti diversi: e' qui che si vede la differenza fra
+    // chi cammina e chi e' su una sedia a rotelle.
+    const zc = rep.zone_comfort_analysis || {};
+    const zoneIds = Object.keys(zc);
+    if (zoneIds.length) {
+      body += "<h3>Stessa zona, agenti diversi</h3>"
+        + '<table class="vaio-pr-table"><tr><th>Zona</th><th>Agente</th><th>Visibilità</th><th>Stress</th><th>Comfort</th></tr>';
+      zoneIds.forEach((z) => {
+        zc[z].forEach((a) => {
+          body += "<tr><td>" + esc(z) + "</td><td>" + esc(a.agent_id) + "</td><td>" + a.avg_visibility_pct.toFixed(1)
+            + "%</td><td>" + a.avg_stress.toFixed(3) + '</td><td style="color:' + (COMFORT_COLORS[a.comfort_level] || "#e5e5ea")
+            + ';font-weight:700">' + esc(a.comfort_level).toUpperCase() + "</td></tr>";
+        });
+      });
+      body += "</table>";
+    }
+
+    body += '<p class="vaio-pr-note">La visibilità è l\'area dell\'isovista misurata sulla mesh con 32 raggi'
+      + " all'altezza occhio dell'archetipo, ridotta dagli agenti entro 5 m che fanno da occlusione."
+      + " La percentuale è l'area rapportata a 400 m² (orizzonte pienamente aperto) e serve a leggere il"
+      + " grafico; per una verifica normativa usa i metri quadri e i metri riportati sopra.</p>";
+
+    const el = document.createElement("div");
+    el.id = "vaio-perception-modal";
+    el.innerHTML = '<div class="vaio-pr-back"></div><div class="vaio-pr-win">'
+      + '<header><span>Percezione agenti</span><button id="vaio-pr-close">✕</button></header>'
+      + '<div class="vaio-pr-body">' + body + "</div></div>";
+    document.body.appendChild(el);
+    byId("vaio-pr-close").onclick = () => el.remove();
+    el.querySelector(".vaio-pr-back").onclick = () => el.remove();
+
+    function card(label, value) {
+      return '<div class="vaio-pr-card"><span>' + esc(label) + "</span><strong>" + esc(value) + "</strong></div>";
+    }
   }
 
   function hideCadPanelByDefault() {

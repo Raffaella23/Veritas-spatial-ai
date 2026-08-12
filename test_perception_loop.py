@@ -84,11 +84,14 @@ def test_perception_loop():
         stress = agent.brain.stress_level if hasattr(agent.brain, 'stress_level') else 0.0
         stress_history.append({"tick": tick, "stress": stress})
 
-        # Log della percezione ogni 10 tick
+        # Log della percezione ogni 10 tick.
+        # agent.position e' un array numpy che il motore muta sul posto: senza
+        # copia tutte le voci del log puntano allo stesso oggetto e la distanza
+        # percorsa risulta sempre 0, cioe' un blocco che non c'e'.
         if tick % 10 == 0:
             perception_log.append({
                 "tick": tick,
-                "position": agent.position,
+                "position": list(agent.position),
                 "node": agent.current_node_id,
                 "stress": stress,
             })
