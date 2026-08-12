@@ -142,6 +142,8 @@
       settings_opensky_loading: "Recupero voli in arrivo...",
       settings_opensky_error: "Non sono riuscito a recuperare i dati OpenSky (credenziali non valide o servizio non raggiungibile). Puoi comunque impostare il numero a mano.",
       settings_opensky_result: (n, pax) => `${n} voli in arrivo nelle ultime 24h ~ stima ${pax} passeggeri`,
+      settings_opensky_peak: (da, a, n, pax) => `Ora di punta ${da}-${a}: ${n} voli, ~${pax} passeggeri. Le partenze degli agenti seguiranno questi orari.`,
+      flights_applied: (n, da, a) => `Le partenze degli agenti seguono il traffico aereo reale: ${n} voli atterrati fra le ${da} e le ${a}. I picchi di affollamento sono quelli veri, non un flusso costante.`,
       rep_open_btn: "📊 Report VERITAS",
       rep_title: "Report VERITAS — raccomandazioni",
       rep_disclaimer: "Calcolato dalla simulazione corrente in questo browser. Non e' ancora il motore Python completo (richiede backend attivo) ma riflette dati reali di questa simulazione, non valori inventati.",
@@ -221,6 +223,8 @@
       settings_opensky_loading: "Fetching arriving flights...",
       settings_opensky_error: "Could not fetch OpenSky data (invalid credentials or service unreachable). You can still set the number manually.",
       settings_opensky_result: (n, pax) => `${n} flights arriving in the last 24h ~ estimated ${pax} passengers`,
+      settings_opensky_peak: (da, a, n, pax) => `Peak hours ${da}-${a}: ${n} flights, ~${pax} passengers. Agent departures will follow these times.`,
+      flights_applied: (n, da, a) => `Agent departures follow real air traffic: ${n} flights landed between ${da} and ${a}. The crowding peaks are the real ones, not a constant flow.`,
       rep_open_btn: "📊 VERITAS Report",
       rep_title: "VERITAS Report — recommendations",
       rep_disclaimer: "Computed from the current simulation in this browser. Not yet the full Python engine (needs an active backend), but reflects real data from this simulation, not made-up values.",
@@ -742,18 +746,215 @@
       if (!flightsRes.ok) throw new Error("flights");
       const flights = await flightsRes.json();
       const n = Array.isArray(flights) ? flights.length : 0;
-      const AVG_PAX_PER_FLIGHT = 140; // stima grezza, non dato OpenSky
-      const estimatedPax = n * AVG_PAX_PER_FLIGHT;
+      const estimatedPax = n * VERITAS_AVG_PAX_PER_FLIGHT;
       // mappa la stima sul range dello slider (6-60), scalando per non
       // rappresentare 1 agente = 1 passeggero reale ma un campione visivo
       const mapped = Math.max(6, Math.min(60, Math.round(estimatedPax / 200)));
       agentsInput.value = mapped;
       agentsVal.textContent = mapped;
-      statusEl.innerHTML = `<span style="color:#86efac;">${t("settings_opensky_result", n, estimatedPax)}</span>`;
+      // Fin qui si buttava via tutto tranne il conteggio. Gli ORARI di
+      // atterraggio sono il dato piu' prezioso della risposta: sono loro a
+      // dire quando si formano le code. Da qui in avanti si conservano.
+      const orari = veritasScheduleFromArrivals(flights, "LIRF");
+      let rigaPunta = "";
+      if (orari) {
+        veritasSaveFlightSchedule(orari);
+        const punta = veritasScheduleDescription(orari);
+        if (punta) rigaPunta = `<div style="color:#93c5fd;margin-top:4px;">${punta.testo}</div>`;
+      }
+      statusEl.innerHTML = `<span style="color:#86efac;">${t("settings_opensky_result", n, estimatedPax)}</span>${rigaPunta}`;
     } catch (e) {
       statusEl.innerHTML = `<span style="color:#fca5a5;">${t("settings_opensky_error")}</span>`;
     }
   }
+
+  // ---------------------------------------------------------------------
+  // Da "QUANTI passeggeri" a "QUANDO arrivano".
+  //
+  // Fino a ieri il pulsante OpenSky ricavava dai voli reali soltanto un
+  // NUMERO di agenti, e le partenze restavano scaglionate da una formula
+  // regolare (un'ondata ogni 3,5s): un flusso costante, che non esiste in
+  // nessun aeroporto vero. I picchi di affollamento - la cosa che un report
+  // deve mostrare - nascono proprio dall'irregolarita': 180 passeggeri alle
+  // 14:32, poi il vuoto, poi 250 alle 14:51.
+  //
+  // Qui gli orari di atterraggio reali diventano la distribuzione delle
+  // partenze (start_delay). Il NUMERO di agenti resta quello scelto
+  // dall'utente: si conserva la FORMA del traffico, non il suo volume, che
+  // sarebbe insimulabile (Fiumicino muove ~100.000 passeggeri al giorno).
+  // ---------------------------------------------------------------------
+
+  const VERITAS_AVG_PAX_PER_FLIGHT = 140; // stima grezza: OpenSky non da' passeggeri, solo velivoli
+  const VERITAS_PEAK_WINDOW_S = 2 * 3600; // finestra osservata: le 2 ore reali piu' cariche
+  const VERITAS_DEPLANING_S = 12 * 60;    // sbarco di un narrowbody pieno: ~12 minuti
+  const VERITAS_SCHEDULE_LS = "veritas_flight_schedule";
+  const VERITAS_SCHEDULE_MAX_AGE_S = 172800; // 48h: oltre, gli arrivi non descrivono piu' nulla di attuale
+
+  // Riduce la risposta grezza di OpenSky a cio' che serve: istante di
+  // atterraggio e passeggeri stimati a bordo. `lastSeen` e' l'ultimo contatto
+  // ADS-B del velivolo in arrivo, quindi la migliore approssimazione
+  // disponibile dell'atterraggio; `firstSeen` e' la riserva se manca.
+  function veritasScheduleFromArrivals(arrivals, airport) {
+    if (!Array.isArray(arrivals)) return null;
+    const flights = [];
+    for (const f of arrivals) {
+      const arrivo = Number(f && (f.lastSeen || f.firstSeen));
+      if (!isFinite(arrivo) || arrivo <= 0) continue;
+      flights.push({
+        callsign: String((f && f.callsign || "").trim() || "?"),
+        arrivo,
+        pax: VERITAS_AVG_PAX_PER_FLIGHT,
+      });
+    }
+    if (!flights.length) return null;
+    flights.sort((a, b) => a.arrivo - b.arrivo);
+    return { airport: airport || "?", flights, fetchedAt: Math.floor(Date.now() / 1000) };
+  }
+
+  // Le due ore reali in cui atterrano piu' passeggeri. Comprimere l'intera
+  // giornata sulla durata della simulazione ridurrebbe ogni picco a un
+  // fotogramma: e' la punta che si vuole vedere, ed e' la punta che
+  // dimensiona un terminal.
+  function veritasPeakWindow(flights, windowS) {
+    if (!Array.isArray(flights) || !flights.length) return null;
+    const w = windowS || VERITAS_PEAK_WINDOW_S;
+    let best = null;
+    for (let i = 0; i < flights.length; i++) {
+      const inizio = flights[i].arrivo, fine = inizio + w;
+      let pax = 0, ultimo = i;
+      for (let j = i; j < flights.length && flights[j].arrivo < fine; j++) { pax += flights[j].pax; ultimo = j; }
+      if (!best || pax > best.pax) best = { inizio, fine, pax, da: i, a: ultimo };
+    }
+    return best;
+  }
+
+  function veritasOraLocale(epochS) {
+    try { return new Date(epochS * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+    catch (e) { return "?"; }
+  }
+
+  // Descrizione leggibile della punta, per il pannello impostazioni e per la
+  // chat: un'analisi automatica deve dire che cosa ha capito.
+  function veritasScheduleDescription(schedule) {
+    const sched = schedule || window.__veritasFlightSchedule;
+    if (!sched || !Array.isArray(sched.flights) || !sched.flights.length) return null;
+    const punta = veritasPeakWindow(sched.flights);
+    if (!punta) return null;
+    const daOra = veritasOraLocale(punta.inizio), aOra = veritasOraLocale(punta.fine);
+    const voli = punta.a - punta.da + 1;
+    return { testo: t("settings_opensky_peak", daOra, aOra, voli, punta.pax), daOra, aOra, voli, pax: punta.pax, inizio: punta.inizio, fine: punta.fine };
+  }
+
+  function veritasSaveFlightSchedule(sched) {
+    window.__veritasFlightSchedule = sched;
+    try { localStorage.setItem(VERITAS_SCHEDULE_LS, JSON.stringify(sched)); } catch (e) { /* quota piena: resta in memoria */ }
+  }
+
+  // Distribuisce `count` agenti sui voli della finestra di punta, in
+  // proporzione ai passeggeri di ciascun volo, collocando la partenza di
+  // ognuno all'orario di atterraggio del proprio volo riportato sulla durata
+  // della simulazione. Restituisce un array ORDINATO: agenti consecutivi
+  // appartengono allo stesso volo, quindi i gruppi (indice/3) restano
+  // coerenti con le ondate invece di essere spezzati a meta'.
+  function veritasStartDelaysFromSchedule(count, durataSimS, schedule) {
+    const sched = schedule || window.__veritasFlightSchedule;
+    if (!sched || !Array.isArray(sched.flights) || !sched.flights.length) return null;
+    if (!(count > 0) || !(durataSimS > 0)) return null;
+    const punta = veritasPeakWindow(sched.flights);
+    if (!punta || punta.pax <= 0) return null;
+    const voli = sched.flights.slice(punta.da, punta.a + 1);
+    if (!voli.length) return null;
+    const durataFinestra = Math.max(1, punta.fine - punta.inizio);
+    const compressione = durataSimS / durataFinestra;  // secondi simulati per secondo reale
+    const sbarco = VERITAS_DEPLANING_S * compressione; // lo sbarco non e' istantaneo nemmeno qui
+
+    // Ripartizione proporzionale per arrotondamento cumulativo: si arrotonda
+    // il totale progressivo, non la quota del singolo volo. La somma fa
+    // esattamente `count` e i resti si distribuiscono lungo tutta la finestra.
+    //
+    // Il metodo dei resti piu' grandi, provato prima, qui non va: la stima dei
+    // passeggeri e' la stessa per ogni volo (OpenSky non da' i passeggeri),
+    // quindi TUTTI i resti sono identici e finivano in blocco sui primi voli.
+    // Misurato su una giornata con tre banchi: il primo banco riceveva 18
+    // agenti invece dei 15,6 che gli spettavano, gli ultimi ne perdevano
+    // altrettanti - cioe' un picco gonfiato all'inizio e uno sgonfiato in
+    // fondo, esattamente l'errore che questo lavoro serve a togliere.
+    const assegnati = [];
+    let cumulata = 0, gia = 0;
+    for (const v of voli) {
+      cumulata += (v.pax / punta.pax) * count;
+      const fin = Math.round(cumulata);
+      assegnati.push(fin - gia);
+      gia = fin;
+    }
+
+    const delays = [];
+    for (let i = 0; i < voli.length; i++) {
+      const n = assegnati[i];
+      if (n <= 0) continue;
+      const base = (voli[i].arrivo - punta.inizio) * compressione;
+      for (let k = 0; k < n; k++) {
+        // l'ultimo passeggero di un volo scende ~12 minuti reali dopo il primo
+        const quando = base + (n > 1 ? (k / (n - 1)) * sbarco : 0);
+        delays.push(Math.max(0, Math.min(durataSimS * 0.95, quando)));
+      }
+    }
+    if (delays.length !== count) return null;
+    delays.sort((a, b) => a - b);
+    return delays;
+  }
+
+  // Annuncia in chat, non solo in console: se la simulazione cambia forma
+  // perche' sta usando dei voli veri, chi guarda deve saperlo. Una volta per
+  // combinazione punta+numero di agenti, per non ripetersi a ogni rigenerazione.
+  let veritasUltimoAnnuncioVoli = "";
+  function veritasAnnunciaVoli(count) {
+    const d = veritasScheduleDescription();
+    if (!d) return;
+    const chiave = d.inizio + "_" + d.fine + "_" + count;
+    if (chiave === veritasUltimoAnnuncioVoli) return;
+    veritasUltimoAnnuncioVoli = chiave;
+    try { if (window.__veritasAnnounce) window.__veritasAnnounce(t("flights_applied", d.voli, d.daOra, d.aOra)); } catch (e) {}
+  }
+
+  // Punto unico di verita' per lo scaglionamento delle partenze, usato sia dal
+  // motore Python sia dal generatore JS locale. Senza voli reali si ricade
+  // sulla formula regolare di prima: nessuna regressione per chi non usa
+  // OpenSky, e nessun significato forzato sui domini museo e gaming, dove un
+  // orario di atterraggio non vuole dire niente.
+  function veritasStartDelays(count, durataSimS, fallback) {
+    const reali = veritasStartDelaysFromSchedule(count, durataSimS);
+    if (reali) {
+      const sched = window.__veritasFlightSchedule;
+      console.log("[VERITAS voli] partenze dal traffico reale:", count, "agenti su",
+                  (sched && sched.flights ? sched.flights.length : 0), "voli di", (sched && sched.airport),
+                  "- prima partenza", reali[0].toFixed(1) + "s, ultima", reali[reali.length - 1].toFixed(1) + "s",
+                  "su", durataSimS.toFixed(0) + "s di simulazione");
+      veritasAnnunciaVoli(count);
+      return reali;
+    }
+    const out = [];
+    for (let i = 0; i < count; i++) out.push(fallback(i));
+    return out;
+  }
+
+  // Gli arrivi sono dati del giorno precedente e la stima si fa nel pannello
+  // impostazioni, mentre la simulazione parte molto dopo: senza persistenza
+  // il dato si perderebbe al primo ricaricamento della pagina.
+  (function veritasRestoreFlightSchedule() {
+    try {
+      const raw = localStorage.getItem(VERITAS_SCHEDULE_LS);
+      if (!raw) return;
+      const sched = JSON.parse(raw);
+      if (!sched || !Array.isArray(sched.flights) || !sched.flights.length) return;
+      if (Math.floor(Date.now() / 1000) - (sched.fetchedAt || 0) > VERITAS_SCHEDULE_MAX_AGE_S) {
+        localStorage.removeItem(VERITAS_SCHEDULE_LS);
+        return;
+      }
+      window.__veritasFlightSchedule = sched;
+      console.log("[VERITAS voli] ripresi", sched.flights.length, "arrivi salvati su", sched.airport);
+    } catch (e) { /* dati illeggibili: si riparte semplicemente senza voli */ }
+  })();
 
   // Sveglia il backend Render (piano gratuito) in background fin dal primo
   // istante di caricamento della pagina, invece di scoprire il ritardo di
@@ -1332,6 +1533,11 @@
     const keys = Object.keys(ARCHETYPES);
     const agents = [];
     const routeCache = new Map();
+    // Quando parte ciascun agente. Con i voli reali caricati la sequenza e'
+    // quella degli atterraggi (ondate irregolari, vuoti compresi); senza, resta
+    // la progressione regolare di prima. Stessa base tempi dei frame: t = f*0.5.
+    const startDelays = veritasStartDelays(agentCount, totalFrames * 0.5,
+                                           (i) => (i * 0.9) % 18 + Math.random() * 0.6);
     for (let i = 0; i < agentCount; i++) {
       const group = Math.floor(i / 3);
       const archetype = group % 3 === 1 ? "family" : keys[i % keys.length];
@@ -1354,7 +1560,7 @@
       }
       agents.push({
         id: i, archetype, group, path, segLen, totalLen, securityAt,
-        startDelay: (i * 0.9) % 18 + Math.random() * 0.6,
+        startDelay: startDelays[i],
         speed: ARCHETYPES[archetype].speed * (0.9 + Math.random() * 0.2),
         waitAtControl: 4 + Math.random() * 8,
       });
@@ -2713,17 +2919,25 @@
       // arriverebbero tutti nello stesso punto, sovrapposti.
       const profiliDisponibili = Object.keys(graph.mission_profiles || {}).filter((k) => k !== "default");
       const profili = profiliDisponibili.length ? profiliDisponibili : ["default"];
+      // Durata della simulazione, calcolata una volta sola: e' la stessa che
+      // viene spedita al motore come ticks*dt, e serve anche per riportare gli
+      // orari dei voli su questa scala temporale.
+      const dt = 0.1;
+      const ticks = window.__veritasTotalFrames ? window.__veritasTotalFrames * 5 : 4000;
+      const durataSimS = ticks * dt;
+      // Stesso scaglionamento del generatore locale: con i voli reali caricati
+      // le partenze seguono gli atterraggi, altrimenti i gruppi entrano a
+      // ondate regolari. Senza nulla di tutto questo il motore farebbe partire
+      // ogni agente nello stesso istante e il flusso diventerebbe un blocco
+      // compatto che si muove all'unisono.
+      const startDelays = veritasStartDelays(count, durataSimS, (i) => (Math.floor(i / 3) * 3.5) % 42);
       const agents = [];
       for (let i = 0; i < count; i++) {
         const archetype = keys[i % keys.length];
         agents.push({
           agent_id: "a" + i,
           profile_id: profili[Math.floor(i / 3) % profili.length],
-          // Stesso scaglionamento del generatore locale: i gruppi entrano a
-          // ondate invece che tutti insieme. Senza questo il motore reale fa
-          // partire ogni agente nello stesso istante e il flusso diventa un
-          // blocco compatto che si muove all'unisono.
-          start_delay: (Math.floor(i / 3) * 3.5) % 42,
+          start_delay: startDelays[i],
           profile_data: ARCHETYPES[archetype] || {},
           domain,
           group_id: "g" + Math.floor(i / 3),
@@ -2752,7 +2966,7 @@
       const res = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/api/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ graph, agents, ticks: window.__veritasTotalFrames ? window.__veritasTotalFrames * 5 : 4000, dt: 0.1 }),
+        body: JSON.stringify({ graph, agents, ticks, dt }),
         signal: controller.signal,
       });
       clearTimeout(timeout);

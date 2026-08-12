@@ -279,22 +279,28 @@ Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 i file Python (per Render). Il frontend nuovo vive sulla preview e va promosso
 a `main` **solo dopo approvazione esplicita di Raffaella**.
 
-### Struttura di `index.html` (preview) — 9 blocchi `<script>`
+### Struttura di `index.html` (preview) — 10 blocchi `<script>`
+
+⚠️ Erano dichiarati 9 con il motore di percezione al blocco 8. **Verificato con
+`html.parser` il 12/08/2026: sono 10**, e i due moduli percettivi occupano
+l'8 e il 9 — nell'ordine opposto a quello che c'era scritto qui.
 
 | # | Tipo | Ruolo |
 |---|---|---|
 | 0 | importmap | three 0.171, three-mesh-bvh 0.7.8, spark 2.1.0 |
 | 1 | `src=` | supabase-js da CDN |
-| 2 | classico | **boot**: auth, progetti, analisi spaziale, generatore traiettorie, bridge Python |
+| 2 | classico | **boot**: auth, progetti, analisi spaziale, generatore traiettorie, partenze da voli reali, bridge Python |
 | 3 | module | 🔴 **bundle React/Three minificato — INTOCCABILE** |
 | 4 | classico | handler sicurezza link |
 | 5 | module | patch three-mesh-bvh, espone `window.THREE` |
 | 6 | module | **shell AI-OS**: topbar, console comandi, upload, nascondimento pannelli nativi |
-| 7 | module | Gaussian Splat (fermo, vedi §4) |
-| 8 | module | **layer percettivo** (`veritas_perception.js`) |
+| 7 | module | Gaussian Splat (fermo, vedi §11.4a) |
+| 8 | module | **visibilità** (`veritas_visibility.js`) — cosa si vede da dove |
+| 9 | module | **motore di percezione** (`veritas_perception.js`) — dove si cammina e quanto è largo |
 
-Il file sorgente `veritas_perception.js` sta in radice ed è **inlinato** come
-blocco 8. Se lo modifichi, va reinlinato (script al §6).
+I file sorgente `veritas_visibility.js` e `veritas_perception.js` stanno in
+radice e sono **inlinati** come blocchi 8 e 9. Se li modifichi, vanno
+reinlinati (ricetta al §11.6).
 
 ---
 
@@ -430,16 +436,62 @@ Per risolvere servono **insieme**: `three` ≥ 0.180 e `three-mesh-bvh` ≥ 0.8.
 7, 8. **Da fare con calma e verificando con uno splat vero**, non a fine
 giornata.
 
-### b) OpenSky per i tempi d'arrivo reali — *massimo valore prodotto*
+### b) OpenSky per i tempi d'arrivo reali — ✅ **FATTO** (12/08/2026)
 
-Esiste già `#vs-opensky-btn` che interroga gli arrivi reali a Fiumicino (LIRF),
-ma **oggi stima solo il numero di agenti**, non quando arrivano.
+Era: `#vs-opensky-btn` interrogava gli arrivi reali a Fiumicino (LIRF) ma
+**stimava solo il numero di agenti**, non quando arrivano; `start_delay`
+veniva da una formula regolare (ondate ogni 3,5 s), cioè un flusso costante
+che in nessun aeroporto esiste.
 
-`start_delay` è il gancio che mancava: oggi lo calcolo con una formula
-regolare (ondate ogni 3,5 s). Alimentandolo con i voli reali diventa la
-distribuzione vera — 180 passeggeri alle 14:32, poi il vuoto, poi 250 alle
-14:51. **È lì che nascono i picchi di affollamento veri**, quelli che un report
-vendibile deve mostrare. Richiesta esplicita di Raffaella.
+Ora gli **orari di atterraggio** (`lastSeen` di OpenSky) diventano la
+distribuzione delle partenze. Il numero di agenti resta quello scelto
+dall'utente: si conserva la **forma** del traffico, non il volume, che sarebbe
+insimulabile (Fiumicino muove ~100.000 pax/giorno).
+
+Come funziona, in `index.html` blocco 2, subito dopo `runOpenSkyEstimate`:
+
+1. `veritasScheduleFromArrivals` tiene orario e passeggeri stimati di ogni
+   volo (prima si buttava via tutto tranne il conteggio);
+2. `veritasPeakWindow` trova le **2 ore reali più cariche**. Comprimere le 24 h
+   sui ~400 s di simulazione ridurrebbe ogni picco a un fotogramma, ed è la
+   punta che dimensiona un terminal;
+3. `veritasStartDelaysFromSchedule` ripartisce gli agenti sui voli in
+   proporzione ai passeggeri e colloca ciascuno all'orario del proprio volo,
+   più lo sbarco (~12 min reali, compressi con lo stesso fattore);
+4. `veritasStartDelays` è il **punto unico** usato sia dal ponte Python sia dal
+   generatore JS locale. Senza voli caricati ricade sulla formula di prima,
+   byte per byte: nessuna regressione per chi non usa OpenSky, e nessun
+   significato forzato su museo e gaming, dove un atterraggio non vuol dire
+   niente (Rule of Three).
+
+Gli arrivi restano in `localStorage` per 48 h (`window.__veritasFlightSchedule`):
+la stima si fa nel pannello impostazioni, la simulazione parte molto dopo. La
+punta riconosciuta è dichiarata nel pannello **e annunciata in chat** via
+`__veritasAnnounce`.
+
+⚠️ **Da fare con la trasparenza già adottata altrove:** OpenSky non fornisce
+passeggeri, solo ADS-B. I 140 pax/volo sono una costante dichiarata, e i dati
+di arrivo sono del giorno prima, non in tempo reale. Vale la **forma**, non il
+valore assoluto.
+
+Prove: `node veritas_flights.test.mjs` (18 verifiche, estrae le funzioni da
+`index.html`, non le ricopia). Misurato su una giornata con tre banchi di
+arrivi e un vuoto dichiarato di 40 minuti, 40 agenti su 400 s:
+
+```
+                    (20 intervalli da 20 s)
+atterraggi reali    ##......4#4..8#.....
+partenze simulate   3543....143412433...     ← segue i banchi e il vuoto
+formula regolare    ##..................     ← tutto nei primi 42 s
+```
+
+**Difetto trovato e corretto strada facendo:** la prima ripartizione usava il
+metodo dei resti più grandi. Siccome la stima dei passeggeri è la stessa per
+ogni volo, tutti i resti sono identici e finivano in blocco sui primi voli: il
+banco iniziale riceveva 18 agenti invece di 15,6, gli ultimi altrettanti in
+meno — un picco gonfiato all'inizio e uno sgonfiato in fondo, cioè proprio
+l'errore che questo lavoro serve a togliere. Ora è arrotondamento cumulativo:
+scarto massimo **1,3%**.
 
 ### c) Pannelli KPI nativi sotto i 1280 px
 
@@ -512,10 +564,11 @@ print('blocco 3 intatto')
 Poi `node --check` su ogni blocco modificato (i moduli ES vanno copiati in
 `.mjs`).
 
-### Reinlinare `veritas_perception.js` nel blocco 8
+### Reinlinare `veritas_perception.js` nel blocco 9
 
-Estrai il blocco 8 con lo stesso parser e sostituiscilo con il contenuto del
+Estrai il blocco 9 con lo stesso parser e sostituiscilo con il contenuto del
 file, verificando che il sorgente non contenga la stringa `</script`.
+(`veritas_visibility.js` è il blocco 8, stessa procedura.)
 
 ### Banco di prova headless
 
