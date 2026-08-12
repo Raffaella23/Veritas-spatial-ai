@@ -3162,6 +3162,11 @@
       mean_free_m: +mean.toFixed(2),
       min_free_m: +Math.min.apply(null, r).toFixed(2),
       max_free_m: +Math.max.apply(null, r).toFixed(2),
+      // I raggi grezzi servono a ridisegnare la SAGOMA di cio' che si vede,
+      // non solo la sua area: due punti possono avere gli stessi metri quadri
+      // con forme opposte - un corridoio lungo e una stanza tonda. 32 numeri
+      // per zona, costo trascurabile.
+      r: r.map((d) => +d.toFixed(1)),
     };
   }
 
@@ -3185,6 +3190,9 @@
     // montato) sarebbe indistinguibile da una calcolata: il motore
     // ricadrebbe sulla stima per archetipo e i grafici tornerebbero piatti
     // senza che nulla lo segnali.
+    // Il grafo resta a portata di mano del report: le sagome delle isoviste
+    // sono gia' qui, non ha senso farle tornare indietro dal server.
+    window.__veritasLastGraph = out;
     console.log("[VERITAS bridge] isovista calcolata su " + isovistOk + "/" + nodes.length +
                 " zone" + (canIsovist ? "" : " (mesh o THREE non disponibili: si usera' la stima per archetipo)"));
     // Il backend (path_loader.py) collega i waypoint del mission_profile
@@ -8290,6 +8298,23 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     #vaio-perception-modal .vaio-pr-posture{font-size:10.5px;font-weight:500;color:#8e8e93;margin-left:auto;}
     #vaio-perception-modal .vaio-pr-meas{font-size:11.5px;color:#a1a1a6;margin-bottom:8px;}
     #vaio-perception-modal .vaio-pr-meas b{color:#f2f2f7;font-weight:600;}
+    #vaio-perception-modal .vaio-pr-fov{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+      gap:8px;margin:12px 0 4px;}
+    #vaio-perception-modal .vaio-pr-fov figure{margin:0;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.10);
+      border-radius:8px;overflow:hidden;}
+    #vaio-perception-modal .vaio-pr-fov img{display:block;width:100%;height:auto;}
+    #vaio-perception-modal .vaio-pr-fov figcaption{display:flex;justify-content:space-between;align-items:center;
+      padding:5px 8px;font-size:10.5px;color:#8e8e93;}
+    #vaio-perception-modal .vaio-pr-fov figure{position:relative;}
+    #vaio-perception-modal .vaio-pr-noimg{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+      font-size:10px;color:#6b7280;background:rgba(255,255,255,.03);}
+    #vaio-perception-modal .vaio-pr-isowrap{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.55);
+      border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:2px;line-height:0;}
+    #vaio-perception-modal .vaio-pr-iso{display:block;}
+    #vaio-perception-modal .vaio-pr-isolegend{display:flex;flex-wrap:wrap;gap:14px;font-size:10.5px;color:#8e8e93;margin:2px 0 4px;}
+    #vaio-perception-modal .vaio-pr-isolegend i{display:inline-block;width:11px;height:8px;margin-right:5px;vertical-align:middle;}
+    #vaio-perception-modal .vaio-pr-isolegend i.ln{border:1.2px solid #38bdf8;}
+    #vaio-perception-modal .vaio-pr-isolegend i.fl{background:rgba(56,189,248,.28);}
     #vaio-layers-menu,#vaio-report-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:200px;background:rgba(20,20,24,.85);
       backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px;
       display:none;flex-direction:column;gap:2px;box-shadow:0 16px 40px rgba(0,0,0,.4);}
@@ -8562,6 +8587,96 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     };
   }
 
+  // --- Vista in prima persona -------------------------------------------
+  // Cosa vede l'agente con i propri occhi, non dall'alto. Va accanto ai
+  // numeri dell'isovista: l'area in metri quadri dice QUANTO si vede, la
+  // fotografia dice CHE COSA - e una porta che non si vede e' un problema
+  // che nessun metro quadro racconta.
+  //
+  // Si cattura una volta per ogni coppia agente/zona, non a cadenza fissa:
+  // cosi' ogni riga della mappa cognitiva ha la sua immagine, e il numero di
+  // scatti resta pari a agenti x zone invece di crescere con la durata.
+  window.__veritasFOVFrames = window.__veritasFOVFrames || {};
+
+  const FOV_W = 320, FOV_H = 180;      // miniatura: la memoria deve restare finita
+  const FOV_EYE = { business: 1.65, family: 1.60, elderly: 1.58, wheelchair: 1.20,
+                    tourist: 1.62, student: 1.70, staff: 1.68, vip: 1.65 };
+  let fovCanvas = null, fovCam = null;
+
+  function captureFOV(group, archetype) {
+    const T = window.THREE;
+    const renderer = window.__veritasRenderer, scene = window.__veritasScene;
+    const mainCam = window.__veritasCamera;
+    if (!T || !renderer || !scene || !mainCam || !group) return null;
+
+    if (!fovCanvas) {
+      fovCanvas = document.createElement("canvas");
+      fovCanvas.width = FOV_W; fovCanvas.height = FOV_H;
+    }
+    if (!fovCam) fovCam = new T.PerspectiveCamera(70, FOV_W / FOV_H, 0.1, 200);
+
+    const eye = FOV_EYE[archetype] || 1.65;
+    fovCam.position.set(group.position.x, group.position.y + eye, group.position.z);
+    // Guarda dove l'agente e' effettivamente girato. La versione precedente
+    // puntava sempre verso -Z: inquadrava un muro a caso invece della strada.
+    const h = group.rotation ? group.rotation.y : 0;
+    fovCam.lookAt(group.position.x + Math.cos(h) * 5,
+                  group.position.y + eye,
+                  group.position.z + Math.sin(h) * 5);
+
+    let url = null;
+    try {
+      // render e toDataURL nello stesso blocco sincrono: senza
+      // preserveDrawingBuffer il buffer viene azzerato alla composizione, e
+      // leggerlo piu' tardi darebbe un'immagine nera senza alcun errore.
+      renderer.render(scene, fovCam);
+      const src = renderer.domElement;
+      fovCanvas.getContext("2d").drawImage(src, 0, 0, src.width, src.height, 0, 0, FOV_W, FOV_H);
+      url = fovCanvas.toDataURL("image/jpeg", 0.6);
+    } catch (e) {
+      return null;
+    } finally {
+      // Rimettere subito la vista normale, prima che il browser componga:
+      // altrimenti si vedrebbe uno sfarfallio a ogni scatto.
+      try { renderer.render(scene, mainCam); } catch (e) {}
+    }
+    // Una JPEG interamente nera pesa pochissimo: e' il sintomo del buffer
+    // perso. Meglio nessuna immagine che una nera spacciata per una vista.
+    return (url && url.length > 2000) ? url : null;
+  }
+
+  // Sorveglia la simulazione e scatta quando un agente entra in una zona in
+  // cui non era ancora stato ripreso.
+  function fovWatchTick() {
+    if (!window.__veritasSimStarted) return;
+    const groups = window.__veritasPassengerGroups;
+    const nodes = window.__veritasGetNodes ? window.__veritasGetNodes() : null;
+    if (!groups || !groups.forEach || !nodes || !nodes.length) return;
+
+    groups.forEach((entry, key) => {
+      const g = entry && entry.group ? entry.group : entry;
+      if (!g || !g.position || g.visible === false) return;
+      const arch = (entry && (entry.archetype || entry.type)) || "business";
+
+      let best = null, bd = Infinity;
+      for (const n of nodes) {
+        if (!n || !n.pos) continue;
+        const dx = g.position.x - n.pos[0], dz = g.position.z - n.pos[2];
+        const d = dx * dx + dz * dz;
+        if (d < bd) { bd = d; best = n; }
+      }
+      if (!best || bd > 36) return;             // oltre 6 m non e' "in" quella zona
+      const zoneId = best.id || best.label;
+      const agentId = String(key);
+      const perAgent = window.__veritasFOVFrames[agentId] || (window.__veritasFOVFrames[agentId] = {});
+      if (perAgent[zoneId]) return;             // gia' ripreso qui
+
+      const img = captureFOV(g, arch);
+      if (img) perAgent[zoneId] = { img, archetype: arch };
+    });
+  }
+  setInterval(fovWatchTick, 600);
+
   // --- Report di percezione ---------------------------------------------
   // Mostra cosa ogni agente ha VISTO durante la simulazione e come lo ha
   // interpretato. Il grafico e' SVG scritto a mano invece che con una
@@ -8589,6 +8704,29 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       + '<path d="' + path("vis") + '" fill="none" stroke="#38bdf8" stroke-width="2"/>'
       + '<path d="' + path("stress") + '" fill="none" stroke="#f97316" stroke-width="2"/>'
       + "</svg>";
+  }
+
+  // La sagoma di cio' che si vede da un punto, vista dall'alto. I raggi sono
+  // quelli misurati sulla mesh, quindi e' una pianta dell'isovista, non un
+  // simbolo. Le due quote sovrapposte rendono visibile a colpo d'occhio cosa
+  // toglie un ostacolo a mezz'altezza: dove il riempimento si ritira sotto il
+  // contorno, li' c'e' qualcosa che chi sta seduto non supera con lo sguardo.
+  function isovistShape(iso, size) {
+    if (!iso) return "";
+    const st = iso.standing && iso.standing.r, se = iso.seated && iso.seated.r;
+    if (!st && !se) return "";
+    const all = (st || []).concat(se || []);
+    const maxR = Math.max.apply(null, all) || 1;
+    const c = size / 2, k = (c - 2) / maxR;
+    const poly = (r) => r.map((d, i) => {
+      const a = (i / r.length) * Math.PI * 2;
+      return (c + Math.cos(a) * d * k).toFixed(1) + "," + (c + Math.sin(a) * d * k).toFixed(1);
+    }).join(" ");
+    let s = '<svg class="vaio-pr-iso" viewBox="0 0 ' + size + " " + size + '" width="' + size + '" height="' + size + '">';
+    if (se) s += '<polygon points="' + poly(se) + '" fill="rgba(56,189,248,.28)" stroke="none"/>';
+    if (st) s += '<polygon points="' + poly(st) + '" fill="none" stroke="#38bdf8" stroke-width="1.2"/>';
+    s += '<circle cx="' + c + '" cy="' + c + '" r="2.2" fill="#f97316"/></svg>';
+    return s;
   }
 
   function showPerceptionReport(rep) {
@@ -8651,6 +8789,35 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
         + "</div>"
         + sparkline(s, 600, 90)
         + '<div class="vaio-pr-axis"><span>tick ' + s[0].tick + "</span><span>tick " + s[s.length - 1].tick + "</span></div>";
+
+      // Le viste in prima persona, una per zona attraversata. L'immagine sta
+      // accanto al comfort misurato: si legge il numero e si vede da cosa nasce.
+      const fov = window.__veritasFOVFrames[id] || {};
+      const graphNodes = (window.__veritasLastGraph || {}).nodes || {};
+      const cogZones = Object.keys((rep.agent_cognitive_maps || {})[id] || {});
+      // Una scheda per zona attraversata: la fotografia di cosa vedeva e la
+      // pianta di quanto vedeva. Si mostra la zona anche senza fotografia,
+      // perche' la sagoma da sola dice gia' molto.
+      const cards = cogZones.filter((z) => fov[z] || (graphNodes[z] && graphNodes[z].meta && graphNodes[z].meta.isovist));
+      if (cards.length) {
+        body += '<div class="vaio-pr-fov">';
+        cards.forEach((z) => {
+          const c = ((rep.agent_cognitive_maps || {})[id] || {})[z];
+          const col = c ? (COMFORT_COLORS[c.comfort_level] || "#8e8e93") : "#8e8e93";
+          const iso = graphNodes[z] && graphNodes[z].meta ? graphNodes[z].meta.isovist : null;
+          body += "<figure>"
+            + (fov[z] ? '<img src="' + fov[z].img + '" alt="vista da ' + esc(z) + '">'
+                      : '<div class="vaio-pr-noimg">nessuna vista ripresa</div>')
+            + (iso ? '<div class="vaio-pr-isowrap">' + isovistShape(iso, 74) + "</div>" : "")
+            + '<figcaption><span>' + esc(z) + "</span>"
+            + (c ? '<b style="color:' + col + '">' + c.avg_visibility_pct.toFixed(0) + "%</b>" : "")
+            + "</figcaption></figure>";
+        });
+        body += '</div><div class="vaio-pr-isolegend">'
+          + '<span><i class="ln"></i>sagoma vista in piedi</span>'
+          + '<span><i class="fl"></i>vista da seduti</span>'
+          + "<span>dove il pieno rientra dal contorno, un ostacolo a mezz'altezza toglie la vista</span></div>";
+      }
 
       const cog = (rep.agent_cognitive_maps || {})[id] || {};
       const zones = Object.keys(cog);
