@@ -2866,24 +2866,27 @@
       currentNodes = [];
     }
     seedNodesIfNeeded();
-    
-    // ⚠️ QUI STAVA IL DIFETTO segnalato il 12/08/2026.
-    //
-    // Questo ramo forzava `analyzeMesh` a ogni caricamento e ne prendeva i
-    // nodi, sovrascrivendo le zone che il motore geometrico aveva MISURATO
-    // poco prima. analyzeMesh trova le zone per NOME DELLA MESH: se chi ha
-    // modellato non ha chiamato "gate" un gate, quella zona non esisteva; e
-    // dove il nome c'era, il nodo finiva sul baricentro di quel singolo
-    // oggetto invece che sullo spazio.
-    //
-    // Ora l'assegnazione la fa applyAutoAssignment dalle zone misurate, e i
-    // nomi entrano li' come etichette. Questo ramo resta solo per il caso in
-    // cui l'analisi geometrica non sia disponibile affatto.
-    const analisiGeometricaAssente = !lastZones || lastZones.length < 2;
-    if (!analisiGeometricaAssente) {
-      // Zone misurate disponibili: usa applyAutoAssignment per assegnarle
-      applyAutoAssignment(lastZones);
-    } else if (analisiGeometricaAssente) {
+
+    // L'analisi geometrica è asincrona: lastZones viene populato dopo.
+    // Aspetta un ciclo per darle tempo di eseguirsi.
+    setTimeout(() => {
+      // ⚠️ QUI STAVA IL DIFETTO segnalato il 12/08/2026.
+      //
+      // Questo ramo forzava `analyzeMesh` a ogni caricamento e ne prendeva i
+      // nodi, sovrascrivendo le zone che il motore geometrico aveva MISURATO
+      // poco prima. analyzeMesh trova le zone per NOME DELLA MESH: se chi ha
+      // modellato non ha chiamato "gate" un gate, quella zona non esisteva; e
+      // dove il nome c'era, il nodo finiva sul baricentro di quel singolo
+      // oggetto invece che sullo spazio.
+      //
+      // Ora l'assegnazione la fa applyAutoAssignment dalle zone misurate, e i
+      // nomi entrano li' come etichette. Questo ramo resta solo per il caso in
+      // cui l'analisi geometrica non sia disponibile affatto.
+      const analisiGeometricaAssente = !lastZones || lastZones.length < 2;
+      if (!analisiGeometricaAssente) {
+        // Zone misurate disponibili: usa applyAutoAssignment per assegnarle
+        applyAutoAssignment(lastZones);
+      } else if (analisiGeometricaAssente) {
       const analyzed = analyzeMesh(modelRoot);
       console.log('[VERITAS AUTO v5] nessuna zona misurata, ripiego sui nomi:', analyzed);
       if (analyzed && analyzed.length >= 2) {
@@ -2926,7 +2929,8 @@
           setTimeout(()=>notif.remove(), 6000);
         }
       }
-    }
+      }
+    }, 0);
   };
 
   let renderListRef = null;
