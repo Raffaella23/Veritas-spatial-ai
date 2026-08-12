@@ -8185,6 +8185,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       <div id="vaio-brand">
         <span class="vmark"></span><span class="vname">VERITAS</span>
         <span id="vaio-status"><span class="vdot"></span><span id="vaio-status-txt">${S.status_warm}</span></span>
+        <button id="vaio-dati" style="pointer-events:auto;margin-left:10px;border:none;border-radius:11px;padding:3px 9px;font:11px system-ui,sans-serif;cursor:pointer">◻︎ dati di progetto</button>
       </div>
       <div id="vaio-toolbar">
         <div class="vaio-menu-wrap">
@@ -8217,6 +8218,11 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       };
     }
     wireMenu("vaio-btn-layers", "vaio-layers-menu");
+    // La spia dei dati di progetto sta in topbar, non dentro una risposta:
+    // un avviso che compare in chat scorre via col resto della conversazione,
+    // e questo deve restare visibile finche' il dato manca davvero.
+    spia = document.getElementById("vaio-dati");
+    if (spia) { spia.onclick = apriPannelloProgetto; aggiornaSpia(); }
     wireMenu("vaio-btn-report", "vaio-report-menu");
     document.addEventListener("click", () => document.querySelectorAll("#vaio-layers-menu, #vaio-report-menu").forEach((m) => m.classList.remove("open")));
 
@@ -8399,6 +8405,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     if (/(accessibilit|accessibility|sedia a rotelle|wheelchair)/.test(t)) { runAccessibility(); return; }
     // `uscita <zona>` va provata PRIMA di `esodo`: contiene la stessa materia
     // ma e' una dichiarazione, non una domanda.
+    if (/(dati di progetto|dati progetto|rischio incendio|affollamento|classificazione)/.test(t)) { apriPannelloProgetto(); return; }
     const mUscita = t.match(/^(?:uscita|uscite|exit)\s+(.+)$/);
     if (mUscita) { dichiaraUscita(mUscita[1]); return; }
     if (/(esodo|antincendio|evacuazione|vie di fuga|egress|fire)/.test(t)) { runEsodo(); return; }
@@ -8492,6 +8499,159 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     }, 30);
   }
 
+
+  // ===========================================================================
+  // Pannello "Dati di progetto"
+  //
+  // Le dipendenze che il modello 3D non puo' contenere finivano in un commento
+  // nel codice: per chi usa lo strumento, non esistevano. Qui diventano campi,
+  // e il valore che si scrive CAMBIA LA SOGLIA — non e' una scheda descrittiva.
+  //
+  // Ogni campo dichiara a cosa serve e con quale articolo: un pannello che
+  // chiede un numero senza dire perche' non viene compilato, e un dato inserito
+  // a caso qui e' peggio di un dato assente.
+  // ===========================================================================
+  window.__veritasDatiProgetto = window.__veritasDatiProgetto || {};
+
+  function datiMancanti() {
+    const N = window.__veritasNormative;
+    if (!N) return [];
+    const d = window.__veritasDatiProgetto;
+    return Object.keys(N.DATI_RICHIESTI).filter((k) => d[k] === undefined || d[k] === null || d[k] === "");
+  }
+
+  // La spia: sempre presente, cambia colore quando manca qualcosa. Un avviso
+  // che compare solo dentro una risposta scorre via col resto della chat.
+  let spia;
+  function aggiornaSpia() {
+    if (!spia) return;
+    const n = datiMancanti().length;
+    spia.textContent = n ? "◻︎ " + n + " dat" + (n === 1 ? "o" : "i") + " di progetto" : "◼︎ dati di progetto";
+    spia.style.background = n ? "#7a5a12" : "#2a2a2a";
+    spia.style.color = n ? "#ffd77a" : "#9a9a9a";
+    spia.title = n ? "Mancano dati senza i quali alcune verifiche non hanno una soglia. Clicca per compilarli."
+                   : "Dati di progetto completi. Clicca per rivederli.";
+  }
+
+  function apriPannelloProgetto() {
+    const N = window.__veritasNormative;
+    if (!N) { log("system", "Modulo normative non caricato."); return; }
+    const vecchio = document.getElementById("veritas-progetto");
+    if (vecchio) { vecchio.remove(); return; }
+    const dati = window.__veritasDatiProgetto;
+
+    const p = document.createElement("div");
+    p.id = "veritas-progetto";
+    p.style.cssText = "position:fixed;right:16px;top:64px;width:340px;max-height:74vh;overflow:auto;"
+      + "background:#141414;border:1px solid #333;border-radius:10px;padding:14px 16px;z-index:100000;"
+      + "font:13px/1.5 system-ui,sans-serif;color:#ddd;box-shadow:0 8px 32px rgba(0,0,0,.6)";
+    const chiudi = () => { p.remove(); aggiornaSpia(); };
+
+    const t = document.createElement("div");
+    t.style.cssText = "display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px";
+    t.innerHTML = '<strong style="font-size:14px;color:#fff">Dati di progetto</strong>';
+    const x = document.createElement("button");
+    x.textContent = "✕";
+    x.style.cssText = "background:none;border:none;color:#888;cursor:pointer;font-size:15px;padding:0 2px";
+    x.onclick = chiudi;
+    t.appendChild(x);
+    p.appendChild(t);
+
+    const sub = document.createElement("div");
+    sub.style.cssText = "color:#999;margin-bottom:14px;font-size:12px";
+    sub.textContent = "Quello che un modello 3D non puo' contenere, e che decide le soglie. "
+      + "Senza questi valori le verifiche che ne dipendono restano senza risposta — non le indovino.";
+    p.appendChild(sub);
+
+    const campi = {};
+    for (const [chiave, spec] of Object.entries(N.DATI_RICHIESTI)) {
+      const box = document.createElement("div");
+      box.style.cssText = "margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #262626";
+      const lab = document.createElement("label");
+      lab.style.cssText = "display:block;color:#fff;margin-bottom:6px;font-weight:500";
+      lab.textContent = spec.etichetta;
+      box.appendChild(lab);
+
+      let inp;
+      if (spec.tipo === "scelta") {
+        inp = document.createElement("select");
+        const vuoto = document.createElement("option");
+        vuoto.value = ""; vuoto.textContent = "— non dichiarato —";
+        inp.appendChild(vuoto);
+        for (const o of spec.opzioni) {
+          const op = document.createElement("option");
+          op.value = o; op.textContent = o;
+          inp.appendChild(op);
+        }
+      } else {
+        inp = document.createElement("input");
+        inp.type = "number"; inp.min = "1"; inp.placeholder = "non dichiarato";
+      }
+      inp.style.cssText = "width:100%;background:#0c0c0c;border:1px solid #3a3a3a;border-radius:6px;"
+        + "color:#eee;padding:7px 9px;font:13px system-ui,sans-serif";
+      if (dati[chiave] != null) inp.value = dati[chiave];
+      box.appendChild(inp);
+      campi[chiave] = inp;
+
+      const perche = document.createElement("div");
+      perche.style.cssText = "color:#9a9a9a;font-size:11.5px;margin-top:7px";
+      perche.textContent = spec.perche;
+      box.appendChild(perche);
+
+      const fonte = document.createElement("div");
+      fonte.style.cssText = "color:#6f6f6f;font-size:11px;margin-top:4px;font-style:italic";
+      fonte.textContent = spec.fonte;
+      box.appendChild(fonte);
+
+      // L'effetto del dato, mostrato mentre lo si sceglie: e' la differenza
+      // fra compilare un modulo e capire cosa si sta decidendo.
+      const eff = document.createElement("div");
+      eff.style.cssText = "color:#8fc98f;font-size:11.5px;margin-top:6px;min-height:16px";
+      const regole = N.REGOLE.filter((r) => r.dipendeDa === chiave);
+      const mostraEffetto = () => {
+        const v = inp.value;
+        if (!v) { eff.textContent = ""; return; }
+        const s = regole.map((r) => {
+          const q = N.soglia(r, { [chiave]: v });
+          return q == null ? null : r.titolo.toLowerCase() + " → " + r.operatore + " " + q + " " + r.unita;
+        }).filter(Boolean);
+        eff.textContent = s.length ? "Soglia che ne deriva: " + s.join("; ") : "";
+      };
+      inp.addEventListener("input", mostraEffetto);
+      inp.addEventListener("change", mostraEffetto);
+      mostraEffetto();
+      box.appendChild(eff);
+      p.appendChild(box);
+    }
+
+    const salva = document.createElement("button");
+    salva.textContent = "Applica e rifai le verifiche";
+    salva.style.cssText = "width:100%;background:#2f6f4f;border:none;border-radius:6px;color:#fff;"
+      + "padding:9px;cursor:pointer;font:13px system-ui,sans-serif;font-weight:500";
+    salva.onclick = () => {
+      const cambiati = [];
+      for (const [k, inp] of Object.entries(campi)) {
+        const v = inp.value === "" ? null : (inp.type === "number" ? Number(inp.value) : inp.value);
+        if (String(window.__veritasDatiProgetto[k] ?? "") !== String(v ?? "")) cambiati.push(k);
+        window.__veritasDatiProgetto[k] = v;
+      }
+      try { localStorage.setItem("veritas_dati_progetto", JSON.stringify(window.__veritasDatiProgetto)); } catch (e) {}
+      chiudi();
+      const rimasti = datiMancanti().length;
+      log("assistant", cambiati.length
+        ? "Dati aggiornati." + (rimasti ? " Ne mancano ancora " + rimasti + "." : " Ora sono completi.")
+        : "Niente di cambiato.");
+      if (window.__veritasPercezione) runEsodo();
+    };
+    p.appendChild(salva);
+    document.body.appendChild(p);
+  }
+
+  try {
+    const salvati = JSON.parse(localStorage.getItem("veritas_dati_progetto") || "{}");
+    Object.assign(window.__veritasDatiProgetto, salvati);
+  } catch (e) {}
+
   // Vie di esodo.
   //
   // La domanda vera dell'antincendio non e' "quanto e' larga l'uscita" ma
@@ -8532,13 +8692,29 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
           + "Non e' un margine stretto: e' area da cui non si esce.");
       }
     }
-    const esiti = N.valuta(r.misure, { ambito: "antincendio" }).filter((e) => e.stato !== "non_misurabile");
+    const tutti = N.valuta(r.misure, { ambito: "antincendio" });
+    const esiti = tutti.filter((e) => e.stato !== "non_misurabile");
     if (!esiti.length) { log("system", "Nessun requisito antincendio confrontabile con le misure disponibili."); return; }
     const difformi = esiti.filter((e) => e.stato === "difforme");
+    const sospese = esiti.filter((e) => e.stato === "dipendenza_mancante");
+    const verificate = esiti.length - sospese.length;
     log("assistant", difformi.length
-      ? "Confronto antincendio: " + difformi.length + " requisiti non rispettati su " + esiti.length + "."
-      : "Confronto antincendio: tutti i " + esiti.length + " requisiti misurabili sono rispettati.");
-    for (const e of difformi.concat(esiti.filter((x) => x.stato === "conforme"))) log("system", N.racconta(e));
+      ? "Confronto antincendio: " + difformi.length + " requisiti non rispettati su " + verificate + " verificati."
+      : verificate
+        ? "Confronto antincendio: tutti i " + verificate + " requisiti verificati sono rispettati."
+        : "Confronto antincendio: nessun requisito verificabile senza i dati di progetto.");
+    for (const e of difformi.concat(esiti.filter((x) => x.stato === "conforme"), sospese)) log("system", N.racconta(e));
+
+    // Le verifiche sospese non sono un dettaglio da nota a pie' di pagina: e'
+    // la differenza fra "conforme" e "conforme per quel che ho potuto vedere".
+    if (sospese.length) {
+      const manca = N.dipendenzeMancanti(sospese);
+      log("assistant", "⚠️ " + sospese.length + " verific" + (sospese.length === 1 ? "a resta sospesa" : "he restano sospese")
+        + ": mancano dati che il modello 3D non puo' contenere. Aprili con il pulsante «dati di progetto» "
+        + "in alto, o scrivi `dati progetto`.");
+      for (const d of manca) log("system", "◻️ " + d.etichetta + " — " + d.perche + " (" + d.fonte + ")");
+      if (spia) { spia.style.outline = "2px solid #ffd77a"; setTimeout(() => { if (spia) spia.style.outline = ""; }, 2600); }
+    }
     const avviso = N.avvertenzaValidazione(esiti);
     if (avviso) log("assistant", avviso);
   }
@@ -10812,10 +10988,32 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
       titolo: "Lunghezza massima del percorso di esodo",
       grandezza: "lunghezza_percorso_esodo_m",
       operatore: "<=",
-      valore: 45,
+      // La soglia NON esiste in assoluto: dipende dal livello di rischio, che
+      // e' una classificazione di progetto. Senza quel dato non c'e' verdetto,
+      // e la regola lo dichiara invece di scegliere un valore per conto suo.
+      dipendeDa: "rischioIncendio",
+      valorePer: { basso: 60, medio: 45, elevato: 30 },
       unita: "m",
-      nota: "Valore per rischio MEDIO. Rischio elevato 15-30 m, rischio basso 45-60 m: "
-          + "la classificazione del rischio la fa il progettista, non questo strumento.",
+      nota: "Rischio basso 45-60 m, medio 30-45 m, elevato 15-30 m. Qui si usa l'estremo "
+          + "superiore di ciascuna fascia. La classificazione del rischio la fa il progettista.",
+      validato: false,
+    },
+    {
+      id: "it_dm1998_moduli",
+      ambito: "antincendio",
+      giurisdizione: "IT",
+      fonte: "DM 10/03/1998",
+      riferimento: "allegato III, punto 3.3",
+      titolo: "Larghezza complessiva delle uscite in rapporto all'affollamento",
+      grandezza: "larghezza_uscita_totale_m",
+      operatore: ">=",
+      // Larghezza = 0,60 m x numero di moduli, con moduli = affollamento / 50
+      // (capacita' di deflusso al piano terra).
+      dipendeDa: "affollamento",
+      valoreDa: (n) => +(0.60 * Math.ceil(n / 50)).toFixed(2),
+      unita: "m",
+      nota: "Moduli da 0,60 m, capacita' di deflusso 50 persone per il piano terra "
+          + "(37,5 ai piani superiori, caso non coperto qui).",
       validato: false,
     },
     // ===================================================== ANTINCENDIO — USA
@@ -10883,23 +11081,74 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
   // conformi e non, e si tiene IL PEGGIORE: in una verifica di conformita' la
   // media non significa niente, conta il punto che non passa.
   // ---------------------------------------------------------------------------
+  // I dati di progetto: cio' che un modello 3D NON puo' contenere e che solo
+  // chi progetta sa. Vivono in window.__veritasDatiProgetto, il pannello li
+  // riempie, e da qui dipendono le soglie condizionate.
+  const DATI_RICHIESTI = {
+    rischioIncendio: {
+      etichetta: "Classificazione del rischio di incendio",
+      tipo: "scelta",
+      opzioni: ["basso", "medio", "elevato"],
+      perche: "Da essa dipende la lunghezza massima ammessa del percorso di esodo: "
+            + "60 m se basso, 45 se medio, 30 se elevato. Senza questo dato la verifica "
+            + "sull'esodo non ha una soglia, e nessuno puo' sceglierla al posto tuo.",
+      fonte: "DM 10/03/1998, allegato III",
+    },
+    affollamento: {
+      etichetta: "Affollamento previsto (persone)",
+      tipo: "numero",
+      perche: "La larghezza complessiva delle uscite si dimensiona su questo: moduli da "
+            + "0,60 m, uno ogni 50 persone. E' una decisione legata alla destinazione d'uso, "
+            + "non una grandezza geometrica.",
+      fonte: "DM 10/03/1998, allegato III",
+    },
+  };
+
+  function datiProgetto() {
+    return (typeof window !== "undefined" && window.__veritasDatiProgetto) || {};
+  }
+
+  // Risolve la soglia di una regola condizionata. Restituisce null quando il
+  // dato manca: e' il caso che va DETTO, non colmato con un valore plausibile.
+  function soglia(r, dati) {
+    if (!r.dipendeDa) return r.valore;
+    const v = dati ? dati[r.dipendeDa] : undefined;
+    if (v === undefined || v === null || v === "") return null;
+    if (r.valorePer) return r.valorePer[v] != null ? r.valorePer[v] : null;
+    if (r.valoreDa) {
+      const n = Number(v);
+      return isFinite(n) && n > 0 ? r.valoreDa(n) : null;
+    }
+    return r.valore;
+  }
+
   function valuta(misure, opzioni) {
     const opt = opzioni || {};
     const ambito = opt.ambito || null;
     const giurisdizione = opt.giurisdizione || null;
+    const dati = opt.dati || datiProgetto();
     const esiti = [];
     for (const r of REGOLE) {
       if (ambito && r.ambito !== ambito) continue;
       if (giurisdizione && r.giurisdizione !== giurisdizione) continue;
+      // Prima la soglia: se dipende da un dato che manca, la regola non si
+      // valuta e lo dichiara. Una verifica che sceglie in silenzio il valore
+      // che le conviene e' peggio di una verifica assente.
+      const s = soglia(r, dati);
+      if (s === null) {
+        esiti.push({ regola: r, stato: "dipendenza_mancante", manca: r.dipendeDa,
+                     conformi: 0, difformi: 0, peggiore: null, soglia: null });
+        continue;
+      }
       const valori = (misure && misure[r.grandezza]) || [];
       if (!valori.length) {
-        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null });
+        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null, soglia: s });
         continue;
       }
       let conformi = 0, difformi = 0, peggiore = null;
       for (const v of valori) {
         if (typeof v !== "number" || !isFinite(v)) continue;
-        if (confronta(v, r.operatore, r.valore)) conformi++;
+        if (confronta(v, r.operatore, s)) conformi++;
         else {
           difformi++;
           // il peggiore e' il piu' lontano dalla soglia, nel verso che viola
@@ -10908,12 +11157,12 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
         }
       }
       if (!conformi && !difformi) {
-        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null });
+        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null, soglia: s });
       } else {
         esiti.push({
           regola: r,
           stato: difformi ? "difforme" : "conforme",
-          conformi, difformi, peggiore,
+          conformi, difformi, peggiore, soglia: s,
         });
       }
     }
@@ -10925,17 +11174,23 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
   function racconta(esito) {
     const r = esito.regola;
     const dove = r.fonte + ", " + r.riferimento;
-    const soglia = r.valore + " " + r.unita;
+    const val = esito.soglia != null ? esito.soglia : r.valore;
+    const sogliaTxt = val + " " + r.unita;
+    if (esito.stato === "dipendenza_mancante") {
+      const d = DATI_RICHIESTI[esito.manca];
+      return "◻️ " + r.titolo + ": non verificabile, manca un dato di progetto — "
+           + (d ? d.etichetta.toLowerCase() : esito.manca) + " (" + dove + ").";
+    }
     if (esito.stato === "non_misurabile") {
-      return "· " + r.titolo + " (" + dove + ", " + r.operatore + " " + soglia + "): non misurabile su questo modello.";
+      return "· " + r.titolo + " (" + dove + ", " + r.operatore + " " + sogliaTxt + "): non misurabile su questo modello.";
     }
     if (esito.stato === "conforme") {
       return "✅ " + r.titolo + ": " + esito.conformi + " casi verificati, tutti conformi ("
-           + dove + ", minimo " + soglia + ").";
+           + dove + ", minimo " + sogliaTxt + ").";
     }
     const totale = esito.conformi + esito.difformi;
     return "❌ " + r.titolo + ": " + esito.difformi + " casi su " + totale + " non conformi, il peggiore "
-         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + soglia + " richiesti ("
+         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + sogliaTxt + " richiesti ("
          + dove + ").";
   }
 
@@ -10950,8 +11205,17 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
          + "progettuale, non come attestazione di conformita'.";
   }
 
+  // Quali dati di progetto mancano, con il PERCHE' servono. Un pannello che
+  // chiede un numero senza dire a cosa serve non viene compilato.
+  function dipendenzeMancanti(esiti) {
+    const chiavi = Array.from(new Set(
+      esiti.filter((e) => e.stato === "dipendenza_mancante").map((e) => e.manca)));
+    return chiavi.map((k) => ({ chiave: k, ...DATI_RICHIESTI[k] }));
+  }
+
   window.__veritasNormative = {
     REGOLE, valuta, racconta, avvertenzaValidazione, confronta,
+    DATI_RICHIESTI, dipendenzeMancanti, soglia, datiProgetto,
     ambiti: () => Array.from(new Set(REGOLE.map((r) => r.ambito))),
     giurisdizioni: () => Array.from(new Set(REGOLE.map((r) => r.giurisdizione))),
   };
@@ -11166,6 +11430,11 @@ console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasP
         larghezza_uscita_m: uscite.map((u) => u.widthConservativeM != null ? u.widthConservativeM : u.widthM)
                                   .filter((x) => x > 0),
         lunghezza_percorso_esodo_m: distanze ? [distanze.percorsoMassimoM] : [],
+        // La somma, non i singoli: la norma dimensiona la larghezza
+        // COMPLESSIVA delle uscite sull'affollamento.
+        larghezza_uscita_totale_m: [+uscite.reduce((s, u) =>
+          s + (u.widthConservativeM != null ? u.widthConservativeM : (u.widthM || 0)), 0).toFixed(2)]
+          .filter((x) => x > 0),
         larghezza_via_esodo_m: (livello.bottlenecks || [])
           .map((b) => b.widthConservativeM != null ? b.widthConservativeM : b.widthM)
           .filter((x) => x > 0),

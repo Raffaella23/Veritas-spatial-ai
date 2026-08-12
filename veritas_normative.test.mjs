@@ -67,5 +67,51 @@ const avv = N.avvertenzaValidazione(esiti);
 check('c e ed e esplicita', avv && /non sono ancora state validate/.test(avv));
 check('non dichiara conformita', avv && /non come attestazione di conformit/.test(avv));
 
+
+// ---------------------------------------------------------------------------
+// Soglie condizionate ai dati di progetto (aggiunte 12/08/2026)
+// ---------------------------------------------------------------------------
+console.log('\nsoglie che dipendono da un dato di progetto');
+const misureEsodo = { lunghezza_percorso_esodo_m: [42], larghezza_uscita_totale_m: [1.2] };
+const senzaDati = N.valuta(misureEsodo, { ambito: 'antincendio', dati: {} });
+const idx = Object.fromEntries(senzaDati.map((e) => [e.regola.id, e]));
+check('senza rischio dichiarato NON da un verdetto', idx.it_dm1998_percorso.stato === 'dipendenza_mancante');
+check('e dice QUALE dato manca', idx.it_dm1998_percorso.manca === 'rischioIncendio');
+check('idem per l affollamento', idx.it_dm1998_moduli.stato === 'dipendenza_mancante');
+check('le regole non condizionate restano valutate', idx.it_dm1998_uscita.stato !== 'dipendenza_mancante');
+
+console.log('\n42 m di percorso: lo stesso edificio, tre verdetti diversi');
+for (const [rischio, atteso] of [['basso','conforme'],['medio','conforme'],['elevato','difforme']]) {
+  const e = N.valuta(misureEsodo, { ambito: 'antincendio', dati: { rischioIncendio: rischio } })
+             .find((x) => x.regola.id === 'it_dm1998_percorso');
+  check(`rischio ${rischio} -> ${atteso} (soglia ${e.soglia} m)`, e.stato === atteso, e.stato);
+}
+
+console.log('\naffollamento -> moduli da 0,60 m');
+for (const [pax, soglia] of [[50, 0.6], [51, 1.2], [100, 1.2], [101, 1.8], [500, 6]]) {
+  const e = N.valuta({ larghezza_uscita_totale_m: [99] }, { ambito: 'antincendio', dati: { affollamento: pax } })
+             .find((x) => x.regola.id === 'it_dm1998_moduli');
+  check(`${pax} persone -> ${soglia} m`, Math.abs(e.soglia - soglia) < 0.001, String(e.soglia));
+}
+const stretta = N.valuta({ larghezza_uscita_totale_m: [1.2] }, { ambito: 'antincendio', dati: { affollamento: 200 } })
+                 .find((x) => x.regola.id === 'it_dm1998_moduli');
+check('200 persone con 1.2 m di uscite: difforme', stretta.stato === 'difforme', `serve ${stretta.soglia} m`);
+
+console.log('\nun dato sbagliato non passa per buono');
+for (const v of ['', null, 'altissimo', 0, -5]) {
+  const e = N.valuta(misureEsodo, { ambito: 'antincendio', dati: { rischioIncendio: v, affollamento: v } });
+  const p = e.find((x) => x.regola.id === 'it_dm1998_percorso');
+  check(`valore ${JSON.stringify(v)} -> resta sospesa`, p.stato === 'dipendenza_mancante');
+}
+
+console.log('\ncosa dice il pannello');
+check('elenca le dipendenze mancanti', N.dipendenzeMancanti(senzaDati).length === 2);
+check('ognuna spiega PERCHE serve', N.dipendenzeMancanti(senzaDati).every((d) => d.perche && d.perche.length > 40));
+check('ognuna cita la fonte', N.dipendenzeMancanti(senzaDati).every((d) => /DM /.test(d.fonte)));
+check('la frase distingue sospesa da non misurabile', /manca un dato di progetto/.test(N.racconta(idx.it_dm1998_percorso)));
+check('la frase conforme mostra la soglia RISOLTA, non quella di base',
+  /45 m/.test(N.racconta(N.valuta(misureEsodo, { ambito:'antincendio', dati:{rischioIncendio:'medio'} })
+    .find((x) => x.regola.id === 'it_dm1998_percorso'))));
+
 console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
 process.exit(ko?1:0);

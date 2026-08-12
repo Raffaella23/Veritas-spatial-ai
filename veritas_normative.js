@@ -206,10 +206,32 @@
       titolo: "Lunghezza massima del percorso di esodo",
       grandezza: "lunghezza_percorso_esodo_m",
       operatore: "<=",
-      valore: 45,
+      // La soglia NON esiste in assoluto: dipende dal livello di rischio, che
+      // e' una classificazione di progetto. Senza quel dato non c'e' verdetto,
+      // e la regola lo dichiara invece di scegliere un valore per conto suo.
+      dipendeDa: "rischioIncendio",
+      valorePer: { basso: 60, medio: 45, elevato: 30 },
       unita: "m",
-      nota: "Valore per rischio MEDIO. Rischio elevato 15-30 m, rischio basso 45-60 m: "
-          + "la classificazione del rischio la fa il progettista, non questo strumento.",
+      nota: "Rischio basso 45-60 m, medio 30-45 m, elevato 15-30 m. Qui si usa l'estremo "
+          + "superiore di ciascuna fascia. La classificazione del rischio la fa il progettista.",
+      validato: false,
+    },
+    {
+      id: "it_dm1998_moduli",
+      ambito: "antincendio",
+      giurisdizione: "IT",
+      fonte: "DM 10/03/1998",
+      riferimento: "allegato III, punto 3.3",
+      titolo: "Larghezza complessiva delle uscite in rapporto all'affollamento",
+      grandezza: "larghezza_uscita_totale_m",
+      operatore: ">=",
+      // Larghezza = 0,60 m x numero di moduli, con moduli = affollamento / 50
+      // (capacita' di deflusso al piano terra).
+      dipendeDa: "affollamento",
+      valoreDa: (n) => +(0.60 * Math.ceil(n / 50)).toFixed(2),
+      unita: "m",
+      nota: "Moduli da 0,60 m, capacita' di deflusso 50 persone per il piano terra "
+          + "(37,5 ai piani superiori, caso non coperto qui).",
       validato: false,
     },
     // ===================================================== ANTINCENDIO — USA
@@ -277,23 +299,74 @@
   // conformi e non, e si tiene IL PEGGIORE: in una verifica di conformita' la
   // media non significa niente, conta il punto che non passa.
   // ---------------------------------------------------------------------------
+  // I dati di progetto: cio' che un modello 3D NON puo' contenere e che solo
+  // chi progetta sa. Vivono in window.__veritasDatiProgetto, il pannello li
+  // riempie, e da qui dipendono le soglie condizionate.
+  const DATI_RICHIESTI = {
+    rischioIncendio: {
+      etichetta: "Classificazione del rischio di incendio",
+      tipo: "scelta",
+      opzioni: ["basso", "medio", "elevato"],
+      perche: "Da essa dipende la lunghezza massima ammessa del percorso di esodo: "
+            + "60 m se basso, 45 se medio, 30 se elevato. Senza questo dato la verifica "
+            + "sull'esodo non ha una soglia, e nessuno puo' sceglierla al posto tuo.",
+      fonte: "DM 10/03/1998, allegato III",
+    },
+    affollamento: {
+      etichetta: "Affollamento previsto (persone)",
+      tipo: "numero",
+      perche: "La larghezza complessiva delle uscite si dimensiona su questo: moduli da "
+            + "0,60 m, uno ogni 50 persone. E' una decisione legata alla destinazione d'uso, "
+            + "non una grandezza geometrica.",
+      fonte: "DM 10/03/1998, allegato III",
+    },
+  };
+
+  function datiProgetto() {
+    return (typeof window !== "undefined" && window.__veritasDatiProgetto) || {};
+  }
+
+  // Risolve la soglia di una regola condizionata. Restituisce null quando il
+  // dato manca: e' il caso che va DETTO, non colmato con un valore plausibile.
+  function soglia(r, dati) {
+    if (!r.dipendeDa) return r.valore;
+    const v = dati ? dati[r.dipendeDa] : undefined;
+    if (v === undefined || v === null || v === "") return null;
+    if (r.valorePer) return r.valorePer[v] != null ? r.valorePer[v] : null;
+    if (r.valoreDa) {
+      const n = Number(v);
+      return isFinite(n) && n > 0 ? r.valoreDa(n) : null;
+    }
+    return r.valore;
+  }
+
   function valuta(misure, opzioni) {
     const opt = opzioni || {};
     const ambito = opt.ambito || null;
     const giurisdizione = opt.giurisdizione || null;
+    const dati = opt.dati || datiProgetto();
     const esiti = [];
     for (const r of REGOLE) {
       if (ambito && r.ambito !== ambito) continue;
       if (giurisdizione && r.giurisdizione !== giurisdizione) continue;
+      // Prima la soglia: se dipende da un dato che manca, la regola non si
+      // valuta e lo dichiara. Una verifica che sceglie in silenzio il valore
+      // che le conviene e' peggio di una verifica assente.
+      const s = soglia(r, dati);
+      if (s === null) {
+        esiti.push({ regola: r, stato: "dipendenza_mancante", manca: r.dipendeDa,
+                     conformi: 0, difformi: 0, peggiore: null, soglia: null });
+        continue;
+      }
       const valori = (misure && misure[r.grandezza]) || [];
       if (!valori.length) {
-        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null });
+        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null, soglia: s });
         continue;
       }
       let conformi = 0, difformi = 0, peggiore = null;
       for (const v of valori) {
         if (typeof v !== "number" || !isFinite(v)) continue;
-        if (confronta(v, r.operatore, r.valore)) conformi++;
+        if (confronta(v, r.operatore, s)) conformi++;
         else {
           difformi++;
           // il peggiore e' il piu' lontano dalla soglia, nel verso che viola
@@ -302,12 +375,12 @@
         }
       }
       if (!conformi && !difformi) {
-        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null });
+        esiti.push({ regola: r, stato: "non_misurabile", conformi: 0, difformi: 0, peggiore: null, soglia: s });
       } else {
         esiti.push({
           regola: r,
           stato: difformi ? "difforme" : "conforme",
-          conformi, difformi, peggiore,
+          conformi, difformi, peggiore, soglia: s,
         });
       }
     }
@@ -319,17 +392,23 @@
   function racconta(esito) {
     const r = esito.regola;
     const dove = r.fonte + ", " + r.riferimento;
-    const soglia = r.valore + " " + r.unita;
+    const val = esito.soglia != null ? esito.soglia : r.valore;
+    const sogliaTxt = val + " " + r.unita;
+    if (esito.stato === "dipendenza_mancante") {
+      const d = DATI_RICHIESTI[esito.manca];
+      return "◻️ " + r.titolo + ": non verificabile, manca un dato di progetto — "
+           + (d ? d.etichetta.toLowerCase() : esito.manca) + " (" + dove + ").";
+    }
     if (esito.stato === "non_misurabile") {
-      return "· " + r.titolo + " (" + dove + ", " + r.operatore + " " + soglia + "): non misurabile su questo modello.";
+      return "· " + r.titolo + " (" + dove + ", " + r.operatore + " " + sogliaTxt + "): non misurabile su questo modello.";
     }
     if (esito.stato === "conforme") {
       return "✅ " + r.titolo + ": " + esito.conformi + " casi verificati, tutti conformi ("
-           + dove + ", minimo " + soglia + ").";
+           + dove + ", minimo " + sogliaTxt + ").";
     }
     const totale = esito.conformi + esito.difformi;
     return "❌ " + r.titolo + ": " + esito.difformi + " casi su " + totale + " non conformi, il peggiore "
-         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + soglia + " richiesti ("
+         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + sogliaTxt + " richiesti ("
          + dove + ").";
   }
 
@@ -344,8 +423,17 @@
          + "progettuale, non come attestazione di conformita'.";
   }
 
+  // Quali dati di progetto mancano, con il PERCHE' servono. Un pannello che
+  // chiede un numero senza dire a cosa serve non viene compilato.
+  function dipendenzeMancanti(esiti) {
+    const chiavi = Array.from(new Set(
+      esiti.filter((e) => e.stato === "dipendenza_mancante").map((e) => e.manca)));
+    return chiavi.map((k) => ({ chiave: k, ...DATI_RICHIESTI[k] }));
+  }
+
   window.__veritasNormative = {
     REGOLE, valuta, racconta, avvertenzaValidazione, confronta,
+    DATI_RICHIESTI, dipendenzeMancanti, soglia, datiProgetto,
     ambiti: () => Array.from(new Set(REGOLE.map((r) => r.ambito))),
     giurisdizioni: () => Array.from(new Set(REGOLE.map((r) => r.giurisdizione))),
   };

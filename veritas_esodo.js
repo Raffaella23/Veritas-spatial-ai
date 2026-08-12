@@ -201,6 +201,11 @@
         larghezza_uscita_m: uscite.map((u) => u.widthConservativeM != null ? u.widthConservativeM : u.widthM)
                                   .filter((x) => x > 0),
         lunghezza_percorso_esodo_m: distanze ? [distanze.percorsoMassimoM] : [],
+        // La somma, non i singoli: la norma dimensiona la larghezza
+        // COMPLESSIVA delle uscite sull'affollamento.
+        larghezza_uscita_totale_m: [+uscite.reduce((s, u) =>
+          s + (u.widthConservativeM != null ? u.widthConservativeM : (u.widthM || 0)), 0).toFixed(2)]
+          .filter((x) => x > 0),
         larghezza_via_esodo_m: (livello.bottlenecks || [])
           .map((b) => b.widthConservativeM != null ? b.widthConservativeM : b.widthM)
           .filter((x) => x > 0),
