@@ -684,3 +684,125 @@ conversione e **rifiuta** la traiettoria se non descrive la scena caricata,
 ricadendo sul generatore JS locale. Il ponte lascia sempre tre righe in
 console con prefisso `[VERITAS bridge]` — sono la prima cosa da leggere se il
 motore reale si comporta male.
+
+---
+
+## 12. Stato reale — sessione 13 agosto 2026
+
+> **Blocco critico**: Zone assignment ancora rotto (5 vs 7). Tentativo di fix
+> con setTimeout fallito. Root cause: analisi geometrica lanciata asincrona da
+> modulo sconosciuto.
+
+### 12.0 Il difetto non è risolto
+
+**Console log reale** (modello caricato):
+```
+[VERITAS] analisi con motore geometrico: 7 zone, 63 strettoie, 84.23 m2 navigabili
+[VERITAS AUTO v5] nessuna zona misurate, ripiego sui nomi: Array(5)
+[VERITAS AUTO v5] Auto-assegnati 5 nodi da analyzeMesh
+```
+
+Il motore geometrico calcola **7 zone** correttamente, ma `__veritasOnModelLoaded`
+le vede **zero** e fallback a `analyzeMesh` che ne estrae **5 dai nomi mesh**.
+
+**Tentativo**: `setTimeout(..., 0)` a riga 2872 non ha risolto. Prova che
+l'asincronia è **ancora più profonda**.
+
+### 12.1 Root cause identificato
+
+L'analisi geometrica (`structuralAnalysisFromPoints`) è lanciata **asincrona da
+una fonte sconosciuta**, NON da `__veritasOnModelLoaded`:
+
+1. Modello caricato → `window.__veritasModelRoot` impostato (riga 9099)
+2. `__veritasOnModelLoaded(rootObj)` richiamato (riga 9102)
+3. **Subito**: `__veritasOnModelLoaded` esegue, verifica `lastZones` (vuoto),
+   fallback su `analyzeMesh` (5 zone)
+4. **In parallelo**: Un modulo (forse blocco 3 React, o blocchi 8-9) lancia
+   `structuralAnalysisFromPoints`, popola `lastZones` con 7 zone
+5. **Troppo tardi**: `__veritasOnModelLoaded` ha già finito e scelto i 5
+
+**Dove stampa il messaggio "analisi con motore geometrico"?** Riga 2739, dentro
+`structuralAnalysisFromPoints`. Ma NON è raggiunto da `__veritasOnModelLoaded`.
+
+**Chi chiama `structuralAnalysisFromPoints`?**
+- Non direttamente `__veritasOnModelLoaded` ❌
+- Potenzialmente: blocco 3 (bundle React), moduli ES (blocchi 8-9), handler UI
+
+### 12.2 Prossimo passo — vero fix
+
+**Azione 1: Trovare il lanciatore**
+```bash
+grep -rn "Ho riconosciuto" . --include=*.js --include=*.md
+grep -rn "classifyEnvironment\|zonesFromPerceptionEngine" . --include=*.js
+```
+
+Se "Ho riconosciuto" è in `veritas_perception.js` (blocco 9 inlinato), allora
+il lanciatore è un modulo ES, **non** il blocco 2.
+
+**Azione 2: Aggiungere callback post-analisi**
+
+Una volta trovato il lanciatore, aggiungere una callback tipo:
+
+```javascript
+window.__veritasOnAnalysisComplete = () => {
+  if (lastZones && lastZones.length >= 2) {
+    console.log('[VERITAS callback] Analisi completata, assegno', lastZones.length, 'zone');
+    applyAutoAssignment(lastZones);
+  }
+};
+```
+
+E richiamarlo dal lanciatore dopo che `structuralAnalysisFromPoints` termina.
+
+**Azione 3: Verificare**
+
+Dopo il fix, console dovrebbe mostrare:
+```
+[VERITAS] analisi con motore geometrico: 7 zone
+[VERITAS callback] Analisi completata, assegno 7 zone
+[VERITAS AUTO v5] Auto-assegnati 7 nodi da motore geometrico
+```
+
+### 12.3 Normative, visuale, esodo — tutto OK
+
+- ✅ **Accessibilità, antincendio, affollamento**: 3 framework × 19 soglie
+- ✅ **Mappa di esodo**: heatmap texture floor
+- ✅ **Flusso di particelle**: discende gradiente distanze
+- ✅ **Zone pulsanti**: anelli animati per verdetto
+- ✅ **Deploy Render**: Python Core operativo, `start_delay` funzionante
+- ✅ **OpenSky**: distribuzione partenze da arrivi reali
+
+### 12.4 Blocchi aperti oltre zone
+
+1. **Gaussian Splat** (fermo): Spark richiede three ≥ r179, importmap fissa 0.171
+2. **Doppio Three.js**: Warning "Multiple instances"
+3. **Pannelli KPI sotto 1280px**: Layout Tailwind non intercettato dai selettori
+4. **Agente pathfinding**: Attraversa muri (Backend issue, Assets/core/)
+
+### 12.5 La richiesta di Raffaella: "Gli occhi"
+
+> *"Dovresti dare a questi agenti gli occhi, dovresti dare anche gli occhi per
+> guardare le immagini e in questo caso i modelli."*
+
+**Tre opzioni**:
+
+**A) Motore di percezione geometrico + ragionamento di sequenza**
+- Ordina le 7 zone per flusso geometrico (terra → volo)
+- Riconosci tipo spazio da forma/misura (rettangolo stretto = corridoio)
+- Deduce funzione da posizione nella sequenza
+- ⏱️ **1-2 giorni**, nessun costo LLM, deterministico
+
+**B) LLM-based visione 3D**
+- Genera screenshot del modello da più angoli
+- Manda a Claude Vision per etichettatura semantica
+- Vincola le 7 zone geometriche agli spazi riconosciuti
+- ⏱️ **2-3 giorni**, costo API Vision per modello, latenza
+
+**C) Ibrido**
+- A per misure e geometria (sempre)
+- B per validazione semantica quando richiesto (optional)
+- ⏱️ **3-4 giorni**
+
+**Suggerimento**: Partire da A (percettivo geometrico puro). Raffaella sa come
+riconoscere uno spazio guardandolo — un algoritmo che capisce forma/flusso è
+la prima cosa vera.
