@@ -2407,20 +2407,23 @@
 
   function applyAutoAssignment(zones) {
     const points = lastNavigablePoints || [];
+    console.log('[VERITAS AUTO v4 DEBUG] applyAutoAssignment chiamato, zone:', zones ? zones.length : 'null', ', currentNodes:', currentNodes ? currentNodes.length : 'null');
     try {
       lastZones = zones;
       lastNavigablePoints = points;
       window.__veritasAutoZones = zones;
       window.__veritasAutoPoints = points;
-      
+
       // Se currentNodes è vuoto o ha meno di 2 punti, auto-assegna
       const hasFewNodes = !currentNodes || currentNodes.length < 2;
       if (hasFewNodes && zones && zones.length >= 2) {
+        console.log('[VERITAS AUTO v4 DEBUG] Tentativo assegnaZoneMisurate, root disponibile:', !!window.__veritasModelRoot);
         // Una sola assegnazione, dalle zone MISURATE. Prima ce n'erano tre in
         // concorrenza (questa, quella per nome in onModelLoaded, e un ripiego)
         // e vinceva sempre l'ultima che scriveva: quella per nome, cioe' la
         // peggiore. Vedi la nota su assegnaZoneMisurate.
         const daMisura = assegnaZoneMisurate(zones, window.__veritasModelRoot);
+        console.log('[VERITAS AUTO v4 DEBUG] assegnaZoneMisurate ritornò:', daMisura ? daMisura.length + ' nodi' : 'null/falsy');
         if (daMisura) {
           currentNodes = daMisura;
           idCounter = daMisura.length;
