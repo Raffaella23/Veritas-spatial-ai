@@ -2891,8 +2891,24 @@
         applyAutoAssignment(lastZones);
       } else if (analisiGeometricaAssente) {
       const analyzed = analyzeMesh(modelRoot);
-      console.log('[VERITAS AUTO v5] nessuna zona misurata, ripiego sui nomi:', analyzed);
-      if (analyzed && analyzed.length >= 2) {
+      // ⚠️ Il difetto "5 zone invece di 7", diagnosticato male il 13/08/2026.
+      //
+      // Non c'e' nessun lanciatore asincrono sconosciuto, e il 5 non viene dai
+      // nomi delle mesh: quando non trova zone dai nomi, analyzeMesh lancia LUI
+      // l'analisi geometrica -- che misura le zone reali, popola lastZones e le
+      // assegna correttamente -- e poi le COMPRIME nelle sue cinque tappe fisse
+      // (spawn, checkin, security, lounge, gate) prima di restituirle. Prendere
+      // il suo valore di ritorno buttava via la misura appena fatta.
+      //
+      // Quindi al ritorno si ricontrolla lastZones: se ora c'e', vale piu' del
+      // modello a cinque tappe, che e' un'ipotesi sul tipo di edificio e non
+      // una misura di questo edificio.
+      if (lastZones && lastZones.length >= 2) {
+        console.log('[VERITAS AUTO v5] analyzeMesh ha MISURATO', lastZones.length,
+                    'zone: uso quelle invece delle', analyzed ? analyzed.length : 0,
+                    'tappe generiche del modello aeroportuale');
+        applyAutoAssignment(lastZones);
+      } else if (analyzed && analyzed.length >= 2) {
         // Se analyzed è array di nodi, usalo, altrimenti crea da lastZones
         currentNodes = analyzed;
         idCounter = currentNodes.length;
