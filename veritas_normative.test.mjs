@@ -19,7 +19,14 @@ let ko = 0; const check = (n, ok, d='') => { console.log((ok?'  ok  ':' FAIL ')+
 
 console.log('la tabella');
 check('soglie caricate', N.REGOLE.length >= 9, N.REGOLE.length + ' regole');
-check('due giurisdizioni', N.giurisdizioni().sort().join(',') === 'IT,US', N.giurisdizioni().join(','));
+check('le due giurisdizioni cogenti ci sono', ['IT','US'].every((g) => N.giurisdizioni().includes(g)), N.giurisdizioni().join(','));
+// Fruin e Hall non hanno giurisdizione: sono ricerca, non legge di un paese.
+// Il segnaposto '—' e' ammesso SOLO per le regole non cogenti.
+check('nessuna regola cogente senza giurisdizione',
+  N.REGOLE.filter((r) => r.giurisdizione === '—').every((r) => r.cogente === false));
+check('e nessuna non cogente spacciata per norma',
+  N.REGOLE.filter((r) => r.ambito === 'affollamento').every((r) => r.cogente === false));
+check('le regole cogenti restano tali', N.REGOLE.filter((r) => r.ambito !== 'affollamento').every((r) => r.cogente !== false));
 check('ogni regola cita la fonte', N.REGOLE.every((r) => r.fonte && r.riferimento));
 check('ogni regola ha unita di misura', N.REGOLE.every((r) => r.unita));
 check('operatori solo >= o <=', N.REGOLE.every((r) => r.operatore === '>=' || r.operatore === '<='));
