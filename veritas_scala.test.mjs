@@ -29,7 +29,7 @@ let ko = 0; const check = (n, ok, d='') => { console.log((ok?'  ok  ':' FAIL ')+
 
 // Il caso reale di Raffaella: passaggio piu' stretto 0.15m, 31 varchi
 const suo = run(g(0.15,0.16,0.15,0.18,0.14,0.15,0.17,0.16,0.15,0.19,0.15));
-check('modello non in metri riconosciuto', !!suo);
+check("modello non in metri riconosciuto", !!suo && /non era in metri/.test(suo.diagnosi));
 check('fattore stimato ~6x', suo && Math.abs(suo.fattore - 6) < 0.6, suo ? suo.fattore + 'x (mediana ' + suo.mediana.toFixed(2) + 'm)' : '-');
 
 // Edificio vero in metri: non deve dire nulla

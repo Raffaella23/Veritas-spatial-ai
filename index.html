@@ -2460,9 +2460,36 @@
       msg += " Passaggio piu' stretto: " + piuStretta.widthM.toFixed(2) + " m.";
     }
     const scala = veritasScaleSanity();
-    if (scala) msg += " " + scala.messaggio;
+    if (scala) {
+      // Zero attrito per chi apre il file: se so calcolare il fattore, lo
+      // applico. Chiedere all'utente di scrivere "scala modello 6" significa
+      // scaricare su di lui un lavoro che ho gia' fatto, e pretendere che
+      // sappia gia' cosa non va. Si corregge e SI DICHIARA, con l'inverso a
+      // portata di mano: agire senza dirlo sarebbe peggio che non agire.
+      if (veritasAutoScaleModel(scala)) return; // riparte l'analisi sul modello corretto
+      msg += " " + scala.diagnosi + " Scrivi \"scala modello " + scala.fattore + "\" per correggerlo.";
+    }
     console.log("[VERITAS] " + msg + " Strategia zone: " + v.strategia + ".");
     try { if (window.__veritasAnnounce) window.__veritasAnnounce(msg); } catch (e) {}
+  }
+
+  // Applica la correzione di scala una volta sola per modello caricato. Il
+  // segno sta su userData della radice: un modello nuovo e' un oggetto nuovo,
+  // quindi il permesso si rinnova da solo senza contatori da azzerare a mano.
+  // Il limite a una sola correzione e' la rete di sicurezza contro il ciclo
+  // analisi -> riscalo -> analisi, che altrimenti non avrebbe un fondo.
+  function veritasAutoScaleModel(scala) {
+    const root = window.__veritasModelRoot;
+    if (!root || typeof window.__veritasScaleModel !== "function") return false;
+    if (!root.userData) root.userData = {};
+    if (root.userData.__veritasAutoScaled) return false;
+    root.userData.__veritasAutoScaled = true;
+    const spiegazione = scala.diagnosi
+      + " L'ho corretto io: modello ingrandito " + scala.fattore + " volte, e rianalizzo."
+      + " Se il fattore non ti torna, scrivi \"scala modello <n>\" — tu la scala di questo"
+      + " spazio la riconosci meglio di qualunque regola.";
+    console.warn("[VERITAS scala] correzione automatica applicata:", scala.fattore + "x");
+    return window.__veritasScaleModel(scala.fattore, spiegazione);
   }
 
   // Il modello e' in metri? Detto dall'architettura, non dall'ingombro.
@@ -2503,11 +2530,9 @@
     return {
       fattore: arrotondato,
       mediana,
-      messaggio: "⚠️ Attenzione: i varchi che ho misurato hanno larghezza mediana "
-               + mediana.toFixed(2) + " m, ma una porta non e' mai piu' stretta di "
-               + VARCO_REALE_M.toFixed(2) + " m. Questo modello non e' in metri. "
-               + "Scrivi \"scala modello " + arrotondato + "\" per correggerlo: "
-               + "finche' non lo fai, le misure e il report non valgono.",
+      diagnosi: "⚠️ Questo modello non era in metri: i varchi che ho misurato hanno larghezza"
+              + " mediana " + mediana.toFixed(2) + " m, e una porta non e' mai piu' stretta di "
+              + VARCO_REALE_M.toFixed(2) + " m.",
     };
   }
 
@@ -8347,12 +8372,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       const root = window.__veritasModelRoot;
       if (!root) { log("system", S.no_model); return; }
       if (!isFinite(f) || f <= 0) { log("assistant", S.scale_bad); return; }
-      root.scale.multiplyScalar(f);
-      root.updateMatrixWorld(true);
-      groundModel(root);
-      if (window.__veritasPerception) window.__veritasPerception.reset();
-      log("assistant", S.scale_done(f));
-      try { if (window.__veritasOnModelLoaded) window.__veritasOnModelLoaded(root); } catch (e) { console.error(e); }
+      window.__veritasScaleModel(f);
       return;
     }
 
@@ -8484,6 +8504,20 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
         rootObj.updateMatrixWorld(true);
         console.log("[VERITAS AI-OS] modello appoggiato al piano: spostato di", (-drop).toFixed(2), "m in verticale");
       }
+      // Punto unico per riscalare il modello: lo usa il comando "scala
+      // modello <n>" e lo usa la correzione automatica dell'analisi. Se
+      // fossero due strade separate divergerebbero alla prima modifica.
+      window.__veritasScaleModel = function (f, spiegazione) {
+        const r = window.__veritasModelRoot;
+        if (!r || !isFinite(f) || f <= 0) return false;
+        r.scale.multiplyScalar(f);
+        r.updateMatrixWorld(true);
+        groundModel(r);
+        if (window.__veritasPerception) window.__veritasPerception.reset();
+        log("assistant", spiegazione || S.scale_done(f));
+        try { if (window.__veritasOnModelLoaded) window.__veritasOnModelLoaded(r); } catch (e) { console.error(e); }
+        return true;
+      };
       // Dimensioni reali, dette in chiaro.
       //
       // Gli agenti sono a scala umana (1.71m): se il modello NON e' in scala
