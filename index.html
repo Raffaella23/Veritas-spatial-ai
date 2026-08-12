@@ -2142,6 +2142,28 @@
 
   const CORRIDOR_MIN_WIDTH = 1.5; // soglia indicativa di riferimento (m), non normativa certificata
 
+  // Quota dei piani calpestabili.
+  //
+  // Si separano le fasce dove fra un punto e il successivo c'e' piu' di 1.5m
+  // (piani diversi di un edificio), poi dentro ogni fascia si cerca il
+  // pavimento.
+  //
+  // ⚠️ Qui prima si prendeva la MEDIANA della fascia, ed e' l'errore che
+  // faceva "non trovare la quota" alle zone. Dentro 1.5m ci sta un intero
+  // arredamento -- sedute a 0.45, banchi a 0.75, banconi a 1.10 -- e sono
+  // tutte superfici rivolte verso l'alto, quindi tutte campionate. In una
+  // sala arredata la mediana finisce in mezzo all'arredo: misurato su una
+  // sala con pavimento di 900 m2, sedute 300, banchi 400 e banconi 250, la
+  // mediana dava 0.45m invece di 0.00m. Le zone si posavano quindi mezzo
+  // metro sopra il pavimento, e gli agenti con loro.
+  //
+  // Un pavimento non e' la mediana delle superfici orizzontali: e' la piu'
+  // ESTESA, e sta in basso. Si prende quindi la MODA su fasce sottili (la
+  // quota dove si concentra piu' superficie), e poi la mediana dei soli
+  // punti di quella fascia sottile per avere un valore preciso e non il
+  // bordo di un intervallo. Nessun arredo singolo copre piu' area del
+  // pavimento su cui poggia, quindi la moda cade sul pavimento.
+  const FLOOR_BIN_M = 0.1; // 10 cm: distingue il pavimento dal primo gradino
   function detectFloorLevels(points) {
     if (!points.length) return [0];
     const ys = points.map((p) => p[1]).sort((a, b) => a - b);
@@ -2150,11 +2172,29 @@
     for (let i = 1; i <= ys.length; i++) {
       if (i === ys.length || ys[i] - ys[i - 1] > 1.5) {
         const band = ys.slice(bandStart, i);
-        levels.push(band[Math.floor(band.length / 2)]); // mediana della fascia
+        levels.push(floorOfBand(band));
         bandStart = i;
       }
     }
     return levels;
+  }
+
+  function floorOfBand(band) {
+    if (!band.length) return 0;
+    const conta = new Map();
+    for (const y of band) {
+      const b = Math.round(y / FLOOR_BIN_M);
+      conta.set(b, (conta.get(b) || 0) + 1);
+    }
+    let migliore = null, maxConta = -1;
+    conta.forEach((c, b) => {
+      // A parita' di campioni vince la quota piu' bassa: fra un pavimento e
+      // una passerella altrettanto estesa, si cammina su entrambi ma il
+      // piano di riferimento e' quello sotto.
+      if (c > maxConta || (c === maxConta && b < migliore)) { maxConta = c; migliore = b; }
+    });
+    const dentro = band.filter((y) => Math.round(y / FLOOR_BIN_M) === migliore);
+    return dentro.length ? dentro[Math.floor(dentro.length / 2)] : band[Math.floor(band.length / 2)];
   }
 
   let lastNavigablePoints = null;
@@ -2982,7 +3022,14 @@
       // ondate regolari. Senza nulla di tutto questo il motore farebbe partire
       // ogni agente nello stesso istante e il flusso diventerebbe un blocco
       // compatto che si muove all'unisono.
-      const startDelays = veritasStartDelays(count, durataSimS, (i) => (Math.floor(i / 3) * 3.5) % 42);
+      // Il `% 3` sfasa i compagni di gruppo. Senza, i tre agenti di uno stesso
+      // gruppo condividevano percorso E istante di partenza, quindi partivano
+      // esattamente sovrapposti: si vedeva una sola sagoma dove ce n'erano
+      // tre, e le compenetrazioni comparivano e sparivano a seconda che le
+      // velocita' (che variano del +-10%) li avessero separati o no. Il
+      // generatore JS locale sfasava gia' agente per agente; questo ramo no.
+      const startDelays = veritasStartDelays(count, durataSimS,
+                                             (i) => (Math.floor(i / 3) * 3.5) % 42 + (i % 3) * 0.8);
       const agents = [];
       for (let i = 0; i < count; i++) {
         const archetype = keys[i % keys.length];
