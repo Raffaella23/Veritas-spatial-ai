@@ -265,6 +265,83 @@
     },
   ];
 
+  // ================================================== AFFOLLAMENTO E SOCIALE
+  //
+  // ⚠️ QUESTE NON SONO NORME COGENTI, e il report deve dirlo.
+  //
+  // Densita' di folla, livelli di servizio e distanze interpersonali sono
+  // standard di progetto e risultati di ricerca: si citano, si usano, si
+  // difendono in una relazione — ma nessuno viola una legge superandoli.
+  // Presentarli come obblighi accanto al DM 236 significherebbe indebolire
+  // anche quelli veri.
+  const REGOLE_SOCIALI = [
+    {
+      id: "fruin_los_camminamento",
+      ambito: "affollamento",
+      giurisdizione: "—",
+      cogente: false,
+      fonte: "Fruin, Pedestrian Planning and Design (1971)",
+      riferimento: "Level of Service D/E per i camminamenti",
+      titolo: "Densita' oltre la quale il cammino si degrada",
+      grandezza: "densita_p_m2",
+      operatore: "<=",
+      valore: 1.08,
+      unita: "p/m²",
+      nota: "Al di sopra si perde la liberta' di scegliere la propria velocita' e di sorpassare: "
+          + "il flusso diventa a scatti. Soglia di comfort, non di sicurezza.",
+      validato: false,
+    },
+    {
+      id: "sicurezza_folla",
+      ambito: "affollamento",
+      giurisdizione: "—",
+      cogente: false,
+      fonte: "Still, Introduction to Crowd Science (2014)",
+      riferimento: "soglie di densita' critica",
+      titolo: "Densita' di rischio per la folla",
+      grandezza: "densita_p_m2",
+      operatore: "<=",
+      valore: 4.0,
+      unita: "p/m²",
+      nota: "Oltre questa densita' il contatto diventa continuo e le onde di pressione si "
+          + "propagano da persona a persona: e' il meccanismo degli incidenti da schiacciamento. "
+          + "Sopra 5 p/m² il movimento individuale non e' piu' possibile.",
+      validato: false,
+    },
+    {
+      id: "green_guide_statico",
+      ambito: "affollamento",
+      giurisdizione: "UK",
+      cogente: false,
+      fonte: "Guide to Safety at Sports Grounds (Green Guide, 6a ed.)",
+      riferimento: "capienza delle aree in piedi",
+      titolo: "Densita' massima per aree con pubblico in piedi",
+      grandezza: "densita_p_m2",
+      operatore: "<=",
+      valore: 4.7,
+      unita: "p/m²",
+      nota: "47 persone ogni 10 m², riferito ad aree statiche e sorvegliate, non a spazi di transito.",
+      validato: false,
+    },
+    {
+      id: "hall_distanza_sociale",
+      ambito: "affollamento",
+      giurisdizione: "—",
+      cogente: false,
+      fonte: "Hall, The Hidden Dimension (1966)",
+      riferimento: "distanza sociale",
+      titolo: "Distanza interpersonale in attesa",
+      grandezza: "distanza_interpersonale_m",
+      operatore: ">=",
+      valore: 1.20,
+      unita: "m",
+      nota: "Sotto questa distanza si entra nella sfera personale: in coda si tollera, in "
+          + "sosta prolungata produce disagio. Varia molto per cultura, ed e' descrittiva.",
+      validato: false,
+    },
+  ];
+  REGOLE.push(...REGOLE_SOCIALI);
+
   // ---------------------------------------------------------------------------
   // COSA NON E' CODIFICATO, E PERCHE'.
   //
@@ -403,13 +480,16 @@
       return "· " + r.titolo + " (" + dove + ", " + r.operatore + " " + sogliaTxt + "): non misurabile su questo modello.";
     }
     if (esito.stato === "conforme") {
-      return "✅ " + r.titolo + ": " + esito.conformi + " casi verificati, tutti conformi ("
-           + dove + ", minimo " + sogliaTxt + ").";
+      return "✅ " + r.titolo + ": " + esito.conformi + " casi verificati, tutti entro la soglia ("
+           + dove + ", " + (r.operatore === ">=" ? "minimo " : "massimo ") + sogliaTxt + ")."
+           + (r.cogente === false ? " — standard di progetto, non norma cogente." : "");
     }
     const totale = esito.conformi + esito.difformi;
-    return "❌ " + r.titolo + ": " + esito.difformi + " casi su " + totale + " non conformi, il peggiore "
-         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + sogliaTxt + " richiesti ("
-         + dove + ").";
+    const segno = r.cogente === false ? "🟠" : "❌";
+    return segno + " " + r.titolo + ": " + esito.difformi + " casi su " + totale
+         + (r.cogente === false ? " oltre la soglia" : " non conformi") + ", il peggiore "
+         + esito.peggiore.toFixed(2) + " " + r.unita + " contro " + sogliaTxt + " ("
+         + dove + ")." + (r.cogente === false ? " — standard di progetto, non norma cogente." : "");
   }
 
   // Le regole non ancora validate da un professionista vanno dichiarate nel
