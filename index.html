@@ -1960,7 +1960,14 @@
           }
         }
       }
-      if (pts.length) perMesh.push({ pts, footprint: (maxX - minX) * (maxZ - minZ) || 0.01, box: [minX, maxX, minZ, maxZ] });
+      if (pts.length) {
+        let yMin = Infinity, yMax = -Infinity;
+        for (const p of pts) { if (p[1] < yMin) yMin = p[1]; if (p[1] > yMax) yMax = p[1]; }
+        perMesh.push({
+          pts, footprint: (maxX - minX) * (maxZ - minZ) || 0.01,
+          box: [minX, maxX, minZ, maxZ], yMin, yMax, nome: obj.name || "(senza nome)",
+        });
+      }
     });
     if (!perMesh.length) return [];
     // Passo 2: scarta le mesh con impronta "fuori scala" rispetto alla mediana
@@ -2016,6 +2023,58 @@
       for (const m of excluded) for (const p of m.pts) { sx += p[0]; sz += p[2]; cnt++; }
       if (cnt) airsideAnchor = [sx / cnt, 0, sz / cnt];
     }
+    // Segnaletica orizzontale: e' pavimento, non un piano a se'.
+    //
+    // I modelli reali di terminal, musei e livelli di gioco hanno strisce,
+    // frecce, aree di attesa e loghi modellati come mesh separate, appoggiate
+    // qualche centimetro sopra il pavimento per non compenetrarlo. Sono
+    // orizzontali e rivolte verso l'alto, quindi passavano tutti i filtri e
+    // finivano a definire una quota propria: le zone si posavano sulla
+    // segnaletica invece che sul pavimento, e restavano sospese.
+    //
+    // Il riconoscimento e' GEOMETRICO, non per nome. Un elenco di parole
+    // ("sign", "segnaletica", "decal") sarebbe la stessa trappola gia' pagata
+    // con i pannelli cercati per testo italiano e invisibili in inglese: il
+    // modello puo' arrivare da chiunque, in qualunque lingua, con qualunque
+    // convenzione di nomi. Le tre condizioni sono invece verificabili sulla
+    // geometria e valgono per i tre domini:
+    //
+    //   1. la mesh e' PIATTA (spessore verticale trascurabile)
+    //   2. sta APPENA SOPRA (pochi cm) una superficie sottostante
+    //   3. quella superficie e' MOLTO PIU' ESTESA e la contiene in pianta
+    //
+    // I punti non si buttano: si ABBASSANO alla quota dell'ospite. Sulla
+    // segnaletica ci si cammina eccome — e' pavimento dipinto — quindi
+    // toglierla farebbe sparire area navigabile vera. Va solo riportata alla
+    // quota giusta.
+    const DECAL_SPESSORE_MAX = 0.05; // 5 cm: una mesh piatta, non un gradino
+    const DECAL_STACCO_MAX = 0.15;   // 15 cm sopra l'ospite: oltre e' un podio
+    const DECAL_RAPPORTO_AREA = 4;   // l'ospite deve essere almeno 4 volte piu' esteso
+    let decalTrovati = 0, decalArea = 0;
+    for (const m of filtered) {
+      if (m.yMax - m.yMin > DECAL_SPESSORE_MAX) continue; // non e' una placca piatta
+      let ospite = null;
+      for (const o of filtered) {
+        if (o === m) continue;
+        if (o.footprint < m.footprint * DECAL_RAPPORTO_AREA) continue;
+        const stacco = m.yMin - o.yMax;
+        if (stacco < -0.01 || stacco > DECAL_STACCO_MAX) continue;
+        if (overlapRatio(m.box, o.box) < 0.9) continue; // deve starci sopra, in pianta
+        if (!ospite || o.footprint > ospite.footprint) ospite = o;
+      }
+      if (!ospite) continue;
+      // Quota dell'ospite sotto questa placca: la sua faccia superiore.
+      const quotaOspite = ospite.yMax;
+      for (const p of m.pts) p[1] = quotaOspite;
+      m.yMin = m.yMax = quotaOspite;
+      decalTrovati++; decalArea += m.footprint;
+    }
+    if (decalTrovati) {
+      console.log("[VERITAS quota] segnaletica orizzontale riconosciuta:", decalTrovati,
+                  "mesh piatte per", decalArea.toFixed(1), "m2 - riportate alla quota del pavimento",
+                  "(erano superfici a se' e ci si posavano sopra le zone)");
+    }
+
     let points = [];
     for (const m of filtered) points = points.concat(m.pts);
     // Scarta le bande di quota minoritarie: cime di muri, pilastri, banchi,
@@ -2297,7 +2356,12 @@
       let cellSize;
       try {
         const sp = eng.estimatePointSpacing(points, lastFloorLevels[0]);
-        if (sp && isFinite(sp)) cellSize = Math.max(0.05, Math.min(0.5, sp * 1.5));
+        // Il tetto era 0.5m: in un corridoio da 1.2m significa due celle in
+        // larghezza, cioe' una misura che non regge un confronto normativo, e
+        // una strettoia che sparisce del tutto. Portato a 0.25m: quattro volte
+        // piu' celle nel caso peggiore, ma la larghezza di un varco e' il
+        // numero che questo strumento deve saper difendere.
+        if (sp && isFinite(sp)) cellSize = Math.max(0.05, Math.min(0.25, sp * 1.5));
       } catch (e) { /* si usa il predefinito */ }
       out = eng.perceive(points, lastFloorLevels, cellSize ? { cellSize } : {});
     } catch (e) {
@@ -2613,6 +2677,22 @@
   };
 
   let renderListRef = null;
+
+  // Riporta i gruppi passeggero gia' creati alla scala corrente. Va chiamata
+  // anche fuori dal cursore: i gruppi nascono con la scala che c'era al
+  // momento della costruzione della scena, che puo' precedere il caricamento
+  // del progetto.
+  function veritasApplyPassengerScale() {
+    const v = window.__veritasPassengerScale;
+    if (!(v > 0)) return;
+    const groups = window.__veritasPassengerGroups;
+    if (!groups || !groups.forEach) return;
+    let n = 0;
+    groups.forEach((pg) => { if (pg && pg.group) { pg.group.scale.setScalar(v); n++; } });
+    if (n) console.log("[VERITAS scala] scala passeggeri riapplicata a", n, "agenti:", v + "x",
+                       "(altezza resa ~" + (2.08 * v).toFixed(2) + "m)");
+  }
+  window.__veritasApplyPassengerScale = veritasApplyPassengerScale;
 
   function moveHotspotVisual(index, x, z) {
     const grp = window.__veritasHotspotGroup;
@@ -3128,6 +3208,7 @@
     document.body.appendChild(badge);
     document.getElementById("veritas-play-ready-btn").onclick = () => {
       window.__veritasSimStarted = true;
+      veritasApplyPassengerScale(); // i gruppi possono essere nati prima del progetto
       badge.remove();
       applyNodesToScene();
     };
@@ -3795,9 +3876,18 @@
       const v = parseFloat(scaleSlider.value);
       scaleVal.textContent = v.toFixed(2) + "x";
       window.__veritasPassengerScale = v;
-      const groups = window.__veritasPassengerGroups;
-      if (groups) groups.forEach((pg) => { if (pg.group) pg.group.scale.setScalar(v); });
+      veritasApplyPassengerScale();
     });
+    // ⚠️ Finora la scala veniva riapplicata SOLO trascinando il cursore.
+    // I gruppi passeggero li crea il bundle, una volta sola, leggendo
+    // `window.__veritasPassengerScale || 1` al momento in cui costruisce la
+    // scena. Se il progetto (che porta la scala salvata) si carica DOPO,
+    // quei gruppi restano a 1.0 — cioe' 2.08m, la mesh a grandezza piena —
+    // mentre il pannello mostra il valore salvato. Da qui "quando parte il
+    // motore fisico le persone sono sempre piu' grandi": il numero scritto e
+    // la scala applicata erano due cose diverse, e si allineavano solo se si
+    // toccava il cursore.
+    veritasApplyPassengerScale();
 
     const autoFollowChk = panel.querySelector("#vp-autofollow");
     autoFollowChk.onchange = () => {
@@ -3808,6 +3898,7 @@
     panel.querySelector("#vp-regen").onclick = () => {
       if (currentNodes.length < 2) { alert(t("alert_need_2_points")); return; }
       window.__veritasSimStarted = true;
+      veritasApplyPassengerScale(); // i gruppi possono essere nati prima del progetto
       applyNodesToScene();
     };
 
