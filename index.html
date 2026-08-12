@@ -145,7 +145,9 @@
       settings_opensky_peak: (da, a, n, pax) => `Ora di punta ${da}-${a}: ${n} voli, ~${pax} passeggeri. Le partenze degli agenti seguiranno questi orari.`,
       settings_opensky_err_token: "OpenSky ha rifiutato le credenziali. Controlla di aver incollato il Client ID (quello che finisce per -api-client) e il Client Secret presi da Account → API Client, e riprova qui sotto.",
       settings_opensky_err_flights: "Credenziali accettate, ma l'elenco degli arrivi non e' arrivato. Di solito e' il servizio momentaneamente occupato: riprova fra qualche minuto.",
-      settings_opensky_err_net: "Non ho raggiunto OpenSky (rete, blocco del browser o servizio giu'). Le credenziali potrebbero essere corrette: guarda la console per il dettaglio.",
+      settings_opensky_err_net: "Non ho raggiunto il motore VERITAS che fa da ponte verso OpenSky. Se e' il primo tentativo dopo una pausa, il servizio si stava risvegliando: riprova fra un minuto.",
+      settings_opensky_err_nobackend: "Questa stima ha bisogno del motore VERITAS: la chiamata a OpenSky non si puo' fare dal browser. Riapri la pagina quando il motore e' collegato.",
+      settings_opensky_waking: "Recupero voli in arrivo tramite il motore VERITAS (se era inattivo puo' richiedere fino a 60s)...",
       flights_applied: (n, da, a) => `Le partenze degli agenti seguono il traffico aereo reale: ${n} voli atterrati fra le ${da} e le ${a}. I picchi di affollamento sono quelli veri, non un flusso costante.`,
       rep_open_btn: "📊 Report VERITAS",
       rep_title: "Report VERITAS — raccomandazioni",
@@ -229,7 +231,9 @@
       settings_opensky_peak: (da, a, n, pax) => `Peak hours ${da}-${a}: ${n} flights, ~${pax} passengers. Agent departures will follow these times.`,
       settings_opensky_err_token: "OpenSky rejected the credentials. Check that you pasted the Client ID (the one ending in -api-client) and the Client Secret from Account → API Client, then try again below.",
       settings_opensky_err_flights: "Credentials accepted, but the arrivals list did not come through. Usually the service is momentarily busy: try again in a few minutes.",
-      settings_opensky_err_net: "Could not reach OpenSky (network, browser blocking, or service down). Your credentials may well be correct: check the console for details.",
+      settings_opensky_err_net: "Could not reach the VERITAS engine that bridges to OpenSky. If this is the first attempt after a pause, the service was waking up: try again in a minute.",
+      settings_opensky_err_nobackend: "This estimate needs the VERITAS engine: the OpenSky call cannot be made from the browser. Reopen the page once the engine is connected.",
+      settings_opensky_waking: "Fetching arriving flights via the VERITAS engine (if it was idle this can take up to 60s)...",
       flights_applied: (n, da, a) => `Agent departures follow real air traffic: ${n} flights landed between ${da} and ${a}. The crowding peaks are the real ones, not a constant flow.`,
       rep_open_btn: "📊 VERITAS Report",
       rep_title: "VERITAS Report — recommendations",
@@ -741,29 +745,49 @@
       };
     };
     if (!clientId || !clientSecret) { mostraCampiCredenziali(); return; }
-    statusEl.textContent = t("settings_opensky_loading");
-    // Quale dei due passaggi e' fallito cambia completamente la diagnosi, e
-    // finora finivano tutti nello stesso messaggio generico.
+    // La chiamata passa dal backend Python, non dal browser.
+    //
+    // Chiamare OpenSky direttamente da qui NON funziona e non e' una
+    // questione di credenziali: l'endpoint del token non autorizza origini
+    // web esterne. Il sintomo inganna, perche' e' rovesciato rispetto
+    // all'intuito - con credenziali sbagliate si legge un 401 regolare, con
+    // quelle giuste si ottiene "Failed to fetch". Verificato il 12/08/2026
+    // sulla pagina pubblicata. Da server a server il problema non esiste, e
+    // in piu' il client_secret smette di dover vivere in una pagina web.
+    if (!window.__veritasApiBase) {
+      mostraCampiCredenziali(`<div style="color:#fca5a5;">${t("settings_opensky_err_nobackend")}</div>`);
+      return;
+    }
+    // Piano gratuito Render: il servizio si addormenta dopo ~15 minuti e il
+    // risveglio richiede 30-60s. Va detto, altrimenti sembra bloccato.
+    statusEl.textContent = t("settings_opensky_waking");
+    // Quale passaggio e' fallito cambia completamente la diagnosi, e finora
+    // finivano tutti nello stesso messaggio generico.
     let fase = "rete";
     try {
-      const tokenRes = await fetch("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
-      });
-      if (!tokenRes.ok) { fase = "token"; throw new Error("HTTP " + tokenRes.status); }
-      const tokenData = await tokenRes.json();
-      const token = tokenData.access_token;
-
-      // Dati aggiornati a batch: l'ultimo giorno completo disponibile e' ieri.
-      const end = Math.floor(Date.now() / 1000) - 86400;
-      const begin = end - 86400;
-      fase = "rete";
-      const flightsRes = await fetch(`https://opensky-network.org/api/flights/arrival?airport=LIRF&begin=${begin}&end=${end}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!flightsRes.ok) { fase = "voli"; throw new Error("HTTP " + flightsRes.status); }
-      const flights = await flightsRes.json();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000);
+      let ponteRes;
+      try {
+        ponteRes = await fetch(window.__veritasApiBase.replace(/\/$/, "") + "/api/opensky/arrivals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, airport: "LIRF" }),
+          signal: controller.signal,
+        });
+      } finally { clearTimeout(timeout); }
+      // 401 dal nostro backend significa una cosa sola: OpenSky ha rifiutato
+      // le credenziali. 502 e' il ponte che non ha raggiunto OpenSky. Il
+      // backend manda anche un `detail` in chiaro: e' la diagnosi vera e va
+      // riportata in console, non buttata.
+      if (!ponteRes.ok) {
+        let dettaglio = "";
+        try { dettaglio = ((await ponteRes.json()) || {}).detail || ""; } catch (e) { /* corpo non JSON */ }
+        fase = ponteRes.status === 401 ? "token" : ponteRes.status === 502 ? "rete" : "voli";
+        throw new Error("HTTP " + ponteRes.status + (dettaglio ? " - " + dettaglio : ""));
+      }
+      const datiPonte = await ponteRes.json();
+      const flights = (datiPonte && datiPonte.flights) || [];
       const n = Array.isArray(flights) ? flights.length : 0;
       const estimatedPax = n * VERITAS_AVG_PAX_PER_FLIGHT;
       // mappa la stima sul range dello slider (6-60), scalando per non

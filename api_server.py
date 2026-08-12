@@ -79,10 +79,13 @@ def health():
     return {
         "status": "ok",
         "service": "veritas-core-api",
-        "versione": "2026-08-11",
+        "versione": "2026-08-12",
         "funzioni": {
             # partenze sfasate: senza questa gli agenti avanzano tutti in blocco
             "start_delay": True,
+            # ponte OpenSky: senza questa il pulsante "traffico aereo reale"
+            # fallisce nel browser per CORS, comunque siano le credenziali
+            "opensky_arrivals": True,
         },
     }
 
@@ -177,6 +180,102 @@ def simulate(req: SimulateRequest):
     finally:
         if graph_path and os.path.exists(graph_path):
             os.unlink(graph_path)
+
+
+OPENSKY_TOKEN_URL = (
+    "https://auth.opensky-network.org/auth/realms/opensky-network"
+    "/protocol/openid-connect/token"
+)
+OPENSKY_ARRIVALS_URL = "https://opensky-network.org/api/flights/arrival"
+
+
+class OpenSkyRequest(BaseModel):
+    client_id: str
+    client_secret: str
+    airport: str = "LIRF"          # Fiumicino
+    begin: Optional[int] = None    # epoch secondi; se assente, le ultime 24h disponibili
+    end: Optional[int] = None
+
+
+@app.post("/api/opensky/arrivals")
+def opensky_arrivals(req: OpenSkyRequest):
+    """
+    Ponte verso OpenSky Network per gli arrivi di un aeroporto.
+
+    Serve perche' la chiamata NON si puo' fare dal browser: OpenSky non
+    autorizza origini web esterne sull'endpoint del token. Verificato dalla
+    pagina su GitHub Pages il 12/08/2026, ed e' un sintomo che inganna:
+    con credenziali SBAGLIATE il browser legge un 401 regolare, con
+    credenziali GIUSTE ottiene "Failed to fetch" - cioe' la risposta arriva
+    ma il browser si rifiuta di esporla. Da server a server il problema non
+    esiste.
+
+    Vantaggio non secondario: il client_secret smette di dover vivere dentro
+    una pagina web. Qui non viene mai scritto nei log ne' salvato su disco:
+    si usa per ottenere il token e si butta.
+
+    Restituisce solo i tre campi che servono a ricostruire la distribuzione
+    degli arrivi (orario e identificativo), non l'intero record ADS-B: sono
+    centinaia di voli e il resto sarebbe peso morto sulla rete.
+    """
+    import time as _time
+
+    end = req.end if req.end is not None else int(_time.time()) - 86400
+    begin = req.begin if req.begin is not None else end - 86400
+
+    try:
+        token_res = http_requests.post(
+            OPENSKY_TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": req.client_id,
+                "client_secret": req.client_secret,
+            },
+            timeout=20,
+        )
+    except Exception as e:
+        # Non si include il testo dell'eccezione tale e quale: potrebbe
+        # contenere l'URL con i parametri. Solo il tipo.
+        raise HTTPException(status_code=502, detail=f"OpenSky non raggiungibile ({type(e).__name__})")
+
+    if token_res.status_code in (400, 401, 403):
+        raise HTTPException(status_code=401, detail="Credenziali OpenSky rifiutate")
+    if not token_res.ok:
+        raise HTTPException(status_code=502, detail=f"OpenSky token HTTP {token_res.status_code}")
+
+    token = (token_res.json() or {}).get("access_token")
+    if not token:
+        raise HTTPException(status_code=502, detail="OpenSky non ha restituito un token")
+
+    try:
+        flights_res = http_requests.get(
+            OPENSKY_ARRIVALS_URL,
+            params={"airport": req.airport, "begin": begin, "end": end},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=45,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Arrivi non raggiungibili ({type(e).__name__})")
+
+    if flights_res.status_code == 404:
+        # Nessun dato per quella finestra: non e' un errore, e' una giornata vuota
+        return {"airport": req.airport, "begin": begin, "end": end, "flights": []}
+    if not flights_res.ok:
+        raise HTTPException(status_code=502, detail=f"OpenSky arrivi HTTP {flights_res.status_code}")
+
+    raw = flights_res.json()
+    if not isinstance(raw, list):
+        raw = []
+    flights = [
+        {
+            "callsign": (f.get("callsign") or "").strip(),
+            "lastSeen": f.get("lastSeen"),
+            "firstSeen": f.get("firstSeen"),
+        }
+        for f in raw
+        if isinstance(f, dict)
+    ]
+    return {"airport": req.airport, "begin": begin, "end": end, "flights": flights}
 
 
 class RecommendationsRequest(BaseModel):
