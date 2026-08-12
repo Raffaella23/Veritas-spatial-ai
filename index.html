@@ -2880,7 +2880,10 @@
     // nomi entrano li' come etichette. Questo ramo resta solo per il caso in
     // cui l'analisi geometrica non sia disponibile affatto.
     const analisiGeometricaAssente = !lastZones || lastZones.length < 2;
-    if (analisiGeometricaAssente) {
+    if (!analisiGeometricaAssente) {
+      // Zone misurate disponibili: usa applyAutoAssignment per assegnarle
+      applyAutoAssignment(lastZones);
+    } else if (analisiGeometricaAssente) {
       const analyzed = analyzeMesh(modelRoot);
       console.log('[VERITAS AUTO v5] nessuna zona misurata, ripiego sui nomi:', analyzed);
       if (analyzed && analyzed.length >= 2) {
