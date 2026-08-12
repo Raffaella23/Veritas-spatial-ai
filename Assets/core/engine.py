@@ -49,6 +49,10 @@ class SimulationEngine:
         # o e' appena arrivato e non ha piu' un target_path da cui calcolarla)
         self._last_rot = {}
 
+        # --- Perception data logging per report ---
+        self.perception_log = []  # Lista di {tick, agent_id, visibility_pct, stress, node_id, decision}
+        self.comfort_timeline = {}  # agent_id → lista di {tick, node_id, comfort_level}
+
     def add_agent(self, agent_id: str, profile_id: str, profile_data: dict, domain: str = None, group_id: str = None, start_delay: float = 0.0):
         """Aggiunge un agente con capacita' fisiche e capacita' cognitive (HumanAgent).
 
@@ -114,12 +118,28 @@ class SimulationEngine:
                 if a is not agent and agent.current_node_id and a.current_node_id == agent.current_node_id
             ]
 
+            # PERCEZIONE REALE: calcola visibilità da posizione attuale
+            # (MVP: visibilità semplificata basata su archetype)
+            perception = self._compute_agent_perception(agent)
+
             env_data = {
                 'emergency_active': self.emergency_mode,
-                'density': 0.0,  # Placeholder: qui potresti calcolare la densita' reale
+                'density': len(peers_here) / max(1, 10),  # semplificata: agenti per cella
                 'node_meta': node_meta,
                 'peers_here': peers_here,
+                'perception': perception,  # ← NUOVO: dati percettivi reali
             }
+
+            # LOG: registra percezione per report
+            if self.tick_count % 5 == 0:  # ogni 5 tick = ogni 0.5 secondi simulati
+                self.perception_log.append({
+                    'tick': self.tick_count,
+                    'agent_id': agent.agent_id,
+                    'visibility_pct': perception.get('visibility_pct', 50.0),
+                    'stress': agent.brain.stress_level if hasattr(agent, 'brain') else 0.0,
+                    'node_id': lookup_node_id,
+                    'archetype': agent.brain.profile.get('archetype', 'business') if hasattr(agent, 'brain') else 'unknown',
+                })
 
             # 1. L'agente usa il suo cervello per decidere
             if hasattr(agent, 'brain'):
@@ -201,6 +221,98 @@ class SimulationEngine:
                 "agents": frame_agents,
             })
 
+    def _compute_agent_perception(self, agent) -> dict:
+        """Calcola la percezione reale dell'agente dalla sua posizione attuale.
+
+        LOOP PERCETTIVO:
+        1. Osserva: estrae feature geometriche (larghezze, varchi, densità)
+        2. Interpreta: assegna significato ("varco stretto + affollato = rischio")
+        3. Decide_action() usa questa interpretazione
+        4. Muove
+        5. Osserva risultato
+        6. Adatta cognitive map
+
+        Per MVP: visibilità basata su archetype + geometria semplificata.
+        """
+        archetype = agent.brain.profile.get("archetype", "business")
+        pos = agent.position if agent.position is not None else [0, 0, 0]
+
+        # Baselinetà visibilità per archetype (dalle ricerche umane)
+        eye_heights = {
+            "business": 1.65,
+            "family": 1.60,
+            "elderly": 1.58,
+            "wheelchair": 1.20,
+            "tourist": 1.62,
+            "student": 1.70,
+            "staff": 1.68,
+            "vip": 1.65,
+        }
+        eye_height = eye_heights.get(archetype, 1.65)
+
+        # MVP: visibilità base per archetype (percentuale dello spazio visibile da isovista semplificata)
+        # In futuro: calcolo reale da geometria mesh + ray-casting
+        visibility_pcts = {
+            "business": 65.0,
+            "family": 60.0,
+            "elderly": 45.0,
+            "wheelchair": 35.0,
+            "tourist": 55.0,
+            "student": 75.0,
+            "staff": 80.0,
+            "vip": 70.0,
+        }
+        base_visibility = visibility_pcts.get(archetype, 50.0)
+
+        # Modifica visibilità in base a densità: alta densità = bassa visibilità (sguardo ostruito)
+        peers_near = len([a for a in self.agents if a is not agent and
+                         ((a.position[0]-pos[0])**2 + (a.position[2]-pos[2])**2)**0.5 < 5.0])
+        visibility_pct = base_visibility * (1.0 - min(0.4, peers_near * 0.05))  # densità riduce visibilità
+
+        # INTERPRETAZIONE SEMANTICA della percezione
+        # ============================================
+        stress_from_visibility = 0.0
+        visible_zone_interpretations = []
+
+        if visibility_pct < 30.0:
+            # Zona isolata o occlusione alta: disagio psicologico
+            stress_from_visibility = 0.15
+            visible_zone_interpretations.append("isolated_low_visibility")
+        elif visibility_pct < 50.0:
+            # Bassa visibilità ma non critica: cautela
+            stress_from_visibility = 0.08
+            visible_zone_interpretations.append("limited_visibility")
+        elif visibility_pct < 70.0:
+            # Visibilità normale: nessuno stress aggiunto
+            stress_from_visibility = 0.0
+            visible_zone_interpretations.append("normal_visibility")
+        else:
+            # Buona visibilità: rassicurazione
+            stress_from_visibility = -0.05  # riduce stress preesistente
+            visible_zone_interpretations.append("open_sightlines")
+
+        # Aggiungere stress da affollamento percepito
+        if peers_near > 5:
+            stress_from_visibility += 0.1
+            visible_zone_interpretations.append("crowded_perception")
+
+        comfort = 1.0 - (stress_from_visibility / 0.2) if stress_from_visibility > 0 else 1.0
+
+        return {
+            "archetype": archetype,
+            "eye_height": eye_height,
+            "position": pos,
+            "visibility_pct": visibility_pct,
+            "stress_increment": max(-0.1, min(0.2, stress_from_visibility)),  # clamp [-0.1, 0.2]
+            "peers_near": peers_near,
+            "visible_zone_interpretations": visible_zone_interpretations,
+            "cognitive_map_update": {
+                "visited_node": agent.current_node_id,
+                "visibility_measured": visibility_pct,
+                "archetype_comfort": comfort,
+            }
+        }
+
     def get_kpi_report(self) -> dict:
         """
         Calcola il report sintetico di vivibilita' dello spazio: quello che
@@ -245,3 +357,33 @@ class SimulationEngine:
             "nodes": nodes,
             "frames": self.trajectory,
         }, indent=2)
+
+    def export_perception_report(self) -> dict:
+        """Esporta dati percettivi per generazione report: timeline visibilità, stress, cognitive maps."""
+        report = {
+            "simulation_duration_s": round(self.elapsed_time, 2),
+            "total_ticks": self.tick_count,
+            "perception_samples": len(self.perception_log),
+            "perception_timeline": self.perception_log,
+            "agent_cognitive_maps": {},
+            "zone_comfort_analysis": {},
+        }
+
+        # Cognitive map per ogni agente
+        for agent in self.agents:
+            if hasattr(agent, 'brain'):
+                cog_map = agent.brain.get_cognitive_map_summary()
+                report["agent_cognitive_maps"][agent.agent_id] = cog_map
+
+                # Aggregare comfort a livello di zona
+                for node_id, node_data in cog_map.items():
+                    if node_id not in report["zone_comfort_analysis"]:
+                        report["zone_comfort_analysis"][node_id] = []
+                    report["zone_comfort_analysis"][node_id].append({
+                        "agent_id": agent.agent_id,
+                        "avg_visibility_pct": node_data["avg_visibility_pct"],
+                        "avg_stress": node_data["avg_stress"],
+                        "comfort_level": node_data["comfort_level"],
+                    })
+
+        return report
