@@ -2459,8 +2459,56 @@
       const piuStretta = strettoie[0];
       msg += " Passaggio piu' stretto: " + piuStretta.widthM.toFixed(2) + " m.";
     }
+    const scala = veritasScaleSanity();
+    if (scala) msg += " " + scala.messaggio;
     console.log("[VERITAS] " + msg + " Strategia zone: " + v.strategia + ".");
     try { if (window.__veritasAnnounce) window.__veritasAnnounce(msg); } catch (e) {}
+  }
+
+  // Il modello e' in metri? Detto dall'architettura, non dall'ingombro.
+  //
+  // Il controllo che c'era guardava solo l'altezza totale e, se il modello
+  // era piu' basso di una persona, proponeva di portarlo a 3 m. Ma 3 m e'
+  // l'altezza di una stanza: su un terminal con scale mobili e centinaia di
+  // sedute il fattore proposto restava molto sotto il vero, e il problema
+  // sembrava risolto senza esserlo. Ed era scritto solo in console, cioe'
+  // dove non lo legge nessuno.
+  //
+  // Qui il fattore si ricava da una misura che il motore geometrico ha gia'
+  // fatto: la larghezza dei VARCHI. E' il ragionamento di un progettista —
+  // una porta non e' mai piu' stretta di ~80 cm, in nessun edificio e in
+  // nessuna norma. Se la mediana dei varchi misurati sta molto sotto, non e'
+  // l'edificio a essere impossibile: sono le unita' a non essere metri.
+  //
+  // Si usa la MEDIANA e non il minimo: il varco piu' stretto puo' essere un
+  // artefatto della mesh, mentre porte e passaggi di un edificio si
+  // addensano fra 0.8 e 1.2 m, e la mediana ci cade in mezzo.
+  const VARCO_REALE_M = 0.90;   // porta minima: sotto non ci passa una persona
+  const VARCO_SOSPETTO_M = 0.70; // sotto questa mediana il modello non torna
+  function veritasScaleSanity() {
+    const larghezze = (lastGateways || [])
+      .map((g) => g && g.widthM)
+      .filter((w) => typeof w === "number" && isFinite(w) && w > 0)
+      .sort((a, b) => a - b);
+    if (larghezze.length < 3) return null; // troppo poche misure per concludere
+    const mediana = larghezze[Math.floor(larghezze.length / 2)];
+    if (mediana >= VARCO_SOSPETTO_M) return null; // plausibile: non si dice nulla
+    const fattore = VARCO_REALE_M / mediana;
+    if (!isFinite(fattore) || fattore < 1.2) return null;
+    const arrotondato = fattore >= 10 ? Math.round(fattore) : +fattore.toFixed(1);
+    console.warn("[VERITAS scala] i varchi misurati hanno mediana", mediana.toFixed(2) + "m,",
+                 "sotto la porta minima di", VARCO_REALE_M + "m:",
+                 "il modello quasi certamente non e' in metri - fattore stimato", arrotondato + "x",
+                 "(" + larghezze.length + " varchi misurati)");
+    return {
+      fattore: arrotondato,
+      mediana,
+      messaggio: "⚠️ Attenzione: i varchi che ho misurato hanno larghezza mediana "
+               + mediana.toFixed(2) + " m, ma una porta non e' mai piu' stretta di "
+               + VARCO_REALE_M.toFixed(2) + " m. Questo modello non e' in metri. "
+               + "Scrivi \"scala modello " + arrotondato + "\" per correggerlo: "
+               + "finche' non lo fai, le misure e il report non valgono.",
+    };
   }
 
 
