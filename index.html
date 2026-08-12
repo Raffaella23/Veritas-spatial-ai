@@ -1465,6 +1465,12 @@
     }
     // === FINE FIX TASK 1 ===
 
+    // Esposta perche' serve anche al ponte verso Python, che vive in un altro
+    // ambito. Duplicarla li' avrebbe voluto dire due appoggi al pavimento che
+    // possono divergere: quello del generatore locale e quello del motore
+    // reale, cioe' agenti che affondano solo con uno dei due.
+    window.__veritasFloorYNear = realFloorYNear;
+
         function densifySegment(from, to, maxSegLen) {
       // === VERITAS FIX v2: NESSUN SALTO, SOLO AGGIRAMENTO ===
       // Se il segmento diretto attraversa un ostacolo (no support), non interpolare
@@ -3186,6 +3192,40 @@
     };
   }
 
+  // Appoggia un punto al pavimento vero sotto di lui.
+  //
+  // La quota di una zona e' il baricentro del suo cluster, cioe' la MEDIA
+  // delle quote dei campioni: su un modello reale un cluster mescola
+  // pavimento, gradini, pedane e arredi, e la media cade a mezz'aria o dentro
+  // il solaio. Il generatore JS lo correggeva gia' (snapToFloor in
+  // expandRoute), il ponte verso Python no: per questo gli agenti affondavano
+  // nel solaio solo quando il motore reale era collegato.
+  function veritasSnapToFloor(p) {
+    if (!p) return p;
+    try {
+      const y = window.__veritasFloorYNear ? window.__veritasFloorYNear(p[0], p[2], 2.0) : null;
+      if (y != null && isFinite(y)) return [p[0], y, p[2]];
+    } catch (e) { /* senza modello si tiene la quota originale */ }
+    return p;
+  }
+
+  // Spezza un tratto lungo in passi piu' corti, ciascuno appoggiato al
+  // pavimento. Python interpola in linea retta fra un waypoint e il
+  // successivo: su un tratto lungo quella retta ignora sia i dislivelli sia
+  // gli spigoli dei muri. Passi corti la costringono a seguire il pavimento.
+  const BRIDGE_STEP_M = 2.5;
+  function veritasDensifyForBridge(from, to) {
+    const dx = to[0] - from[0], dz = to[2] - from[2];
+    const dist = Math.hypot(dx, dz);
+    const n = Math.floor(dist / BRIDGE_STEP_M);
+    const out = [];
+    for (let i = 1; i <= n; i++) {
+      const t = i / (n + 1);
+      out.push(veritasSnapToFloor([from[0] + dx * t, from[1], from[2] + dz * t]));
+    }
+    return out;
+  }
+
   function veritasNodesToGraph(nodes) {
     const out = { nodes: {}, mission_profiles: {} };
     const order = [];
@@ -3199,7 +3239,7 @@
         const seated = veritasComputeIsovist(n.pos, 1.20);
         if (standing && seated) { meta.isovist = { standing, seated }; isovistOk++; }
       }
-      out.nodes[id] = { pos: n.pos, meta };
+      out.nodes[id] = { pos: veritasSnapToFloor(n.pos), meta };
       order.push(id);
     });
     // Senza questa riga un'isovista muta (mesh non interrogabile, BVH non
@@ -3222,19 +3262,36 @@
     // il motore fisico reale segue un percorso che rispetta i muri, invece
     // di tagliare dritto zona-a-zona.
     const routeIds = [order[0]];
+    let wpN = 0;
+    // Aggiunge un waypoint gia' appoggiato al pavimento e lo mette in coda al
+    // percorso. Gli id restano unici anche con l'infittimento.
+    const pushWaypoint = (pos) => {
+      const wpId = "wp_" + (wpN++);
+      out.nodes[wpId] = { pos: veritasSnapToFloor(pos), meta: { type: "waypoint" } };
+      routeIds.push(wpId);
+    };
     for (let i = 1; i < order.length; i++) {
-      if (typeof findRoute === "function" && lastZones && lastZones.length && lastNavigablePoints && lastNavigablePoints.length) {
+      const puoInstradare = typeof findRoute === "function" && lastZones && lastZones.length
+                            && lastNavigablePoints && lastNavigablePoints.length;
+      // La spezzata che l'agente percorrera' davvero: i punti di aggiramento
+      // di findRoute se disponibili, altrimenti il tratto diretto.
+      const tappe = [nodes[i - 1].pos];
+      if (puoInstradare) {
         const via = findRoute(nodes[i - 1].pos, nodes[i].pos);
         for (let k = 0; k < via.length - 1; k++) {
           const wp = via[k];
-          // salta il primo elemento se coincide col nodo di partenza gia'
-          // aggiunto un istante fa (findRoute include lo start del percorso
-          // a zone come primo punto del detour)
+          // salta il primo elemento se coincide col nodo di partenza
           if (k === 0 && Math.hypot(wp[0] - nodes[i - 1].pos[0], wp[2] - nodes[i - 1].pos[2]) < 0.01) continue;
-          const wpId = "wp_" + i + "_" + k;
-          out.nodes[wpId] = { pos: wp, meta: { type: "waypoint" } };
-          routeIds.push(wpId);
+          tappe.push(wp);
         }
+      }
+      tappe.push(nodes[i].pos);
+      // Ogni tratto fra due tappe viene infittito: senza questo Python
+      // congiunge le tappe con una retta, che su un tratto lungo passa dentro
+      // i muri e ignora i dislivelli.
+      for (let t = 0; t < tappe.length - 1; t++) {
+        for (const p of veritasDensifyForBridge(tappe[t], tappe[t + 1])) pushWaypoint(p);
+        if (t < tappe.length - 2) pushWaypoint(tappe[t + 1]);
       }
       routeIds.push(order[i]);
     }
