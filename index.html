@@ -2266,6 +2266,145 @@
   // chiamano due percorsi diversi -- il motore geometrico e il vecchio
   // KMeans -- e duplicarla avrebbe significato due comportamenti che
   // divergono alla prima modifica.
+
+  // ===========================================================================
+  // Assegnazione delle zone: la geometria decide DOVE, i nomi solo COME si
+  // chiama.
+  //
+  // Il difetto, segnalato da Raffaella il 12/08/2026 guardando la console:
+  //
+  //   [VERITAS] analisi con motore geometrico: 7 zone, 3700.5 m2 navigabili
+  //   [VERITAS AUTO v5] Auto-assegnati 5 nodi da analyzeMesh
+  //
+  // Il motore misurava 7 zone reali e poi venivano buttate, perche'
+  // `onModelLoaded` forzava `analyzeMesh`, che cerca le zone PER NOME DELLA
+  // MESH nel file GLB. E' lo stesso errore gia' pagato due volte in questo
+  // progetto: i pannelli cercati per la parola "CAMERE" e spariti con la UI in
+  // inglese, il pavimento scartato perche' era la superficie piu' estesa.
+  // Cercare per nome quello che si puo' misurare.
+  //
+  // Le conseguenze erano tutte e tre visibili sul terminal di prova:
+  //   · una zona vera senza un nome corrispondente non diventava MAI un nodo
+  //     — "rimane sempre fuori una di queste zone";
+  //   · il nodo finiva sul baricentro della singola mesh che portava il nome
+  //     (un banco, un cartello), non sullo spazio — "piccoli pezzettini";
+  //   · e tutti gli agenti convergevano sui pochi nomi trovati.
+  //
+  // Ora l'assegnazione parte dalle zone MISURATE, tutte quante, e i nomi delle
+  // mesh servono solo a dare senso: un nome dice cosa fa uno spazio, e quello
+  // la geometria non lo sa. Ma dove sia lo spazio, e quanto sia grande, lo sa
+  // la geometria e non il nome.
+  // ===========================================================================
+  // L'annuncio va in chat, non solo in console: un'assegnazione automatica
+  // deve dire cosa ha capito e permettere di correggerla subito. Il riquadro
+  // verde al centro dello schermo spariva dopo sei secondi e non lasciava
+  // traccia — chi lo perdeva non sapeva piu' da dove venissero quelle zone.
+  function annunciaAssegnazione(nodi, quanteZone) {
+    if (!window.__veritasAnnounce) return;
+    const conNome = nodi.filter((n) => n.origine === "nome+misura").length;
+    const elenco = nodi.map((n) => n.label + (n.areaM2 ? " (" + Math.round(n.areaM2) + " m²)" : "")).join(" → ");
+    window.__veritasAnnounce("Ho assegnato " + nodi.length + " zone su " + quanteZone
+      + " misurate: " + elenco + ". "
+      + (conNome ? conNome + " prendono il nome dal modello, le altre le ho dedotte dall'ordine del flusso. "
+                 : "Nessuna aveva un nome riconoscibile nel modello, quindi i ruoli vengono dall'ordine del flusso. ")
+      + "Se un ruolo e' sbagliato dimmelo: `assegna <zona>` lo cambia.");
+  }
+
+  function assegnaZoneMisurate(zones, root) {
+    if (!zones || zones.length < 2) return null;
+
+    // 1. I nomi, quando ci sono. Non sono la fonte della posizione: sono
+    //    un'etichetta da appoggiare sopra una zona gia' misurata.
+    let nominate = [];
+    try { nominate = (root && analyzeMesh(root)) || []; } catch (e) { nominate = []; }
+
+    // 2. Ordine di flusso: dal lato terra al lato volo se c'e' il riferimento,
+    //    altrimenti lungo l'asse in cui il modello e' piu' esteso. L'ordine
+    //    per X fisso era un'ipotesi sull'orientamento del file, e un terminal
+    //    ruotato di 90 gradi la smentisce.
+    const conAirside = zones.some((z) => z.distFromAirside != null);
+    let ordinate;
+    if (conAirside) {
+      ordinate = zones.slice().sort((a, b) => b.distFromAirside - a.distFromAirside);
+    } else {
+      const xs = zones.map((z) => z.pos[0]), zs = zones.map((z) => z.pos[2]);
+      const spanX = Math.max(...xs) - Math.min(...xs);
+      const spanZ = Math.max(...zs) - Math.min(...zs);
+      const asse = spanX >= spanZ ? 0 : 2;
+      ordinate = zones.slice().sort((a, b) => a.pos[asse] - b.pos[asse]);
+    }
+
+    // 3. Ogni nome cade dentro la zona che lo contiene. Il raggio equivalente
+    //    dell'area misurata e' il criterio: una zona di 400 m² "contiene" un
+    //    banco che le sta a 11 m dal baricentro, una di 20 m² no.
+    const etichette = new Map(); // indice zona -> { type, label }
+    for (const n of nominate) {
+      if (!n || !n.pos) continue;
+      let migliore = -1, migliorScarto = Infinity;
+      ordinate.forEach((z, i) => {
+        const d = Math.hypot(n.pos[0] - z.pos[0], n.pos[2] - z.pos[2]);
+        const raggio = Math.sqrt(Math.max(1, z.areaM2 || 1) / Math.PI);
+        // scarto normalizzato: fuori dal raggio vale piu' di 1
+        const scarto = d / Math.max(1.5, raggio);
+        if (scarto < migliorScarto) { migliorScarto = scarto; migliore = i; }
+      });
+      // Un nome che cade lontano da ogni zona misurata non appartiene allo
+      // spazio calpestabile: e' un oggetto sospeso, un cartello, una mesh di
+      // arredo. Si scarta invece di trascinarci dentro un nodo.
+      if (migliore < 0 || migliorScarto > 1.6) continue;
+      if (!etichette.has(migliore)) etichette.set(migliore, { type: n.type, label: n.label });
+    }
+
+    // 4. I ruoli mancanti si deducono dalla posizione nel flusso. Le zone gia'
+    //    etichettate tengono il proprio, perche' un nome scritto da chi ha
+    //    modellato lo spazio vale piu' di una sequenza presunta.
+    const seq = ["spawn", "checkin", "security", "lounge", "gate"];
+    const nodi = [];
+    let contatoreGate = 0;
+    ordinate.forEach((z, i) => {
+      const dato = etichette.get(i);
+      let type, label;
+      if (dato) {
+        type = dato.type; label = dato.label;
+      } else {
+        // Prima zona = ingresso, ultima = gate, in mezzo la sequenza.
+        if (i === 0) type = "spawn";
+        else if (i === ordinate.length - 1) type = "gate";
+        else type = seq[Math.min(i, seq.length - 2)] || "lounge";
+        label = type === "spawn" ? "Ingresso"
+              : type === "checkin" ? "Accettazione"
+              : type === "security" ? "Controllo"
+              : type === "gate" ? "Gate " + String.fromCharCode(65 + contatoreGate)
+              : "Area " + (i + 1);
+        // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
+        // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
+        // della sequenza e' il modo di far sostare gli agenti in un corridoio.
+        if (z.role === "corridoio" && type !== "spawn" && type !== "gate") {
+          type = "lounge"; label = "Passaggio " + (i + 1);
+        }
+      }
+      if (type === "gate") contatoreGate++;
+      nodi.push({
+        pos: [z.pos[0], z.pos[1], z.pos[2]],
+        type, label,
+        scale: 1.0, scaleZ: 1.0,
+        id: "zona_" + i,
+        // tracciabilita': da dove viene questo nodo, e quanto e' grande la
+        // zona che rappresenta. Serve a capire un'assegnazione strana senza
+        // dover rifare l'analisi.
+        origine: dato ? "nome+misura" : "misura",
+        areaM2: z.areaM2 || null,
+      });
+    });
+
+    const conNome = etichette.size;
+    console.log("[VERITAS zone] " + nodi.length + " nodi da " + zones.length + " zone MISURATE ("
+      + conNome + " con nome dal modello, " + (nodi.length - conNome) + " dedotte dal flusso)"
+      + (nominate.length > conNome ? " — " + (nominate.length - conNome)
+         + " nomi scartati perche' fuori dalle zone calpestabili" : ""));
+    return nodi;
+  }
+
   function applyAutoAssignment(zones) {
     const points = lastNavigablePoints || [];
     try {
@@ -2277,8 +2416,21 @@
       // Se currentNodes è vuoto o ha meno di 2 punti, auto-assegna
       const hasFewNodes = !currentNodes || currentNodes.length < 2;
       if (hasFewNodes && zones && zones.length >= 2) {
+        // Una sola assegnazione, dalle zone MISURATE. Prima ce n'erano tre in
+        // concorrenza (questa, quella per nome in onModelLoaded, e un ripiego)
+        // e vinceva sempre l'ultima che scriveva: quella per nome, cioe' la
+        // peggiore. Vedi la nota su assegnaZoneMisurate.
+        const daMisura = assegnaZoneMisurate(zones, window.__veritasModelRoot);
+        if (daMisura) {
+          currentNodes = daMisura;
+          idCounter = daMisura.length;
+          applyNodesToScene(true);
+          if (panelBuilt && renderListRef) renderListRef();
+          annunciaAssegnazione(daMisura, zones.length);
+          return;
+        }
         console.log('[VERITAS AUTO v4] Auto-assegnazione da', zones.length, 'zone rilevate');
-        
+
         // Ordina per X (da ingresso a gate)
         const sorted = [...zones].sort((a,b) => a.pos[0] - b.pos[0]);
         
@@ -2715,11 +2867,22 @@
     }
     seedNodesIfNeeded();
     
-    // Analizza sempre la mesh per auto-assegnare
-    const hasOnlyDemoPoints = true; // FORZA auto-assign sempre al caricamento
-    if (hasOnlyDemoPoints) {
+    // ⚠️ QUI STAVA IL DIFETTO segnalato il 12/08/2026.
+    //
+    // Questo ramo forzava `analyzeMesh` a ogni caricamento e ne prendeva i
+    // nodi, sovrascrivendo le zone che il motore geometrico aveva MISURATO
+    // poco prima. analyzeMesh trova le zone per NOME DELLA MESH: se chi ha
+    // modellato non ha chiamato "gate" un gate, quella zona non esisteva; e
+    // dove il nome c'era, il nodo finiva sul baricentro di quel singolo
+    // oggetto invece che sullo spazio.
+    //
+    // Ora l'assegnazione la fa applyAutoAssignment dalle zone misurate, e i
+    // nomi entrano li' come etichette. Questo ramo resta solo per il caso in
+    // cui l'analisi geometrica non sia disponibile affatto.
+    const analisiGeometricaAssente = !lastZones || lastZones.length < 2;
+    if (analisiGeometricaAssente) {
       const analyzed = analyzeMesh(modelRoot);
-      console.log('[VERITAS AUTO v5] analyzed:', analyzed);
+      console.log('[VERITAS AUTO v5] nessuna zona misurata, ripiego sui nomi:', analyzed);
       if (analyzed && analyzed.length >= 2) {
         // Se analyzed è array di nodi, usalo, altrimenti crea da lastZones
         currentNodes = analyzed;
