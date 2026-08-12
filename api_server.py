@@ -48,8 +48,13 @@ from pydantic import BaseModel
 from core.engine import SimulationEngine
 from core.topology_analyzer import TopologyAnalyzer
 from core.recommendations import generate_recommendations
+from core.report_builder import generate_perception_report_html
 
 app = FastAPI(title="VERITAS Spatial AI - Core API", version="0.1.0")
+
+# Cache per l'ultimo report di percezione
+_last_perception_report = None
+_last_project_name = "VERITAS Simulation"
 
 _BENCHMARKS_PATH = os.path.join(BASE_DIR, "benchmarks.json")
 try:
@@ -149,40 +154,6 @@ class SimulateRequest(BaseModel):
     dt: float = 0.1
     vvff_rules: Optional[List[Dict[str, Any]]] = None
     emergency: bool = False
-
-
-@app.post("/api/simulate")
-def simulate(req: SimulateRequest):
-    """
-    Esegue la simulazione con il Core Python reale (motore fisico + agenti
-    con stato/stress/logica di dominio + validazione accessibilita') e
-    restituisce KPI reali (flusso, tempo transito, saturazione, compliance)
-    piu' la traiettoria animata e dati percettivi per il report.
-    """
-    graph_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-            json.dump(req.graph, tmp)
-            graph_path = tmp.name
-
-        engine = SimulationEngine(graph_path=graph_path, dt=req.dt, vvff_rules=req.vvff_rules)
-        for a in req.agents:
-            engine.add_agent(a.agent_id, a.profile_id, a.profile_data, domain=a.domain, group_id=a.group_id, start_delay=a.start_delay)
-        if req.emergency:
-            engine.trigger_emergency(True)
-
-        for _ in range(req.ticks):
-            engine.run_tick()
-
-        kpi = engine.get_kpi_report()
-        trajectory = json.loads(engine.export_trajectory(nodes=req.graph.get("nodes", {})))
-        perception_report = engine.export_perception_report()
-        return {"kpi": kpi, "trajectory": trajectory, "perception": perception_report}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if graph_path and os.path.exists(graph_path):
-            os.unlink(graph_path)
 
 
 OPENSKY_TOKEN_URL = (
@@ -345,6 +316,54 @@ def recommendations(req: RecommendationsRequest):
         return {"recommendations": generate_recommendations(req.kpi, context)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/perception-report")
+def perception_report():
+    """Ritorna il report HTML di percezione dell'ultima simulazione eseguita."""
+    global _last_perception_report, _last_project_name
+    if _last_perception_report is None:
+        raise HTTPException(status_code=404, detail="No perception report available. Run a simulation first.")
+    try:
+        html = generate_perception_report_html(_last_perception_report, _last_project_name)
+        return {"html": html, "status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/simulate")
+def simulate(req: SimulateRequest):
+    """Endpoint di simulazione aggiornato per salvare il report di percezione."""
+    global _last_perception_report, _last_project_name
+    graph_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            json.dump(req.graph, tmp)
+            graph_path = tmp.name
+
+        engine = SimulationEngine(graph_path=graph_path, dt=req.dt, vvff_rules=req.vvff_rules)
+        for a in req.agents:
+            engine.add_agent(a.agent_id, a.profile_id, a.profile_data, domain=a.domain, group_id=a.group_id, start_delay=a.start_delay)
+        if req.emergency:
+            engine.trigger_emergency(True)
+
+        for _ in range(req.ticks):
+            engine.run_tick()
+
+        kpi = engine.get_kpi_report()
+        trajectory = json.loads(engine.export_trajectory(nodes=req.graph.get("nodes", {})))
+        perception_report = engine.export_perception_report()
+
+        # Salva il report per l'endpoint /api/perception-report
+        _last_perception_report = perception_report
+        _last_project_name = f"VERITAS - {len(req.agents)} agents, {req.ticks} ticks"
+
+        return {"kpi": kpi, "trajectory": trajectory, "perception": perception_report}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if graph_path and os.path.exists(graph_path):
+            os.unlink(graph_path)
 
 
 if __name__ == "__main__":
