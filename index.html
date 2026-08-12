@@ -143,6 +143,9 @@
       settings_opensky_error: "Non sono riuscito a recuperare i dati OpenSky (credenziali non valide o servizio non raggiungibile). Puoi comunque impostare il numero a mano.",
       settings_opensky_result: (n, pax) => `${n} voli in arrivo nelle ultime 24h ~ stima ${pax} passeggeri`,
       settings_opensky_peak: (da, a, n, pax) => `Ora di punta ${da}-${a}: ${n} voli, ~${pax} passeggeri. Le partenze degli agenti seguiranno questi orari.`,
+      settings_opensky_err_token: "OpenSky ha rifiutato le credenziali. Controlla di aver incollato il Client ID (quello che finisce per -api-client) e il Client Secret presi da Account → API Client, e riprova qui sotto.",
+      settings_opensky_err_flights: "Credenziali accettate, ma l'elenco degli arrivi non e' arrivato. Di solito e' il servizio momentaneamente occupato: riprova fra qualche minuto.",
+      settings_opensky_err_net: "Non ho raggiunto OpenSky (rete, blocco del browser o servizio giu'). Le credenziali potrebbero essere corrette: guarda la console per il dettaglio.",
       flights_applied: (n, da, a) => `Le partenze degli agenti seguono il traffico aereo reale: ${n} voli atterrati fra le ${da} e le ${a}. I picchi di affollamento sono quelli veri, non un flusso costante.`,
       rep_open_btn: "📊 Report VERITAS",
       rep_title: "Report VERITAS — raccomandazioni",
@@ -224,6 +227,9 @@
       settings_opensky_error: "Could not fetch OpenSky data (invalid credentials or service unreachable). You can still set the number manually.",
       settings_opensky_result: (n, pax) => `${n} flights arriving in the last 24h ~ estimated ${pax} passengers`,
       settings_opensky_peak: (da, a, n, pax) => `Peak hours ${da}-${a}: ${n} flights, ~${pax} passengers. Agent departures will follow these times.`,
+      settings_opensky_err_token: "OpenSky rejected the credentials. Check that you pasted the Client ID (the one ending in -api-client) and the Client Secret from Account → API Client, then try again below.",
+      settings_opensky_err_flights: "Credentials accepted, but the arrivals list did not come through. Usually the service is momentarily busy: try again in a few minutes.",
+      settings_opensky_err_net: "Could not reach OpenSky (network, browser blocking, or service down). Your credentials may well be correct: check the console for details.",
       flights_applied: (n, da, a) => `Agent departures follow real air traffic: ${n} flights landed between ${da} and ${a}. The crowding peaks are the real ones, not a constant flow.`,
       rep_open_btn: "📊 VERITAS Report",
       rep_title: "VERITAS Report — recommendations",
@@ -710,40 +716,53 @@
     const LS_ID = "veritas_opensky_client_id", LS_SECRET = "veritas_opensky_client_secret";
     let clientId = localStorage.getItem(LS_ID) || "";
     let clientSecret = localStorage.getItem(LS_SECRET) || "";
-    if (!clientId || !clientSecret) {
-      statusEl.innerHTML = `<div style="color:#cbd5e1;margin-top:6px;">${t("settings_opensky_need_creds")}
+    // Il modulo credenziali va mostrato anche DOPO un fallimento, non solo
+    // quando la memoria e' vuota. Prima, salvate delle credenziali sbagliate,
+    // il codice le riusava a ogni tentativo e si fermava sempre sullo stesso
+    // errore: dall'interfaccia non c'era piu' alcun modo di correggerle, e
+    // l'unica via d'uscita era svuotare localStorage dalla console.
+    const mostraCampiCredenziali = (avvisoHtml) => {
+      statusEl.innerHTML = `${avvisoHtml || ""}<div style="color:#cbd5e1;margin-top:6px;">${t("settings_opensky_need_creds")}
         <div style="margin-top:6px;"><input id="vs-os-id" placeholder="${t("settings_opensky_client_id")}" style="width:100%;margin-bottom:4px;"></div>
         <div><input id="vs-os-secret" type="password" placeholder="${t("settings_opensky_client_secret")}" style="width:100%;margin-bottom:4px;"></div>
         <button class="v-btn" id="vs-os-save" type="button" style="width:100%;">${t("settings_opensky_save_creds")}</button>
       </div>`;
+      // assegnato come valore, non interpolato nell'HTML: il client id contiene
+      // una @ e finisce per "-api-client", e va riproposto tale e quale
+      statusEl.querySelector("#vs-os-id").value = clientId;
       statusEl.querySelector("#vs-os-save").onclick = () => {
         const idVal = statusEl.querySelector("#vs-os-id").value.trim();
         const secVal = statusEl.querySelector("#vs-os-secret").value.trim();
         if (!idVal || !secVal) return;
         localStorage.setItem(LS_ID, idVal);
         localStorage.setItem(LS_SECRET, secVal);
+        clientId = idVal; clientSecret = secVal;
         runOpenSkyEstimate(statusEl, agentsInput, agentsVal);
       };
-      return;
-    }
+    };
+    if (!clientId || !clientSecret) { mostraCampiCredenziali(); return; }
     statusEl.textContent = t("settings_opensky_loading");
+    // Quale dei due passaggi e' fallito cambia completamente la diagnosi, e
+    // finora finivano tutti nello stesso messaggio generico.
+    let fase = "rete";
     try {
       const tokenRes = await fetch("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret }),
       });
-      if (!tokenRes.ok) throw new Error("token");
+      if (!tokenRes.ok) { fase = "token"; throw new Error("HTTP " + tokenRes.status); }
       const tokenData = await tokenRes.json();
       const token = tokenData.access_token;
 
       // Dati aggiornati a batch: l'ultimo giorno completo disponibile e' ieri.
       const end = Math.floor(Date.now() / 1000) - 86400;
       const begin = end - 86400;
+      fase = "rete";
       const flightsRes = await fetch(`https://opensky-network.org/api/flights/arrival?airport=LIRF&begin=${begin}&end=${end}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!flightsRes.ok) throw new Error("flights");
+      if (!flightsRes.ok) { fase = "voli"; throw new Error("HTTP " + flightsRes.status); }
       const flights = await flightsRes.json();
       const n = Array.isArray(flights) ? flights.length : 0;
       const estimatedPax = n * VERITAS_AVG_PAX_PER_FLIGHT;
@@ -764,7 +783,16 @@
       }
       statusEl.innerHTML = `<span style="color:#86efac;">${t("settings_opensky_result", n, estimatedPax)}</span>${rigaPunta}`;
     } catch (e) {
-      statusEl.innerHTML = `<span style="color:#fca5a5;">${t("settings_opensky_error")}</span>`;
+      // Diagnostica sempre in console: il messaggio in pagina deve restare
+      // breve, ma senza il dettaglio non si distingue una credenziale
+      // sbagliata da un servizio irraggiungibile, e si perde tempo sulla
+      // causa sbagliata.
+      console.warn("[VERITAS voli] OpenSky non ha risposto — fase:", fase, "-", (e && e.message) || e);
+      const spiega = fase === "token" ? t("settings_opensky_err_token")
+                   : fase === "voli" ? t("settings_opensky_err_flights")
+                   : t("settings_opensky_err_net");
+      // I campi tornano visibili, cosi' la credenziale si puo' correggere qui.
+      mostraCampiCredenziali(`<div style="color:#fca5a5;">${t("settings_opensky_error")}</div><div style="color:#fca5a5;font-size:10.5px;margin-top:3px;">${spiega}</div>`);
     }
   }
 
