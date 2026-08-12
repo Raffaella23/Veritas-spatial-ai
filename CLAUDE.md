@@ -10,6 +10,66 @@
 
 ---
 
+## 🔻 Regola zero — leggi TUTTO prima, e non aprire branch
+
+> Aggiunta il 12/08/2026 da Raffaella, dopo aver trovato quattro branch e
+> lavoro duplicato. **Viene prima di ogni altra cosa in questo file.**
+
+### 1. Leggi l'intero contenuto della repository prima di scrivere una riga
+
+Non i documenti soltanto: **il codice che c'è già.** Prima di costruire
+qualcosa, cerca se esiste. Il passaggio da una chat all'altra perde memoria, e
+ogni sessione che non guarda finisce per riscrivere ciò che c'era.
+
+Il giro minimo, tre minuti:
+
+```bash
+git branch -a                                   # quante branch, e perche'
+ls *.js *.py *.json *.md                        # cosa c'e' in radice
+ls Assets/core/ 2>/dev/null                     # ⚠️ il Core Python sta QUI
+grep -rn "<parola chiave>" --include=*.js --include=*.py .
+```
+
+⚠️ **`Assets/` non è tutto rumore.** Il §2 dice di non indicizzarla perché
+contiene ~1240 sample Unity, ed è vero — ma `Assets/core/` contiene il **Core
+Python vero** (`engine.py`, `behaviour.py`, `compliance.py`, `zones.py`). Una
+sessione che salta `Assets/` per intero non trova il Core e lo riscrive.
+
+### 2. Non aprire branch nuove
+
+Ne bastano **tre**, e sono queste:
+
+| Branch | A cosa serve |
+|---|---|
+| `main` | produzione + sorgente del deploy Render |
+| `veritas-ai-os-preview` | anteprima pubblica su GitHub Pages |
+| **una** `claude/...` per volta | la sessione in corso, poi si cancella |
+
+Se ne esiste già una `claude/...`, **lavora su quella**: non aprirne una
+seconda. A fine sessione va cancellata, dopo aver verificato che il contenuto
+sia confluito nella preview.
+
+### 3. Cosa è successo davvero, per memoria
+
+Il 12/08/2026 la repository aveva quattro branch, e sotto c'era questo:
+
+- **`veritas_perception.js`** — scritto in una sessione, rimasto su una branch
+  mai unita, ritrovato per caso il giorno dopo. Ci sono voluti mesi di lavoro
+  perso e un recupero fortunoso.
+- **Due moduli diversi con lo stesso nome.** `veritas_perception.js` misura
+  *dove si cammina*; un altro, nato con lo stesso nome, calcola *cosa si vede*.
+  Sono stati distinti a posteriori rinominando il secondo
+  `veritas_visibility.js`. Se la prima sessione avesse guardato, non sarebbe
+  successo.
+- **`Assets/core/compliance.py`** — un modulo di conformità normativa esistente
+  e collegato al Core, dimenticato per mesi perché stava sotto `Assets/`, che
+  la documentazione dichiarava rumore.
+
+Nessuno di questi era un errore di programmazione. Erano tre sessioni che non
+avevano guardato cosa c'era già.
+
+---
+
 ## 0. Prima cosa da fare (obbligatoria)
 
 Prima di qualsiasi modifica, **studia la documentazione nell'ordine seguente**. Non è opzionale: questo progetto ha una storia lunga e decisioni architetturali già prese, e ignorarle ha già causato regressioni.
@@ -78,6 +138,10 @@ Assets/ Packages/ ProjectSettings/    progetto Unity XR — quasi tutto sample X
 ```
 
 ⚠️ `Assets/`, `Packages/`, `ProjectSettings/` contengono ~1240 file, in stragrande maggioranza sample ufficiali Unity (XR Hands, XR Interaction Toolkit, VRTemplateAssets). **Non indicizzarli né analizzarli** se non esplicitamente richiesto: bruciano contesto senza dare informazione.
+
+⚠️ **Unica eccezione, importante: `Assets/core/`.** Contiene il Core Python vero
+(`engine.py`, `behaviour.py`, `compliance.py`, `zones.py`) — non è un sample Unity.
+È stato dimenticato per mesi proprio per questa riga. Vedi la Regola zero in cima.
 
 ### ⚠️ Discrepanza documentazione ↔ realtà
 
@@ -271,7 +335,7 @@ quindi ogni report ricadeva sul dominio "generic". Ora c'è una normalizzazione 
 |---|---|---|
 | `main` | `Veritas-V17-FIX-SOLO-BUG.html`, `index.html` (redirect), **Python del Core** | Produzione + sorgente del deploy Render |
 | `veritas-ai-os-preview` | `index.html` completo (~1,13 MB) | Anteprima su GitHub Pages |
-| `claude/veritas-perception-ai-os-876pru` | Branch di lavoro, allineata alla preview | Sviluppo |
+| `claude/...` (una sola) | Branch di lavoro della sessione in corso | Sviluppo, poi si cancella |
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
