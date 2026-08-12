@@ -343,7 +343,7 @@ Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 i file Python (per Render). Il frontend nuovo vive sulla preview e va promosso
 a `main` **solo dopo approvazione esplicita di Raffaella**.
 
-### Struttura di `index.html` (preview) — 12 blocchi `<script>`
+### Struttura di `index.html` (preview) — 13 blocchi `<script>`
 
 ⚠️ Erano dichiarati 9 con il motore di percezione al blocco 8. **Verificato con
 `html.parser` il 12/08/2026: sono 10**, e i due moduli percettivi occupano
@@ -363,6 +363,7 @@ l'8 e il 9 — nell'ordine opposto a quello che c'era scritto qui.
 | 9 | module | **motore di percezione** (`veritas_perception.js`) — dove si cammina e quanto è largo |
 | 10 | module | **ponte al modello locale** (`veritas_llm.js`) — traduce le frasi in comandi esistenti |
 | 11 | module | **normative** (`veritas_normative.js`) — soglie con citazione della fonte |
+| 12 | module | **vie di esodo** (`veritas_esodo.js`) — lunghezza reale del percorso di fuga |
 
 I file sorgente `veritas_visibility.js` e `veritas_perception.js` stanno in
 radice e sono **inlinati** come blocchi 8 e 9. Se li modifichi, vanno

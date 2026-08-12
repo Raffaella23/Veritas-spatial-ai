@@ -168,7 +168,102 @@
       nota: "80 pollici. Sotto questa quota un oggetto sporgente e' un ostacolo non rilevabile con il bastone.",
       validato: false,
     },
+    // ====================================================== ANTINCENDIO — IT
+    {
+      id: "it_dm1998_uscita",
+      ambito: "antincendio",
+      giurisdizione: "IT",
+      fonte: "DM 10/03/1998",
+      riferimento: "allegato III, punto 3.3",
+      titolo: "Larghezza minima delle uscite",
+      grandezza: "larghezza_uscita_m",
+      operatore: ">=",
+      valore: 0.80,
+      unita: "m",
+      nota: "La larghezza va comunque dimensionata sull'affollamento, in multipli del modulo da 0,60 m.",
+      validato: false,
+    },
+    {
+      id: "it_dm2015_via_esodo",
+      ambito: "antincendio",
+      giurisdizione: "IT",
+      fonte: "DM 03/08/2015 (Codice di prevenzione incendi)",
+      riferimento: "sez. S.4",
+      titolo: "Larghezza minima delle vie di esodo",
+      grandezza: "larghezza_via_esodo_m",
+      operatore: ">=",
+      valore: 0.90,
+      unita: "m",
+      nota: "Minimo assoluto. Il valore di progetto sale con l'affollamento servito dalla via.",
+      validato: false,
+    },
+    {
+      id: "it_dm1998_percorso",
+      ambito: "antincendio",
+      giurisdizione: "IT",
+      fonte: "DM 10/03/1998",
+      riferimento: "allegato III, punto 3.3",
+      titolo: "Lunghezza massima del percorso di esodo",
+      grandezza: "lunghezza_percorso_esodo_m",
+      operatore: "<=",
+      valore: 45,
+      unita: "m",
+      nota: "Valore per rischio MEDIO. Rischio elevato 15-30 m, rischio basso 45-60 m: "
+          + "la classificazione del rischio la fa il progettista, non questo strumento.",
+      validato: false,
+    },
+    // ===================================================== ANTINCENDIO — USA
+    {
+      id: "us_ibc_uscita",
+      ambito: "antincendio",
+      giurisdizione: "US",
+      fonte: "International Building Code (IBC)",
+      riferimento: "sez. 1010.1.1",
+      titolo: "Larghezza libera delle porte di esodo",
+      grandezza: "larghezza_uscita_m",
+      operatore: ">=",
+      valore: 0.815, // 32 in
+      unita: "m",
+      nota: "32 pollici di luce netta.",
+      validato: false,
+    },
+    {
+      id: "us_ibc_corridoio_esodo",
+      ambito: "antincendio",
+      giurisdizione: "US",
+      fonte: "International Building Code (IBC)",
+      riferimento: "sez. 1020.2",
+      titolo: "Larghezza minima dei corridoi di esodo",
+      grandezza: "larghezza_via_esodo_m",
+      operatore: ">=",
+      valore: 1.118, // 44 in
+      unita: "m",
+      nota: "44 pollici con affollamento pari o superiore a 50 persone; sotto tale soglia il minimo scende.",
+      validato: false,
+    },
   ];
+
+  // ---------------------------------------------------------------------------
+  // COSA NON E' CODIFICATO, E PERCHE'.
+  //
+  // Un elenco di assenze dichiarate vale piu' di un elenco di soglie a meta':
+  // dice a chi legge il report dove NON deve fidarsi.
+  //
+  // - Dimensionamento delle uscite sull'affollamento (moduli da 0,60 m). Serve
+  //   il numero di occupanti, che dipende dalla destinazione d'uso: e' una
+  //   decisione di progetto, non una misura geometrica.
+  // - Classificazione del rischio di incendio (basso / medio / elevato). Da
+  //   essa dipende la lunghezza massima del percorso, e la fa il progettista.
+  // - Numero minimo di uscite indipendenti e loro distanza angolare.
+  // - Resistenza al fuoco, compartimentazione, filtri a prova di fumo: sono
+  //   proprieta' dei materiali e delle chiusure, invisibili in una nuvola di
+  //   punti.
+  // - Travel distance NFPA 101: dipende da destinazione d'uso e presenza di
+  //   impianto sprinkler, due informazioni che il modello non contiene.
+  //
+  // Aggiungerle a indovinare sarebbe il modo piu' rapido di rendere questo
+  // strumento inutilizzabile in sede professionale.
+  // ---------------------------------------------------------------------------
 
   function confronta(valore, operatore, soglia) {
     return operatore === ">=" ? valore >= soglia - 1e-9 : valore <= soglia + 1e-9;
