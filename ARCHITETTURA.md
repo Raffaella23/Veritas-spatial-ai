@@ -365,6 +365,111 @@ guardare.
 
 ---
 
+## 8-bis. L'obiettivo: un'AI che VEDE, CAPISCE, SA e REFERTA
+
+> *«La nostra AI deve vedere e comprendere lo spazio e deve avere le conoscenze e le competenze
+> per fare tutte le analisi e sviluppare i report.»* — Raffaella, 12/08/2026
+>
+> Questa è la specifica del prodotto. Le quattro parole sono quattro strati, e vanno tenute
+> distinte: confonderle è ciò che ha prodotto finora un sistema che misura bene e capisce poco.
+
+### Il pattern giusto è già nel codice — **[V]**
+
+`veritas_visibility.js` risolve già il problema degli ingressi diversi, e lo risolve bene:
+
+```
+occludersFromMesh(root)  ─┐
+                          ├─→  occluders  ─→  griglia  ─→  isovist / LOS / intervisibilità
+occludersFromSplat(root) ─┘        (intermedio comune, indipendente dalla sorgente)
+```
+
+**Due adattatori, un intermedio, il resto del modulo non sa da dove vengano i dati.** È il pattern
+da estendere a tutto. Non va inventato: va applicato dove manca.
+
+### Dove il pattern c'è e dove no — **[V]**
+
+| Canale | Intermedio comune | GLB | Splat | Stato |
+|---|---|---|---|---|
+| Navigabilità | `points` (nuvola) | `extractNavigablePoints` | `extractSplatPoints` | ✅ generalizza |
+| Occlusione / visibilità | `occluders` → griglia | `occludersFromMesh` | `occludersFromSplat` | ✅ generalizza |
+| **Isovista** | — | `veritasComputeIsovist` (raycast mesh) | ❌ **niente** | ❌ **duplicato e mesh-only** |
+| **Apparenza (colore)** | — | ❌ | ❌ | ❌ **il canale che manca del tutto** |
+
+⚠️ **`veritasComputeIsovist` (blocco 2, scritto il 12/08/2026) è un duplicato da rimuovere.**
+`window.__veritasPerception.isovist(pos, opts)` esisteva già, restituisce area, perimetro e
+**compattezza**, e funziona su entrambe le sorgenti. Il duplicato raycasta `__veritasModelRoot`:
+su uno splat non colpisce nulla e risponde «orizzonte completamente aperto» ovunque — sbagliato,
+e in silenzio. Va sostituito con la chiamata al modulo esistente, conservando solo l'aggiunta
+utile: le due altezze occhio e i raggi grezzi per disegnare la sagoma.
+
+### ❗ Il canale che manca: l'apparenza
+
+Nessuno strato oggi legge **il colore**. Ed è l'unico segnale che sopravvive a tutti gli ingressi:
+le frecce sul pavimento si vedono diverse, su un GLB come su una scansione.
+
+Serve un terzo intermedio comune, accanto a `points` e `occluders`:
+
+```
+apparenzaDaMesh(root)   ─┐
+                         ├─→  campioni {x, z, colore, quota}  ─→  segmentazione → elementi visti
+apparenzaDaSplat(root)  ─┘
+```
+
+Con un'inversione da notare: **su uno splat il colore è nativo** — una gaussiana *è* un punto
+colorato, il dato c'è già ed è quello che il modulo splat estrae per la nuvola. È il **GLB** a
+richiedere lavoro: colore del materiale, vertex color, o campionamento della texture.
+
+E il renderer è il secondo punto di unione: una **pianta ortografica dall'alto** produce
+un'immagine per entrambe le sorgenti. La macchina esiste già — `captureFOV` (blocco 6) piazza una
+camera arbitraria, disegna e legge i pixel; una pianta è la stessa cosa con una camera ortografica.
+
+### I quattro strati: cosa c'è, cosa manca
+
+| Strato | Cosa deve fare | Cosa c'è già | Cosa manca |
+|---|---|---|---|
+| **1. VEDERE** | rilevare, da qualunque ingresso, senza metadati | navigabilità ✅, occlusione ✅, isovista 🟡 (mesh), pianta ortografica ❌ | **canale apparenza/colore**, pianta ortografica, isovista unificata |
+| **2. CAPIRE** | dire *cosa* è ciò che vede | `classifyEnvironment` (tipo di ambiente dalle misure), interpretazioni della percezione in `engine.py` | riconoscimento degli **elementi** (freccia, coda, soglia, seduta), lettura del **flusso**, attribuzione di **funzione** alle zone |
+| **3. SAPERE** | competenza di dominio, con fonte | **il pezzo più forte già oggi**: `veritas_normative.js` 3 framework × 19 soglie citate, `veritas_esodo.js`, `compliance.py`, `benchmarks.json`, `recommendations.py` | è alimentato **solo da misure**. Sa dire «questo varco è 1,1 m, sotto soglia», non «qui si forma la coda, quindi quel 1,1 m pesa di più» |
+| **4. REFERTARE** | analisi e report vendibili | KPI reali, report percezione, raccomandazioni con valore economico, verdetti sul modello | sintesi che leghi visto + capito + norma, ed export PDF |
+
+### La lacuna strutturale: manca un modello dello spazio
+
+I quattro strati non condividono **niente**. Si scambiano globali (`window.__veritas*`), non una
+rappresentazione. Ecco perché il sistema *sembra* slegato: lo è davvero, ma non per mancanza di
+funzioni — per mancanza di **un oggetto comune** su cui scriverle.
+
+Il principio *Single Source of Truth* di `CONTEXT.md` è applicato al codice; va applicato **allo
+spazio**:
+
+```
+ModelloSpaziale {
+  sorgente        "glb" | "splat" | "scan"
+  livelli         [{ quota, piantaOrtografica, grigliaNavigabile, occluders }]
+  elementiVisti   [{ poligono, colore, asseLungo, tipo, confidenza,
+                     origine: "colore" | "geometria" | "modello" }]
+  zone            [{ poligono, area, larghezze, isovista, funzione, confidenza }]
+  flussi          [{ sequenzaZone, famiglia, origine: "disegnato" | "dedotto" }]
+  verdetti        [{ norma, soglia, misurato, esito, fonteCitata }]
+}
+```
+
+Ogni strato **legge e scrive qui**. Il report non ricostruisce niente: descrive questo oggetto.
+E ogni voce porta `origine` e `confidenza`, così un dato misurato non si confonde mai con uno
+dedotto o con uno proposto da un modello — la stessa disciplina già adottata con
+`perception_source`.
+
+### Dove serve davvero un modello di visione
+
+Non per **trovare** le frecce: colore, forma allungata e posizione sul calpestio bastano, sono
+misura e vanno sempre.
+
+Serve per **capire cosa significano** — che quella è una coda e non un corridoio, che quel verso
+va verso l'imbarco, che quella seduta è un'area di attesa. È significato, e nessuna geometria lo
+contiene. Va usato lì, dichiarando il costo (CLAUDE.md §8.6), e ciò che produce va marcato
+`origine: "modello"` e `confidenza`, mai confuso con una misura.
+
+---
+
 ## 9. Errori documentali accertati — non ripercorrerli
 
 | Dove | Cosa dice | Realtà **[V]** |
