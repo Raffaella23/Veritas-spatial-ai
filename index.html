@@ -2701,6 +2701,10 @@
       + " Se il fattore non ti torna, scrivi \"scala modello <n>\" — tu la scala di questo"
       + " spazio la riconosci meglio di qualunque regola.";
     console.warn("[VERITAS scala] correzione automatica applicata:", scala.fattore + "x");
+    // La passata e' SPORCA: si e' dovuto correggere. Si lascia il segno, e sara'
+    // la fine della passata a comunicarlo alla sequenza - qui siamo ancora a
+    // meta' del lavoro.
+    window.__veritasCorrezioneApplicata = "scala " + scala.fattore + "x";
     return window.__veritasScaleModel(scala.fattore, spiegazione);
   }
 
@@ -9105,14 +9109,64 @@ window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, pia
 // analisi -> riscalo -> rianalisi vince l'ultima, che e' l'unica giusta.
 let attesaLettura = null;
 window.__veritasLeggiSegnaletica = function (punti, colori) {
-  if (attesaLettura) clearTimeout(attesaLettura);
-  attesaLettura = setTimeout(() => {
-    attesaLettura = null;
-    window.__veritasLeggiSegnaleticaOra(punti, colori);
-    window.__veritasCatenaAnalisi();
-  }, 1200);
+  // NON si legge piu' qui, e non si aspetta piu' un secondo e mezzo sperando
+  // che nel frattempo tutto si sia assestato. Un'attesa non e' un ordine: e'
+  // una scommessa su quanto ci mette il computer.
+  //
+  // Si dichiara solo che una passata di analisi si e' conclusa senza
+  // correzioni. Se e' la prima pulita, la sequenza fa partire misura e
+  // giudizio, in quest'ordine. Altrimenti non succede niente e si aspetta la
+  // passata buona.
+  if (attesaLettura) { clearTimeout(attesaLettura); attesaLettura = null; }
+  if (typeof window.__veritasPassataConclusa !== "function") {
+    // Senza sequenza (prove isolate) si legge subito, come prima.
+    return window.__veritasLeggiSegnaleticaOra(punti, colori);
+  }
+  // Non si legge piu' da qui: il confine di una passata non e' questo aggancio,
+  // che scatta a meta' del lavoro, ma __veritasOnModelLoaded - vedi sotto.
   return null;
 };
+
+// IL CONFINE VERO DI UNA PASSATA.
+//
+// Mi ero attaccato all'aggancio della segnaletica, ma quello scatta dentro
+// extractNavigablePoints, cioe' a meta': la decisione sulla scala arriva dopo.
+// E soprattutto la SECONDA passata non passa affatto di li' - il riscalo
+// richiama __veritasOnModelLoaded, che puo' seguire un'altra strada. Risultato
+// misurato: la sequenza restava ferma su "ambiente, 1 passata" per sempre.
+//
+// __veritasOnModelLoaded e' invece il punto da cui l'analisi RIPARTE ogni
+// volta, qualunque strada prenda dopo. Una sua chiamata = una passata.
+(function agganciaPassate(tentativo) {
+  tentativo = tentativo || 0;
+  const orig = window.__veritasOnModelLoaded;
+  if (typeof orig !== "function") {
+    if (tentativo < 20) setTimeout(() => agganciaPassate(tentativo + 1), 400);
+    return;
+  }
+  if (orig.__veritasSequenziata) return;
+  const avvolta = function (radice) {
+    const seq = window.__veritasSequenza;
+    if (seq && seq.fase === "attesa" && typeof window.__veritasModelloEntrato === "function")
+      window.__veritasModelloEntrato((radice && radice.name) || "spazio caricato");
+    let esito;
+    try { esito = orig.apply(this, arguments); } finally {
+      // Il rinvio a zero non e' un'attesa a tempo - non e' una scommessa su
+      // quanto ci mette il computer - ma la garanzia di riprendere quando il
+      // lavoro sincrono in corso, compresa la decisione sulla scala, e' finito.
+      setTimeout(() => {
+        const corr = window.__veritasCorrezioneApplicata || null;
+        window.__veritasCorrezioneApplicata = null;
+        if (typeof window.__veritasPassataConclusa === "function")
+          window.__veritasPassataConclusa(corr);
+      }, 0);
+    }
+    return esito;
+  };
+  avvolta.__veritasSequenziata = true;
+  window.__veritasOnModelLoaded = avvolta;
+  console.log("[VERITAS sequenza] aggancio alle passate attivo");
+})();
 
 window.__veritasLeggiSegnaleticaOra = function (punti, colori) {
   const S = window.__veritasSegnaletica;
@@ -9208,12 +9262,212 @@ window.__veritasCatenaAnalisi = function (forza) {
   // non si dichiara e' indistinguibile da una che non e' partita.
   setTimeout(() => {
     if (typeof window.__veritasRaccontaReferto === "function") window.__veritasRaccontaReferto();
+    if (typeof window.__veritasSequenzaConclusa === "function") window.__veritasSequenzaConclusa();
   }, 1500 * (CATENA.length + 1) + 1500);
   window.__veritasCatenaUltima = Date.now();
   return true;
 };
 console.log("[VERITAS catena] pronta — window.__veritasCatenaAnalisi()");
 
+
+</script>
+<script type="module">
+// veritas_sequenza.js — l'ordine delle operazioni all'apertura di un modello.
+//
+// IL PROBLEMA, DETTO SEMPLICE
+// Prima si sistema l'ambiente, poi si analizza. Non il contrario.
+//
+// Quello che succedeva era invece questo: il modello veniva caricato, partiva
+// subito un'analisi, DOPO si scopriva che non era in metri, si riscalava di 6
+// volte e si rianalizzava. Nel frattempo la segnaletica era gia' stata letta su
+// un modello grande un sesto del vero, e il confronto normativo aveva gia'
+// dichiarato 30 porte su 31 non conformi misurandole 0,15 m - che e' la misura
+// PRIMA del riscalo.
+//
+// Un verdetto di conformita' calcolato su un ambiente non ancora sistemato non
+// e' un verdetto sbagliato per poco: e' un numero credibile e falso, che e' la
+// cosa peggiore che questo strumento possa produrre.
+//
+// Avevo provato a rimediare con delle ATTESE - aspetta un secondo e mezzo, poi
+// leggi - sperando che nel frattempo tutto si fosse assestato. Ma un'attesa non
+// e' un ordine: e' una scommessa su quanto ci mette il computer, e su una
+// macchina piu' lenta o un modello piu' grande si perde.
+//
+// LE QUATTRO FASI
+//
+//   1. AMBIENTE   appoggiare a terra, mettere in scala, e RIFARLO finche' non
+//                 serve piu'. Nessuna misura esce da questa fase.
+//   2. MISURA     l'occhio: pianta, area, quota, segnaletica, zone.
+//   3. GIUDIZIO   visibilita', accessibilita', affollamento, esodo, normative.
+//   4. PRONTO     si racconta cosa si e' capito, e si puo' simulare.
+//
+// COME SI SA CHE L'AMBIENTE E' A POSTO
+// Non con un'attesa, ma con un PUNTO FISSO: l'ambiente e' sistemato quando una
+// passata di analisi si conclude senza aver dovuto correggere niente. Se ha
+// corretto, la passata e' sporca e si aspetta la successiva. E' la stessa
+// condizione che il codice del riscalo gia' usava per non avvitarsi, resa
+// esplicita e valida per tutti.
+
+const FASI = ["attesa", "ambiente", "misura", "giudizio", "pronto"];
+
+// Oltre questo numero di correzioni ci si ferma. Un ambiente che continua a
+// chiedere di essere corretto ha un problema che una correzione in piu' non
+// risolve, e continuare significherebbe girare per sempre senza dirlo.
+const MAX_PASSATE = 4;
+
+function nuovaSequenza() {
+  return { fase: "attesa", passate: 0, correzioni: [], iniziata: null, storia: [] };
+}
+
+function passa(seq, fase, nota) {
+  seq.fase = fase;
+  seq.storia.push({ fase, quando: Date.now(), nota: nota || null });
+  return seq;
+}
+
+/** Il modello e' entrato: si comincia a sistemare l'ambiente. */
+function avvia(seq) {
+  seq.iniziata = Date.now();
+  seq.passate = 0;
+  seq.correzioni = [];
+  return passa(seq, "ambiente", "modello caricato");
+}
+
+/**
+ * Una passata di analisi si e' conclusa.
+ *
+ * @param {object} seq
+ * @param {{correzione?: string}} esito  se e' stata applicata una correzione,
+ *        come si chiama (es. "scala 6x"); altrimenti niente.
+ * @returns {{ambientePronto: boolean, motivo: string}}
+ */
+function registraPassata(seq, esito = {}) {
+  if (seq.fase !== "ambiente") {
+    // L'instabilita' e' una proprieta' della SEQUENZA, non di una singola
+    // chiamata: se l'ambiente non si e' assestato, chi lo chiede piu' tardi
+    // deve continuare a saperlo, o l'avvertenza svanisce dopo un giro.
+    return {
+      ambientePronto: seq.fase !== "attesa",
+      motivo: seq.instabile ? seq.motivoInstabile : "fase " + seq.fase,
+      instabile: !!seq.instabile,
+    };
+  }
+  seq.passate++;
+  if (esito.correzione) {
+    seq.correzioni.push(esito.correzione);
+    if (seq.passate >= MAX_PASSATE) {
+      // Ci si ferma e lo si DICE. Andare avanti in silenzio con un ambiente
+      // che non si e' assestato produrrebbe misure di cui nessuno sa il valore.
+      passa(seq, "misura", "fermato dopo " + seq.passate + " passate");
+      seq.instabile = true;
+      seq.motivoInstabile = "l'ambiente ha chiesto " + seq.correzioni.length +
+        " correzioni senza assestarsi (" + seq.correzioni.join(", ") +
+        "): vado avanti, ma le misure vanno guardate con sospetto";
+      return { ambientePronto: true, motivo: seq.motivoInstabile, instabile: true };
+    }
+    return { ambientePronto: false, motivo: "applicata " + esito.correzione + ", rifaccio" };
+  }
+  passa(seq, "misura", "ambiente stabile dopo " + seq.passate + " passate");
+  return {
+    ambientePronto: true,
+    motivo: seq.correzioni.length
+      ? "ambiente sistemato (" + seq.correzioni.join(", ") + ")"
+      : "ambiente gia' a posto, nessuna correzione",
+  };
+}
+
+/** Le misure sono fatte: si puo' giudicare. */
+function misuraFatta(seq) { return passa(seq, "giudizio", "misure raccolte"); }
+
+/** Tutto fatto. */
+function giudizioFatto(seq) { return passa(seq, "pronto", "analisi concluse"); }
+
+/** Si puo' simulare? Solo a valle di tutto: prima i numeri sono provvisori. */
+function puoSimulare(seq) { return !!seq && seq.fase === "pronto"; }
+
+/**
+ * Una misura presa in questa fase e' affidabile?
+ *
+ * Serve a marcare la provenienza in modo onesto: un valore raccolto mentre
+ * l'ambiente e' ancora in sistemazione non e' una misura, e' un dato
+ * provvisorio che verra' rifatto.
+ */
+function misuraAffidabile(seq) {
+  return !!seq && (seq.fase === "misura" || seq.fase === "giudizio" || seq.fase === "pronto");
+}
+
+/** Dove siamo, in italiano. */
+function raccontaFase(seq) {
+  if (!seq) return "Nessun modello in lavorazione.";
+  switch (seq.fase) {
+    case "attesa": return "In attesa di un modello.";
+    case "ambiente": return "Sto sistemando l'ambiente: scala e appoggio a terra." +
+      (seq.correzioni.length ? " Correzioni finora: " + seq.correzioni.join(", ") + "." : "");
+    case "misura": return "Ambiente a posto. Sto misurando lo spazio.";
+    case "giudizio": return "Misure raccolte. Sto valutando visibilita', accessibilita', affollamento ed esodo.";
+    case "pronto": return "Analisi concluse: si puo' simulare.";
+    default: return "Fase sconosciuta.";
+  }
+}
+
+
+// ---------------------------------------------------------------------------
+// Collegamento
+// ---------------------------------------------------------------------------
+window.__veritasSequenza = nuovaSequenza();
+window.__veritasFasi = { avvia, registraPassata, misuraFatta, giudizioFatto,
+                         puoSimulare, misuraAffidabile, raccontaFase };
+
+function dillo(t) {
+  console.log('[VERITAS sequenza]', t);
+  if (typeof window.__veritasAnnounce === 'function') window.__veritasAnnounce(t);
+}
+
+// Il modello e' entrato: si comincia a SISTEMARE, non ad analizzare.
+window.__veritasModelloEntrato = function (nome) {
+  avvia(window.__veritasSequenza);
+  if (typeof window.__veritasApriReferto === 'function') window.__veritasApriReferto(nome);
+  dillo('Ho ricevuto il modello. Prima sistemo l\'ambiente: scala e appoggio a terra.');
+};
+
+// Una passata di analisi si e' conclusa. Se ha dovuto correggere qualcosa la
+// passata e' sporca: si aspetta la prossima, senza misurare niente.
+window.__veritasPassataConclusa = function (correzione) {
+  const seq = window.__veritasSequenza;
+  if (!seq || seq.fase === 'attesa') return false;
+  const r = registraPassata(seq, correzione ? { correzione } : {});
+  if (!r.ambientePronto) {
+    console.log('[VERITAS sequenza]', r.motivo);
+    return false;
+  }
+  if (seq.__giaAvviata) return true;
+  seq.__giaAvviata = true;
+  if (r.instabile) dillo('Attenzione: ' + r.motivo);
+  else console.log('[VERITAS sequenza]', r.motivo);
+
+  // ORA si misura, e solo ora. Da qui in poi i numeri valgono.
+  dillo('Ambiente a posto' + (seq.correzioni.length ? ' (' + seq.correzioni.join(', ') + ')' : '') +
+        '. Adesso misuro lo spazio.');
+  try {
+    if (typeof window.__veritasLeggiSegnaleticaOra === 'function')
+      window.__veritasLeggiSegnaleticaOra(window.__veritasAutoPoints || [], window.__veritasNuvolaColori);
+  } catch (e) { console.warn('[VERITAS sequenza] misura fallita', e); }
+  misuraFatta(seq);
+
+  // e solo dopo si giudica
+  try {
+    if (typeof window.__veritasCatenaAnalisi === 'function') window.__veritasCatenaAnalisi(true);
+  } catch (e) { console.warn('[VERITAS sequenza] giudizio fallito', e); }
+  return true;
+};
+
+window.__veritasSequenzaConclusa = function () {
+  const seq = window.__veritasSequenza;
+  if (!seq) return;
+  giudizioFatto(seq);
+  dillo(raccontaFase(seq));
+};
+console.log('[VERITAS sequenza] pronta — prima l\'ambiente, poi le analisi');
 
 </script>
 <script type="module">

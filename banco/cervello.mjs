@@ -41,6 +41,12 @@ const r = await p.evaluate(async () => {
     return s ? Object.keys(s).slice(0,6) : "nessuno stato";
   });
   await prova("catena eseguita", () => !!window.__veritasCatenaUltima);
+  await prova("SEQUENZA: fase", () => {
+    const q = window.__veritasSequenza;
+    return q ? { fase: q.fase, passate: q.passate, correzioni: q.correzioni } : "assente";
+  });
+  await prova("SEQUENZA: si puo' simulare?", () =>
+    window.__veritasFasi ? window.__veritasFasi.puoSimulare(window.__veritasSequenza) : "?");
   await prova("MEMORIA: voci", () => {
     const R = window.__veritasReferto;
     if (!R) return "nessuna memoria";
@@ -93,6 +99,6 @@ const r = await p.evaluate(async () => {
 console.log("═══ STATO DEL CERVELLO DOPO IL CARICAMENTO ═══");
 for (const [k,v] of Object.entries(r)) console.log(`  ${k.padEnd(28)} ${JSON.stringify(v)}`);
 console.log("\n═══ righe segnaletica ═══");
-log.filter(l=>/segnaletica|ingresso|catena|vista|memoria/i.test(l)).slice(0,20).forEach(l=>console.log("  "+l.slice(0,160)));
+log.filter(l=>/segnaletica|ingresso|catena|vista|memoria|sequenza|scala/i.test(l)).slice(0,26).forEach(l=>console.log("  "+l.slice(0,160)));
 console.log("\n═══ errori ═══"); [...new Set(err)].slice(0,8).forEach(e=>console.log("  "+e.slice(0,150)));
 await b.close();
