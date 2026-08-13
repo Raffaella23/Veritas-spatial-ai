@@ -2842,6 +2842,21 @@
     return structuralAnalysisFromPoints(extraction.points, extraction.airsideAnchor);
 }
 
+  // Entrata pubblica per rifare l'analisi strutturale da capo sul modello
+  // attuale, estrazione della nuvola COMPRESA.
+  //
+  // Serve perche' dopo una correzione di scala la nuvola va rifatta, e non
+  // c'era modo di chiederlo da fuori: __veritasAnalyzePointCloud vuole dei
+  // punti gia' pronti, e il pulsante di rianalisi passa per un'altra strada
+  // che la nuvola non la tocca. Risultato misurato: modello riscalato a
+  // 121 x 67,6 m e nuvola ferma a 19,7 x 10,4 - tutto il resto ragionava su
+  // quella.
+  window.__veritasRianalizzaModello = function () {
+    const r = window.__veritasModelRoot;
+    if (!r) return null;
+    return runStructuralAnalysis(r);
+  };
+
   window.__veritasAnalyzePointCloud = function (points, airsideAnchor) {
     return structuralAnalysisFromPoints(points, airsideAnchor || null);
   };
@@ -9448,6 +9463,37 @@ window.__veritasPassataConclusa = function (correzione) {
   // ORA si misura, e solo ora. Da qui in poi i numeri valgono.
   dillo('Ambiente a posto' + (seq.correzioni.length ? ' (' + seq.correzioni.join(', ') + ')' : '') +
         '. Adesso misuro lo spazio.');
+
+  // PRIMA DI MISURARE, LA NUVOLA VA RIFATTA.
+  //
+  // Il difetto piu' grave trovato finora, e completamente silenzioso.
+  // La nuvola di punti navigabili viene estratta durante la PRIMA passata,
+  // quella sul modello non ancora in scala. Dopo il riscalo di 6x nessuno la
+  // ricalcola: la seconda passata prende un'altra strada (analyzeMesh) e
+  // __veritasAutoPoints resta quella vecchia.
+  //
+  // Misurato: modello 121 x 12,7 x 67,6 m, nuvola 19,7 x 1 x 10,4 m - cioe'
+  // esattamente il modello prima della correzione. Da li' venivano
+  //   84,23 m2 navigabili   (su 3592 m2 di pavimento veri: il 2%)
+  //   porte larghe 0,151 m  (x6 = 0,906 m, che la soglia la passa)
+  //   "30 casi su 31 non conformi" - un verdetto di conformita' FALSO.
+  //
+  // Rifare l'estrazione qui e' sicuro: l'ambiente e' gia' assestato, quindi
+  // non puo' innescare un'altra correzione, e la guardia __giaAvviata impedisce
+  // di rientrare comunque.
+  if (seq.correzioni.length) {
+    if (typeof window.__veritasRianalizzaModello === 'function') {
+      console.log('[VERITAS sequenza] la scala e\' cambiata: rifaccio la nuvola prima di misurare');
+      try {
+        window.__veritasRianalizzaModello();
+        const n = (window.__veritasAutoPoints || []).length;
+        console.log('[VERITAS sequenza] nuvola rifatta:', n, 'punti');
+      } catch (e) { console.warn('[VERITAS sequenza] rianalisi fallita', e); }
+    } else {
+      console.warn('[VERITAS sequenza] non so rifare la nuvola: resta quella pre-scala');
+    }
+  }
+
   try {
     if (typeof window.__veritasLeggiSegnaleticaOra === 'function')
       window.__veritasLeggiSegnaleticaOra(window.__veritasAutoPoints || [], window.__veritasNuvolaColori);
