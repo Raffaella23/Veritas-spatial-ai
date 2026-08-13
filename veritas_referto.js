@@ -115,4 +115,96 @@ export function racconta(referto) {
   return r.length ? r.join(". ") + "." : "Memoria aperta ma ancora vuota.";
 }
 
-export default { nuovoReferto, deposita, annota, analisiConEsito, lacune, racconta, SORGENTI };
+/**
+ * Riduce un valore a qualcosa che ha senso conservare.
+ *
+ * Le analisi restituiscono anche oggetti enormi - griglie di occupazione,
+ * mappe di distanza, elenchi di migliaia di celle. Metterli in memoria
+ * cosi' come sono la farebbe pesare decine di megabyte e renderebbe il
+ * referto illeggibile, senza aggiungere niente: quello che serve a chi
+ * ragiona dopo sono i NUMERI, non le matrici da cui vengono.
+ *
+ * Gli array diventano la loro lunghezza piu' un campione, gli oggetti
+ * tengono solo i campi scalari. Quello che viene lasciato fuori e' sempre
+ * dichiarato, cosi' nessuno crede di avere in mano piu' di quello che ha.
+ */
+export function sintetizza(valore, profondita = 0) {
+  if (valore == null) return valore;
+  const t = typeof valore;
+  if (t === "number" || t === "boolean" || t === "string") {
+    return t === "string" && valore.length > 200 ? valore.slice(0, 200) + "…" : valore;
+  }
+  if (t === "function") return "(funzione)";
+  if (ArrayBuffer.isView(valore)) return { tipo: valore.constructor.name, elementi: valore.length };
+  if (Array.isArray(valore)) {
+    if (profondita >= 2) return { elementi: valore.length };
+    return {
+      elementi: valore.length,
+      campione: valore.slice(0, 3).map((v) => sintetizza(v, profondita + 1)),
+    };
+  }
+  if (t === "object") {
+    // Un nodo del DOM non e' un dato: serializzarlo riempirebbe la memoria di
+    // dettagli di presentazione che nessuna analisi puo' usare.
+    if (typeof valore.nodeType === "number") return undefined;
+    if (profondita >= 2) return "(oggetto)";
+    const out = {};
+    let esclusi = 0;
+    for (const k of Object.keys(valore)) {
+      const v = valore[k];
+      const tv = typeof v;
+      if (tv === "number" || tv === "boolean" || tv === "string") out[k] = sintetizza(v, profondita + 1);
+      else if (Array.isArray(v) || ArrayBuffer.isView(v)) out[k] = sintetizza(v, profondita + 1);
+      else if (v && tv === "object" && profondita < 1) {
+        const dentro = sintetizza(v, profondita + 1);
+        if (dentro === undefined) esclusi++; else out[k] = dentro;
+      } else esclusi++;
+    }
+    if (esclusi) out.__esclusi = esclusi;
+    return out;
+  }
+  return String(valore);
+}
+
+/**
+ * Fa in modo che ogni chiamata ai metodi di un modulo depositi il proprio
+ * risultato nella memoria.
+ *
+ * PERCHE' COSI' E NON RICHIAMANDO LE ANALISI
+ * I numeri servono quelli VERI, cioe' quelli che l'analisi ha effettivamente
+ * usato. Rieseguire l'analisi per raccoglierli significherebbe farla due
+ * volte e, appena una delle due strade cambia, ottenere due risposte diverse
+ * per la stessa domanda. Intercettando il confine del modulo il numero e'
+ * per costruzione lo stesso che ha visto l'utente.
+ *
+ * @param {object} referto
+ * @param {string} nome     nome del modulo, es. "esodo"
+ * @param {object} modulo   l'oggetto con i metodi
+ * @param {string} sorgente come vanno marcati i suoi esiti
+ * @returns {number} quanti metodi sono stati intercettati
+ */
+export function intercetta(referto, nome, modulo, sorgente = "riferito") {
+  if (!modulo || typeof modulo !== "object") return 0;
+  let quanti = 0;
+  for (const metodo of Object.keys(modulo)) {
+    const f = modulo[metodo];
+    if (typeof f !== "function" || f.__veritasIntercettato) continue;
+    const avvolta = function (...args) {
+      const esito = f.apply(this, args);
+      try {
+        const R = typeof referto === "function" ? referto() : referto;
+        if (R && esito !== undefined) {
+          deposita(R, nome + "." + metodo, sintetizza(esito), { sorgente, da: nome });
+        }
+      } catch (e) { /* un difetto qui non deve rompere l'analisi */ }
+      return esito;
+    };
+    avvolta.__veritasIntercettato = true;
+    modulo[metodo] = avvolta;
+    quanti++;
+  }
+  return quanti;
+}
+
+export default { nuovoReferto, deposita, annota, analisiConEsito, lacune, racconta,
+                 sintetizza, intercetta, SORGENTI };

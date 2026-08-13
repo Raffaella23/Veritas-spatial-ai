@@ -47,8 +47,11 @@ const r = await p.evaluate(async () => {
     const o = {};
     for (const k of Object.keys(R.voci)) {
       const v = R.voci[k];
-      o[k] = (Array.isArray(v.valore) ? v.valore.length + " elementi"
-              : typeof v.valore === "number" ? +v.valore.toFixed(1) : v.valore) + " [" + v.sorgente + "]";
+      const val = v.valore;
+      o[k] = (Array.isArray(val) ? val.length + " elementi"
+              : typeof val === "number" ? +val.toFixed(1)
+              : val && typeof val === "object" ? JSON.stringify(val).slice(0, 110)
+              : val) + " [" + v.sorgente + "]";
     }
     return o;
   });
