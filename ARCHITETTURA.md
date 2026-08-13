@@ -1,0 +1,411 @@
+# ARCHITETTURA.md — mappa unica del progetto VERITAS
+
+> **A cosa serve questo file.** Il passaggio da una chat all'altra perde memoria, e
+> ogni sessione che non guarda finisce per riscrivere ciò che c'era. Questo file è
+> la **fonte unica** su *dove sta cosa* e *cosa esiste già*.
+>
+> - `ARCHITETTURA.md` (questo file) → **struttura e capacità.** Cosa c'è, dove, e se è verificato.
+> - `CLAUDE.md` → **regole operative e storia.** Come si lavora qui, e cosa è successo.
+> - `PROJECT_INFO.md` → archivio storico per sessione. Utile, non normativo.
+> - `CONTEXT.md` → principi di design. ⚠️ descrive in parte un'architettura *target*, non lo stato.
+>
+> Ogni voce qui sotto è marcata:
+> **[V]** verificato in questa sessione · **[D]** dichiarato dalla documentazione, non riverificato
+>
+> Se questo file contraddice gli altri, **vale questo** — ma solo per le voci **[V]**.
+> Ultimo aggiornamento: 12 agosto 2026.
+
+---
+
+## 1. Topologia: branch e deploy
+
+| Branch | Contiene | Serve a | Chi lo consuma |
+|---|---|---|---|
+| `main` | Core Python + `Veritas-V17-FIX-SOLO-BUG.html` + `index.html` (redirect 217 B) | Produzione | **Render ridistribuisce da qui** |
+| `veritas-ai-os-preview` | `index.html` completo (~1,33 MB) + Core Python | Anteprima | **GitHub Pages** |
+| `claude/...` | branch di lavoro, **una sola per volta** | Sessione in corso | nessuno |
+
+⚠️ **Il frontend nuovo è solo sulla preview.** Su `main` vanno **solo i file Python**, per far
+ridistribuire Render — eccezione registrata in CLAUDE.md §11.0. Promuovere il frontend a `main`
+richiede approvazione esplicita di Raffaella.
+
+**Conseguenza operativa che è già costata tempo:** una modifica al Core Python che resta sulla
+preview **non arriva al servizio in esecuzione**. Il frontend la chiamerà e otterrà una risposta
+del backend vecchio, senza errori evidenti.
+
+### Deploy Render — **[V]**
+
+- Servizio `veritas-core-api` (`srv-d9r2tmss728c73ct1c80`), piano **free**, regione Oregon
+- Auto-deploy **sì**, a ogni commit su `main`
+- URL: `https://veritas-core-api-7g2x.onrender.com` · health: `/health`
+- Deploy corrente: `80e73f7` — **status `live`**, concluso 12/08/2026 18:27
+- Piano free: si addormenta dopo ~15 min, **cold start 30-60 s**. Non è un guasto.
+
+> **Il connettore Render è attivo in questa sessione.** Si possono leggere servizi, deploy e log
+> senza uscire dalla chat — e serve, perché il proxy della sandbox blocca `onrender.com` via curl
+> (403 sul tunnel). `workspaceId = tea-d9r2r1iju40c73e4k2cg`.
+
+---
+
+## 2. Il runtime: `index.html`, 14 blocchi `<script>` — **[V]**
+
+Verificato con `html.parser`, non con regex (il bundle contiene stringhe che *sembrano* tag).
+
+| # | Tipo | Byte | Ruolo |
+|---|---|---|---|
+| 0 | importmap | 367 | three 0.171, three-mesh-bvh 0.7.8, spark 2.1.0 |
+| 1 | `src=` | 0 | supabase-js da CDN |
+| 2 | classico | 229.933 | **BOOT** — auth, progetti, analisi spaziale, isovista, pathfinding, bridge Python, OpenSky |
+| 3 | module | 872.507 | 🔴 **bundle React/Three minificato — INTOCCABILE** · sha `eedd9935ea908fd3` |
+| 4 | classico | 529 | handler sicurezza link |
+| 5 | module | 896 | patch three-mesh-bvh, espone `window.THREE` |
+| 6 | module | 83.266 | **SHELL AI-OS** — topbar, console comandi, upload, report percezione, vista in prima persona |
+| 7 | module | 9.664 | Gaussian Splat (**fermo**, vedi §7) |
+| 8 | module | 28.513 | visibilità ← `veritas_visibility.js` |
+| 9 | module | 26.934 | percezione geometrica ← `veritas_perception.js` |
+| 10 | module | 11.264 | ponte LLM locale ← `veritas_llm.js` |
+| 11 | module | 21.532 | normative ← `veritas_normative.js` |
+| 12 | module | 9.803 | vie di esodo ← `veritas_esodo.js` |
+| 13 | module | 11.485 | verdetti sul modello ← `veritas_visuale.js` |
+
+### Moduli in radice ↔ copia inlinata — **[V]**
+
+I sei file `veritas_*.js` in radice sono **inlinati** nei blocchi 8-13. Confronto byte a byte:
+
+| File | Blocco | Stato |
+|---|---|---|
+| `veritas_visibility.js` | 8 | identico |
+| `veritas_perception.js` | 9 | **diverge di 23 righe — è corretto così** |
+| `veritas_llm.js` | 10 | identico |
+| `veritas_normative.js` | 11 | identico |
+| `veritas_esodo.js` | 12 | identico |
+| `veritas_visuale.js` | 13 | identico |
+
+⚠️ La divergenza del 9 **non è un errore da sanare**: la copia inlinata è il file di radice *più*
+un footer che espone `window.__veritasPerceptionEngine`. Il file di radice resta un modulo ES puro,
+provabile in isolamento dai suoi test. **Non sovrascrivere l'uno con l'altro.** Se modifichi
+`veritas_perception.js`, reinlinalo conservando quel footer.
+
+---
+
+## 3. Il Core Python — `Assets/core/`
+
+⚠️ **Sta sotto `Assets/`**, che la documentazione dichiara rumore (~1240 sample Unity). È vero per
+tutto il resto di `Assets/`, **non per `core/`**. È già stato dimenticato per mesi per questo.
+
+| File | Righe | Ruolo |
+|---|---|---|
+| `engine.py` | ~420 | `SimulationEngine`: tick, KPI, traiettoria, **`_compute_agent_perception`**, `export_perception_report` |
+| `agent.py` | ~215 | `HumanAgent`: decisione per dominio, stress, contagio sociale, **mappa cognitiva** |
+| `behaviour.py` | ~60 | `SyntheticPlayer`: il corpo — posizione, waypoint, stato |
+| `compliance.py` | ~50 | `AccessibilityValidator`: soglie per dominio + regole VVFF |
+| `topology_analyzer.py` | ~300 | GLB → nuvola di punti → cluster → grafo di navigazione (usa trimesh + sklearn) |
+| `path_loader.py` | ~30 | legge il grafo, restituisce waypoint per `mission_profile` |
+| `recommendations.py` | ~130 | KPI → raccomandazioni con benchmark di ricavo |
+| `report_builder.py` | ~340 | report HTML della percezione (versione lato server) |
+
+⚠️ **`zones.py` non esiste.** CLAUDE.md lo elenca fra i file del Core: è un errore documentale.
+
+`main.py` (radice) è un runner da riga di comando indipendente; `api_server.py` è il servizio HTTP.
+
+---
+
+## 4. I due contratti di integrazione
+
+### 4a. Bridge globale `window.__veritas*` — **[V]** 68 simboli
+
+È **l'unico modo sicuro** di integrarsi fra blocchi: il boot è uno script classico e non può
+importare moduli ES. Non inventare nomi — cercali con grep.
+
+I più rilevanti, per famiglia:
+
+- **scena** `__veritasScene` `__veritasCamera` `__veritasRenderer` `__veritasControls` `__veritasModelRoot` `__veritasCanvasEl` `THREE`
+- **zone** `__veritasGetNodes` `__veritasAddNode` `__veritasRemoveNode` `__veritasAutoZones` `__veritasHotspotGroup` `__veritasLastGraph`
+- **analisi** `__veritasAnalyzePointCloud` `__veritasPerceptionEngine` `__veritasPerceive` `__veritasPercezione` `__veritasMisure` `__veritasFloorYNear`
+- **agenti** `__veritasPassengerGroups` `__veritasPassengerScale` `__veritasAgentCount` `__veritasSimStarted` `__veritasSpeedMultiplier`
+- **percezione** `__veritasPerceptionReport` `__veritasFOVFrames`
+- **domini** `__veritasNormative` `__veritasEsodo` `__veritasVisuale` `__veritasVerdict`
+- **AI/chat** `__veritasLLM` `__veritasRunCommand` `__veritasCommandExtensions` `__veritasAnnounce`
+- **backend** `__veritasApiBase` `__veritasSaveProject` `__veritasFlightSchedule`
+
+### 4b. Contratto HTTP verso il Core — `POST /api/simulate`
+
+```
+richiesta  { graph: { nodes: {id: {pos:[x,y,z], meta:{...}}},
+                      mission_profiles: {profile_id: [node_id,...]} },
+             agents: [{agent_id, profile_id, profile_data, domain, group_id, start_delay}],
+             ticks, dt, vvff_rules, emergency }
+
+risposta   { kpi: {...},
+             trajectory: { nodes: {...}, frames: [{t, agents:[{id,pos,rot,state,group,archetype,stress}]}] },
+             perception: { perception_source, perception_timeline, agent_cognitive_maps, zone_comfort_analysis } }
+```
+
+⚠️ `graph.nodes` è un **dizionario**, non un array. Il Core numera gli agenti come stringhe
+(`"a0"`) e usa stati minuscoli; `veritasNormalizeTrajectory` converte e **rifiuta** la traiettoria
+se non descrive la scena caricata, ricadendo sul generatore JS locale. Tre righe in console con
+prefisso `[VERITAS bridge]` sono la prima cosa da leggere se il motore reale si comporta male.
+
+Altri endpoint: `GET /health` (dichiara le funzioni attive), `POST /api/analyze-topology`,
+`POST /api/opensky/arrivals`, `POST /api/recommendations`, `GET /api/perception-report`,
+`GET /agent-sees/{id}`.
+
+⚠️ `/api/perception-report` e `/agent-sees` conservano **una copia sola e globale** lato server:
+con più utenti collegati restituiscono la simulazione di qualcun altro. Il viewer per questo tiene
+i dati nel browser (`__veritasPerceptionReport`) e non li rilegge dal server. Quei due endpoint
+sono utili solo per prove da riga di comando.
+
+---
+
+## 5. Inventario delle capacità richieste
+
+Legenda: ✅ esiste e verificato · 🟡 esiste ma parziale/non verificato a schermo · ❌ assente
+
+### Percezione spaziale ✅
+- **`veritas_perception.js`** (blocco 9, `window.__veritasPerceptionEngine`) — pipeline geometrica:
+  griglia di occupazione → chiusura morfologica → distance transform → asse mediale → strettoie →
+  watershed. La larghezza di un passaggio risulta `clearance × 2`: **una misura**. Test propri, passano **[V]**.
+- **`veritasComputeIsovist`** (blocco 2) — 32 raggi orizzontali contro la mesh, area dell'isovista
+  (Benedikt 1979), a **due altezze occhio** (1,65 / 1,20 m). Restituisce `area_m2`, `min_free_m`,
+  `mean_free_m` e i 32 raggi grezzi. **[V]**
+- **`veritas_visibility.js`** (blocco 8) — isoviste, linee di vista, intervisibilità fra zone,
+  griglia di occlusione da mesh **e da splat**.
+
+### Comprensione 3D 🟡
+- `extractNavigablePoints` (blocco 2) — campionamento **per area** dei triangoli, reticolo deterministico
+- `detectFloorLevels`, `kmeansCluster`, `clusterWidths` (PCA), `nearestNeighborOrder`
+- **Riconoscimento della segnaletica orizzontale** — vedi §6, è il punto chiave
+- `classifyEnvironment` — dichiara il tipo di ambiente dalle misure e sceglie la strategia **[D]**
+- `TopologyAnalyzer` (Python) — stessa cosa lato server, con trimesh
+
+### Comportamento agenti ✅
+- `HumanAgent` — decisione per dominio (aeroporto / museo / gaming), stress, contagio sociale
+  (Social Force Model), coesione di gruppo, panico per contagio
+- **Mappa cognitiva** — l'agente ricorda visibilità e comfort di ogni zona attraversata, e
+  rientrandoci alza la propria avversione al rischio **[V]**
+- `start_delay` — partenze sfasate; senza, gli agenti avanzano in blocco
+
+### Navigazione 🟡
+- `buildZoneGraph`, `dijkstra`, `findRoute`, `lineHasSupport` (blocco 2) — aggiramento ostacoli
+  **fra una zona e l'altra**
+- `veritasSnapToFloor` + infittimento a 2,5 m nel ponte Python **[V]**
+- ❌ **manca la collisione vera** sul tratto percorso — vedi §7
+
+### Ragionamento semantico 🟡
+- `veritas_normative.js` — 3 framework × 19 soglie, con citazione della fonte
+- `veritas_esodo.js` — lunghezza reale del percorso di fuga
+- `recommendations.py` + `benchmarks.json` — KPI → raccomandazioni con valore economico
+- Interpretazione della percezione in `engine.py`: `isolated_low_visibility`, `limited_visibility`,
+  `open_sightlines`, `crowded_perception`
+- ❌ **manca la lettura del flusso progettato** — vedi §6
+
+### Visione ✅ (geometrica) / ❌ (semantica per immagine)
+- **Vista in prima persona** — `captureFOV` nel blocco 6: uno scatto per zona attraversata,
+  miniatura 320×180, camera orientata secondo la direzione di marcia **[V] codice, 🟡 a schermo**
+- **Sagoma dell'isovista** — pianta reale dai 32 raggi, due quote sovrapposte **[V]**
+- ❌ nessun modello di visione: il riconoscimento è geometrico. **È una scelta, non una lacuna** —
+  vedi §8.
+
+### Simulazione ✅
+- `SimulationEngine` — tick a `dt`, KPI reali, traiettoria animata, emergenze
+- **OpenSky** — la distribuzione delle partenze viene dagli orari di atterraggio reali, con
+  finestra di punta di 2 h. 18 verifiche, passano **[V]**
+- Generatore JS locale come fallback quando il backend non risponde
+
+### Reporting ✅
+- Report percezione nel viewer (blocco 6) — grafici SVG, mappe cognitive, comfort per zona,
+  viste in prima persona, sagome. **Dichiara la provenienza dei dati** (`perception_source`) **[V]**
+- `report_builder.py` — versione HTML lato server
+- Report KPI + raccomandazioni nativo (`#veritas-report-btn`)
+- ❌ nessun export PDF
+
+### Integrazione AI 🟡
+- `veritas_llm.js` — ponte verso un **modello locale** (LM Studio, `http://localhost:1234/v1`).
+  Traduce frasi in comandi già esistenti; **non calcola e non esegue**. Nessun costo a runtime.
+- Console comandi a regole nel blocco 6 (nessun LLM richiesto)
+- `window.__veritasCommandExtensions` — punto di estensione per nuovi comandi
+
+---
+
+## 6. 🔑 Il punto chiave: il flusso è già progettato nel modello
+
+Raffaella disegna la circolazione **dentro il modello**, con frecce colorate — verdi, gialle e rosa —
+modellate come **piani orizzontali sollevati ~20 cm dal pavimento**.
+
+### Cosa esiste già — **[V]**
+
+In `index.html` blocco 2 c'è **una regola di riconoscimento della segnaletica orizzontale**, scritta
+apposta per queste mesh, e **geometrica, non per nome** (scelta esplicita: un elenco di parole
+sarebbe la stessa trappola già pagata coi pannelli cercati per testo italiano):
+
+```
+DECAL_SPESSORE_MAX  = 0.05   // mesh piatta, non un gradino
+DECAL_STACCO_MAX    = 0.15   // 15 cm sopra l'ospite: oltre e' un podio
+DECAL_RAPPORTO_AREA = 4      // l'ospite dev'essere 4x piu' esteso e contenerla in pianta
+```
+
+Le placche riconosciute **non vengono buttate**: vengono *abbassate* alla quota del pavimento —
+giusto, perché sulla segnaletica ci si cammina. Ha i suoi test (`veritas_segnaletica.test.mjs`,
+che estraggono la regola da `index.html` invece di ricopiarla), e **passano** **[V]**.
+
+### I due problemi, entrambi piccoli
+
+1. **La soglia è 15 cm, le frecce di Raffaella stanno a ~20 cm.** Non vengono riconosciute: restano
+   superfici a sé, definiscono una quota propria, inquinano la nuvola navigabile e le zone si
+   posano sopra. **È esattamente il sintomo osservato.** Da verificare misurando lo stacco reale sul
+   suo modello — non da correggere alzando un numero a caso.
+
+2. **L'informazione viene scartata.** La regola *appiattisce* le placche nel pavimento: dopo, sono
+   punti anonimi. Ma nel momento in cui le riconosce ha in mano tutto quello che serve —
+   posizione, impronta, asse lungo (**direzione**), e il materiale (**colore → famiglia di flusso**).
+   Basta **conservare** ciò che trova, non aggiungere un rilevatore nuovo.
+
+> **Questa è la strada, e non richiede nessun modulo nuovo.** Il rilevatore c'è, è provato, ed è già
+> nel punto giusto della pipeline. Vanno fatte due cose: tarare la soglia sul modello reale, e
+> emettere le placche riconosciute come candidati-flusso invece di limitarsi a livellarle.
+
+---
+
+## 7. Lacune reali, in ordine di valore
+
+| # | Lacuna | Perché conta | Esiste qualcosa da riusare? |
+|---|---|---|---|
+| 1 | **Frecce a 20 cm non riconosciute** | inquina zone e quote — il difetto che si vede | ✅ sì, la regola decal: tarare la soglia |
+| 2 | **Flusso progettato scartato** | le zone restano grumi di geometria, non tappe progettate | ✅ sì, stesso punto della pipeline |
+| 3 | **Collisione coi muri** | un agente che attraversa una parete rende non credibile ogni numero | 🟡 `lineHasSupport` esiste ma vale solo fra zone |
+| 4 | **Animazioni di flusso** | richiesto esplicitamente, mai fatto | 🟡 `veritas_visuale.js` fa già particelle su gradiente |
+| 5 | Gaussian Splat fermo | Spark richiede three ≥ r179, l'importmap fissa 0.171 | serve alzare three **e** three-mesh-bvh ≥ 0.8 insieme |
+| 6 | Doppio Three.js | warning "Multiple instances" | stessa radice del 5 |
+| 7 | Pannelli KPI sotto 1280 px | i selettori non intercettano il layout Tailwind in riga | — |
+| 8 | Export PDF | — | Chromium headless è preinstallato in `/opt/pw-browsers` |
+| 9 | Mappa cognitiva non persistita | vive solo dentro la simulazione | Supabase è già collegato |
+
+---
+
+## 8. Connettori ed estensioni: cosa c'è già, cosa serve davvero
+
+**Connettori attivi in chat** — Adobe, Canva, Composio, Figma, Gamma, Gmail, Google Calendar,
+Google Drive, Hugging Face, **Render**, Vercel.
+**Non connessi:** Adobe Marketing, HyperFrames, Miro, Tripadvisor.
+
+**Skill attive** rilevanti: `doc-coauthoring`, `skill-creator`, `mcp-builder`, `web-artifacts-builder`,
+`pdf`, `xlsx`, `docx`, `pptx`, `canvas-design`, `theme-factory`, `algorithmic-art`.
+
+### Verifica prima di aggiungere — conclusione
+
+| Serve per | Basta ciò che c'è? |
+|---|---|
+| Leggere le frecce sul pavimento | ✅ **sì** — regola decal già presente e provata. Nessuna aggiunta. |
+| Direzione del flusso | ✅ **sì** — asse lungo dell'impronta, PCA già usata in `clusterWidths` |
+| Famiglie di flusso dal colore | ✅ **sì** — il materiale è leggibile da `mesh.material.color`, nessuna libreria |
+| Collisione muri | ✅ **sì** — three-mesh-bvh è già nell'importmap e già patchato (blocco 5) |
+| Animazioni di flusso | ✅ **sì** — `veritas_visuale.js` ha già le particelle su gradiente |
+| Verificare Render senza uscire dalla chat | ✅ **sì** — connettore Render, già attivo **[V]** |
+| Export PDF | ✅ **sì** — Chromium preinstallato + skill `pdf` |
+| Persistere la mappa cognitiva | ✅ **sì** — Supabase già collegato per auth e progetti |
+| Visione semantica per immagine | 🟡 Hugging Face è connesso, **ma non serve** — vedi sotto |
+
+### 🚫 Niente da aggiungere. Motivazione.
+
+**Non serve un modello di visione**, e vale la pena dirlo esplicitamente perché è la tentazione
+ovvia. Le frecce hanno una firma interamente geometrica — piatte, sollevate di una quota costante,
+contenute in pianta da una superficie molto più estesa, allungate, di colore saturo. Sono condizioni
+misurabili sulla mesh, **deterministiche e riproducibili**, mentre un modello di visione
+introdurrebbe costo per chiamata, latenza, e soprattutto **non riproducibilità** — contro il
+principio già scritto in `veritas_llm.js`: *«un modello linguistico non è riproducibile, quindi non
+calcola e non esegue»*. Lo stesso vale per la vista.
+
+La geometria resta verità deterministica; l'AI interpreta. Aggiungere un connettore di visione qui
+significherebbe sostituire una misura con una stima.
+
+---
+
+## 9. Errori documentali accertati — non ripercorrerli
+
+| Dove | Cosa dice | Realtà **[V]** |
+|---|---|---|
+| CLAUDE.md §12.1 | l'analisi geometrica è lanciata "asincrona da una fonte sconosciuta"; le 5 zone vengono "dai nomi delle mesh" | **Falso entrambi.** È `analyzeMesh` a lanciarla, sincrono, e poi a comprimere le 7 zone misurate nelle sue 5 tappe fisse (`order2`). Il 5 è la lunghezza di quell'elenco. Corretto in `9cb5035`. Il messaggio `"ripiego sui nomi"` descrive una cosa che non accade ed è ciò che ha mandato fuori strada. |
+| CLAUDE.md §2 | `Assets/core/` contiene anche `zones.py` | non esiste |
+| CLAUDE.md §11.5 | `vaio_module_v2.js`, `vaio_splat_module.js` sono file | non esistono, sono inlinati (blocchi 6 e 7) |
+| CLAUDE.md §11.1 | i blocchi sono 10 | sono **14** |
+| CONTEXT.md | `/core/engine.py`, `/data/simulation_config.json` | `core/` e `data/` in radice non esistono; il Core è in `Assets/core/` |
+
+---
+
+## 10. Prove: stato reale — **[V]**
+
+**13 su 13 passano.** Eseguite tutte in questa sessione.
+
+```
+JS      esodo · flights · floor · llm · normative · perception
+        scala · segnaletica · visuale · zone
+Python  test_perception_loop · test_multi_agent_perception · veritas_opensky
+```
+
+`veritas_opensky.test.py` era rotto: stub-a i moduli del Core per importare `api_server` senza
+numpy/trimesh, e l'aggiunta di `core.report_builder` fra gli import di `api_server` non era stata
+riflessa nella lista degli stub. Corretto. Richiede `pip install httpx`.
+
+I test JS **estraggono il codice da `index.html`** invece di ricopiarlo (`veritas_segnaletica`,
+`veritas_flights`, `veritas_zone`): se sposti o rinomini una funzione ancorata, falliscono dicendo
+che l'ancora non c'è. È voluto.
+
+---
+
+## 11. Ricette di verifica
+
+### Blocco 3 intatto — dopo **ogni** modifica a `index.html`
+
+```python
+from html.parser import HTMLParser
+import hashlib
+class SE(HTMLParser):
+    def __init__(self):
+        super().__init__(); self.s=[]; self.i=False; self.b=[]
+    def handle_starttag(self,t,a):
+        if t=='script': self.i=True; self.b=[]
+    def handle_endtag(self,t):
+        if t=='script' and self.i: self.i=False; self.s.append(''.join(self.b)); self.b=[]
+    def handle_data(self,d):
+        if self.i: self.b.append(d)
+p=SE(); p.feed(open('index.html',encoding='utf-8').read())
+assert hashlib.sha256(p.s[3].encode()).hexdigest()[:16]=='eedd9935ea908fd3', 'BLOCCO 3 ALTERATO'
+assert len(p.s)==14, 'numero blocchi cambiato: %d' % len(p.s)
+print('ok')
+```
+
+Poi `node --check` sui blocchi modificati (i moduli ES vanno copiati in `.mjs`).
+
+### Core Python senza Render
+
+```bash
+pip install numpy trimesh scikit-learn
+PYTHONPATH=Assets python3 -c "from core.engine import SimulationEngine; ..."
+```
+
+### Stato del deploy
+
+Connettore Render (`workspaceId tea-d9r2r1iju40c73e4k2cg`, servizio `srv-d9r2tmss728c73ct1c80`),
+oppure aprire `/health` nel browser. **Da questa sandbox `curl` verso `onrender.com` dà 403**: è il
+proxy, non il servizio.
+
+### Banco di prova headless
+
+CDN spesso irraggiungibili: `npm install three@0.171.0 three-mesh-bvh@0.7.8 @supabase/supabase-js
+@sparkjsdev/spark --legacy-peer-deps`, copia i build in `vendor/`, riscrivi l'importmap su percorsi
+locali, stub per supabase, `python3 -m http.server`, pilota con Playwright.
+⚠️ `three.module.js` importa `three.core.js`: copia **tutta** la cartella `build/`.
+Chromium è in `/opt/pw-browsers`, Playwright va installato con `npm install playwright`.
+
+---
+
+## 12. Le regole che non si violano
+
+1. **Il blocco 3 non si tocca.** Verifica byte-per-byte dopo ogni modifica.
+2. **Mai push su `main` senza approvazione**, eccetto i file Python per Render.
+3. **Per i blocchi `<script>` usa `html.parser`, mai regex.**
+4. **Verifica prima di assumere.** Questa mappa contiene cinque errori documentali trovati proprio
+   perché sono stati verificati invece che creduti.
+5. **Rule of Three:** ogni feature deve reggere gaming, museo, aeroporto.
+6. **Non duplicare.** Prima di scrivere qualcosa, cercalo: la regola della segnaletica esisteva già
+   e stava per essere riscritta da zero.
