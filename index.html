@@ -2449,6 +2449,19 @@
   }
 
   function applyAutoAssignment(zones) {
+    // Da AMBIENTI a TAPPE. Il motore riconosce gli ambienti - 31 sul modello
+    // di prova - ma un simulatore cammina fra poche tappe. Gli ambienti
+    // restano tutti in __veritasAutoZones per il referto: qui si riduce solo
+    // cio' che diventa percorso.
+    const P = window.__veritasPercorso;
+    if (P && Array.isArray(zones) && zones.length > 8) {
+      const rid = P.riduciAPercorso(zones, window.__veritasAutoFlusso || zones,
+                                    P.tappeConsigliate(zones.length));
+      if (rid.tappe.length >= 2) {
+        console.log('[VERITAS percorso]', rid.motivo);
+        zones = rid.tappe;
+      }
+    }
     const points = lastNavigablePoints || [];
     console.log('[VERITAS AUTO v4 DEBUG] applyAutoAssignment chiamato, zone:', zones ? zones.length : 'null', ', currentNodes:', currentNodes ? currentNodes.length : 'null');
     try {
@@ -2457,8 +2470,25 @@
       window.__veritasAutoZones = zones;
       window.__veritasAutoPoints = points;
 
-      // Se currentNodes è vuoto o ha meno di 2 punti, auto-assegna
-      const hasFewNodes = !currentNodes || currentNodes.length < 2;
+      // Auto-assegna se non ci sono nodi, oppure UNA VOLTA quando l'analisi e'
+      // autorevole: rifatta apposta dopo aver sistemato l'ambiente.
+      //
+      // Senza la seconda condizione i 6 nodi nati dalla nuvola PRE-scala
+      // (sbagliata di un fattore 6) vincevano sulle zone misurate sul modello
+      // giusto, solo perche' arrivavano prima.
+      //
+      // Il permesso si CONSUMA subito, e non e' un dettaglio: durante una
+      // passata applyAutoAssignment viene invocata tre volte, e ogni
+      // riassegnazione fa ripartire applyNodesToScene -> __veritasGetTrajectory,
+      // cioe' la rigenerazione dell'intera simulazione. Tre rigenerazioni di
+      // fila hanno portato la prova da 96 secondi a oltre 260, uccisa dal
+      // banco. Una sola riassegnazione basta e costa un terzo.
+      let autorevole = false;
+      if (window.__veritasAssegnazioneAutorevole) {
+        autorevole = true;
+        window.__veritasAssegnazioneAutorevole = false;
+      }
+      const hasFewNodes = !currentNodes || currentNodes.length < 2 || autorevole;
       if (hasFewNodes && zones && zones.length >= 2) {
         console.log('[VERITAS AUTO v4 DEBUG] Tentativo assegnaZoneMisurate, root disponibile:', !!window.__veritasModelRoot);
         // Una sola assegnazione, dalle zone MISURATE. Prima ce n'erano tre in
@@ -9287,6 +9317,137 @@ console.log("[VERITAS catena] pronta — window.__veritasCatenaAnalisi()");
 
 </script>
 <script type="module">
+// veritas_percorso.js — da ambienti misurati a tappe di un percorso.
+//
+// IL PROBLEMA
+// Il motore geometrico riconosce gli AMBIENTI: sul modello di prova ne trova
+// 31, separati da 24 varchi reali. E' una misura corretta e preziosa.
+//
+// Ma un simulatore non cammina fra 31 ambienti: cammina fra poche TAPPE -
+// ingresso, accettazione, controllo, attesa, gate. Assegnare tutti e 31 gli
+// ambienti come nodi non e' "piu' preciso": e' un'altra cosa, e in pratica
+// rallenta la pagina al punto da renderla inservibile (misurato: la prova ha
+// sforato i 220 secondi ed e' stata uccisa).
+//
+// Sono due domande diverse e vanno tenute separate:
+//   quanti ambienti ci sono?     -> 31, ed e' la risposta giusta per il referto
+//   dove passa la gente?         -> 5-7 tappe, ed e' la risposta per simulare
+//
+// COME SI SCEGLIE
+// Non a caso e non le piu' grandi in assoluto: lungo il FLUSSO. Il primo e
+// l'ultimo si tengono sempre - sono l'ingresso e la destinazione, e senza di
+// loro il percorso non esiste. In mezzo si prende una tappa per tratto,
+// scegliendo dentro ogni tratto l'ambiente piu' esteso, perche' un ambiente
+// grande e' dove la gente si ferma e dove la densita' conta.
+//
+// Cosi' la sequenza spaziale e' rispettata: le tappe escono nell'ordine in cui
+// si attraversano, non ordinate per dimensione. Un percorso che salta avanti e
+// indietro non e' un percorso.
+
+/** Quante tappe ha senso avere. Sotto 2 non e' un percorso, sopra ~8 non e'
+ *  piu' una sequenza leggibile ne' per l'utente ne' per il motore. */
+const TAPPE_MIN = 2;
+const TAPPE_MAX = 8;
+
+function areaDi(z) {
+  if (!z) return 0;
+  if (typeof z.areaM2 === "number") return z.areaM2;
+  if (typeof z.area === "number") return z.area;
+  if (typeof z.cells === "number") return z.cells;
+  if (typeof z.punti === "number") return z.punti;
+  return 1;
+}
+
+/**
+ * Riduce gli ambienti misurati alle tappe di un percorso.
+ *
+ * @param {Array} zone        gli ambienti riconosciuti
+ * @param {Array} flusso      indici (o zone) nell'ordine di attraversamento;
+ *                            se manca si usa l'ordine in cui sono arrivate
+ * @param {number} maxTappe
+ * @returns {{tappe: Array, scartate: number, motivo: string}}
+ */
+function riduciAPercorso(zone, flusso, maxTappe = 5) {
+  if (!Array.isArray(zone) || zone.length === 0) {
+    return { tappe: [], scartate: 0, motivo: "nessun ambiente" };
+  }
+  const n = Math.max(TAPPE_MIN, Math.min(TAPPE_MAX, maxTappe | 0));
+
+  // L'ordine di attraversamento. Se il flusso arriva come elenco di zone si
+  // usa quello; se sono indici si risolvono; se non c'e' si tiene l'ordine
+  // naturale, dichiarandolo.
+  let ordinate, daFlusso = true;
+  if (Array.isArray(flusso) && flusso.length >= 2) {
+    ordinate = flusso.map((f) => (typeof f === "number" ? zone[f] : f)).filter(Boolean);
+    if (ordinate.length < 2) { ordinate = zone.slice(); daFlusso = false; }
+  } else {
+    ordinate = zone.slice();
+    daFlusso = false;
+  }
+
+  if (ordinate.length <= n) {
+    return {
+      tappe: ordinate,
+      scartate: 0,
+      motivo: "gli ambienti sono gia' pochi (" + ordinate.length + "): nessuna riduzione",
+      daFlusso,
+    };
+  }
+
+  // Primo e ultimo sempre: sono ingresso e destinazione.
+  const scelti = [0, ordinate.length - 1];
+
+  // In mezzo, un tratto per ogni tappa mancante, e dentro ogni tratto
+  // l'ambiente piu' esteso.
+  const intermedie = n - 2;
+  if (intermedie > 0) {
+    const primo = 1, ultimo = ordinate.length - 2;
+    const larghezza = (ultimo - primo + 1) / intermedie;
+    for (let t = 0; t < intermedie; t++) {
+      const da = primo + Math.floor(t * larghezza);
+      const a = primo + Math.floor((t + 1) * larghezza) - 1;
+      let miglior = -1, miglioreArea = -1;
+      for (let i = da; i <= Math.max(da, a) && i <= ultimo; i++) {
+        const ar = areaDi(ordinate[i]);
+        if (ar > miglioreArea) { miglioreArea = ar; miglior = i; }
+      }
+      if (miglior >= 0 && !scelti.includes(miglior)) scelti.push(miglior);
+    }
+  }
+
+  // Nell'ordine in cui si attraversano, non per dimensione: un percorso che
+  // salta avanti e indietro non e' un percorso.
+  scelti.sort((a, b) => a - b);
+  const tappe = scelti.map((i) => ordinate[i]);
+  return {
+    tappe,
+    scartate: ordinate.length - tappe.length,
+    motivo: "da " + ordinate.length + " ambienti a " + tappe.length + " tappe" +
+      (daFlusso ? " lungo il flusso" : " (nessun flusso noto: ordine naturale)"),
+    daFlusso,
+  };
+}
+
+/**
+ * Quante tappe per questo spazio.
+ *
+ * Non un numero fisso: un corridoio non ha le stesse tappe di un terminal. Si
+ * guarda quanti ambienti sono stati riconosciuti, e si resta prudenti - meglio
+ * poche tappe leggibili che molte che nessuno controlla.
+ */
+function tappeConsigliate(nAmbienti) {
+  if (!nAmbienti || nAmbienti < 2) return TAPPE_MIN;
+  if (nAmbienti <= 5) return nAmbienti;
+  if (nAmbienti <= 12) return 5;
+  return 7;
+}
+
+
+window.__veritasPercorso = { riduciAPercorso, tappeConsigliate, TAPPE_MIN, TAPPE_MAX };
+console.log('[VERITAS percorso] pronto — da ambienti misurati a tappe');
+
+</script>
+<script type="module">
 // veritas_sequenza.js — l'ordine delle operazioni all'apertura di un modello.
 //
 // IL PROBLEMA, DETTO SEMPLICE
@@ -9485,10 +9646,17 @@ window.__veritasPassataConclusa = function (correzione) {
     if (typeof window.__veritasRianalizzaModello === 'function') {
       console.log('[VERITAS sequenza] la scala e\' cambiata: rifaccio la nuvola prima di misurare');
       try {
+        window.__veritasAssegnazioneAutorevole = true;
         window.__veritasRianalizzaModello();
         const n = (window.__veritasAutoPoints || []).length;
-        console.log('[VERITAS sequenza] nuvola rifatta:', n, 'punti');
-      } catch (e) { console.warn('[VERITAS sequenza] rianalisi fallita', e); }
+        const z = (window.__veritasAutoZones || []).length;
+        const nodi = (window.__veritasGetNodes ? window.__veritasGetNodes() : []).length;
+        console.log('[VERITAS sequenza] nuvola rifatta:', n, 'punti,', z, 'ambienti,', nodi, 'tappe');
+      } catch (e) {
+        console.warn('[VERITAS sequenza] rianalisi fallita', e);
+      } finally {
+        window.__veritasAssegnazioneAutorevole = false;
+      }
     } else {
       console.warn('[VERITAS sequenza] non so rifare la nuvola: resta quella pre-scala');
     }
