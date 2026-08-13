@@ -7,7 +7,7 @@
 // famiglie dove non ce ne sono.
 
 import {
-  leggiSegnaletica, quotaPavimento, tintaSatLum, assePrincipale,
+  leggiSegnaletica, leggiSegnaleticaDaPianta, quotaPavimento, tintaSatLum, assePrincipale,
 } from "./veritas_segnaletica.js";
 
 let fatte = 0, rotte = 0;
@@ -102,6 +102,45 @@ for (let t = 0; t < 60; t++) { alto.punti.push([t * 0.1 - 3, 2.4, 0]); alto.colo
 const ra = leggiSegnaletica(alto.punti, new Float32Array(alto.colori));
 ok(!ra.famiglie.some((f) => Math.abs(f.tinta - 210) < 30),
    "un cartello blu appeso a 2,4 m non viene contato come segnaletica orizzontale");
+
+console.log("\n=== LA STRADA GENERALE: leggere una pianta renderizzata ===");
+// Una pianta finta 200x100 px a 5 cm/px = 10 x 5 m. Pavimento grigio, una
+// striscia verde lungo X e una gialla lungo Z. Il punto e' che qui il colore
+// NON viene da un materiale: viene da pixel, esattamente come se fosse una
+// texture, un atlas o una scansione. Il lettore non puo' sapere la differenza.
+function piantaFinta() {
+  const L = 200, A = 100, px = new Uint8Array(L * A * 4);
+  const metti = (x, y, r, g, b, a = 255) => {
+    const i = (y * L + x) * 4;
+    px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = a;
+  };
+  for (let y = 0; y < A; y++) for (let x = 0; x < L; x++) metti(x, y, 130, 130, 130);
+  for (let x = 20; x < 120; x++) for (let y = 30; y < 34; y++) metti(x, y, 15, 190, 40);
+  for (let y = 10; y < 90; y++) for (let x = 150; x < 154; x++) metti(x, y, 230, 190, 15);
+  // un angolo senza pavimento: alpha 0, non deve entrare nel conto dell'area
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) metti(x, y, 0, 0, 0, 0);
+  return { pixel: px, larghezza: L, altezza: A, metriPerPixel: 0.05,
+           origine: [0, 0], quotaPavimento: 0 };
+}
+const pf = piantaFinta();
+const rp = leggiSegnaleticaDaPianta(pf);
+ok(rp.daPianta === true, "dichiara di venire da una pianta");
+ok(rp.famiglie.length === 2, `due famiglie dai PIXEL (trovate ${rp.famiglie.length})`);
+const verdeP = rp.famiglie.find((f) => Math.abs(f.tinta - 130) < 35);
+const gialloP = rp.famiglie.find((f) => Math.abs(f.tinta - 47) < 25);
+ok(!!verdeP, "verde letto dai pixel");
+ok(!!gialloP, "giallo letto dai pixel");
+if (verdeP) vicino(verdeP.direzione, 0, 5, "il verde corre lungo X");
+if (gialloP) vicino(gialloP.direzione, 90, 5, "il giallo corre lungo Z");
+if (verdeP) vicino(verdeP.area, 100 * 4 * 0.0025, 0.01,
+  "l'area della striscia verde e' una MISURA in m2, non una stima");
+vicino(rp.areaPavimento, (200 * 100 - 400) * 0.0025, 0.01,
+  "l'area di pavimento esclude i pixel senza nulla");
+ok(leggiSegnaleticaDaPianta(null).famiglie.length === 0, "pianta assente: nessuna invenzione");
+
+console.log("\n=== stessa logica di raggruppamento per punti e pixel ===");
+ok(typeof rp.famiglie[0].tipo === "string" && typeof r.famiglie[0].tipo === "string",
+   "entrambe le strade producono la stessa forma di risultato");
 
 console.log(`\n${fatte - rotte}/${fatte} verifiche passate`);
 process.exit(rotte ? 1 : 0);

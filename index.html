@@ -8657,9 +8657,24 @@ function leggiSegnaletica(punti, colori, opzioni = {}) {
     if (sat < satMin || lum < 0.10 || lum > 0.95) continue;
     marcati.push({ tinta, x: p[0], z: p[2], sat });
   }
+  return raggruppaMarcati(marcati, pav, punti.length);
+}
+
+/**
+ * Raggruppa in famiglie un insieme di punti gia' riconosciuti come colorati.
+ *
+ * E' il PUNTO UNICO del raggruppamento, condiviso da chi legge i colori dei
+ * punti e da chi legge i pixel di una pianta renderizzata. Se fossero due
+ * copie divergerebbero alla prima modifica, e le stesse frecce darebbero
+ * risposte diverse a seconda della strada - il difetto che questo progetto ha
+ * gia' pagato due volte.
+ *
+ * @param {Array<{tinta:number,x:number,z:number,sat:number,peso?:number}>} marcati
+ */
+function raggruppaMarcati(marcati, pav, esaminati, minimoPunti) {
   if (!marcati.length) {
-    return { quotaPavimento: pav, esaminati: punti.length, famiglie: [],
-             motivo: "nessun punto saturo vicino al pavimento" };
+    return { quotaPavimento: pav, esaminati, marcati: 0, famiglie: [],
+             motivo: "niente di saturo vicino al pavimento" };
   }
 
   // Raggruppa per tinta. Le famiglie si SCOPRONO: nessun elenco di colori
@@ -8680,7 +8695,16 @@ function leggiSegnaletica(punti, colori, opzioni = {}) {
     }
   }
 
-  const minPunti = Math.max(8, Math.round(marcati.length * 0.02));
+  // Soglia di significativita': ASSOLUTA, non relativa al totale.
+  //
+  // Era il 2% dei punti marcati, e con una famiglia molto estesa l'asticella
+  // saliva per tutte le altre: misurato sul modello di prova, una corsia
+  // gialla da 5343 pixel faceva sparire le altre tre famiglie che pure erano
+  // ben visibili. Ma una freccia conta perche' copre un'area reale, non
+  // perche' e' una frazione grande di tutta la vernice presente: in un
+  // terminal la segnaletica piu' importante puo' benissimo essere la piu'
+  // piccola.
+  const minPunti = minimoPunti != null ? minimoPunti : Math.max(8, Math.round(marcati.length * 0.02));
   const famiglie = gruppi
     .filter((g) => g.length >= minPunti)
     .map((g) => {
@@ -8706,40 +8730,363 @@ function leggiSegnaletica(punti, colori, opzioni = {}) {
     })
     .sort((a, b) => b.punti - a.punti);
 
-  return { quotaPavimento: pav, esaminati: punti.length, marcati: marcati.length, famiglie };
+  return { quotaPavimento: pav, esaminati, marcati: marcati.length, famiglie };
+}
+
+/**
+ * Legge la segnaletica da una PIANTA RENDERIZZATA invece che dai colori dei
+ * punti. E' questa la strada generale.
+ *
+ * Leggere material.color funziona solo quando il colore sta li'. Ma un tecnico
+ * puo' metterlo in una texture, in un atlas condiviso da tutto il pavimento,
+ * nei colori per vertice, o in un'armonica sferica se e' una scansione.
+ * Misurato su un modello reale: 89 materiali, 33 con texture - su quelli si
+ * legge bianco, cioe' niente.
+ *
+ * Un'immagine renderizzata invece e' gia' la risposta: il renderer ha risolto
+ * la texture, il colore, le UV e i colori per vertice, esattamente come
+ * farebbe l'occhio di chi apre il file. Da qui in poi non esiste piu' nessuna
+ * ipotesi su come e' fatto il modello.
+ *
+ * @param {{pixel:Uint8Array, larghezza, altezza, metriPerPixel, origine, quotaPavimento}} pianta
+ */
+function leggiSegnaleticaDaPianta(pianta, opzioni = {}) {
+  if (!pianta || !pianta.pixel || !pianta.larghezza) {
+    return { quotaPavimento: null, esaminati: 0, famiglie: [], motivo: "pianta assente" };
+  }
+  const satMin = opzioni.saturazioneMin != null ? opzioni.saturazioneMin : SATURAZIONE_MIN;
+  const { pixel, larghezza, altezza, metriPerPixel, origine } = pianta;
+  const marcati = [];
+  let visibili = 0;
+  for (let py = 0; py < altezza; py++) {
+    for (let px = 0; px < larghezza; px++) {
+      const i = (py * larghezza + px) * 4;
+      // alpha 0 = li' non c'e' pavimento: buco, fuori sagoma, oltre il bordo
+      if (pixel[i + 3] < 128) continue;
+      visibili++;
+      const { tinta, sat, lum } = tintaSatLum(pixel[i] / 255, pixel[i + 1] / 255, pixel[i + 2] / 255);
+      if (sat < satMin || lum < 0.10 || lum > 0.95) continue;
+      marcati.push({
+        tinta, sat,
+        x: origine[0] + (px + 0.5) * metriPerPixel,
+        z: origine[1] + (py + 0.5) * metriPerPixel,
+      });
+    }
+  }
+  // 0,25 m2 e' la meta' di un quadrotto di segnaletica: sotto quella misura
+  // e' rumore di compressione o antialiasing, non vernice voluta.
+  const areaMinima = opzioni.areaMinima != null ? opzioni.areaMinima : 0.25;
+  const minPx = Math.max(8, Math.round(areaMinima / (metriPerPixel * metriPerPixel)));
+  const r = raggruppaMarcati(marcati, pianta.quotaPavimento, visibili, minPx);
+  // I pixel sono un reticolo regolare, quindi contarli DA' un'area vera: una
+  // misura in metri quadri, non una stima. Coi punti campionati non si poteva.
+  const areaPx = metriPerPixel * metriPerPixel;
+  for (const f of r.famiglie) f.area = f.punti * areaPx;
+  r.areaPavimento = visibili * areaPx;
+  r.daPianta = true;
+  return r;
 }
 
 
-// Punto unico di lettura, usato da ENTRAMBI i percorsi: mesh e gaussiane.
-// Se fossero due chiamate separate divergerebbero alla prima modifica, ed e'
-// esattamente il difetto che lo strato di ingresso e' nato per togliere.
-window.__veritasSegnaletica = { leggiSegnaletica, quotaPavimento, tintaSatLum, assePrincipale };
-window.__veritasLeggiSegnaletica = function (punti, colori) {
-  try {
-    const r = leggiSegnaletica(punti, colori);
-    window.__veritasSegnaleticaTrovata = r;
-    if (!r.famiglie.length) {
-      console.log('[VERITAS segnaletica] nessuna:', r.motivo || 'niente di saturo a terra');
-      return r;
-    }
-    console.log('[VERITAS segnaletica]', r.famiglie.length, 'famiglie su', r.marcati, 'punti marcati');
-    for (const f of r.famiglie)
-      console.log('   tinta ' + Math.round(f.tinta) + 'deg  ' + f.tipo +
-                  '  direzione ' + Math.round(f.direzione) + 'deg  punti ' + f.punti);
-    // Va detto in chat, non solo in console: un'analisi automatica deve
-    // dichiarare cosa ha capito, cosi' l'utente puo' correggerla subito.
-    if (typeof window.__veritasAnnounce === 'function') {
-      const dir = r.famiglie.filter((f) => f.tipo === 'direzionale');
-      window.__veritasAnnounce(
-        'Ho letto la segnaletica a terra: ' + r.famiglie.length +
-        (r.famiglie.length === 1 ? ' famiglia di colore' : ' famiglie di colore') +
-        (dir.length ? ', di cui ' + dir.length + ' con un verso di marcia riconoscibile (' +
-          dir.map((f) => Math.round(f.direzione) + '\u00b0').join(', ') + ').' : '.'));
-    }
-    return r;
-  } catch (e) { console.warn('[VERITAS segnaletica] lettura fallita', e); return null; }
+window.__veritasSegnaletica = {
+  leggiSegnaletica, leggiSegnaleticaDaPianta, raggruppaMarcati,
+  quotaPavimento, tintaSatLum, assePrincipale,
 };
-console.log('[VERITAS segnaletica] lettore pronto — window.__veritasLeggiSegnaletica');
+// Punto unico di racconto, condiviso dalle due strade.
+window.__veritasRaccontaSegnaletica = function (r) {
+  window.__veritasSegnaleticaTrovata = r;
+  if (!r || !r.famiglie.length) {
+    console.log('[VERITAS segnaletica] nessuna:', (r && r.motivo) || 'niente a terra');
+    return r;
+  }
+  console.log('[VERITAS segnaletica]', r.famiglie.length, 'famiglie',
+    r.daPianta ? '(dalla PIANTA renderizzata)' : '(dai colori dei materiali)',
+    '- pavimento visto:', r.areaPavimento ? r.areaPavimento.toFixed(1) + ' m2' : 'n.d.');
+  for (const f of r.famiglie)
+    console.log('   tinta ' + Math.round(f.tinta) + 'deg  ' + f.tipo +
+      '  direzione ' + Math.round(f.direzione) + 'deg' +
+      (f.area != null ? '  area ' + f.area.toFixed(2) + ' m2' : '  punti ' + f.punti));
+  if (typeof window.__veritasAnnounce === 'function') {
+    const dir = r.famiglie.filter((f) => f.tipo === 'direzionale');
+    window.__veritasAnnounce('Ho guardato il pavimento: ' + r.famiglie.length +
+      (r.famiglie.length === 1 ? ' famiglia di segnaletica' : ' famiglie di segnaletica') +
+      (dir.length ? ', di cui ' + dir.length + ' con un verso di marcia (' +
+        dir.map((f) => Math.round(f.direzione) + '\u00b0').join(', ') + ').' : '.'));
+  }
+  return r;
+};
+console.log('[VERITAS segnaletica] lettore pronto');
+
+</script>
+<script type="module">
+// veritas_vista.js — la VISTA: guardare il modello invece di leggerne i dati.
+//
+// IL PROBLEMA CHE RISOLVE
+// Ogni tecnico imposta il 3D a modo suo. Nomi diversi, layer diversi, e
+// soprattutto il colore puo' stare in posti completamente diversi:
+//
+//   material.color        un colore piatto per mesh
+//   baseColorTexture      un'immagine, e il colore piatto e' bianco
+//   attributo color       colori per vertice
+//   texture atlas         tutto il pavimento e' UNA mesh, e le frecce stanno
+//                         dipinte dentro un'unica immagine
+//   gaussiane             il colore e' un'armonica sferica
+//
+// Leggere material.color copre SOLO il primo caso. Misurato sul modello di
+// prova: 89 materiali, di cui 33 con texture - su quelli si legge bianco, cioe'
+// niente. Non e' un difetto da correggere con piu' casi particolari: e' che
+// leggere la struttura dati significa leggere le abitudini di chi ha
+// modellato, e quelle non sono standardizzabili.
+//
+// LA SOLUZIONE: GUARDARE
+// Si mette una telecamera ortografica appena sopra il pavimento, rivolta in
+// giu', e si legge l'immagine. I pixel sono identici qualunque sia l'origine
+// del colore, perche' e' il renderer a risolverla - esattamente come farebbe
+// l'occhio di chi apre il file. Nessuna convenzione, nessun nome, nessuna
+// ipotesi su come e' fatto il file.
+//
+// DUE ACCORGIMENTI CHE FANNO LA DIFFERENZA
+//
+// 1. La telecamera sta APPENA SOPRA il pavimento, non in cielo. Cosi' soffitti,
+//    coperture, mezzanini e aerei restano DIETRO l'obiettivo e non coprono
+//    niente. E' il motivo per cui questo funziona anche in un terminal chiuso,
+//    dove una vista dall'alto vedrebbe solo il tetto.
+//
+// 2. I materiali vengono sostituiti con equivalenti NON illuminati, che
+//    conservano texture e colore. Serve la tinta della vernice, non la tinta
+//    della vernice piu' l'ombra: senza questo una freccia in ombra e una
+//    piastrella al sole diventano due colori diversi, e il raggruppamento per
+//    tinta perde senso.
+
+// ---------------------------------------------------------------------------
+// Geometria della pianta — logica pura, senza three, testabile in node
+// ---------------------------------------------------------------------------
+
+/**
+ * Decide risoluzione e inquadratura di una pianta ortografica.
+ *
+ * @param {{min:number[],max:number[]}} ingombro  in metri, mondo
+ * @param {number} metriPerPixel  quanto misura un pixel a terra
+ * @param {number} latoMax        tetto alla dimensione dell'immagine
+ */
+function inquadratura(ingombro, metriPerPixel = 0.05, latoMax = 2048) {
+  const largoM = ingombro.max[0] - ingombro.min[0];
+  const profM = ingombro.max[2] - ingombro.min[2];
+  if (!(largoM > 0) || !(profM > 0)) return null;
+  let mpp = metriPerPixel;
+  // Se al passo richiesto l'immagine sfonda il tetto, si allarga il passo:
+  // meglio una pianta piu' grossolana che una troncata, che perderebbe pezzi
+  // di edificio senza dirlo.
+  const necessario = Math.max(largoM, profM) / latoMax;
+  if (mpp < necessario) mpp = necessario;
+  return {
+    larghezza: Math.max(1, Math.round(largoM / mpp)),
+    altezza: Math.max(1, Math.round(profM / mpp)),
+    metriPerPixel: mpp,
+    // angolo del mondo che corrisponde al pixel (0,0)
+    origine: [ingombro.min[0], ingombro.min[2]],
+  };
+}
+
+/** Da pixel a coordinate del mondo (centro del pixel). */
+function pixelAMondo(inq, px, py) {
+  return [
+    inq.origine[0] + (px + 0.5) * inq.metriPerPixel,
+    inq.origine[1] + (py + 0.5) * inq.metriPerPixel,
+  ];
+}
+
+/** Da coordinate del mondo a pixel. Null se cade fuori. */
+function mondoAPixel(inq, x, z) {
+  const px = Math.floor((x - inq.origine[0]) / inq.metriPerPixel);
+  const py = Math.floor((z - inq.origine[1]) / inq.metriPerPixel);
+  if (px < 0 || py < 0 || px >= inq.larghezza || py >= inq.altezza) return null;
+  return [px, py];
+}
+
+/** Area a terra di un pixel, in m². Serve a convertire i conteggi in misure. */
+function areaPixel(inq) {
+  return inq.metriPerPixel * inq.metriPerPixel;
+}
+
+// ---------------------------------------------------------------------------
+// La resa vera e propria — richiede three e un renderer
+// ---------------------------------------------------------------------------
+
+/**
+ * Sostituisce i materiali con equivalenti non illuminati, conservando texture
+ * e colore. Restituisce la funzione per rimettere tutto com'era.
+ *
+ * Va rimesso SEMPRE, anche se la resa fallisce: sono i materiali del modello
+ * che l'utente sta guardando, non una copia.
+ */
+function spegniLuci(THREE, radice) {
+  const originali = [];
+  radice.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    originali.push([o, o.material]);
+    const piatti = mats.map((m) => {
+      const b = new THREE.MeshBasicMaterial({
+        color: m && m.color ? m.color.clone() : new THREE.Color(0xffffff),
+        map: (m && (m.map || (m.emissiveMap || null))) || null,
+        vertexColors: !!(m && m.vertexColors),
+        side: m ? m.side : THREE.FrontSide,
+        transparent: !!(m && m.transparent),
+        opacity: m ? m.opacity : 1,
+        alphaTest: m ? m.alphaTest : 0,
+      });
+      // Il colore di base moltiplica la texture, e in glTF vale 1,1,1 quando
+      // c'e' una texture. Lasciandolo com'e' il prodotto e' corretto in
+      // entrambi i casi: colore piatto senza texture, texture senza tinta.
+      return b;
+    });
+    o.material = Array.isArray(o.material) ? piatti : piatti[0];
+  });
+  return function rimetti() {
+    for (const [o, m] of originali) {
+      const attuali = Array.isArray(o.material) ? o.material : [o.material];
+      for (const a of attuali) { try { a.dispose(); } catch (e) {} }
+      o.material = m;
+    }
+  };
+}
+
+/**
+ * Guarda il pavimento dall'alto e restituisce l'immagine.
+ *
+ * @returns {{pixel:Uint8Array, larghezza, altezza, metriPerPixel, origine, quotaPavimento}}
+ */
+function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return null;
+  radice.updateMatrixWorld(true);
+  const scatola = new THREE.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) return null;
+
+  const quotaPav = opzioni.quotaPavimento != null ? opzioni.quotaPavimento : scatola.min.y;
+  // Fin dove guarda l'occhio sotto di se'. Comprende la vernice a spessore zero
+  // e le placche modellate qualche centimetro sopra il pavimento.
+  const spessore = opzioni.spessore != null ? opzioni.spessore : 0.45;
+
+  const inq = inquadratura(
+    { min: [scatola.min.x, scatola.min.y, scatola.min.z],
+      max: [scatola.max.x, scatola.max.y, scatola.max.z] },
+    opzioni.metriPerPixel || 0.05,
+    opzioni.latoMax || 2048,
+  );
+  if (!inq) return null;
+
+  const cam = new THREE.OrthographicCamera(
+    scatola.min.x, scatola.max.x, scatola.max.z, scatola.min.z, 0.001, spessore + 0.05);
+  // Guarda in giu'. L'occhio sta appena sopra la fascia da leggere, cosi'
+  // tutto quello che sta piu' in alto - soffitti, coperture, aerei - finisce
+  // DIETRO la telecamera e non copre il pavimento.
+  cam.position.set(0, quotaPav + spessore, 0);
+  cam.up.set(0, 0, -1);
+  cam.lookAt(0, quotaPav, 0);
+  cam.updateProjectionMatrix();
+  cam.updateMatrixWorld(true);
+
+  const bersaglio = new THREE.WebGLRenderTarget(inq.larghezza, inq.altezza, {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+    colorSpace: THREE.SRGBColorSpace || undefined,
+  });
+
+  const scena = new THREE.Scene();
+  scena.background = null;
+  const rimetti = spegniLuci(THREE, radice);
+  const genitore = radice.parent;
+  const indice = genitore ? genitore.children.indexOf(radice) : -1;
+
+  const pixel = new Uint8Array(inq.larghezza * inq.altezza * 4);
+  try {
+    scena.add(radice);
+    const bersaglioPrec = renderer.getRenderTarget();
+    renderer.setRenderTarget(bersaglio);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(scena, cam);
+    renderer.readRenderTargetPixels(bersaglio, 0, 0, inq.larghezza, inq.altezza, pixel);
+    renderer.setRenderTarget(bersaglioPrec);
+  } finally {
+    // Il modello TORNA dov'era, sempre. E' quello che l'utente sta guardando:
+    // lasciarlo nella scena di servizio lo farebbe sparire dallo schermo.
+    if (genitore) {
+      if (indice >= 0) genitore.children.splice(indice, 0, radice);
+      else genitore.add(radice);
+      radice.parent = genitore;
+    } else {
+      scena.remove(radice);
+    }
+    rimetti();
+    try { bersaglio.dispose(); } catch (e) {}
+  }
+
+  return { pixel, ...inq, quotaPavimento: quotaPav };
+}
+
+
+window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento };
+
+// LA VISTA HA LA PRECEDENZA.
+//
+// Guardare una pianta renderizzata funziona qualunque sia l'origine del
+// colore: materiale, texture, atlas, colori per vertice, gaussiane. Leggere
+// material.color funziona solo nel primo caso - misurato sul modello di prova,
+// 33 materiali su 89 hanno una texture e su quelli si legge bianco.
+//
+// I colori dei punti restano come RIPIEGO, per quando non c'e' un renderer
+// (prove headless) o la resa fallisce. Meglio una lettura parziale dichiarata
+// che nessuna lettura.
+// La lettura si fa DOPO che tutto si e' assestato.
+//
+// Il caricamento non e' un evento solo: si analizza, si scopre che il modello
+// non e' in metri, si riscala di 6x e si RIANALIZZA. Leggendo alla prima
+// chiamata si guarda un modello che vale un sesto del vero, e ogni area in m2
+// esce sbagliata di 36 volte - un numero dall'aria credibile e completamente
+// falso, cioe' il tipo di difetto peggiore per uno strumento che deve reggere
+// un confronto normativo.
+//
+// Misurato: la pianta veniva renderizzata a 20,2 x 11,25 m su un edificio che
+// ne misura 121 x 67,6.
+//
+// Con l'attesa, ogni nuova chiamata annulla quella pendente: in una raffica
+// analisi -> riscalo -> rianalisi vince l'ultima, che e' l'unica giusta.
+let attesaLettura = null;
+window.__veritasLeggiSegnaletica = function (punti, colori) {
+  if (attesaLettura) clearTimeout(attesaLettura);
+  attesaLettura = setTimeout(() => {
+    attesaLettura = null;
+    window.__veritasLeggiSegnaleticaOra(punti, colori);
+  }, 1200);
+  return null;
+};
+
+window.__veritasLeggiSegnaleticaOra = function (punti, colori) {
+  const S = window.__veritasSegnaletica;
+  if (!S) return null;
+  try {
+    const rend = window.__veritasRenderer, radice = window.__veritasModelRoot;
+    if (rend && radice && THREE) {
+      const quota = punti && punti.length ? S.quotaPavimento(punti) : null;
+      const pianta = piantaDelPavimento(THREE, rend, radice, { quotaPavimento: quota });
+      if (pianta) {
+        const r = S.leggiSegnaleticaDaPianta(pianta);
+        window.__veritasUltimaPianta = pianta;
+        if (r && r.famiglie.length) return window.__veritasRaccontaSegnaletica(r);
+        // La pianta non ha trovato niente: puo' essere vero (pavimento
+        // neutro) oppure la resa e' andata storta. Si prova comunque il
+        // ripiego, e se anche quello tace allora davvero non c'e' niente.
+        console.log('[VERITAS vista] la pianta non mostra segnaletica, provo i materiali');
+      }
+    }
+  } catch (e) { console.warn('[VERITAS vista] resa della pianta fallita', e); }
+  try {
+    return window.__veritasRaccontaSegnaletica(S.leggiSegnaletica(punti, colori));
+  } catch (e) { console.warn('[VERITAS segnaletica] anche il ripiego fallisce', e); return null; }
+};
+console.log('[VERITAS vista] pronta — la pianta renderizzata ha la precedenza');
 
 </script><script type="module">
 import * as THREE from 'three';

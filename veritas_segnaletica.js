@@ -132,9 +132,24 @@ export function leggiSegnaletica(punti, colori, opzioni = {}) {
     if (sat < satMin || lum < 0.10 || lum > 0.95) continue;
     marcati.push({ tinta, x: p[0], z: p[2], sat });
   }
+  return raggruppaMarcati(marcati, pav, punti.length);
+}
+
+/**
+ * Raggruppa in famiglie un insieme di punti gia' riconosciuti come colorati.
+ *
+ * E' il PUNTO UNICO del raggruppamento, condiviso da chi legge i colori dei
+ * punti e da chi legge i pixel di una pianta renderizzata. Se fossero due
+ * copie divergerebbero alla prima modifica, e le stesse frecce darebbero
+ * risposte diverse a seconda della strada - il difetto che questo progetto ha
+ * gia' pagato due volte.
+ *
+ * @param {Array<{tinta:number,x:number,z:number,sat:number,peso?:number}>} marcati
+ */
+export function raggruppaMarcati(marcati, pav, esaminati, minimoPunti) {
   if (!marcati.length) {
-    return { quotaPavimento: pav, esaminati: punti.length, famiglie: [],
-             motivo: "nessun punto saturo vicino al pavimento" };
+    return { quotaPavimento: pav, esaminati, marcati: 0, famiglie: [],
+             motivo: "niente di saturo vicino al pavimento" };
   }
 
   // Raggruppa per tinta. Le famiglie si SCOPRONO: nessun elenco di colori
@@ -155,7 +170,16 @@ export function leggiSegnaletica(punti, colori, opzioni = {}) {
     }
   }
 
-  const minPunti = Math.max(8, Math.round(marcati.length * 0.02));
+  // Soglia di significativita': ASSOLUTA, non relativa al totale.
+  //
+  // Era il 2% dei punti marcati, e con una famiglia molto estesa l'asticella
+  // saliva per tutte le altre: misurato sul modello di prova, una corsia
+  // gialla da 5343 pixel faceva sparire le altre tre famiglie che pure erano
+  // ben visibili. Ma una freccia conta perche' copre un'area reale, non
+  // perche' e' una frazione grande di tutta la vernice presente: in un
+  // terminal la segnaletica piu' importante puo' benissimo essere la piu'
+  // piccola.
+  const minPunti = minimoPunti != null ? minimoPunti : Math.max(8, Math.round(marcati.length * 0.02));
   const famiglie = gruppi
     .filter((g) => g.length >= minPunti)
     .map((g) => {
@@ -181,7 +205,61 @@ export function leggiSegnaletica(punti, colori, opzioni = {}) {
     })
     .sort((a, b) => b.punti - a.punti);
 
-  return { quotaPavimento: pav, esaminati: punti.length, marcati: marcati.length, famiglie };
+  return { quotaPavimento: pav, esaminati, marcati: marcati.length, famiglie };
+}
+
+/**
+ * Legge la segnaletica da una PIANTA RENDERIZZATA invece che dai colori dei
+ * punti. E' questa la strada generale.
+ *
+ * Leggere material.color funziona solo quando il colore sta li'. Ma un tecnico
+ * puo' metterlo in una texture, in un atlas condiviso da tutto il pavimento,
+ * nei colori per vertice, o in un'armonica sferica se e' una scansione.
+ * Misurato su un modello reale: 89 materiali, 33 con texture - su quelli si
+ * legge bianco, cioe' niente.
+ *
+ * Un'immagine renderizzata invece e' gia' la risposta: il renderer ha risolto
+ * la texture, il colore, le UV e i colori per vertice, esattamente come
+ * farebbe l'occhio di chi apre il file. Da qui in poi non esiste piu' nessuna
+ * ipotesi su come e' fatto il modello.
+ *
+ * @param {{pixel:Uint8Array, larghezza, altezza, metriPerPixel, origine, quotaPavimento}} pianta
+ */
+export function leggiSegnaleticaDaPianta(pianta, opzioni = {}) {
+  if (!pianta || !pianta.pixel || !pianta.larghezza) {
+    return { quotaPavimento: null, esaminati: 0, famiglie: [], motivo: "pianta assente" };
+  }
+  const satMin = opzioni.saturazioneMin != null ? opzioni.saturazioneMin : SATURAZIONE_MIN;
+  const { pixel, larghezza, altezza, metriPerPixel, origine } = pianta;
+  const marcati = [];
+  let visibili = 0;
+  for (let py = 0; py < altezza; py++) {
+    for (let px = 0; px < larghezza; px++) {
+      const i = (py * larghezza + px) * 4;
+      // alpha 0 = li' non c'e' pavimento: buco, fuori sagoma, oltre il bordo
+      if (pixel[i + 3] < 128) continue;
+      visibili++;
+      const { tinta, sat, lum } = tintaSatLum(pixel[i] / 255, pixel[i + 1] / 255, pixel[i + 2] / 255);
+      if (sat < satMin || lum < 0.10 || lum > 0.95) continue;
+      marcati.push({
+        tinta, sat,
+        x: origine[0] + (px + 0.5) * metriPerPixel,
+        z: origine[1] + (py + 0.5) * metriPerPixel,
+      });
+    }
+  }
+  // 0,25 m2 e' la meta' di un quadrotto di segnaletica: sotto quella misura
+  // e' rumore di compressione o antialiasing, non vernice voluta.
+  const areaMinima = opzioni.areaMinima != null ? opzioni.areaMinima : 0.25;
+  const minPx = Math.max(8, Math.round(areaMinima / (metriPerPixel * metriPerPixel)));
+  const r = raggruppaMarcati(marcati, pianta.quotaPavimento, visibili, minPx);
+  // I pixel sono un reticolo regolare, quindi contarli DA' un'area vera: una
+  // misura in metri quadri, non una stima. Coi punti campionati non si poteva.
+  const areaPx = metriPerPixel * metriPerPixel;
+  for (const f of r.famiglie) f.area = f.punti * areaPx;
+  r.areaPavimento = visibili * areaPx;
+  r.daPianta = true;
+  return r;
 }
 
 export default { leggiSegnaletica, quotaPavimento, tintaSatLum, assePrincipale,
