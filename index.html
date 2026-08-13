@@ -3149,46 +3149,45 @@
   // a due quote e si mandano entrambe al motore, che sceglie in base
   // all'archetipo. E' il confronto in piedi/seduto, misurato sulla mesh.
   const VERITAS_ISOVIST_RAYS = 32;
-  const VERITAS_ISOVIST_MAX_M = 60;
 
+  // ⚠️ Qui c'era un secondo calcolo dell'isovista, scritto il 12/08/2026
+  // raycastando direttamente __veritasModelRoot. Era un DUPLICATO ed era
+  // peggiore dell'originale in due modi:
+  //
+  //   1. funzionava solo su mesh. Su un Gaussian Splat il raycast non colpisce
+  //      niente, quindi ogni raggio restava al valore massimo e rispondeva
+  //      "orizzonte completamente aperto" ovunque -- sbagliato, e in silenzio.
+  //   2. calcolava meno: solo area e raggi, mentre l'originale da' anche
+  //      occlusivita', compattezza e drift.
+  //
+  // window.__veritasPerception.isovist() (veritas_visibility.js, blocco 8)
+  // esisteva gia' e lavora sulla griglia di occlusione, alimentata da DUE
+  // adattatori -- occludersFromMesh e occludersFromSplat -- quindi e'
+  // indipendente dalla sorgente. E' quello il pattern giusto per una
+  // piattaforma che deve aprire sia GLB sia splat.
+  //
+  // Resta qui solo l'adattamento utile: due altezze occhio e i raggi in forma
+  // grezza, che servono a disegnare la sagoma nel report.
   function veritasComputeIsovist(pos, eyeHeight) {
-    const T = window.THREE;
-    const root = window.__veritasModelRoot;
-    if (!T || !T.Raycaster || !root) return null;
-    const rc = new T.Raycaster();
-    rc.far = VERITAS_ISOVIST_MAX_M;
-    // firstHitOnly e' la scorciatoia di three-mesh-bvh: senza BVH viene
-    // ignorato, con BVH evita di ordinare tutti gli impatti quando ne serve uno.
-    rc.firstHitOnly = true;
-    const origin = new T.Vector3(pos[0], (pos[1] || 0) + eyeHeight, pos[2]);
-    const dir = new T.Vector3();
-    const r = [];
-    for (let i = 0; i < VERITAS_ISOVIST_RAYS; i++) {
-      const a = (i / VERITAS_ISOVIST_RAYS) * Math.PI * 2;
-      dir.set(Math.cos(a), 0, Math.sin(a)).normalize();
-      rc.set(origin, dir);
-      let d = VERITAS_ISOVIST_MAX_M;
-      try {
-        const hit = rc.intersectObject(root, true)[0];
-        if (hit && isFinite(hit.distance)) d = hit.distance;
-      } catch (e) { /* mesh non interrogabile: resta il cap */ }
-      r.push(d);
-    }
-    // Area dell'isovista come somma di spicchi triangolari fra raggi adiacenti.
-    const dth = (Math.PI * 2) / VERITAS_ISOVIST_RAYS;
-    let area = 0;
-    for (let i = 0; i < r.length; i++) area += 0.5 * r[i] * r[(i + 1) % r.length] * Math.sin(dth);
-    const mean = r.reduce((a, b) => a + b, 0) / r.length;
+    const P = window.__veritasPerception;
+    if (!P || !P.isovist) return null;
+    const iso = P.isovist(pos, { eyeHeight, rays: VERITAS_ISOVIST_RAYS });
+    if (!iso) return null;
+    // Il modulo restituisce il poligono in coordinate assolute; la sagoma si
+    // disegna dai raggi, quindi si riportano alla distanza dal punto.
+    const r = (iso.polygon || []).map((p) =>
+      +Math.hypot(p[0] - pos[0], p[1] - pos[2]).toFixed(1));
     return {
-      area_m2: +area.toFixed(1),
-      mean_free_m: +mean.toFixed(2),
-      min_free_m: +Math.min.apply(null, r).toFixed(2),
-      max_free_m: +Math.max.apply(null, r).toFixed(2),
-      // I raggi grezzi servono a ridisegnare la SAGOMA di cio' che si vede,
-      // non solo la sua area: due punti possono avere gli stessi metri quadri
-      // con forme opposte - un corridoio lungo e una stanza tonda. 32 numeri
-      // per zona, costo trascurabile.
-      r: r.map((d) => +d.toFixed(1)),
+      area_m2: iso.area,
+      mean_free_m: iso.meanRadius,
+      min_free_m: iso.minRadius,
+      max_free_m: iso.maxRadius,
+      // Misure che il duplicato non calcolava: quanto lo spazio e' chiuso,
+      // quanto e' regolare, e da che parte spinge lo sguardo.
+      occlusivity: iso.occlusivity,
+      compactness: iso.compactness,
+      drift: iso.drift,
+      r,
     };
   }
 
@@ -3229,7 +3228,11 @@
   function veritasNodesToGraph(nodes) {
     const out = { nodes: {}, mission_profiles: {} };
     const order = [];
-    const canIsovist = !!(window.THREE && window.THREE.Raycaster && window.__veritasModelRoot);
+    // La griglia di occlusione si costruisce da mesh o da splat: la condizione
+    // non e' piu' "esiste una mesh raycastabile" ma "il modulo di visibilita'
+    // ha di che lavorare". isReady() la costruisce alla prima richiesta.
+    const P = window.__veritasPerception;
+    const canIsovist = !!(P && P.isovist && (P.isReady() || (P.build() || {}).ok));
     let isovistOk = 0;
     nodes.forEach((n, i) => {
       const id = n.id || ("node_" + i);
@@ -3249,8 +3252,13 @@
     // Il grafo resta a portata di mano del report: le sagome delle isoviste
     // sono gia' qui, non ha senso farle tornare indietro dal server.
     window.__veritasLastGraph = out;
+    // Dichiarare anche la SORGENTE della griglia: su uno splat e su una mesh
+    // le stesse zone possono dare misure diverse, e saperlo evita di cercare
+    // un difetto dove c'e' solo un ingresso diverso.
+    const isoSrc = (P && P.stats && P.stats()) ? P.stats().source : "nessuna";
     console.log("[VERITAS bridge] isovista calcolata su " + isovistOk + "/" + nodes.length +
-                " zone" + (canIsovist ? "" : " (mesh o THREE non disponibili: si usera' la stima per archetipo)"));
+                " zone, sorgente: " + isoSrc +
+                (canIsovist ? "" : " (griglia di occlusione non disponibile: si usera' la stima per archetipo)"));
     // Il backend (path_loader.py) collega i waypoint del mission_profile
     // con semplici linee rette, senza sapere nulla della mesh reale - non
     // fa pathfinding. Percio' qui, PRIMA di mandare il percorso al motore
