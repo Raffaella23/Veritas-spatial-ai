@@ -1,81 +1,107 @@
-// Prova del riconoscimento della segnaletica orizzontale.
-//     node veritas_segnaletica.test.mjs
+// Prove del lettore di segnaletica.   node veritas_segnaletica.test.mjs
 //
-// I modelli reali hanno strisce, frecce e aree di attesa modellate come mesh
-// separate appoggiate qualche centimetro sopra il pavimento. Sono orizzontali
-// e rivolte verso l'alto: passavano ogni filtro e definivano una quota
-// propria, e le zone si posavano sopra la segnaletica invece che a terra.
-//
-// Il riconoscimento e' geometrico, non per nome: un elenco di parole sarebbe
-// la stessa trappola gia' pagata con i pannelli cercati per testo italiano.
-// Le prove qui sotto usano infatti nomi anonimi (Object_412, Mesh_77).
-//
-// La regola non viene ricopiata: si estrae da index.html cosi' com'e'.
-import fs from 'node:fs';
-const html = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-const i0 = html.indexOf("    // Segnaletica orizzontale: e' pavimento, non un piano a se'.");
-const i1 = html.indexOf('    let points = [];\n    for (const m of filtered) points = points.concat(m.pts);');
-if (i0 < 0 || i1 < 0 || i1 <= i0) {
-  console.error('Ancore non trovate in index.html: la regola e stata spostata o rinominata.');
-  process.exit(2);
+// Le scene di prova sono costruite con misure DICHIARATE: se il lettore
+// risponde qualcosa di diverso, sbaglia lui e si vede subito. Non provano
+// soglie tarate su un modello - quelle non ci sono - ma che il meccanismo
+// separi il colorato dal neutro, trovi le direzioni giuste e non inventi
+// famiglie dove non ce ne sono.
+
+import {
+  leggiSegnaletica, quotaPavimento, tintaSatLum, assePrincipale,
+} from "./veritas_segnaletica.js";
+
+let fatte = 0, rotte = 0;
+const ok = (c, che) => { fatte++; c ? console.log("  ok   " + che)
+  : (rotte++, console.log("  ROTTO " + che)); };
+const vicino = (a, b, t, che) => ok(Math.abs(a - b) <= t, `${che}  (${(+a).toFixed(2)})`);
+
+console.log("\n=== tinta, saturazione, luminosita' ===");
+vicino(tintaSatLum(1, 0, 0).tinta, 0, 1, "rosso = 0 gradi");
+vicino(tintaSatLum(0, 1, 0).tinta, 120, 1, "verde = 120 gradi");
+vicino(tintaSatLum(0, 0, 1).tinta, 240, 1, "blu = 240 gradi");
+ok(tintaSatLum(0.5, 0.5, 0.5).sat < 0.01, "grigio ha saturazione zero");
+ok(tintaSatLum(0.8, 0.1, 0.1).sat > 0.5, "vernice rossa e' satura");
+
+console.log("\n=== quota del pavimento: la moda, non il minimo ===");
+const conIntruso = [];
+for (let i = 0; i < 200; i++) conIntruso.push([i * 0.1, 0.0, 0]);
+conIntruso.push([0, -3.0, 0]);   // un solo punto molto sotto
+vicino(quotaPavimento(conIntruso), 0, 0.21,
+  "un punto isolato sotto quota NON sposta il pavimento");
+
+console.log("\n=== asse principale ===");
+const lungoX = []; for (let i = 0; i < 50; i++) lungoX.push([i * 0.1, 0]);
+vicino(assePrincipale(lungoX).angolo, 0, 3, "striscia lungo X = 0 gradi");
+ok(assePrincipale(lungoX).allungamento > 5, "striscia e' molto allungata");
+const lungoZ = []; for (let i = 0; i < 50; i++) lungoZ.push([0, i * 0.1]);
+vicino(assePrincipale(lungoZ).angolo, 90, 3, "striscia lungo Z = 90 gradi");
+const diag = []; for (let i = 0; i < 50; i++) diag.push([i * 0.1, i * 0.1]);
+vicino(assePrincipale(diag).angolo, 45, 4, "diagonale = 45 gradi");
+const tondo = [];
+for (let i = 0; i < 40; i++) for (let k = 0; k < 40; k++) tondo.push([i * 0.1, k * 0.1]);
+ok(assePrincipale(tondo).allungamento < 1.4, "una macchia quadrata non e' allungata");
+
+// --- una scena: pavimento grigio + tre segnaletiche note ------------------
+function scena() {
+  const punti = [], colori = [];
+  const agg = (x, y, z, r, g, b) => { punti.push([x, y, z]); colori.push(r, g, b); };
+  // pavimento grigio 12 x 8, con un po' di variazione come nel reale
+  for (let i = 0; i < 120; i++) for (let k = 0; k < 80; k++) {
+    const v = 0.52 + ((i * 7 + k * 13) % 9) * 0.005;
+    agg(i * 0.1 - 6, 0, k * 0.1 - 4, v, v, v);
+  }
+  // muri chiari in quota: NON devono finire fra la segnaletica
+  for (let i = 0; i < 120; i++) for (let h = 1; h < 20; h++)
+    agg(i * 0.1 - 6, h * 0.15, -4, 0.85, 0.82, 0.78);
+  // verde lungo X, a quota zero (vernice: nessuno spessore)
+  for (let t = 0; t < 60; t++) for (let w = 0; w < 3; w++)
+    agg(-5 + t * 0.1, 0.0, -3 + w * 0.05, 0.05, 0.75, 0.15);
+  // giallo lungo Z, appoggiato 4 cm sopra (placca modellata)
+  for (let t = 0; t < 50; t++) for (let w = 0; w < 3; w++)
+    agg(-2 + w * 0.05, 0.04, -3.5 + t * 0.1, 0.90, 0.75, 0.05);
+  // rosa in diagonale
+  for (let t = 0; t < 50; t++) for (let w = 0; w < 3; w++)
+    agg(2 + t * 0.07 + w * 0.05, 0.0, -3.5 + t * 0.07, 0.85, 0.10, 0.45);
+  return { punti, colori: new Float32Array(colori) };
 }
-const corpo = html.slice(i0, i1);
-// overlapRatio e' definita a monte nella funzione vera: qui si fornisce la stessa.
-const prologo = `
-const overlapRatio = (box, other) => {
-  if (!other) return 0;
-  const w = Math.max(0, Math.min(box[1], other[1]) - Math.max(box[0], other[0]));
-  const d = Math.max(0, Math.min(box[3], other[3]) - Math.max(box[2], other[2]));
-  const area = (box[1]-box[0]) * (box[3]-box[2]);
-  return area > 0 ? (w*d)/area : 0;
-};
-`;
-const run = new Function('filtered', 'console', prologo + corpo + '\nreturn { decalTrovati, decalArea };');
 
-const mesh = (nome, y0, y1, x0, x1, z0, z1) => ({
-  nome, yMin: y0, yMax: y1, box: [x0, x1, z0, z1],
-  footprint: (x1-x0)*(z1-z0), pts: [[ (x0+x1)/2, y1, (z0+z1)/2 ]],
-});
-let ko = 0;
-const check = (n, ok, d='') => { console.log((ok?'  ok  ':' FAIL ')+n+(d?'   '+d:'')); if(!ok) ko++; };
+console.log("\n=== scena completa: tre segnaletiche note su pavimento grigio ===");
+const s = scena();
+const r = leggiSegnaletica(s.punti, s.colori);
+vicino(r.quotaPavimento, 0, 0.21, "pavimento trovato a quota 0");
+ok(r.famiglie.length === 3, `trovate esattamente 3 famiglie (trovate ${r.famiglie.length})`);
+ok(r.marcati < s.punti.length * 0.10,
+   "il grigio del pavimento e il bianco dei muri NON entrano fra i marcati");
 
-// Scena: pavimento 30x30, segnaletica a +2cm, un podio a +25cm, un bancone
-const pavimento = mesh('pavimento', 0, 0, 0, 30, 0, 30);
-const striscia  = mesh('Object_412', 0.02, 0.02, 5, 15, 8, 10);   // segnaletica
-const freccia   = mesh('Mesh_77',    0.02, 0.02, 18, 20, 12, 14); // segnaletica
-const podio     = mesh('podio',      0.25, 0.25, 2, 6, 2, 6);     // vero rialzo
-const bancone   = mesh('bancone',    1.10, 1.10, 22, 26, 4, 8);   // arredo
-const mezzanino = mesh('mezzanino',  4.50, 4.50, 0, 20, 0, 20);   // piano sopra
-const scena = [pavimento, striscia, freccia, podio, bancone, mezzanino];
-const r = run(scena, { log: () => {} });
+const perTinta = (t, tol) => r.famiglie.find((f) => Math.abs(f.tinta - t) < tol);
+const verde = perTinta(120, 30), giallo = perTinta(50, 25), rosa = perTinta(330, 30);
+ok(!!verde, "famiglia verde riconosciuta");
+ok(!!giallo, "famiglia gialla riconosciuta");
+ok(!!rosa, "famiglia rosa riconosciuta");
+if (verde) vicino(verde.direzione, 0, 8, "il verde corre lungo X");
+if (giallo) vicino(giallo.direzione, 90, 8, "il giallo corre lungo Z");
+if (rosa) vicino(rosa.direzione, 45, 12, "il rosa corre in diagonale");
+if (verde) ok(verde.tipo === "direzionale", "il verde e' direzionale, non areale");
+if (giallo) ok(giallo.quota === r.quotaPavimento,
+  "la placca a 4 cm sopra viene comunque letta come segnaletica a terra");
 
-check('riconosce le due mesh di segnaletica', r.decalTrovati === 2, r.decalTrovati + ' trovate');
-check('la striscia scende a quota pavimento', striscia.pts[0][1] === 0, striscia.pts[0][1] + 'm');
-check('la freccia scende a quota pavimento', freccia.pts[0][1] === 0, freccia.pts[0][1] + 'm');
-check('il podio a +25cm NON e segnaletica', podio.pts[0][1] === 0.25, podio.pts[0][1] + 'm');
-check('il bancone a 1.10m resta dov e', bancone.pts[0][1] === 1.10, bancone.pts[0][1] + 'm');
-check('il mezzanino resta un piano', mezzanino.pts[0][1] === 4.50, mezzanino.pts[0][1] + 'm');
-check('il pavimento non tocca se stesso', pavimento.pts[0][1] === 0);
+console.log("\n=== casi che devono dire di no, non inventare ===");
+const soloGrigio = { punti: [], colori: [] };
+for (let i = 0; i < 500; i++) { soloGrigio.punti.push([i * 0.05, 0, 0]); soloGrigio.colori.push(0.5, 0.5, 0.5); }
+const rg = leggiSegnaletica(soloGrigio.punti, new Float32Array(soloGrigio.colori));
+ok(rg.famiglie.length === 0, "pavimento tutto grigio: nessuna famiglia inventata");
+ok(!!rg.motivo, "e spiega perche'");
+const senza = leggiSegnaletica(s.punti, null);
+ok(senza.famiglie.length === 0 && senza.motivo === "nuvola senza colori",
+   "senza colori lo dice invece di fingere");
+ok(leggiSegnaletica([], new Float32Array(0)).famiglie.length === 0, "nuvola vuota");
 
-// La segnaletica NON deve sparire: e' area calpestabile, solo alla quota giusta
-check('l area della segnaletica e conservata', striscia.pts.length === 1 && freccia.pts.length === 1);
+console.log("\n=== una segnaletica in quota NON e' segnaletica a terra ===");
+const alto = { punti: [...s.punti], colori: [...s.colori] };
+for (let t = 0; t < 60; t++) { alto.punti.push([t * 0.1 - 3, 2.4, 0]); alto.colori.push(0.1, 0.4, 0.95); }
+const ra = leggiSegnaletica(alto.punti, new Float32Array(alto.colori));
+ok(!ra.famiglie.some((f) => Math.abs(f.tinta - 210) < 30),
+   "un cartello blu appeso a 2,4 m non viene contato come segnaletica orizzontale");
 
-// Caso limite: placca piatta ma NON sopra nulla (isola sospesa) -> non toccata
-const sospesa = mesh('sospesa', 2.0, 2.0, 40, 42, 40, 42);
-const r2 = run([pavimento, sospesa], { log: () => {} });
-check('placca isolata in aria non viene abbassata', r2.decalTrovati === 0 && sospesa.pts[0][1] === 2.0, sospesa.pts[0][1]+'m');
-
-// Caso limite: placca grande quanto il pavimento -> non e' segnaletica
-const lastra = mesh('lastra', 0.02, 0.02, 0, 28, 0, 28);
-const p2 = mesh('pav2', 0, 0, 0, 30, 0, 30);
-const r3 = run([p2, lastra], { log: () => {} });
-check('placca vasta quanto il pavimento non e segnaletica', r3.decalTrovati === 0, r3.decalTrovati+' trovate');
-
-// Su un pavimento non a quota zero
-const p3 = mesh('pav3', 3.2, 3.2, 0, 30, 0, 30);
-const s3 = mesh('sign3', 3.22, 3.22, 5, 15, 8, 10);
-run([p3, s3], { log: () => {} });
-check('funziona anche con pavimento a +3.20m', s3.pts[0][1] === 3.2, s3.pts[0][1]+'m');
-
-console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
-process.exit(ko?1:0);
+console.log(`\n${fatte - rotte}/${fatte} verifiche passate`);
+process.exit(rotte ? 1 : 0);
