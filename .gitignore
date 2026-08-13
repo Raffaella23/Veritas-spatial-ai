@@ -50,3 +50,10 @@ v17/
 # in cui le gaussiane partono.
 node_modules/
 vendor/
+
+# Il banco di prova: si rigenera con banco/monta.sh. Nel repo restano solo gli
+# script, non le dipendenze copiate ne' i modelli duplicati.
+banco/index.html
+banco/*.glb
+banco/*.ply
+banco/schermata.png

@@ -10027,6 +10027,47 @@ const MAX_SPLAT_MB = window.__veritasMaxSplatMB || 400;
 
 let sparkRenderer = null;
 
+// Il doppio Three.js, ridotto al punto esatto in cui fa male.
+//
+// Spark registra il proprio pezzo di shader con UNA riga:
+//     ShaderChunk.splatDefines = ...
+// ma lo scrive nel registro del three dell'importmap (0.180), mentre a
+// compilare gli shader e' il renderer del BUNDLE, che porta dentro una copia
+// separata di three (0.160) con un registro tutto suo. L'include non si
+// risolve mai e la pagina muore con:
+//     Can not resolve #include <splatDefines>
+//
+// Non e' aggirabile registrando il pezzo "dall'altra parte": il three del
+// bundle e' minificato e interno, non espone ShaderChunk. Ma l'include si puo'
+// togliere prima che il risolutore lo veda, sostituendolo col testo vero in
+// onBeforeCompile - che gira prima della compilazione.
+//
+// Vale finche' il bundle resta a 0.160. Il giorno che il bundle verra'
+// ricompilato su un three unico, questa funzione diventa inutile e si toglie.
+function risolviIncludeSpark(radice) {
+  const pezzo = THREE.ShaderChunk && THREE.ShaderChunk.splatDefines;
+  if (!pezzo || !radice) return 0;
+  let quanti = 0;
+  radice.traverse((o) => {
+    const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    for (const m of mats) {
+      if (!m || m.__veritasIncludeRisolti) continue;
+      const prima = m.onBeforeCompile;
+      m.onBeforeCompile = function (shader, renderer) {
+        if (prima) { try { prima.call(this, shader, renderer); } catch (e) {} }
+        if (shader.vertexShader)
+          shader.vertexShader = shader.vertexShader.split('#include <splatDefines>').join(pezzo);
+        if (shader.fragmentShader)
+          shader.fragmentShader = shader.fragmentShader.split('#include <splatDefines>').join(pezzo);
+      };
+      m.__veritasIncludeRisolti = true;
+      m.needsUpdate = true;
+      quanti++;
+    }
+  });
+  return quanti;
+}
+
 function ensureSparkRenderer() {
   if (sparkRenderer) return sparkRenderer;
   const scene = window.__veritasScene;
@@ -10035,6 +10076,7 @@ function ensureSparkRenderer() {
   try {
     sparkRenderer = new SparkRenderer({ renderer });
     scene.add(sparkRenderer);
+    console.log('[VAIO Splat] include risolti sul SparkRenderer:', risolviIncludeSpark(sparkRenderer));
     console.log('[VAIO Splat] SparkRenderer inizializzato');
   } catch (e) {
     console.error('[VAIO Splat] impossibile inizializzare SparkRenderer', e);
@@ -10158,6 +10200,17 @@ async function loadSplatFile(file) {
     const buf = await file.arrayBuffer();
     const mesh = new SplatMesh({ fileBytes: buf, fileName: file.name });
     await mesh.initialized;
+    // I materiali di Spark non esistono ancora quando la mesh e' pronta: li
+    // crea alla prima resa. Quindi si ripassa su TUTTA la scena a piu' riprese,
+    // finche' non se ne trova qualcuno. Ogni materiale viene toccato una volta
+    // sola (__veritasIncludeRisolti), quindi ripassare non costa nulla.
+    (function ripassa(tentativo) {
+      const scena = window.__veritasScene;
+      const n = (scena ? risolviIncludeSpark(scena) : 0) +
+                (sparkRenderer ? risolviIncludeSpark(sparkRenderer) : 0);
+      if (n) console.log('[VAIO Splat] include risolti:', n, 'materiali (tentativo', tentativo + ')');
+      if (tentativo < 8) setTimeout(() => ripassa(tentativo + 1), 250 * (tentativo + 1));
+    })(0);
 
     if (window.__veritasSplatRoot) {
       try { window.__veritasScene.remove(window.__veritasSplatRoot); } catch (e) {}
