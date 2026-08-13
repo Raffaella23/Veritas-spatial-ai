@@ -260,9 +260,17 @@ che estraggono la regola da `index.html` invece di ricopiarla), e **passano** **
    posizione, impronta, asse lungo (**direzione**), e il materiale (**colore → famiglia di flusso**).
    Basta **conservare** ciò che trova, non aggiungere un rilevatore nuovo.
 
-> **Questa è la strada, e non richiede nessun modulo nuovo.** Il rilevatore c'è, è provato, ed è già
-> nel punto giusto della pipeline. Vanno fatte due cose: tarare la soglia sul modello reale, e
-> emettere le placche riconosciute come candidati-flusso invece di limitarsi a livellarle.
+### ⚠️ Ma questa NON è la soluzione generale — vale solo per i GLB modellati così
+
+Correzione del 12/08/2026. Avevo scritto che «questa è la strada e non richiede nessun modulo
+nuovo». **È vero solo per questo modello**, e VERITAS è una piattaforma.
+
+La regola lavora su **oggetti mesh**: in un Gaussian Splat non esistono, e in uno spazio scansionato
+le frecce sono vernice complanare al pavimento, senza alcuna firma geometrica. `DECAL_STACCO_MAX`
+è tarato su una convenzione di modellazione, non su una legge dello spazio.
+
+Quindi: **tarare la soglia risolve il sintomo di oggi** (zone posate sopra la segnaletica, quote
+sbagliate) ed è utile farlo, ma **non è leggere il flusso**. Per quello serve vedere — §8.
 
 ---
 
@@ -270,15 +278,16 @@ che estraggono la regola da `index.html` invece di ricopiarla), e **passano** **
 
 | # | Lacuna | Perché conta | Esiste qualcosa da riusare? |
 |---|---|---|---|
-| 1 | **Frecce a 20 cm non riconosciute** | inquina zone e quote — il difetto che si vede | ✅ sì, la regola decal: tarare la soglia |
-| 2 | **Flusso progettato scartato** | le zone restano grumi di geometria, non tappe progettate | ✅ sì, stesso punto della pipeline |
-| 3 | **Collisione coi muri** | un agente che attraversa una parete rende non credibile ogni numero | 🟡 `lineHasSupport` esiste ma vale solo fra zone |
-| 4 | **Animazioni di flusso** | richiesto esplicitamente, mai fatto | 🟡 `veritas_visuale.js` fa già particelle su gradiente |
-| 5 | Gaussian Splat fermo | Spark richiede three ≥ r179, l'importmap fissa 0.171 | serve alzare three **e** three-mesh-bvh ≥ 0.8 insieme |
-| 6 | Doppio Three.js | warning "Multiple instances" | stessa radice del 5 |
-| 7 | Pannelli KPI sotto 1280 px | i selettori non intercettano il layout Tailwind in riga | — |
-| 8 | Export PDF | — | Chromium headless è preinstallato in `/opt/pw-browsers` |
-| 9 | Mappa cognitiva non persistita | vive solo dentro la simulazione | Supabase è già collegato |
+| 1 | ❗ **Il sistema non VEDE** | è la capacità fondante, non un extra: è l'unica che vale su GLB *e* su splat *e* su scansione. Vedi §8. | 🟡 il renderer e `captureFOV` ci sono; manca la pianta ortografica e la lettura dell'immagine |
+| 2 | ❗ **Gaussian Splat fermo** | metà degli ingressi della piattaforma non si apre. **Percorso critico**, non minore. | Spark 2.1.0 è già nell'importmap; serve alzare three ≥ 0.180 **e** three-mesh-bvh ≥ 0.8 insieme (tocca blocchi 5,6,7,8) |
+| 3 | **Flusso progettato scartato** | le zone restano grumi di geometria, non le tappe progettate | dipende da 1: sul GLB la regola decal aiuta, ma **non generalizza** |
+| 4 | **Collisione coi muri** | un agente che attraversa una parete rende non credibile ogni numero | 🟡 `lineHasSupport` esiste ma vale solo fra zone; three-mesh-bvh è già patchato |
+| 5 | **Animazioni di flusso** | richiesto esplicitamente, mai fatto | 🟡 `veritas_visuale.js` fa già particelle su gradiente |
+| 6 | Frecce a 20 cm non riconosciute sul GLB | sintomo visibile oggi: zone posate sopra la segnaletica | ✅ regola decal, ma è **una taratura, non una soluzione** — vale solo per i GLB modellati così |
+| 7 | Doppio Three.js | warning "Multiple instances" | stessa radice del 2 |
+| 8 | Pannelli KPI sotto 1280 px | i selettori non intercettano il layout Tailwind in riga | — |
+| 9 | Export PDF | — | Chromium headless è preinstallato in `/opt/pw-browsers` |
+| 10 | Mappa cognitiva non persistita | vive solo dentro la simulazione | Supabase è già collegato |
 
 ---
 
@@ -305,18 +314,54 @@ Google Drive, Hugging Face, **Render**, Vercel.
 | Persistere la mappa cognitiva | ✅ **sì** — Supabase già collegato per auth e progetti |
 | Visione semantica per immagine | 🟡 Hugging Face è connesso, **ma non serve** — vedi sotto |
 
-### 🚫 Niente da aggiungere. Motivazione.
+### ⚠️ Conclusione corretta il 12/08/2026 — la prima era sbagliata
 
-**Non serve un modello di visione**, e vale la pena dirlo esplicitamente perché è la tentazione
-ovvia. Le frecce hanno una firma interamente geometrica — piatte, sollevate di una quota costante,
-contenute in pianta da una superficie molto più estesa, allungate, di colore saturo. Sono condizioni
-misurabili sulla mesh, **deterministiche e riproducibili**, mentre un modello di visione
-introdurrebbe costo per chiamata, latenza, e soprattutto **non riproducibilità** — contro il
-principio già scritto in `veritas_llm.js`: *«un modello linguistico non è riproducibile, quindi non
-calcola e non esegue»*. Lo stesso vale per la vista.
+**Prima avevo concluso: «non serve vedere, la geometria basta». È sbagliato**, e va lasciato
+scritto perché è un ragionamento che si rifà da solo.
 
-La geometria resta verità deterministica; l'AI interpreta. Aggiungere un connettore di visione qui
-significherebbe sostituire una misura con una stima.
+L'argomento che lo demolisce è il **Gaussian Splat**, che è un ingresso di prima classe di questa
+piattaforma, non un extra:
+
+- La regola della segnaletica (§6) lavora su **oggetti mesh**: spessore verticale, bounding box,
+  «ospite più esteso che la contiene in pianta». **In una nuvola di gaussiane niente di tutto
+  questo esiste.** Non c'è nessuna mesh da misurare.
+- In uno spazio **scansionato dal vero** le frecce non sono piani sollevati: sono **vernice**,
+  spessore zero, complanari al pavimento. Nessuna firma geometrica le distingue.
+- La soglia `DECAL_STACCO_MAX = 0.15` è tarata su una convenzione di modellazione, non su una
+  legge dello spazio. Un altro progettista le fa a 2 cm, o le disegna in texture, o le mappa
+  con vertex color.
+
+**VERITAS è una piattaforma, non un lettore di un modello.** Una regola che vale per il GLB di
+oggi e non per lo splat di domani non è una capacità: è una taratura.
+
+L'unica cosa che accomuna tutti gli ingressi — GLB modellato, splat da scansione, livello di gioco
+— è che **le frecce si vedono diverse dal pavimento**. Colore e aspetto. Cioè: vedere.
+
+### Come si vede, qui
+
+Il punto di unione fra mesh e splat esiste già ed è il **renderer**: entrambi si disegnano a
+schermo. Una **vista ortografica dall'alto** del piano di calpestio produce un'immagine in
+entrambi i casi, e da lì il problema diventa di immagine — che è il livello a cui il segnale
+esiste davvero.
+
+La macchina per farlo è già stata scritta, senza rendersene conto: `captureFOV` (blocco 6)
+posiziona una camera arbitraria, disegna nel renderer esistente e legge i pixel in un canvas.
+Una pianta ortografica è la stessa cosa con un'altra camera.
+
+Cosa fare dell'immagine è la **seconda** domanda, e ha due risposte che convivono:
+
+| | cosa dà | costo | riproducibile |
+|---|---|---|---|
+| Segmentazione per colore (deterministica) | dove sono le frecce, di che famiglia, che direzione (asse principale) | zero | sì |
+| Modello di visione | **cosa significano** — coda, attesa, uscita, senso di marcia | per chiamata | no |
+
+La prima è misura e va sempre. La seconda aggiunge significato che nessuna geometria può dare, e
+va usata dove serve il significato — dichiarando il costo, come prescritto da CLAUDE.md §8.6.
+
+**Conseguenza sulle priorità:** se lo splat è un ingresso di prima classe, allora il suo blocco
+(§7 punto 5: Spark richiede three ≥ r179, l'importmap fissa 0.171) **non è un problema minore** —
+sta sul percorso critico, perché senza splat funzionante metà degli ingressi non si può nemmeno
+guardare.
 
 ---
 
