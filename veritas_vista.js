@@ -143,9 +143,37 @@ export function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   if (scatola.isEmpty()) return null;
 
   const quotaPav = opzioni.quotaPavimento != null ? opzioni.quotaPavimento : scatola.min.y;
-  // Fin dove guarda l'occhio sotto di se'. Comprende la vernice a spessore zero
-  // e le placche modellate qualche centimetro sopra il pavimento.
-  const spessore = opzioni.spessore != null ? opzioni.spessore : 0.45;
+  // Fin dove guarda l'occhio sotto di se'.
+  //
+  // Era fissa a 45 cm, e su un modello riscalato non bastava: la correzione
+  // automatica moltiplica TUTTO, compresi gli scostamenti della segnaletica.
+  // Misurato: placche che stavano a 8 cm dal pavimento, dopo il 6x stavano a
+  // 50, e altre a 110 - sopra la telecamera, cioe' dietro l'obiettivo. Tre
+  // famiglie su quattro sparivano.
+  //
+  // Fissare una costante piu' grande sarebbe lo stesso errore di
+  // DECAL_STACCO_MAX: un numero scelto a tavolino invece che misurato. Qui la
+  // fascia si RICAVA da dove stanno davvero le superfici vicine al pavimento -
+  // il quantile 98 delle quote, cosi' una coda di casi estremi non la fa
+  // esplodere. Il tetto di 1,6 m impedisce di inghiottire banconi e soppalchi,
+  // che coprirebbero il pavimento invece di mostrarlo.
+  let spessore = opzioni.spessore;
+  if (spessore == null) {
+    spessore = 0.45;
+    const punti = opzioni.punti;
+    if (punti && punti.length > 50) {
+      const dh = [];
+      for (const p of punti) {
+        const d = p[1] - quotaPav;
+        if (d >= -0.02 && d <= 2.5) dh.push(d);
+      }
+      if (dh.length > 50) {
+        dh.sort((a, b) => a - b);
+        const q98 = dh[Math.min(dh.length - 1, Math.floor(dh.length * 0.98))];
+        spessore = Math.max(0.30, Math.min(1.60, q98 + 0.10));
+      }
+    }
+  }
 
   const inq = inquadratura(
     { min: [scatola.min.x, scatola.min.y, scatola.min.z],

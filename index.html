@@ -8964,9 +8964,37 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   if (scatola.isEmpty()) return null;
 
   const quotaPav = opzioni.quotaPavimento != null ? opzioni.quotaPavimento : scatola.min.y;
-  // Fin dove guarda l'occhio sotto di se'. Comprende la vernice a spessore zero
-  // e le placche modellate qualche centimetro sopra il pavimento.
-  const spessore = opzioni.spessore != null ? opzioni.spessore : 0.45;
+  // Fin dove guarda l'occhio sotto di se'.
+  //
+  // Era fissa a 45 cm, e su un modello riscalato non bastava: la correzione
+  // automatica moltiplica TUTTO, compresi gli scostamenti della segnaletica.
+  // Misurato: placche che stavano a 8 cm dal pavimento, dopo il 6x stavano a
+  // 50, e altre a 110 - sopra la telecamera, cioe' dietro l'obiettivo. Tre
+  // famiglie su quattro sparivano.
+  //
+  // Fissare una costante piu' grande sarebbe lo stesso errore di
+  // DECAL_STACCO_MAX: un numero scelto a tavolino invece che misurato. Qui la
+  // fascia si RICAVA da dove stanno davvero le superfici vicine al pavimento -
+  // il quantile 98 delle quote, cosi' una coda di casi estremi non la fa
+  // esplodere. Il tetto di 1,6 m impedisce di inghiottire banconi e soppalchi,
+  // che coprirebbero il pavimento invece di mostrarlo.
+  let spessore = opzioni.spessore;
+  if (spessore == null) {
+    spessore = 0.45;
+    const punti = opzioni.punti;
+    if (punti && punti.length > 50) {
+      const dh = [];
+      for (const p of punti) {
+        const d = p[1] - quotaPav;
+        if (d >= -0.02 && d <= 2.5) dh.push(d);
+      }
+      if (dh.length > 50) {
+        dh.sort((a, b) => a - b);
+        const q98 = dh[Math.min(dh.length - 1, Math.floor(dh.length * 0.98))];
+        spessore = Math.max(0.30, Math.min(1.60, q98 + 0.10));
+      }
+    }
+  }
 
   const inq = inquadratura(
     { min: [scatola.min.x, scatola.min.y, scatola.min.z],
@@ -9059,6 +9087,7 @@ window.__veritasLeggiSegnaletica = function (punti, colori) {
   attesaLettura = setTimeout(() => {
     attesaLettura = null;
     window.__veritasLeggiSegnaleticaOra(punti, colori);
+    window.__veritasCatenaAnalisi();
   }, 1200);
   return null;
 };
@@ -9070,7 +9099,8 @@ window.__veritasLeggiSegnaleticaOra = function (punti, colori) {
     const rend = window.__veritasRenderer, radice = window.__veritasModelRoot;
     if (rend && radice && THREE) {
       const quota = punti && punti.length ? S.quotaPavimento(punti) : null;
-      const pianta = piantaDelPavimento(THREE, rend, radice, { quotaPavimento: quota });
+      const pianta = piantaDelPavimento(THREE, rend, radice,
+        { quotaPavimento: quota, punti: punti });
       if (pianta) {
         const r = S.leggiSegnaleticaDaPianta(pianta);
         window.__veritasUltimaPianta = pianta;
@@ -9087,6 +9117,65 @@ window.__veritasLeggiSegnaleticaOra = function (punti, colori) {
   } catch (e) { console.warn('[VERITAS segnaletica] anche il ripiego fallisce', e); return null; }
 };
 console.log('[VERITAS vista] pronta — la pianta renderizzata ha la precedenza');
+
+// LA CATENA: dopo il caricamento le analisi partono da sole.
+//
+// Percezione, normative, affollamento ed esodo esistevano gia' e funzionavano,
+// ma ognuna aspettava un comando scritto a mano. Misurato dopo un caricamento:
+// "percezione: ha misurato? nessuno stato". Sei strumenti in attesa, non un
+// cervello: chi apre un modello per la prima volta non sa nemmeno che esistano.
+//
+// Qui NON si reimplementa nessuna analisi: si eseguono gli STESSI comandi che
+// l'utente scriverebbe, attraverso __veritasRunCommand. E' l'unico modo per
+// non avere due strade che divergono - la catena automatica e il comando
+// manuale devono dare per forza lo stesso risultato, perche' sono lo stesso
+// codice.
+//
+// Le analisi sono distanziate perche' ognuna disegna sul modello e alcune sono
+// pesanti: lanciarle insieme bloccherebbe la pagina proprio mentre l'utente
+// guarda il modello comparire.
+const CATENA = [
+  ["visibilita", "cosa si vede da dove"],
+  ["accessibilita", "cosa vede chi sta seduto"],
+  ["affollamento", "densita' e livello di servizio"],
+  ["esodo", "vie di fuga e distanze reali"],
+];
+
+window.__veritasCatenaAnalisi = function (forza) {
+  const radice = window.__veritasModelRoot;
+  if (!radice) return false;
+  if (typeof window.__veritasRunCommand !== "function") {
+    console.warn("[VERITAS catena] __veritasRunCommand non disponibile");
+    return false;
+  }
+  if (!radice.userData) radice.userData = {};
+  // Una volta per modello. Il caricamento fa scattare piu' analisi (riscalo e
+  // rianalisi), e senza guardia la catena ripartirebbe a ogni giro.
+  if (radice.userData.__veritasCatenaFatta && !forza) return false;
+  radice.userData.__veritasCatenaFatta = true;
+
+  console.log("[VERITAS catena] avvio", CATENA.length, "analisi automatiche");
+  if (typeof window.__veritasAnnounce === "function") {
+    window.__veritasAnnounce("Sto guardando lo spazio: visibilita', accessibilita', " +
+      "affollamento e vie di esodo. Te li racconto man mano.");
+  }
+  CATENA.forEach(([comando, cosa], i) => {
+    setTimeout(() => {
+      try {
+        console.log("[VERITAS catena] " + (i + 1) + "/" + CATENA.length + " " + comando + " - " + cosa);
+        window.__veritasRunCommand(comando);
+      } catch (e) {
+        // Una che fallisce non deve fermare le altre: meglio tre analisi su
+        // quattro, dichiarando quale e' saltata, che nessuna.
+        console.warn("[VERITAS catena] '" + comando + "' non riuscita", e);
+      }
+    }, 1500 * (i + 1));
+  });
+  window.__veritasCatenaUltima = Date.now();
+  return true;
+};
+console.log("[VERITAS catena] pronta — window.__veritasCatenaAnalisi()");
+
 
 </script><script type="module">
 import * as THREE from 'three';

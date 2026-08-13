@@ -14,7 +14,7 @@ await p.waitForTimeout(6000);
 await p.fill("#v-new-name","cervello"); await p.click("#v-create-btn"); await p.waitForTimeout(6000);
 await p.click("#vs-start-btn").catch(()=>{}); await p.waitForTimeout(10000);
 await p.setInputFiles("#vaio-upload-input", path.join(qui,"airport_foot_traffic.glb"));
-await p.waitForTimeout(22000);
+await p.waitForTimeout(34000);   // la catena impiega ~8s dopo l'assestamento
 
 const r = await p.evaluate(async () => {
   const esito = {};
@@ -40,6 +40,11 @@ const r = await p.evaluate(async () => {
     const s = window.__veritasPerception && window.__veritasPerception.state;
     return s ? Object.keys(s).slice(0,6) : "nessuno stato";
   });
+  await prova("catena eseguita", () => !!window.__veritasCatenaUltima);
+  await prova("fascia della pianta", () => {
+    const pi = window.__veritasUltimaPianta;
+    return pi ? { larghezza: pi.larghezza, mpp: +pi.metriPerPixel.toFixed(3) } : "assente";
+  });
   await prova("normative", () => {
     const n = window.__veritasNormative || window.__veritasNorme; if (!n) return "assente";
     return Object.keys(n).slice(0,8);
@@ -63,6 +68,6 @@ const r = await p.evaluate(async () => {
 console.log("═══ STATO DEL CERVELLO DOPO IL CARICAMENTO ═══");
 for (const [k,v] of Object.entries(r)) console.log(`  ${k.padEnd(28)} ${JSON.stringify(v)}`);
 console.log("\n═══ righe segnaletica ═══");
-log.filter(l=>/segnaletica|ingresso/i.test(l)).slice(0,10).forEach(l=>console.log("  "+l.slice(0,160)));
+log.filter(l=>/segnaletica|ingresso|catena|vista/i.test(l)).slice(0,16).forEach(l=>console.log("  "+l.slice(0,160)));
 console.log("\n═══ errori ═══"); [...new Set(err)].slice(0,8).forEach(e=>console.log("  "+e.slice(0,150)));
 await b.close();
