@@ -11562,14 +11562,46 @@ let sparkRenderer = null;
 // risolve mai e la pagina muore con:
 //     Can not resolve #include <splatDefines>
 //
-// Non e' aggirabile registrando il pezzo "dall'altra parte": il three del
-// bundle e' minificato e interno, non espone ShaderChunk. Ma l'include si puo'
-// togliere prima che il risolutore lo veda, sostituendolo col testo vero in
-// onBeforeCompile - che gira prima della compilazione.
+// PRIMO TENTATIVO, FALLITO: cercare i materiali nella scena e sostituire
+// l'include in onBeforeCompile. Ne agganciava 195 e non bastava, perche' Spark
+// compila anche materiali che nel grafo di scena non ci sono mai - i passaggi
+// offscreen dei suoi render target, che nessun traverse puo' raggiungere.
 //
-// Vale finche' il bundle resta a 0.160. Il giorno che il bundle verra'
-// ricompilato su un three unico, questa funzione diventa inutile e si toglie.
+// LA STRADA GIUSTA E' IL PROTOTIPO. onBeforeCompile viene chiamato dal
+// renderer su OGNI materiale che disegna, offscreen compresi. Mettendo la
+// sostituzione su Material.prototype la ricevono tutti, anche quelli che non
+// esistono ancora quando la patch viene installata - ed e' proprio il caso di
+// Spark, che i suoi li crea alla prima resa.
+//
+// Vale finche' il bundle resta a 0.160. Il giorno che verra' ricompilato su un
+// three unico, questa funzione diventa inutile e si toglie.
+function installaPatchInclude() {
+  if (!THREE || !THREE.Material || THREE.Material.prototype.__veritasPatchInclude) return false;
+  const proto = THREE.Material.prototype;
+  const precedente = proto.onBeforeCompile;
+  proto.onBeforeCompile = function (shader, renderer) {
+    if (precedente) { try { precedente.call(this, shader, renderer); } catch (e) {} }
+    const pezzi = THREE.ShaderChunk;
+    if (!pezzi || !shader) return;
+    // Si sostituiscono SOLO gli include che il renderer del bundle non
+    // conosce: quelli standard li risolve gia' lui, e toccarli sarebbe un
+    // modo per rompere materiali che funzionano.
+    const sostituisci = (src) => src.replace(/#include <([\w\d_]+)>/g, (intero, nome) => {
+      const testo = pezzi[nome];
+      return (typeof testo === "string" && nome.startsWith("splat")) ? testo : intero;
+    });
+    if (shader.vertexShader) shader.vertexShader = sostituisci(shader.vertexShader);
+    if (shader.fragmentShader) shader.fragmentShader = sostituisci(shader.fragmentShader);
+  };
+  proto.__veritasPatchInclude = true;
+  console.log('[VAIO Splat] patch include installata sul prototipo dei materiali');
+  return true;
+}
+
 function risolviIncludeSpark(radice) {
+  // Resta come rete di sicurezza per i materiali che definiscono un
+  // onBeforeCompile PROPRIO sull'istanza: quello nasconde il prototipo, quindi
+  // la patch di sopra non li raggiungerebbe.
   const pezzo = THREE.ShaderChunk && THREE.ShaderChunk.splatDefines;
   if (!pezzo || !radice) return 0;
   let quanti = 0;
@@ -11577,6 +11609,7 @@ function risolviIncludeSpark(radice) {
     const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
     for (const m of mats) {
       if (!m || m.__veritasIncludeRisolti) continue;
+      if (!Object.prototype.hasOwnProperty.call(m, 'onBeforeCompile')) continue;
       const prima = m.onBeforeCompile;
       m.onBeforeCompile = function (shader, renderer) {
         if (prima) { try { prima.call(this, shader, renderer); } catch (e) {} }
@@ -11593,7 +11626,10 @@ function risolviIncludeSpark(radice) {
   return quanti;
 }
 
+installaPatchInclude();
+
 function ensureSparkRenderer() {
+  installaPatchInclude();
   if (sparkRenderer) return sparkRenderer;
   const scene = window.__veritasScene;
   const renderer = window.__veritasRenderer;
