@@ -806,3 +806,114 @@ Dopo il fix, console dovrebbe mostrare:
 **Suggerimento**: Partire da A (percettivo geometrico puro). Raffaella sa come
 riconoscere uno spazio guardandolo — un algoritmo che capisce forma/flusso è
 la prima cosa vera.
+
+---
+
+## 13. Stato reale — sessione 13 agosto 2026 (pomeriggio)
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> La §12 e' superata: il difetto delle zone che descriveva e' RISOLTO.
+
+### 13.0 Come si lavora qui, in tre righe
+
+1. **Il blocco 3 non si tocca** (sha `eedd9935ea908fd3`). Verificalo dopo ogni modifica.
+2. **Mai push su `main`** senza approvazione esplicita. Eccezione gia' concessa: i file Python per Render.
+3. **Misura, non dedurre.** In questa sessione due ipotesi scritte col tono
+   della certezza sono state smontate da un esperimento di controllo durato un
+   minuto. Prima di scrivere "la causa e'", fai la prova.
+
+### 13.1 La struttura di `index.html`: 20 blocchi
+
+| # | Ruolo |
+|---|---|
+| 0 | importmap — **three 0.180.0**, three-mesh-bvh 0.8.3, spark 2.1.0 |
+| 2 | boot: auth, analisi spaziale, `extractNavigablePoints`, scala automatica |
+| 3 | 🔴 **bundle React/Three minificato — INTOCCABILE** (porta dentro three 0.160) |
+| 5 | patch three-mesh-bvh, espone `window.THREE` |
+| 6 | **ingresso** — riconoscimento formato dai byte |
+| 7 | **segnaletica** — famiglie di colore a terra |
+| 8 | **percorso** — da ambienti a tappe |
+| 9 | **sequenza** — le quattro fasi |
+| 10 | **memoria** — referto con provenienza |
+| 11 | **vista** — pianta ortografica |
+| 12 | shell AI-OS |
+| 13 | Gaussian Splat |
+| 14+ | visibilita', percezione, LLM, normative, esodo, visuale |
+
+⚠️ Gli indici cambiano a ogni inserimento: **non fidarti di questa tabella,
+riparsala con `html.parser`.** Individua i blocchi per contenuto, mai per numero.
+
+### 13.2 I moduli nuovi (radice, inlinati in `index.html`)
+
+```
+veritas_ingest.js       40 prove   9 formati riconosciuti dai byte
+veritas_segnaletica.js  37 prove   famiglie di colore a terra, direzioni
+veritas_vista.js        25 prove   pianta ortografica: GUARDARE il modello
+veritas_referto.js      42 prove   memoria di lavoro con provenienza
+veritas_sequenza.js     27 prove   ambiente -> misura -> giudizio -> pronto
+veritas_percorso.js     24 prove   31 ambienti -> 7 tappe
+```
+
+Il sorgente in radice e' la **fonte unica**; l'inline si rigenera togliendo gli
+`export` e aggiungendo la legatura a `window`. Se modifichi un modulo, reinlinalo.
+
+### 13.3 Il principio che regge tutto: GUARDARE, non leggere la struttura dati
+
+Ogni tecnico imposta il 3D a modo suo. Il colore puo' stare in `material.color`,
+in una texture, in un atlas, nei colori per vertice, in un'armonica sferica.
+**Misurato sul modello di prova: 89 materiali, 33 con texture** — su quelli
+`material.color` vale bianco.
+
+Quindi la segnaletica si legge da una **pianta renderizzata**: telecamera
+ortografica appena sopra il pavimento, rivolta in giu'. I pixel sono identici
+qualunque sia l'origine del colore, perche' e' il renderer a risolverla.
+Soffitti e coperture restano dietro l'obiettivo.
+
+Stesso principio per catturare cio' che dicono le analisi: si osserva il
+contenitore della chat con un `MutationObserver`, non si aggancia una funzione
+interna. **Guardare il risultato, non ipotizzare come viene prodotto.**
+
+### 13.4 Difetti gravi risolti, con i numeri
+
+| Difetto | Causa reale | Prova |
+|---|---|---|
+| Verdetto normativo **falso** | la nuvola non veniva rifatta dopo il riscalo 6× | 30 difformi → 23 conformi; peggiore 0,151 m → 0,50 m |
+| 84 m² navigabili su 3592 | idem: nuvola ferma a 19,7 × 10,4 su modello 121 × 67,6 | 84,23 → 3700,5 m² |
+| Ordine al contrario | si analizzava prima di sistemare l'ambiente | sequenza a fasi con punto fisso |
+| Zone 7 trovate / 6 assegnate (§12) | guardia `currentNodes < 2`: i nodi sbagliati vincevano perche' arrivavano prima | 31 ambienti → 7 tappe |
+| Gaussiane invisibili | Spark registra `splatDefines` nel three sbagliato | patch su `Material.prototype` |
+| Colore mai letto | nessuno lo estraeva | 4 famiglie, 3 con verso di marcia |
+
+**La conferma piu' forte:** motore geometrico 3700,5 m², occhio 3592 m². Due
+metodi indipendenti che convergono al 3%. Prima erano 84 contro 3592, e nessuno
+poteva accorgersene perche' non si parlavano — e' per questo che serve la
+memoria condivisa.
+
+### 13.5 Il banco di prova
+
+```bash
+sh banco/monta.sh                        # rimonta vendor + index locale
+(cd banco && python3 -m http.server 8899 &)
+node banco/prova.mjs                     # ingresso: mesh + gaussiane
+node banco/cervello.mjs                  # stato di tutti i moduli
+node banco/norme.mjs                     # verdetto normativo e sue misure
+node banco/zone.mjs                      # ambienti e tappe
+```
+
+Chromium vero, pagina vera, widget vero. **Una corsa completa dura 80-100 s**:
+se sfora, e' un sintomo, non un problema del banco.
+
+⚠️ Render e OpenSky sono bloccati dal proxy: gli errori di rete sono attesi.
+Ogni riassegnazione di nodi fa ripartire `__veritasGetTrajectory`, che li
+aspetta — e' per questo che riassegnare tre volte portava la prova da 96 a 260 s.
+
+### 13.6 Cosa resta aperto
+
+1. **Provare con una scansione vera.** Lo splat sintetico
+   (`veritas_genera_splat.py`) verifica l'impianto, non la qualita' su dati
+   rumorosi. Dalla sandbox non si scarica niente: solo git passa.
+2. **I nomi delle tappe sono grezzi** — tre "lounge" di fila. Logica preesistente.
+3. **Pannelli KPI sotto i 1280 px** si sovrappongono ai comandi.
+4. **`main` ha ancora il frontend vecchio.** La promozione aspetta il via libera.
+5. **Doppio three** (bundle 0.160 + importmap 0.180): aggirato, non risolto.
+   La soluzione pulita e' ricompilare il bundle.
