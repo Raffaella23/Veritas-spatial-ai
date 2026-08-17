@@ -18,7 +18,11 @@ core = types.ModuleType("core"); core.__path__ = []
 sys.modules["core"] = core
 for mod, attrs in (("core.engine", ["SimulationEngine"]),
                    ("core.topology_analyzer", ["TopologyAnalyzer"]),
-                   ("core.recommendations", ["generate_recommendations"])):
+                   ("core.recommendations", ["generate_recommendations"]),
+                   # Aggiunto quando api_server ha iniziato a importarlo per
+                   # /api/perception-report: senza lo stub l'import di
+                   # api_server fallisce e queste prove non partono affatto.
+                   ("core.report_builder", ["generate_perception_report_html"])):
     m = types.ModuleType(mod)
     for a in attrs:
         setattr(m, a, object)

@@ -43,3 +43,18 @@ v17/
 *.opendb
 *.VC.db
 .idea/
+# --- Banco di prova headless ---
+# Le dipendenze si reinstallano da package.json e pesano 66 MB: nel repo non
+# ci vanno. Il package.json invece SI', perche' fissa la terna di versioni
+# verificata (three 0.180 + three-mesh-bvh 0.8.3 + spark 2.1.0) che e' l'unica
+# in cui le gaussiane partono.
+node_modules/
+vendor/
+
+# Il banco di prova: si rigenera con banco/monta.sh. Nel repo restano solo gli
+# script, non le dipendenze copiate ne' i modelli duplicati.
+banco/index.html
+banco/*.glb
+banco/*.ply
+banco/schermata.png
+banco/aspetto/

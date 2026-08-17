@@ -10,6 +10,66 @@
 
 ---
 
+## 🔻 Regola zero — leggi TUTTO prima, e non aprire branch
+
+> Aggiunta il 12/08/2026 da Raffaella, dopo aver trovato quattro branch e
+> lavoro duplicato. **Viene prima di ogni altra cosa in questo file.**
+
+### 1. Leggi l'intero contenuto della repository prima di scrivere una riga
+
+Non i documenti soltanto: **il codice che c'è già.** Prima di costruire
+qualcosa, cerca se esiste. Il passaggio da una chat all'altra perde memoria, e
+ogni sessione che non guarda finisce per riscrivere ciò che c'era.
+
+Il giro minimo, tre minuti:
+
+```bash
+git branch -a                                   # quante branch, e perche'
+ls *.js *.py *.json *.md                        # cosa c'e' in radice
+ls Assets/core/ 2>/dev/null                     # ⚠️ il Core Python sta QUI
+grep -rn "<parola chiave>" --include=*.js --include=*.py .
+```
+
+⚠️ **`Assets/` non è tutto rumore.** Il §2 dice di non indicizzarla perché
+contiene ~1240 sample Unity, ed è vero — ma `Assets/core/` contiene il **Core
+Python vero** (`engine.py`, `behaviour.py`, `compliance.py`, `zones.py`). Una
+sessione che salta `Assets/` per intero non trova il Core e lo riscrive.
+
+### 2. Non aprire branch nuove
+
+Ne bastano **tre**, e sono queste:
+
+| Branch | A cosa serve |
+|---|---|
+| `main` | produzione + sorgente del deploy Render |
+| `veritas-ai-os-preview` | anteprima pubblica su GitHub Pages |
+| **una** `claude/...` per volta | la sessione in corso, poi si cancella |
+
+Se ne esiste già una `claude/...`, **lavora su quella**: non aprirne una
+seconda. A fine sessione va cancellata, dopo aver verificato che il contenuto
+sia confluito nella preview.
+
+### 3. Cosa è successo davvero, per memoria
+
+Il 12/08/2026 la repository aveva quattro branch, e sotto c'era questo:
+
+- **`veritas_perception.js`** — scritto in una sessione, rimasto su una branch
+  mai unita, ritrovato per caso il giorno dopo. Ci sono voluti mesi di lavoro
+  perso e un recupero fortunoso.
+- **Due moduli diversi con lo stesso nome.** `veritas_perception.js` misura
+  *dove si cammina*; un altro, nato con lo stesso nome, calcola *cosa si vede*.
+  Sono stati distinti a posteriori rinominando il secondo
+  `veritas_visibility.js`. Se la prima sessione avesse guardato, non sarebbe
+  successo.
+- **`Assets/core/compliance.py`** — un modulo di conformità normativa esistente
+  e collegato al Core, dimenticato per mesi perché stava sotto `Assets/`, che
+  la documentazione dichiarava rumore.
+
+Nessuno di questi era un errore di programmazione. Erano tre sessioni che non
+avevano guardato cosa c'era già.
+
+---
+
 ## 0. Prima cosa da fare (obbligatoria)
 
 Prima di qualsiasi modifica, **studia la documentazione nell'ordine seguente**. Non è opzionale: questo progetto ha una storia lunga e decisioni architetturali già prese, e ignorarle ha già causato regressioni.
@@ -78,6 +138,10 @@ Assets/ Packages/ ProjectSettings/    progetto Unity XR — quasi tutto sample X
 ```
 
 ⚠️ `Assets/`, `Packages/`, `ProjectSettings/` contengono ~1240 file, in stragrande maggioranza sample ufficiali Unity (XR Hands, XR Interaction Toolkit, VRTemplateAssets). **Non indicizzarli né analizzarli** se non esplicitamente richiesto: bruciano contesto senza dare informazione.
+
+⚠️ **Unica eccezione, importante: `Assets/core/`.** Contiene il Core Python vero
+(`engine.py`, `behaviour.py`, `compliance.py`, `zones.py`) — non è un sample Unity.
+È stato dimenticato per mesi proprio per questa riga. Vedi la Regola zero in cima.
 
 ### ⚠️ Discrepanza documentazione ↔ realtà
 
@@ -271,7 +335,7 @@ quindi ogni report ricadeva sul dominio "generic". Ora c'è una normalizzazione 
 |---|---|---|
 | `main` | `Veritas-V17-FIX-SOLO-BUG.html`, `index.html` (redirect), **Python del Core** | Produzione + sorgente del deploy Render |
 | `veritas-ai-os-preview` | `index.html` completo (~1,13 MB) | Anteprima su GitHub Pages |
-| `claude/veritas-perception-ai-os-876pru` | Branch di lavoro, allineata alla preview | Sviluppo |
+| `claude/...` (una sola) | Branch di lavoro della sessione in corso | Sviluppo, poi si cancella |
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
@@ -279,22 +343,32 @@ Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 i file Python (per Render). Il frontend nuovo vive sulla preview e va promosso
 a `main` **solo dopo approvazione esplicita di Raffaella**.
 
-### Struttura di `index.html` (preview) — 9 blocchi `<script>`
+### Struttura di `index.html` (preview) — 14 blocchi `<script>`
+
+⚠️ Erano dichiarati 9 con il motore di percezione al blocco 8. **Verificato con
+`html.parser` il 12/08/2026: sono 10**, e i due moduli percettivi occupano
+l'8 e il 9 — nell'ordine opposto a quello che c'era scritto qui.
 
 | # | Tipo | Ruolo |
 |---|---|---|
 | 0 | importmap | three 0.171, three-mesh-bvh 0.7.8, spark 2.1.0 |
 | 1 | `src=` | supabase-js da CDN |
-| 2 | classico | **boot**: auth, progetti, analisi spaziale, generatore traiettorie, bridge Python |
+| 2 | classico | **boot**: auth, progetti, analisi spaziale, generatore traiettorie, partenze da voli reali, bridge Python |
 | 3 | module | 🔴 **bundle React/Three minificato — INTOCCABILE** |
 | 4 | classico | handler sicurezza link |
 | 5 | module | patch three-mesh-bvh, espone `window.THREE` |
 | 6 | module | **shell AI-OS**: topbar, console comandi, upload, nascondimento pannelli nativi |
-| 7 | module | Gaussian Splat (fermo, vedi §4) |
-| 8 | module | **layer percettivo** (`veritas_perception.js`) |
+| 7 | module | Gaussian Splat (fermo, vedi §11.4a) |
+| 8 | module | **visibilità** (`veritas_visibility.js`) — cosa si vede da dove |
+| 9 | module | **motore di percezione** (`veritas_perception.js`) — dove si cammina e quanto è largo |
+| 10 | module | **ponte al modello locale** (`veritas_llm.js`) — traduce le frasi in comandi esistenti |
+| 11 | module | **normative** (`veritas_normative.js`) — soglie con citazione della fonte |
+| 12 | module | **vie di esodo** (`veritas_esodo.js`) — lunghezza reale del percorso di fuga |
+| 13 | module | **verdetti sul modello** (`veritas_visuale.js`) — mappa di esodo, flusso, zone che pulsano |
 
-Il file sorgente `veritas_perception.js` sta in radice ed è **inlinato** come
-blocco 8. Se lo modifichi, va reinlinato (script al §6).
+I file sorgente `veritas_visibility.js` e `veritas_perception.js` stanno in
+radice e sono **inlinati** come blocchi 8 e 9. Se li modifichi, vanno
+reinlinati (ricetta al §11.6).
 
 ---
 
@@ -430,16 +504,62 @@ Per risolvere servono **insieme**: `three` ≥ 0.180 e `three-mesh-bvh` ≥ 0.8.
 7, 8. **Da fare con calma e verificando con uno splat vero**, non a fine
 giornata.
 
-### b) OpenSky per i tempi d'arrivo reali — *massimo valore prodotto*
+### b) OpenSky per i tempi d'arrivo reali — ✅ **FATTO** (12/08/2026)
 
-Esiste già `#vs-opensky-btn` che interroga gli arrivi reali a Fiumicino (LIRF),
-ma **oggi stima solo il numero di agenti**, non quando arrivano.
+Era: `#vs-opensky-btn` interrogava gli arrivi reali a Fiumicino (LIRF) ma
+**stimava solo il numero di agenti**, non quando arrivano; `start_delay`
+veniva da una formula regolare (ondate ogni 3,5 s), cioè un flusso costante
+che in nessun aeroporto esiste.
 
-`start_delay` è il gancio che mancava: oggi lo calcolo con una formula
-regolare (ondate ogni 3,5 s). Alimentandolo con i voli reali diventa la
-distribuzione vera — 180 passeggeri alle 14:32, poi il vuoto, poi 250 alle
-14:51. **È lì che nascono i picchi di affollamento veri**, quelli che un report
-vendibile deve mostrare. Richiesta esplicita di Raffaella.
+Ora gli **orari di atterraggio** (`lastSeen` di OpenSky) diventano la
+distribuzione delle partenze. Il numero di agenti resta quello scelto
+dall'utente: si conserva la **forma** del traffico, non il volume, che sarebbe
+insimulabile (Fiumicino muove ~100.000 pax/giorno).
+
+Come funziona, in `index.html` blocco 2, subito dopo `runOpenSkyEstimate`:
+
+1. `veritasScheduleFromArrivals` tiene orario e passeggeri stimati di ogni
+   volo (prima si buttava via tutto tranne il conteggio);
+2. `veritasPeakWindow` trova le **2 ore reali più cariche**. Comprimere le 24 h
+   sui ~400 s di simulazione ridurrebbe ogni picco a un fotogramma, ed è la
+   punta che dimensiona un terminal;
+3. `veritasStartDelaysFromSchedule` ripartisce gli agenti sui voli in
+   proporzione ai passeggeri e colloca ciascuno all'orario del proprio volo,
+   più lo sbarco (~12 min reali, compressi con lo stesso fattore);
+4. `veritasStartDelays` è il **punto unico** usato sia dal ponte Python sia dal
+   generatore JS locale. Senza voli caricati ricade sulla formula di prima,
+   byte per byte: nessuna regressione per chi non usa OpenSky, e nessun
+   significato forzato su museo e gaming, dove un atterraggio non vuol dire
+   niente (Rule of Three).
+
+Gli arrivi restano in `localStorage` per 48 h (`window.__veritasFlightSchedule`):
+la stima si fa nel pannello impostazioni, la simulazione parte molto dopo. La
+punta riconosciuta è dichiarata nel pannello **e annunciata in chat** via
+`__veritasAnnounce`.
+
+⚠️ **Da fare con la trasparenza già adottata altrove:** OpenSky non fornisce
+passeggeri, solo ADS-B. I 140 pax/volo sono una costante dichiarata, e i dati
+di arrivo sono del giorno prima, non in tempo reale. Vale la **forma**, non il
+valore assoluto.
+
+Prove: `node veritas_flights.test.mjs` (18 verifiche, estrae le funzioni da
+`index.html`, non le ricopia). Misurato su una giornata con tre banchi di
+arrivi e un vuoto dichiarato di 40 minuti, 40 agenti su 400 s:
+
+```
+                    (20 intervalli da 20 s)
+atterraggi reali    ##......4#4..8#.....
+partenze simulate   3543....143412433...     ← segue i banchi e il vuoto
+formula regolare    ##..................     ← tutto nei primi 42 s
+```
+
+**Difetto trovato e corretto strada facendo:** la prima ripartizione usava il
+metodo dei resti più grandi. Siccome la stima dei passeggeri è la stessa per
+ogni volo, tutti i resti sono identici e finivano in blocco sui primi voli: il
+banco iniziale riceveva 18 agenti invece di 15,6, gli ultimi altrettanti in
+meno — un picco gonfiato all'inizio e uno sgonfiato in fondo, cioè proprio
+l'errore che questo lavoro serve a togliere. Ora è arrotondamento cumulativo:
+scarto massimo **1,3%**.
 
 ### c) Pannelli KPI nativi sotto i 1280 px
 
@@ -512,10 +632,11 @@ print('blocco 3 intatto')
 Poi `node --check` su ogni blocco modificato (i moduli ES vanno copiati in
 `.mjs`).
 
-### Reinlinare `veritas_perception.js` nel blocco 8
+### Reinlinare `veritas_perception.js` nel blocco 9
 
-Estrai il blocco 8 con lo stesso parser e sostituiscilo con il contenuto del
+Estrai il blocco 9 con lo stesso parser e sostituiscilo con il contenuto del
 file, verificando che il sorgente non contenga la stringa `</script`.
+(`veritas_visibility.js` è il blocco 8, stessa procedura.)
 
 ### Banco di prova headless
 
@@ -563,3 +684,236 @@ conversione e **rifiuta** la traiettoria se non descrive la scena caricata,
 ricadendo sul generatore JS locale. Il ponte lascia sempre tre righe in
 console con prefisso `[VERITAS bridge]` — sono la prima cosa da leggere se il
 motore reale si comporta male.
+
+---
+
+## 12. Stato reale — sessione 13 agosto 2026
+
+> **Blocco critico**: Zone assignment ancora rotto (5 vs 7). Tentativo di fix
+> con setTimeout fallito. Root cause: analisi geometrica lanciata asincrona da
+> modulo sconosciuto.
+
+### 12.0 Il difetto non è risolto
+
+**Console log reale** (modello caricato):
+```
+[VERITAS] analisi con motore geometrico: 7 zone, 63 strettoie, 84.23 m2 navigabili
+[VERITAS AUTO v5] nessuna zona misurate, ripiego sui nomi: Array(5)
+[VERITAS AUTO v5] Auto-assegnati 5 nodi da analyzeMesh
+```
+
+Il motore geometrico calcola **7 zone** correttamente, ma `__veritasOnModelLoaded`
+le vede **zero** e fallback a `analyzeMesh` che ne estrae **5 dai nomi mesh**.
+
+**Tentativo**: `setTimeout(..., 0)` a riga 2872 non ha risolto. Prova che
+l'asincronia è **ancora più profonda**.
+
+### 12.1 Root cause identificato
+
+L'analisi geometrica (`structuralAnalysisFromPoints`) è lanciata **asincrona da
+una fonte sconosciuta**, NON da `__veritasOnModelLoaded`:
+
+1. Modello caricato → `window.__veritasModelRoot` impostato (riga 9099)
+2. `__veritasOnModelLoaded(rootObj)` richiamato (riga 9102)
+3. **Subito**: `__veritasOnModelLoaded` esegue, verifica `lastZones` (vuoto),
+   fallback su `analyzeMesh` (5 zone)
+4. **In parallelo**: Un modulo (forse blocco 3 React, o blocchi 8-9) lancia
+   `structuralAnalysisFromPoints`, popola `lastZones` con 7 zone
+5. **Troppo tardi**: `__veritasOnModelLoaded` ha già finito e scelto i 5
+
+**Dove stampa il messaggio "analisi con motore geometrico"?** Riga 2739, dentro
+`structuralAnalysisFromPoints`. Ma NON è raggiunto da `__veritasOnModelLoaded`.
+
+**Chi chiama `structuralAnalysisFromPoints`?**
+- Non direttamente `__veritasOnModelLoaded` ❌
+- Potenzialmente: blocco 3 (bundle React), moduli ES (blocchi 8-9), handler UI
+
+### 12.2 Prossimo passo — vero fix
+
+**Azione 1: Trovare il lanciatore**
+```bash
+grep -rn "Ho riconosciuto" . --include=*.js --include=*.md
+grep -rn "classifyEnvironment\|zonesFromPerceptionEngine" . --include=*.js
+```
+
+Se "Ho riconosciuto" è in `veritas_perception.js` (blocco 9 inlinato), allora
+il lanciatore è un modulo ES, **non** il blocco 2.
+
+**Azione 2: Aggiungere callback post-analisi**
+
+Una volta trovato il lanciatore, aggiungere una callback tipo:
+
+```javascript
+window.__veritasOnAnalysisComplete = () => {
+  if (lastZones && lastZones.length >= 2) {
+    console.log('[VERITAS callback] Analisi completata, assegno', lastZones.length, 'zone');
+    applyAutoAssignment(lastZones);
+  }
+};
+```
+
+E richiamarlo dal lanciatore dopo che `structuralAnalysisFromPoints` termina.
+
+**Azione 3: Verificare**
+
+Dopo il fix, console dovrebbe mostrare:
+```
+[VERITAS] analisi con motore geometrico: 7 zone
+[VERITAS callback] Analisi completata, assegno 7 zone
+[VERITAS AUTO v5] Auto-assegnati 7 nodi da motore geometrico
+```
+
+### 12.3 Normative, visuale, esodo — tutto OK
+
+- ✅ **Accessibilità, antincendio, affollamento**: 3 framework × 19 soglie
+- ✅ **Mappa di esodo**: heatmap texture floor
+- ✅ **Flusso di particelle**: discende gradiente distanze
+- ✅ **Zone pulsanti**: anelli animati per verdetto
+- ✅ **Deploy Render**: Python Core operativo, `start_delay` funzionante
+- ✅ **OpenSky**: distribuzione partenze da arrivi reali
+
+### 12.4 Blocchi aperti oltre zone
+
+1. **Gaussian Splat** (fermo): Spark richiede three ≥ r179, importmap fissa 0.171
+2. **Doppio Three.js**: Warning "Multiple instances"
+3. **Pannelli KPI sotto 1280px**: Layout Tailwind non intercettato dai selettori
+4. **Agente pathfinding**: Attraversa muri (Backend issue, Assets/core/)
+
+### 12.5 La richiesta di Raffaella: "Gli occhi"
+
+> *"Dovresti dare a questi agenti gli occhi, dovresti dare anche gli occhi per
+> guardare le immagini e in questo caso i modelli."*
+
+**Tre opzioni**:
+
+**A) Motore di percezione geometrico + ragionamento di sequenza**
+- Ordina le 7 zone per flusso geometrico (terra → volo)
+- Riconosci tipo spazio da forma/misura (rettangolo stretto = corridoio)
+- Deduce funzione da posizione nella sequenza
+- ⏱️ **1-2 giorni**, nessun costo LLM, deterministico
+
+**B) LLM-based visione 3D**
+- Genera screenshot del modello da più angoli
+- Manda a Claude Vision per etichettatura semantica
+- Vincola le 7 zone geometriche agli spazi riconosciuti
+- ⏱️ **2-3 giorni**, costo API Vision per modello, latenza
+
+**C) Ibrido**
+- A per misure e geometria (sempre)
+- B per validazione semantica quando richiesto (optional)
+- ⏱️ **3-4 giorni**
+
+**Suggerimento**: Partire da A (percettivo geometrico puro). Raffaella sa come
+riconoscere uno spazio guardandolo — un algoritmo che capisce forma/flusso è
+la prima cosa vera.
+
+---
+
+## 13. Stato reale — sessione 13 agosto 2026 (pomeriggio)
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> La §12 e' superata: il difetto delle zone che descriveva e' RISOLTO.
+
+### 13.0 Come si lavora qui, in tre righe
+
+1. **Il blocco 3 non si tocca** (sha `eedd9935ea908fd3`). Verificalo dopo ogni modifica.
+2. **Mai push su `main`** senza approvazione esplicita. Eccezione gia' concessa: i file Python per Render.
+3. **Misura, non dedurre.** In questa sessione due ipotesi scritte col tono
+   della certezza sono state smontate da un esperimento di controllo durato un
+   minuto. Prima di scrivere "la causa e'", fai la prova.
+
+### 13.1 La struttura di `index.html`: 20 blocchi
+
+| # | Ruolo |
+|---|---|
+| 0 | importmap — **three 0.180.0**, three-mesh-bvh 0.8.3, spark 2.1.0 |
+| 2 | boot: auth, analisi spaziale, `extractNavigablePoints`, scala automatica |
+| 3 | 🔴 **bundle React/Three minificato — INTOCCABILE** (porta dentro three 0.160) |
+| 5 | patch three-mesh-bvh, espone `window.THREE` |
+| 6 | **ingresso** — riconoscimento formato dai byte |
+| 7 | **segnaletica** — famiglie di colore a terra |
+| 8 | **percorso** — da ambienti a tappe |
+| 9 | **sequenza** — le quattro fasi |
+| 10 | **memoria** — referto con provenienza |
+| 11 | **vista** — pianta ortografica |
+| 12 | shell AI-OS |
+| 13 | Gaussian Splat |
+| 14+ | visibilita', percezione, LLM, normative, esodo, visuale |
+
+⚠️ Gli indici cambiano a ogni inserimento: **non fidarti di questa tabella,
+riparsala con `html.parser`.** Individua i blocchi per contenuto, mai per numero.
+
+### 13.2 I moduli nuovi (radice, inlinati in `index.html`)
+
+```
+veritas_ingest.js       40 prove   9 formati riconosciuti dai byte
+veritas_segnaletica.js  37 prove   famiglie di colore a terra, direzioni
+veritas_vista.js        25 prove   pianta ortografica: GUARDARE il modello
+veritas_referto.js      42 prove   memoria di lavoro con provenienza
+veritas_sequenza.js     27 prove   ambiente -> misura -> giudizio -> pronto
+veritas_percorso.js     24 prove   31 ambienti -> 7 tappe
+```
+
+Il sorgente in radice e' la **fonte unica**; l'inline si rigenera togliendo gli
+`export` e aggiungendo la legatura a `window`. Se modifichi un modulo, reinlinalo.
+
+### 13.3 Il principio che regge tutto: GUARDARE, non leggere la struttura dati
+
+Ogni tecnico imposta il 3D a modo suo. Il colore puo' stare in `material.color`,
+in una texture, in un atlas, nei colori per vertice, in un'armonica sferica.
+**Misurato sul modello di prova: 89 materiali, 33 con texture** — su quelli
+`material.color` vale bianco.
+
+Quindi la segnaletica si legge da una **pianta renderizzata**: telecamera
+ortografica appena sopra il pavimento, rivolta in giu'. I pixel sono identici
+qualunque sia l'origine del colore, perche' e' il renderer a risolverla.
+Soffitti e coperture restano dietro l'obiettivo.
+
+Stesso principio per catturare cio' che dicono le analisi: si osserva il
+contenitore della chat con un `MutationObserver`, non si aggancia una funzione
+interna. **Guardare il risultato, non ipotizzare come viene prodotto.**
+
+### 13.4 Difetti gravi risolti, con i numeri
+
+| Difetto | Causa reale | Prova |
+|---|---|---|
+| Verdetto normativo **falso** | la nuvola non veniva rifatta dopo il riscalo 6× | 30 difformi → 23 conformi; peggiore 0,151 m → 0,50 m |
+| 84 m² navigabili su 3592 | idem: nuvola ferma a 19,7 × 10,4 su modello 121 × 67,6 | 84,23 → 3700,5 m² |
+| Ordine al contrario | si analizzava prima di sistemare l'ambiente | sequenza a fasi con punto fisso |
+| Zone 7 trovate / 6 assegnate (§12) | guardia `currentNodes < 2`: i nodi sbagliati vincevano perche' arrivavano prima | 31 ambienti → 7 tappe |
+| Gaussiane invisibili | Spark registra `splatDefines` nel three sbagliato | patch su `Material.prototype` |
+| Colore mai letto | nessuno lo estraeva | 4 famiglie, 3 con verso di marcia |
+
+**La conferma piu' forte:** motore geometrico 3700,5 m², occhio 3592 m². Due
+metodi indipendenti che convergono al 3%. Prima erano 84 contro 3592, e nessuno
+poteva accorgersene perche' non si parlavano — e' per questo che serve la
+memoria condivisa.
+
+### 13.5 Il banco di prova
+
+```bash
+sh banco/monta.sh                        # rimonta vendor + index locale
+(cd banco && python3 -m http.server 8899 &)
+node banco/prova.mjs                     # ingresso: mesh + gaussiane
+node banco/cervello.mjs                  # stato di tutti i moduli
+node banco/norme.mjs                     # verdetto normativo e sue misure
+node banco/zone.mjs                      # ambienti e tappe
+```
+
+Chromium vero, pagina vera, widget vero. **Una corsa completa dura 80-100 s**:
+se sfora, e' un sintomo, non un problema del banco.
+
+⚠️ Render e OpenSky sono bloccati dal proxy: gli errori di rete sono attesi.
+Ogni riassegnazione di nodi fa ripartire `__veritasGetTrajectory`, che li
+aspetta — e' per questo che riassegnare tre volte portava la prova da 96 a 260 s.
+
+### 13.6 Cosa resta aperto
+
+1. **Provare con una scansione vera.** Lo splat sintetico
+   (`veritas_genera_splat.py`) verifica l'impianto, non la qualita' su dati
+   rumorosi. Dalla sandbox non si scarica niente: solo git passa.
+2. **I nomi delle tappe sono grezzi** — tre "lounge" di fila. Logica preesistente.
+3. **Pannelli KPI sotto i 1280 px** si sovrappongono ai comandi.
+4. **`main` ha ancora il frontend vecchio.** La promozione aspetta il via libera.
+5. **Doppio three** (bundle 0.160 + importmap 0.180): aggirato, non risolto.
+   La soluzione pulita e' ricompilare il bundle.
