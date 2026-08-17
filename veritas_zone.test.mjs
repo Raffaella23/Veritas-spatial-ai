@@ -5,14 +5,16 @@
 // misurata resti fuori, e che i nomi servano solo a etichettare.
 import fs from 'node:fs';
 const html = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-const a = html.indexOf('function assegnaZoneMisurate(zones, root)');
+// Si estrae dal LESSICO in giu': la tabella dei nomi sta fuori dalla funzione
+// (la usa anche il chiamante) e senza di lei il corpo non gira.
+const a = html.indexOf('  const LESSICO_ZONE = {');
 const fine = html.indexOf('\n  function applyAutoAssignment', a);
 if (a < 0 || fine < 0) { console.error('Ancore non trovate.'); process.exit(2); }
 
 let meshNominate = [];
 const analyzeMesh = () => meshNominate;
 const assegna = new Function('analyzeMesh', 'console',
-  html.slice(a - 'function '.length + 'function '.length, fine).replace(/^function /, 'return function ')
+  html.slice(a, fine) + '\n  return assegnaZoneMisurate;'
 )(analyzeMesh, { log(){} });
 
 let ko = 0; const check = (n, ok, d='') => { console.log((ok?'  ok  ':' FAIL ')+n+(d?'   '+d:'')); if(!ok) ko++; };
@@ -96,6 +98,75 @@ meshNominate = [];
 check('nessun nome: funziona lo stesso', assegna(sette, {}).length === 7);
 meshNominate = null;
 check('analyzeMesh che ritorna null: funziona lo stesso', assegna(sette, {}).length === 7);
+
+// --- lessico per dominio: le stesse tappe, i nomi del posto giusto ---
+// Un museo con "Accettazione" e "Controllo" sulle sale dice a chi legge il
+// referto che lo strumento non ha capito cosa sta guardando.
+console.log('\nil lessico segue il tipo di progetto');
+meshNominate = [];
+const quattro = [zona(0,0,300,'area',50), zona(10,0,200,'area',40),
+                 zona(20,0,400,'area',30), zona(30,0,250,'area',10)];
+
+const etichette = (d) => assegna(quattro, {}, d).map((n) => n.label).join(' / ');
+check('aeroporto: nomi da aeroporto', /Accettazione|Controllo/.test(etichette('aeroporto')),
+      etichette('aeroporto'));
+check('museo: nessun nome da aeroporto', !/Accettazione|Lounge|Gate/.test(etichette('museo')),
+      etichette('museo'));
+check('gaming: nessun nome da aeroporto', !/Accettazione|Lounge|Gate/.test(etichette('gaming')),
+      etichette('gaming'));
+check('tipo non dichiarato: nomi neutri, non da aeroporto',
+      !/Accettazione|Lounge|Gate/.test(etichette(undefined)), etichette(undefined));
+check('tipo sconosciuto ricade sul neutro', etichette('ospedale') === etichette(undefined));
+
+console.log('\nil TIPO funzionale non cambia con il dominio (ci si appoggia la simulazione)');
+const tipi = (d) => assegna(quattro, {}, d).map((n) => n.type).join(',');
+check('museo e aeroporto hanno gli stessi type', tipi('museo') === tipi('aeroporto'), tipi('museo'));
+check('c e sempre uno spawn e un gate',
+      /^spawn,/.test(tipi('gaming')) && /,gate$/.test(tipi('gaming')), tipi('gaming'));
+
+// --- i ruoli dalle misure, non dalla posizione in fila ---
+console.log('\nil filtro sta dove lo spazio si stringe, non dove capita in fila');
+const conLarghezze = [
+  { pos:[0,0,0],  areaM2:300, role:'area', distFromAirside:50, widthMinor:12 },
+  { pos:[10,0,0], areaM2:500, role:'area', distFromAirside:40, widthMinor:20 }, // la piu ampia
+  { pos:[20,0,0], areaM2:180, role:'area', distFromAirside:30, widthMinor:2.2 },// la piu stretta
+  { pos:[30,0,0], areaM2:260, role:'area', distFromAirside:20, widthMinor:9 },
+  { pos:[40,0,0], areaM2:220, role:'area', distFromAirside:10 },
+];
+let m = assegna(conLarghezze, {}, 'aeroporto');
+check('il controllo va sulla zona piu stretta, non sulla terza per posizione',
+      m[2].type === 'security', m.map((n)=>n.type+'@'+n.pos[0]).join(' '));
+check('la sosta va sulla zona piu ampia', m[1].type === 'lounge', m[1].label);
+check('le altre di mezzo restano checkin', m[3].type === 'checkin', m[3].type);
+
+console.log('\nsenza larghezze misurate si torna alla sequenza (nessuna regressione)');
+const senzaLarghezze = conLarghezze.map(({widthMinor, ...z}) => z);
+const senza = assegna(senzaLarghezze, {}, 'aeroporto');
+check('la sequenza posizionale regge ancora',
+      senza[1].type === 'checkin' && senza[2].type === 'security',
+      senza.map((n)=>n.type).join(','));
+
+console.log('\nun corridoio non diventa mai il filtro');
+const conCorridoioStretto = [
+  { pos:[0,0,0],  areaM2:300, role:'area',      distFromAirside:50, widthMinor:12 },
+  { pos:[10,0,0], areaM2:60,  role:'corridoio', distFromAirside:40, widthMinor:1.5 }, // il piu stretto
+  { pos:[20,0,0], areaM2:200, role:'area',      distFromAirside:30, widthMinor:3 },
+  { pos:[30,0,0], areaM2:400, role:'area',      distFromAirside:20, widthMinor:15 },
+  { pos:[40,0,0], areaM2:250, role:'area',      distFromAirside:10, widthMinor:8 },
+];
+const cc = assegna(conCorridoioStretto, {}, 'aeroporto');
+check('il corridoio resta un passaggio anche se e il piu stretto',
+      cc[1].label.startsWith('Passaggio'), cc[1].label);
+check('il filtro va sulla zona stretta dove si sta', cc[2].type === 'security',
+      cc.map((n)=>n.type).join(','));
+
+console.log('\ni nomi dal modello vincono sulle misure');
+meshNominate = [{ type:'lounge', label:'Sala VIP', pos:[20.2, 0, 0] }];
+const conNomeSuStretta = assegna(conLarghezze, {}, 'aeroporto');
+check('il nome scritto da chi ha modellato non viene sovrascritto',
+      conNomeSuStretta.some((n) => n.label === 'Sala VIP'),
+      conNomeSuStretta.map((n)=>n.label).join(' / '));
+meshNominate = [];
 
 console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
 process.exit(ko?1:0);

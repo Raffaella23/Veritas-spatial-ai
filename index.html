@@ -2399,8 +2399,32 @@
       + "Se un ruolo e' sbagliato dimmelo: `assegna <zona>` lo cambia.");
   }
 
-  function assegnaZoneMisurate(zones, root) {
+  // Le cinque tappe non cambiano — si entra, ci si presenta, si passa un
+  // filtro, si sosta, si arriva — ma i NOMI di un aeroporto su un museo sono
+  // sbagliati e si vedono: "Accettazione" e "Controllo" su una sala espositiva
+  // dicono a chi legge il referto che lo strumento non ha capito cosa sta
+  // guardando. Cambia l'etichetta, non il comportamento: e' la distinzione fra
+  // Agent Core e Agent Skin applicata allo spazio invece che alla persona.
+  //
+  // Il vocabolario dei `type` resta intatto di proposito: ci si appoggiano il
+  // generatore di traiettorie, l'altezza dei marker e il grafo delle missioni,
+  // in una ventina di punti. Cambiarlo sarebbe un refactor, non una correzione.
+  const LESSICO_ZONE = {
+    aeroporto: { spawn: "Ingresso", checkin: "Accettazione", security: "Controllo",
+                 lounge: "Lounge", gate: "Gate ", passaggio: "Passaggio " },
+    museo:     { spawn: "Ingresso", checkin: "Biglietteria", security: "Controllo accessi",
+                 lounge: "Sala espositiva", gate: "Uscita ", passaggio: "Passaggio " },
+    gaming:    { spawn: "Spawn", checkin: "Hub", security: "Varco",
+                 lounge: "Arena", gate: "Obiettivo ", passaggio: "Corridoio " },
+    // Quando il tipo di progetto non e' dichiarato non si indovina: si usano
+    // nomi che descrivono la FUNZIONE e valgono in qualunque edificio.
+    generico:  { spawn: "Ingresso", checkin: "Accoglienza", security: "Filtro",
+                 lounge: "Area di sosta", gate: "Destinazione ", passaggio: "Passaggio " },
+  };
+
+  function assegnaZoneMisurate(zones, root, dominio) {
     if (!zones || zones.length < 2) return null;
+    const voc = LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
 
     // 1. I nomi, quando ci sono. Non sono la fonte della posizione: sono
     //    un'etichetta da appoggiare sopra una zona gia' misurata.
@@ -2444,32 +2468,61 @@
       if (!etichette.has(migliore)) etichette.set(migliore, { type: n.type, label: n.label });
     }
 
-    // 4. I ruoli mancanti si deducono dalla posizione nel flusso. Le zone gia'
-    //    etichettate tengono il proprio, perche' un nome scritto da chi ha
-    //    modellato lo spazio vale piu' di una sequenza presunta.
+    // 4. I ruoli mancanti si deducono dalle MISURE quando ci sono, dalla
+    //    posizione nel flusso quando mancano. Le zone gia' etichettate tengono
+    //    il proprio, perche' un nome scritto da chi ha modellato lo spazio vale
+    //    piu' di qualunque deduzione.
+    //
+    //    Dedurli dalla sola posizione in fila era un'ipotesi sull'edificio: la
+    //    terza zona non e' "il controllo" perche' e' terza. Un filtro sta dove
+    //    lo spazio si STRINGE, una sosta dove si ALLARGA. E' come legge una
+    //    pianta un progettista, ed e' gia' misurato: widthMinor e' clearance
+    //    per due, cioe' la larghezza libera reale, non una stima.
     const seq = ["spawn", "checkin", "security", "lounge", "gate"];
     const nodi = [];
     let contatoreGate = 0;
+
+    // Prima e ultima sono ingresso e destinazione per definizione del flusso, e
+    // un corridoio non e' ne' un filtro ne' una sosta: restano fuori dalla
+    // scelta. Si decide solo fra le zone di mezzo dove si sta.
+    const centrali = ordinate
+      .map((z, i) => i)
+      .filter((i) => i > 0 && i < ordinate.length - 1 && ordinate[i].role !== "corridoio");
+    const conMisura = centrali.filter((i) => ordinate[i].widthMinor > 0);
+    let iFiltro = -1, iSosta = -1;
+    if (conMisura.length) {
+      iFiltro = conMisura.reduce((a, b) => (ordinate[b].widthMinor < ordinate[a].widthMinor ? b : a));
+      const restanti = conMisura.filter((i) => i !== iFiltro);
+      if (restanti.length) {
+        iSosta = restanti.reduce((a, b) => ((ordinate[b].areaM2 || 0) > (ordinate[a].areaM2 || 0) ? b : a));
+      }
+    }
+
     ordinate.forEach((z, i) => {
       const dato = etichette.get(i);
       let type, label;
       if (dato) {
         type = dato.type; label = dato.label;
       } else {
-        // Prima zona = ingresso, ultima = gate, in mezzo la sequenza.
+        // Prima zona = ingresso, ultima = gate. In mezzo comandano le misure;
+        // senza misure si ricade sulla sequenza, che resta un'ipotesi.
         if (i === 0) type = "spawn";
         else if (i === ordinate.length - 1) type = "gate";
+        else if (i === iFiltro) type = "security";
+        else if (i === iSosta) type = "lounge";
+        else if (conMisura.length) type = "checkin";
         else type = seq[Math.min(i, seq.length - 2)] || "lounge";
-        label = type === "spawn" ? "Ingresso"
-              : type === "checkin" ? "Accettazione"
-              : type === "security" ? "Controllo"
-              : type === "gate" ? "Gate " + String.fromCharCode(65 + contatoreGate)
+        label = type === "spawn" ? voc.spawn
+              : type === "checkin" ? voc.checkin
+              : type === "security" ? voc.security
+              : type === "gate" ? voc.gate + String.fromCharCode(65 + contatoreGate)
+              : type === "lounge" ? (i === iSosta ? voc.lounge : voc.lounge + " " + (i + 1))
               : "Area " + (i + 1);
         // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
         // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
         // della sequenza e' il modo di far sostare gli agenti in un corridoio.
         if (z.role === "corridoio" && type !== "spawn" && type !== "gate") {
-          type = "lounge"; label = "Passaggio " + (i + 1);
+          type = "lounge"; label = voc.passaggio + (i + 1);
         }
       }
       if (type === "gate") contatoreGate++;
@@ -2541,7 +2594,11 @@
         // concorrenza (questa, quella per nome in onModelLoaded, e un ripiego)
         // e vinceva sempre l'ultima che scriveva: quella per nome, cioe' la
         // peggiore. Vedi la nota su assegnaZoneMisurate.
-        const daMisura = assegnaZoneMisurate(zones, window.__veritasModelRoot);
+        // Il tipo di progetto e' gia' scelto dall'utente alla creazione
+        // ("aeroporto" / "museo" / "gaming"): e' la fonte piu' attendibile di
+        // che edificio sia, e finora l'assegnazione non la guardava affatto.
+        const daMisura = assegnaZoneMisurate(zones, window.__veritasModelRoot,
+                                             window.__veritasProjectType);
         console.log('[VERITAS AUTO v4 DEBUG] assegnaZoneMisurate ritornò:', daMisura ? daMisura.length + ' nodi' : 'null/falsy');
         if (daMisura) {
           currentNodes = daMisura;
