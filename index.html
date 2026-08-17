@@ -1874,8 +1874,65 @@
   // ============================================================
   const EXCLUDE_KEYWORDS = ["runway", "taxiway", "pista", "piazzale", "apron", "tarmac", "road", "strada", "terreno", "ground", "asphalt", "asfalto", "parcheggio_auto", "landscape", "terrain"];
 
+  // Quanti punti serve avere per ogni metro quadro perche' una cella da 0,25 m
+  // sia sostenibile. Il motore geometrico chiede una spaziatura non superiore a
+  // cella/1,5, cioe' 0,167 m: un punto ogni 0,167 m per lato fa 1/0.167^2 = 36
+  // punti per m2. Non e' un numero a gusto, e' la condizione che il motore
+  // stesso verifica in resolution.underSampled.
+  const PUNTI_PER_M2 = 36;
+  // Tetto di sicurezza: su un modello urbano da centomila m2 la densita' giusta
+  // chiederebbe milioni di punti. Meglio dichiarare che la misura e' grossolana
+  // (lo fa il motore) che bloccare la pagina.
+  const PUNTI_MASSIMI = 260000;
+
   function extractNavigablePoints(root, maxSamples) {
-    maxSamples = maxSamples || 40000;
+    // IL TETTO VA LEGATO ALL'AREA, NON SCRITTO A MANO.
+    //
+    // Era 40000 fisso. Misurato sul modello di prova (121,1 x 67,6 m): dopo la
+    // decimazione restavano 21.941 punti per i 3545 m2 del piano terra, cioe'
+    // 6,2 punti/m2 e una spaziatura di 0,41 m. La cella e' 0,25 m, quindi il
+    // motore lavorava sottocampionato e lo DICHIARAVA:
+    //
+    //   "Cella di 0.25 m piu' fine della nuvola (spaziatura ~0.410 m).
+    //    Le misure non sono affidabili: usare almeno 0.614 m."
+    //
+    // Con quasi tutte le celle vuote, la chiusura morfologica saldava i muri e
+    // il piano terra veniva riconosciuto come UN SOLO ambiente da 3545 m2, con
+    // un clearance di 18,25 m -- in un terminal con i banchi del check-in e'
+    // impossibile. Da li' le sette tappe assurde: 1 blocco + 6 briciole, quattro
+    // "lounge" di fila, nessun controllo, nessun gate.
+    //
+    // Il difetto non era la scelta delle tappe: era la nuvola troppo rada.
+    // Si usa window.THREE, non la costante THREE del blocco: quella viene
+    // valutata all'avvio, PRIMA che i moduli espongano window.THREE, quindi
+    // vale null. Le altre dieci occorrenze in questo blocco fanno cosi'.
+    const T = window.THREE;
+    if (!maxSamples) {
+      if (T && T.Box3) {
+        const scatola = new T.Box3().setFromObject(root);
+        const d = scatola.getSize(new T.Vector3());
+        const improntaM2 = Math.max(1, d.x * d.z);
+        // La densita' e' un MINIMO da garantire, non un tetto da imporre: mai
+        // meno dei 40000 di prima.
+        //
+        // Prima stesura sbagliata, e la misura l'ha smontata in una corsa: avevo
+        // scritto min(PUNTI_MASSIMI, area*36), che su un'impronta piccola da'
+        // MENO di 40000. La prima passata avviene sul modello ancora NON in
+        // scala (227 m2), dove finiva a 8184 punti invece di 40000 -- cinque
+        // volte piu' rada. E la scala automatica viene dedotta proprio da quella
+        // prima analisi: con dati piu' radi ha scelto un fattore diverso, e il
+        // modello e' finito dieci volte piu' piccolo in area (821 m2 invece di
+        // 8186). Cioe' peggioravo a monte quello che volevo migliorare a valle.
+        maxSamples = Math.max(40000, Math.min(PUNTI_MASSIMI, Math.ceil(improntaM2 * PUNTI_PER_M2)));
+        console.log("[VERITAS nuvola] impronta " + improntaM2.toFixed(0) + " m2 -> tetto "
+          + maxSamples + " punti (minimo 40000, obiettivo " + PUNTI_PER_M2 + "/m2 per cella 0,25 m)");
+      } else {
+        // Senza THREE non si puo' misurare l'impronta: si torna al vecchio
+        // tetto fisso invece di far cadere l'estrazione.
+        maxSamples = 40000;
+        console.warn("[VERITAS nuvola] THREE non disponibile: tetto fisso a 40000 punti");
+      }
+    }
     root.updateMatrixWorld(true);
     // Passo 1: raccoglie i punti "verso l'alto" per ogni singola mesh separatamente,
     // insieme all'impronta (area XZ) di quella mesh nel mondo reale.
@@ -2597,6 +2654,36 @@
       return null;
     }
     if (!out || !out.zones) return null;
+
+    // L'AVVISO DEL MOTORE VA DETTO, NON SEPOLTO.
+    //
+    // perceiveLevel riempie resolution.underSampled e resolution.warning quando
+    // la cella e' piu' fine della nuvola. Nessuno lo leggeva, e intanto la chat
+    // annunciava "Ho riconosciuto un ambiente articolato: 31 ambienti separati
+    // da 24 varchi reali" -- una frase FALSA: erano 1 stanza da 3545 m2 al piano
+    // terra piu' 30 briciole sul soppalco, perche' con le celle quasi tutte
+    // vuote la chiusura morfologica aveva saldato i muri.
+    //
+    // Un'analisi che non e' affidabile deve dirlo con le stesse parole con cui
+    // annuncia un risultato, altrimenti e' peggio di un errore: e' un errore
+    // che sembra una misura.
+    const scarsi = (out.levels || []).filter((l) => l.resolution && l.resolution.underSampled);
+    if (scarsi.length) {
+      const peggiore = scarsi.reduce((a, l) =>
+        l.resolution.pointSpacingM > a.resolution.pointSpacingM ? l : a, scarsi[0]);
+      const r = peggiore.resolution;
+      console.warn("[VERITAS nuvola] " + scarsi.length + " livello(i) sottocampionato(i): "
+        + "cella " + r.cellSizeM + " m, spaziatura " + r.pointSpacingM + " m, "
+        + "consigliata almeno " + r.recommendedCellM + " m");
+      if (typeof window.__veritasAnnounce === "function") {
+        window.__veritasAnnounce("⚠ Attenzione: la nuvola di punti e' troppo rada per la "
+          + "risoluzione che sto usando (spaziatura " + r.pointSpacingM.toFixed(2) + " m contro "
+          + "celle da " + r.cellSizeM + " m)" + (scarsi.length > 1 ? ", su " + scarsi.length + " livelli" : "")
+          + ". Le divisioni fra ambienti e le larghezze che ti dico NON sono affidabili: "
+          + "muri e banchi possono essere stati saldati fra loro, e due stanze contigue "
+          + "risultare una sola. Prendi le zone come indicazione, non come misura.");
+      }
+    }
     // La griglia navigabile serve anche all'analisi di esodo, che sta in un
     // altro blocco. Ricalcolarla la' significherebbe due misure della stessa
     // cosa, cioe' due risposte diverse alla stessa domanda.
