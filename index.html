@@ -3237,6 +3237,94 @@
   }
   window.__veritasApplyPassengerScale = veritasApplyPassengerScale;
 
+  // Il gruppo dei marker nasce nel bundle con tanti figli quanti erano i nodi
+  // al PRIMO render: sei, quelli cablati di un aeroporto che non e' questo
+  // (ingresso [-45,0,-38] ... gate_A1 [48,0,32], un ingombro di 93x70 m).
+  // moveHotspotVisual indicizza children[i*3], quindi:
+  //   - con piu' di sei zone, dalla settima in poi NON esiste alcun marker;
+  //   - con meno di sei, quelli in eccesso restano dove sono nati, cioe'
+  //     scatole con scritto GATE A1 in mezzo al piazzale di un altro scalo.
+  //
+  // Non si rimedia passando dal bundle. window.__veritasSetTrajectory esiste
+  // ed e' esposto, ma cambiare l'IDENTITA' di quell'oggetto fa ripartire
+  // l'effetto React che costruisce tutta la scena, e la scena nuova non
+  // contiene il modello caricato: il modello viene aggiunto solo dal callback
+  // del loader GLB, che non viene rieseguito. Si otterrebbero marker giusti su
+  // una scena vuota - un rimedio peggiore del difetto, e per giunta silenzioso.
+  //
+  // Quindi i figli si ricostruiscono qui, tenendo lo STESSO oggetto gruppo: il
+  // bundle ne conserva il riferimento per accendere e spegnere il layer zone.
+  function veritasDisposeChild(obj) {
+    if (!obj) return;
+    if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
+    const mats = Array.isArray(obj.material) ? obj.material : (obj.material ? [obj.material] : []);
+    for (const m of mats) {
+      if (m && m.map && m.map.dispose) m.map.dispose();
+      if (m && m.dispose) m.dispose();
+    }
+  }
+
+  // L'etichetta e' disegnata su canvas come la fa il bundle: stessi colori,
+  // stesso corpo del testo. Un marker ricostruito non deve distinguersi da uno
+  // originale, altrimenti la scena mostra due stili diversi nello stesso posto.
+  function veritasMakeHotspotLabel(THREE, node) {
+    const cv = document.createElement("canvas");
+    cv.width = 512; cv.height = 128;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = "rgba(15,23,42,0.85)"; ctx.fillRect(0, 0, 512, 128);
+    ctx.strokeStyle = "rgba(59,130,246,0.5)"; ctx.lineWidth = 2; ctx.strokeRect(1, 1, 510, 126);
+    ctx.fillStyle = "#e2e8f0"; ctx.font = "bold 32px JetBrains Mono, monospace";
+    ctx.fillText(String(node.label || node.type || "").toUpperCase(), 20, 55);
+    ctx.fillStyle = "#94a3b8"; ctx.font = "20px JetBrains Mono, monospace";
+    ctx.fillText((node.id || "") + " • " + (node.type || ""), 20, 90);
+    const tex = new THREE.CanvasTexture(cv);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    spr.scale.set(6, 1.5, 1);
+    return spr;
+  }
+
+  function veritasRebuildHotspots() {
+    const grp = window.__veritasHotspotGroup;
+    const THREE = window.THREE;
+    if (!grp || !THREE || !currentNodes) return false;
+    if (grp.children.length === currentNodes.length * 3) return false;
+    const prima = Math.round(grp.children.length / 3);
+    while (grp.children.length) {
+      const c = grp.children[0];
+      grp.remove(c);
+      veritasDisposeChild(c);
+    }
+    currentNodes.forEach((n) => {
+      const isGate = n.type === "gate";
+      const h = isGate ? 3.5 : n.type === "security" ? 2.2 : 2;
+      const lato = isGate ? 4 : 3;
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(lato, h, lato),
+        new THREE.MeshStandardMaterial({
+          color: n.type === "security" ? 2046559 : isGate ? 2771514 : 2764602,
+          transparent: true, opacity: 0.65, roughness: 0.6 }));
+      box.position.set(n.pos[0], h / 2, n.pos[2]);
+      box.castShadow = true; box.receiveShadow = true;
+      grp.add(box);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.2, 1.6, 24),
+        new THREE.MeshBasicMaterial({
+          color: n.type === "security" ? 3900150 : 2278750,
+          side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(n.pos[0], 0.02, n.pos[2]);
+      grp.add(ring);
+      const spr = veritasMakeHotspotLabel(THREE, n);
+      spr.position.set(n.pos[0], h + 1.2, n.pos[2]);
+      grp.add(spr);
+    });
+    console.log("[VERITAS marker] gruppo ricostruito: da " + prima + " a "
+                + currentNodes.length + " marker (uno per zona misurata)");
+    return true;
+  }
+  window.__veritasRebuildHotspots = veritasRebuildHotspots;
+
   function moveHotspotVisual(index, x, z) {
     const grp = window.__veritasHotspotGroup;
     if (!grp) return;
@@ -3980,6 +4068,9 @@
       return;
     }
     traj.nodes = currentNodes;
+    // Prima di spostare i marker bisogna che ce ne sia uno per zona: il gruppo
+    // nasce dimensionato sui sei nodi cablati del bundle, non su questo modello.
+    veritasRebuildHotspots();
     currentNodes.forEach((n, i) => { moveHotspotVisual(i, n.pos[0], n.pos[2]); applyMarkerScale(i); });
     syncCamerasToNodes();
     veritasSetPassengersVisible(!!window.__veritasSimStarted);
