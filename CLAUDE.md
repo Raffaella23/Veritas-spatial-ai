@@ -70,6 +70,28 @@ avevano guardato cosa c'era già.
 
 ---
 
+## 0-bis. Come si parla con Raffaella
+
+> Chiesto esplicitamente da lei il 17/08/2026. Vale in ogni sessione.
+
+**Niente tecnicismi.** Raffaella è architetto e sviluppatrice XR, non
+programmatrice di questo stack: nomi di funzioni, `id` interni, dipendenze di
+effetti React e sigle del bundle non le dicono nulla e le fanno perdere il filo.
+Spiega **cosa si vedeva prima e cosa si vede adesso**, in italiano normale.
+I dettagli tecnici stanno nei messaggi di commit, che è il posto giusto.
+
+**Non chiederle pareri tecnici.** Se la scelta è fra due modi di scrivere una
+cosa, decidi tu e dille cosa hai deciso e perché, in una riga. Le domande utili
+sono solo quelle sul **prodotto** — cosa deve fare, cosa conta di più, cosa
+sembra sbagliato guardando lo schermo — perché su quelle la sua risposta vale
+più della tua.
+
+**Le sue osservazioni sul mondo fisico sono affidabili** (vedi §11.5): è stata
+lei a dire che i modelli sono 1:1 e che quindi 0.12 non poteva essere una scala
+umana, e aveva ragione.
+
+---
+
 ## 0. Prima cosa da fare (obbligatoria)
 
 Prima di qualsiasi modifica, **studia la documentazione nell'ordine seguente**. Non è opzionale: questo progetto ha una storia lunga e decisioni architetturali già prese, e ignorarle ha già causato regressioni.
