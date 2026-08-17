@@ -1392,8 +1392,61 @@
     let __trueGroundRaycaster = null;
     let __trueGroundDown = null;
 
-    function realFloorYNear(x, z, maxRadius) {
-      // === TASK 1: VERO RAYCASTING ===
+    // QUALE dei colpi del raggio e' il pavimento.
+    //
+    // IL DIFETTO CHE C'ERA, e che si vedeva a occhio come "i passeggeri
+    // camminano sopra gli aerei": il raggio parte da 500 m di quota e va verso
+    // il basso, e intersectObject restituisce i colpi ORDINATI PER DISTANZA.
+    // Il primo colpo e' quindi la superficie piu' ALTA -- il tetto. Il codice
+    // aveva perfino il commento "Verifica che sia pavimento (Y normale > 0.5)",
+    // ma quel controllo non era scritto: tornava il primo colpo qualunque
+    // fosse.
+    //
+    // Misurato sul modello di prova (edificio alto 12,7 m, piani a 0,63 e
+    // 5,10 m), quote degli agenti:
+    //   0,41-0,47   pavimento vero, dove non c'e' copertura sopra
+    //   2,03-3,08   piani dei banconi
+    //   5,43-6,12   soppalco
+    //   7,24-8,56   pensiline
+    //   10,52-11,21 IL TETTO
+    //
+    // Due regole, e nessuna dipende dal modello:
+    //   1. un pavimento e' rivolto verso l'ALTO. Un muro, il sotto di una
+    //      pensilina o l'intradosso di un tetto non sono pavimenti.
+    //   2. fra le superfici calpestabili si prende quella alla quota ATTESA,
+    //      non la piu' alta: in un edificio a due piani il pavimento giusto
+    //      dipende da su quale piano sta l'agente.
+    //
+    // Senza quota attesa si prende la piu' BASSA: e' il terreno, e sbagliare
+    // verso il basso e' innocuo, mentre sbagliare verso l'alto mette la gente
+    // sul tetto.
+    function scegliPavimento(hits, yRif, T) {
+      if (!hits || !hits.length) return null;
+      const calpestabili = [];
+      for (const h of hits) {
+        if (!h || !h.face || !h.point) continue;
+        let ny = h.face.normal.y;
+        // La normale della faccia e' in coordinate dell'oggetto: va portata nel
+        // mondo, o un oggetto ruotato mente sulla propria orizzontalita'.
+        if (T && T.Vector3 && h.object && h.object.matrixWorld) {
+          try {
+            ny = new T.Vector3().copy(h.face.normal).transformDirection(h.object.matrixWorld).y;
+          } catch (e) { /* si tiene la normale locale */ }
+        }
+        if (ny > 0.5) calpestabili.push(h.point.y);
+      }
+      if (!calpestabili.length) return null;
+      if (yRif == null || !isFinite(yRif)) return Math.min.apply(null, calpestabili);
+      let scelta = calpestabili[0], scarto = Math.abs(calpestabili[0] - yRif);
+      for (const y of calpestabili) {
+        const d = Math.abs(y - yRif);
+        if (d < scarto) { scarto = d; scelta = y; }
+      }
+      return scelta;
+    }
+    window.__veritasScegliPavimento = scegliPavimento;
+
+    function realFloorYNear(x, z, maxRadius, yRif) {
       try {
         if (!__trueGroundRaycaster) {
           // Recupera THREE dal bundle (il bundle espone THREE internamente come modulo)
@@ -1431,24 +1484,13 @@
         // Se abbiamo un modelRoot valido, facciamo vero raycast
         const root = window.__veritasModelRoot || (typeof modelRoot !== 'undefined' ? modelRoot : null);
         if (root && __trueGroundRaycaster && __trueGroundRaycaster.intersectObject && window.THREE && window.THREE.Raycaster) {
-          // Usa il raycaster vero
           const origin = new window.THREE.Vector3(x, 500, z);
           const down = new window.THREE.Vector3(0,-1,0);
           __trueGroundRaycaster.set(origin, down);
           __trueGroundRaycaster.firstHitOnly = false;
           const hits = __trueGroundRaycaster.intersectObject(root, true);
-          // Filtra solo superfici navigabili (normale verso l'alto)
-          for (let i=0;i<hits.length;i++) {
-            const h = hits[i];
-            if (!h.face) continue;
-            // Controlla normale world (approssimata)
-            // Se il punto e' entro maxRadius in XZ, e' valido
-            const dx = h.point.x - x, dz = h.point.z - z;
-            if (Math.hypot(dx,dz) <= maxRadius*1.5) {
-              // Verifica che sia pavimento (Y normale > 0.5)
-              return h.point.y;
-            }
-          }
+          const y = scegliPavimento(hits, yRif, window.THREE);
+          if (y != null) return y;
         }
       } catch(e) {
         console.warn('realFloorYNear raycast failed, fallback', e);
@@ -1456,10 +1498,14 @@
 
       // FALLBACK: vecchio nearest-sample (ma con raggio piu' stretto per evitare volo diagonale)
       if (!lastNavigablePoints || !lastNavigablePoints.length) return null;
-      let best = null, bestD = maxRadius;
+      // Anche qui la quota attesa conta: fra due punti navigabili alla stessa
+      // distanza in pianta ma su piani diversi, quello giusto e' il proprio.
+      let best = null, bestScore = Infinity;
       for (const p of lastNavigablePoints) {
         const d = Math.hypot(p[0] - x, p[2] - z);
-        if (d < bestD) { bestD = d; best = p[1]; }
+        if (d > maxRadius) continue;
+        const score = d + (yRif != null && isFinite(yRif) ? Math.abs(p[1] - yRif) : 0);
+        if (score < bestScore) { bestScore = score; best = p[1]; }
       }
       return best;
     }
@@ -1519,7 +1565,7 @@
           const rightDist = Math.hypot(rightX - (from[0]+to[0])/2, rightZ - (from[2]+to[2])/2);
           const detour = leftDist < rightDist ? [leftX, leftZ] : [rightX, rightZ];
           
-          const detourY = realFloorYNear(detour[0], detour[1], 3) || (from[1]+to[1])/2;
+          const detourY = realFloorYNear(detour[0], detour[1], 3, (from[1]+to[1])/2) || (from[1]+to[1])/2;
           // Ricorsivo: from -> detour -> to
           const firstHalf = densifySegment(from, [detour[0], detourY, detour[1]], maxSegLen);
           const secondHalf = densifySegment([detour[0], detourY, detour[1]], to, maxSegLen);
@@ -1532,7 +1578,7 @@
         const tt = k / steps;
         const ix = from[0] + dx * tt, iz = from[2] + dz * tt;
         const linearY = (from[1] || 0) + dy * tt;
-        const realY = realFloorYNear(ix, iz, 1.2); // raggio ridotto per massima precisione
+        const realY = realFloorYNear(ix, iz, 1.2, linearY); // linearY e' la quota attesa qui
         // Se realY è molto diverso da linearY (>1m), c'è un dislivello: usa realY per non volare
         let finalY = realY != null ? realY : linearY;
         if (realY != null && Math.abs(realY - linearY) > 0.8) {
@@ -1562,7 +1608,7 @@
       const snapToFloor = (p) => {
         if (!p) return p;
         try {
-          const y = realFloorYNear(p[0], p[2], 2.0);
+          const y = realFloorYNear(p[0], p[2], 2.0, p[1]);
           if (y != null && isFinite(y)) return [p[0], y, p[2]];
         } catch (e) { /* senza modello o senza raycaster si tiene la quota originale */ }
         return p;
@@ -1874,65 +1920,8 @@
   // ============================================================
   const EXCLUDE_KEYWORDS = ["runway", "taxiway", "pista", "piazzale", "apron", "tarmac", "road", "strada", "terreno", "ground", "asphalt", "asfalto", "parcheggio_auto", "landscape", "terrain"];
 
-  // Quanti punti serve avere per ogni metro quadro perche' una cella da 0,25 m
-  // sia sostenibile. Il motore geometrico chiede una spaziatura non superiore a
-  // cella/1,5, cioe' 0,167 m: un punto ogni 0,167 m per lato fa 1/0.167^2 = 36
-  // punti per m2. Non e' un numero a gusto, e' la condizione che il motore
-  // stesso verifica in resolution.underSampled.
-  const PUNTI_PER_M2 = 36;
-  // Tetto di sicurezza: su un modello urbano da centomila m2 la densita' giusta
-  // chiederebbe milioni di punti. Meglio dichiarare che la misura e' grossolana
-  // (lo fa il motore) che bloccare la pagina.
-  const PUNTI_MASSIMI = 260000;
-
   function extractNavigablePoints(root, maxSamples) {
-    // IL TETTO VA LEGATO ALL'AREA, NON SCRITTO A MANO.
-    //
-    // Era 40000 fisso. Misurato sul modello di prova (121,1 x 67,6 m): dopo la
-    // decimazione restavano 21.941 punti per i 3545 m2 del piano terra, cioe'
-    // 6,2 punti/m2 e una spaziatura di 0,41 m. La cella e' 0,25 m, quindi il
-    // motore lavorava sottocampionato e lo DICHIARAVA:
-    //
-    //   "Cella di 0.25 m piu' fine della nuvola (spaziatura ~0.410 m).
-    //    Le misure non sono affidabili: usare almeno 0.614 m."
-    //
-    // Con quasi tutte le celle vuote, la chiusura morfologica saldava i muri e
-    // il piano terra veniva riconosciuto come UN SOLO ambiente da 3545 m2, con
-    // un clearance di 18,25 m -- in un terminal con i banchi del check-in e'
-    // impossibile. Da li' le sette tappe assurde: 1 blocco + 6 briciole, quattro
-    // "lounge" di fila, nessun controllo, nessun gate.
-    //
-    // Il difetto non era la scelta delle tappe: era la nuvola troppo rada.
-    // Si usa window.THREE, non la costante THREE del blocco: quella viene
-    // valutata all'avvio, PRIMA che i moduli espongano window.THREE, quindi
-    // vale null. Le altre dieci occorrenze in questo blocco fanno cosi'.
-    const T = window.THREE;
-    if (!maxSamples) {
-      if (T && T.Box3) {
-        const scatola = new T.Box3().setFromObject(root);
-        const d = scatola.getSize(new T.Vector3());
-        const improntaM2 = Math.max(1, d.x * d.z);
-        // La densita' e' un MINIMO da garantire, non un tetto da imporre: mai
-        // meno dei 40000 di prima.
-        //
-        // Prima stesura sbagliata, e la misura l'ha smontata in una corsa: avevo
-        // scritto min(PUNTI_MASSIMI, area*36), che su un'impronta piccola da'
-        // MENO di 40000. La prima passata avviene sul modello ancora NON in
-        // scala (227 m2), dove finiva a 8184 punti invece di 40000 -- cinque
-        // volte piu' rada. E la scala automatica viene dedotta proprio da quella
-        // prima analisi: con dati piu' radi ha scelto un fattore diverso, e il
-        // modello e' finito dieci volte piu' piccolo in area (821 m2 invece di
-        // 8186). Cioe' peggioravo a monte quello che volevo migliorare a valle.
-        maxSamples = Math.max(40000, Math.min(PUNTI_MASSIMI, Math.ceil(improntaM2 * PUNTI_PER_M2)));
-        console.log("[VERITAS nuvola] impronta " + improntaM2.toFixed(0) + " m2 -> tetto "
-          + maxSamples + " punti (minimo 40000, obiettivo " + PUNTI_PER_M2 + "/m2 per cella 0,25 m)");
-      } else {
-        // Senza THREE non si puo' misurare l'impronta: si torna al vecchio
-        // tetto fisso invece di far cadere l'estrazione.
-        maxSamples = 40000;
-        console.warn("[VERITAS nuvola] THREE non disponibile: tetto fisso a 40000 punti");
-      }
-    }
+    maxSamples = maxSamples || 40000;
     root.updateMatrixWorld(true);
     // Passo 1: raccoglie i punti "verso l'alto" per ogni singola mesh separatamente,
     // insieme all'impronta (area XZ) di quella mesh nel mondo reale.
@@ -2657,31 +2646,28 @@
 
     // L'AVVISO DEL MOTORE VA DETTO, NON SEPOLTO.
     //
-    // perceiveLevel riempie resolution.underSampled e resolution.warning quando
-    // la cella e' piu' fine della nuvola. Nessuno lo leggeva, e intanto la chat
-    // annunciava "Ho riconosciuto un ambiente articolato: 31 ambienti separati
-    // da 24 varchi reali" -- una frase FALSA: erano 1 stanza da 3545 m2 al piano
-    // terra piu' 30 briciole sul soppalco, perche' con le celle quasi tutte
-    // vuote la chiusura morfologica aveva saldato i muri.
+    // perceiveLevel riempie resolution.underSampled quando la cella e' piu'
+    // fine della nuvola. Nessuno lo leggeva, e intanto la chat annunciava
+    // "Ho riconosciuto un ambiente articolato: 31 ambienti separati da 24
+    // varchi reali" -- una frase FALSA: misurato, erano 1 stanza da 3545 m2 al
+    // piano terra (clearance 18,25 m: nessun muro nel raggio di 18 metri) piu'
+    // 30 briciole da 4-17 m2 sul soppalco.
     //
-    // Un'analisi che non e' affidabile deve dirlo con le stesse parole con cui
-    // annuncia un risultato, altrimenti e' peggio di un errore: e' un errore
-    // che sembra una misura.
+    // Un'analisi inaffidabile deve dirlo con la stessa voce con cui annuncia un
+    // risultato, altrimenti non e' un errore: e' un errore travestito da misura.
     const scarsi = (out.levels || []).filter((l) => l.resolution && l.resolution.underSampled);
     if (scarsi.length) {
       const peggiore = scarsi.reduce((a, l) =>
         l.resolution.pointSpacingM > a.resolution.pointSpacingM ? l : a, scarsi[0]);
-      const r = peggiore.resolution;
-      console.warn("[VERITAS nuvola] " + scarsi.length + " livello(i) sottocampionato(i): "
-        + "cella " + r.cellSizeM + " m, spaziatura " + r.pointSpacingM + " m, "
-        + "consigliata almeno " + r.recommendedCellM + " m");
+      const q = peggiore.resolution;
+      console.warn("[VERITAS nuvola] " + scarsi.length + " livello(i) sottocampionato(i): cella "
+        + q.cellSizeM + " m, spaziatura " + q.pointSpacingM + " m, consigliata >= " + q.recommendedCellM + " m");
       if (typeof window.__veritasAnnounce === "function") {
-        window.__veritasAnnounce("⚠ Attenzione: la nuvola di punti e' troppo rada per la "
-          + "risoluzione che sto usando (spaziatura " + r.pointSpacingM.toFixed(2) + " m contro "
-          + "celle da " + r.cellSizeM + " m)" + (scarsi.length > 1 ? ", su " + scarsi.length + " livelli" : "")
-          + ". Le divisioni fra ambienti e le larghezze che ti dico NON sono affidabili: "
-          + "muri e banchi possono essere stati saldati fra loro, e due stanze contigue "
-          + "risultare una sola. Prendi le zone come indicazione, non come misura.");
+        window.__veritasAnnounce("⚠ La nuvola di punti e' troppo rada per la risoluzione che sto"
+          + " usando (spaziatura " + q.pointSpacingM.toFixed(2) + " m contro celle da " + q.cellSizeM + " m)"
+          + (scarsi.length > 1 ? ", su " + scarsi.length + " livelli" : "") + ". Le divisioni fra ambienti"
+          + " e le larghezze che ti dico NON sono affidabili: muri e banchi possono essere stati saldati"
+          + " fra loro, e due stanze contigue risultare una sola.");
       }
     }
     // La griglia navigabile serve anche all'analisi di esodo, che sta in un
