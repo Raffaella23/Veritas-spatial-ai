@@ -917,3 +917,129 @@ aspetta — e' per questo che riassegnare tre volte portava la prova da 96 a 260
 4. **`main` ha ancora il frontend vecchio.** La promozione aspetta il via libera.
 5. **Doppio three** (bundle 0.160 + importmap 0.180): aggirato, non risolto.
    La soluzione pulita e' ricompilare il bundle.
+
+---
+
+## 14. Stato reale — sessione 17 agosto 2026
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> Corregge il punto 2 di §13.6 ("i nomi delle tappe sono grezzi"): la causa
+> non era la logica dei nomi, ed era molto piu' grave di un difetto estetico.
+
+### 14.0 Il difetto che spiegava le fotografie
+
+Nella scena comparivano scatole con scritto `LOUNGE`, `IMBARCO A`, `GATE A1`
+in mezzo al piazzale, su modelli che non erano quell'aeroporto. **Non era la
+segmentazione: le zone erano gia' misurate bene.**
+
+Il bundle (blocco 3, intoccabile) contiene sei nodi cablati:
+
+```
+ingresso [-45,0,-38]  accettazione [-12,0,-18]  controllo [2,0,2]
+lounge   [ 18,0, 14]  imbarco      [ 32,0, 22]  gate_A1   [48,0,32]
+```
+
+un ingombro di 93 x 70 m. Vincono perche' `iB` si valuta **al caricamento del
+modulo**, leggendo `window.__veritasInitialNodes`, che a quel punto e' vuoto:
+le zone misurate arrivano secondi dopo, quando il GLB e' letto e l'analisi
+geometrica e' finita. Da li' in poi non le legge piu' nessuno.
+
+Da quei sei nodi discendono tre cose, tutte silenziose:
+
+| Conseguenza | Meccanismo |
+|---|---|
+| Marker fantasma sul piazzale | il gruppo nasce con 6x3 figli; `moveHotspotVisual` indicizza `children[i*3]`, quindi con **meno** di sei zone quelli in eccesso non venivano mai spostati |
+| Zone senza marker | con **piu'** di sei zone, dalla settima in poi non esisteva alcun figlio da spostare |
+| Agenti che spariscono | il pool nasce con `for (i=0; i<28; i++)`; il ciclo di animazione fa `if (!figura) return`. Il cursore arriva a **60** e la chat accetta qualunque numero: si chiedono 50 persone, se ne vedono 28 |
+
+I KPI di `hV()` sono **cablati** (flusso 0.156, 12 rallentamenti, transito
+131,4 s, saturazione 68%). Se il ponte Python viene rifiutato restano a
+schermo con l'aria di essere misurati.
+
+### 14.1 ⚠️ La trappola: `__veritasSetTrajectory` NON si usa
+
+`window.__veritasSetTrajectory` e' esposto dal bundle e **non lo chiama
+nessuno** (una sola occorrenza in tutto il file: la definizione). Sembra la
+via naturale per sostituire i nodi. **Non lo e'.**
+
+L'effetto React che costruisce la scena dipende da `[W]`. Cambiare
+l'*identita'* di quell'oggetto lo fa ripartire da capo: nuova `THREE.Scene`,
+renderer distrutto e ricreato — e **il modello caricato non rientra**, perche'
+lo aggiunge solo il callback del loader GLB, che non viene rieseguito. Si
+otterrebbero marker perfetti su una scena vuota.
+
+Per questo `applyNodesToScene` **muta l'oggetto sul posto** (`traj.nodes = …`,
+`traj.frames.length = 0`) invece di chiamare il setter: funziona per il ciclo
+di animazione, che rilegge `W.frames` a ogni fotogramma, ma non ricostruisce
+nulla. **Chi tocca questa parte deve saperlo prima, non dopo.**
+
+### 14.2 Come si e' corretto
+
+Tutto dal blocco 2, senza toccare il blocco 3 e senza passare da React:
+
+- `veritasRebuildHotspots()` ricostruisce i figli **tenendo lo stesso oggetto
+  gruppo** — il bundle ne conserva il riferimento per accendere e spegnere il
+  layer zone, e sostituirlo lo scollegherebbe. Geometrie, materiali e texture
+  vecchi vengono liberati: senza `dispose` la memoria video crescerebbe a ogni
+  rianalisi.
+- `veritasEnsurePassengerPool(frames)` **estende** il pool, non lo ricostruisce.
+  Quante figure servano lo dicono i frame, non il numero chiesto: con lo
+  sfasamento delle partenze gli agenti non compaiono tutti al frame zero, per
+  cui si guarda l'id piu' alto su **tutti** i frame.
+- Colori e geometrie sono copiati dal bundle di proposito: un marker o un
+  agente ricostruito non deve distinguersi da uno originale.
+
+### 14.3 Auto-assegnazione: dominio e misure
+
+Due difetti nella stessa funzione (`assegnaZoneMisurate`), entrambi silenziosi:
+
+1. **I nomi erano sempre da aeroporto.** `window.__veritasProjectType` esiste
+   ed e' scelto dall'utente alla creazione, ma la funzione non lo guardava:
+   "Accettazione" e "Controllo" finivano sulle sale di un museo. Ora c'e'
+   `LESSICO_ZONE` per dominio, piu' uno **neutro** per quando il tipo non e'
+   dichiarato — non si indovina l'edificio, si descrive la funzione.
+2. **I ruoli venivano dalla posizione in fila.** La terza zona era "il
+   controllo" *perche' era terza*. Ora, per le zone di mezzo, comandano le
+   misure gia' calcolate: il filtro dove lo spazio si **stringe**
+   (`widthMinor` minimo = clearance x 2, larghezza libera reale), la sosta
+   dove si **allarga** (area massima). Prima e ultima restano ingresso e
+   destinazione, quelle le definisce il flusso.
+
+⚠️ **Il vocabolario dei `type` e' portante** — `spawn / checkin / security /
+lounge / gate` — e ci si appoggiano generatore di traiettorie, altezze marker
+e grafo delle missioni in una ventina di punti. **Cambia l'etichetta, non il
+tipo.** Senza `widthMinor` si ricade sulla sequenza posizionale di prima.
+
+### 14.4 Il banco di prova, e perche' basta
+
+`veritas_zone.test.mjs` e `veritas_marker.test.mjs` estraggono le funzioni
+**dall'HTML per ancore testuali** e le eseguono con `new Function` su stub
+minimi (THREE finto che conta figli e `dispose`). Non ricopiano il codice:
+se cambi la firma di una funzione, l'ancora smette di combaciare e la prova
+fallisce subito invece di provare una copia vecchia.
+
+```bash
+node veritas_zone.test.mjs      # 30 prove: lessico, ruoli dalle misure
+node veritas_marker.test.mjs    # 33 prove: marker e pool agenti
+for t in veritas_*.test.mjs; do node "$t" >/dev/null || echo "$t KO"; done
+```
+
+Girano in meno di un secondo, senza browser. Il banco Playwright di §13.5
+resta per le prove d'insieme.
+
+### 14.5 Cosa resta aperto
+
+1. **Verifica visiva di Raffaella** su un modello vero: le prove coprono la
+   contabilita' degli oggetti, non l'aspetto della scena.
+2. I KPI cablati di `hV()` restano visibili quando il ponte Python cade.
+   Andrebbero azzerati o dichiarati, invece di sembrare misurati.
+3. Restano aperti i punti 1, 3, 4 e 5 di §13.6 (scansione vera, pannelli KPI
+   sotto i 1280 px, `main` col frontend vecchio, doppio three).
+
+### 14.6 Nota di metodo
+
+`__veritasSetTrajectory` sembrava la soluzione ovvia, ed era una trappola che
+avrebbe svuotato la scena senza un errore. L'ha smontata la lettura delle
+**dipendenze dell'effetto** (`}, [W]);`), non un ragionamento sull'API.
+Vale la regola gia' scritta in §11.5: qui i difetti gravi sono silenziosi, e
+quello che "sembra funzionare" va verificato guardando il codice che lo esegue.
