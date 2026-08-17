@@ -3325,6 +3325,102 @@
   }
   window.__veritasRebuildHotspots = veritasRebuildHotspots;
 
+  // STESSA RADICE DEI MARKER, sull'altra meta' della scena.
+  // Nello stesso effetto React il bundle costruisce il pool delle figure con un
+  // `for (i = 0; i < 28; i++)` cablato, e il ciclo di animazione fa
+  // `if (!gruppo) return`: chi ha id >= 28 non trova la propria figura e non
+  // viene disegnato, senza un errore. Il cursore degli agenti arriva a 60 e la
+  // chat accetta qualunque numero, quindi il tetto si raggiunge davvero: si
+  // chiedono 50 persone, se ne vedono 28, e sembra che il modello ne perda 22.
+  //
+  // Il pool si estende qui, aggiungendo alla stessa Map e alla stessa scena.
+  // Non si rimuove mai nulla: le figure in eccesso le nasconde gia' il ciclo di
+  // animazione quando l'id non compare nel frame, e ricostruirle a ogni
+  // rigenerazione costerebbe piu' del tenerle.
+  //
+  // I colori sono quelli del bundle, copiati di proposito: gli agenti aggiunti
+  // devono essere indistinguibili dai primi 28, altrimenti la folla si divide in
+  // due popolazioni con due palette diverse. ARCHETYPES del blocco 2 porta le
+  // velocita', non i colori.
+  const ARCHETYPE_COLORS = {
+    business: "#2c5aa0", family: "#e85d26", tourist: "#f4a261", senior: "#6a994e",
+    student: "#9d4edd", crew: "#00b4d8", vip: "#ffb703",
+    // presenti solo nel blocco 2: il bundle non li conosce
+    elderly: "#6a994e", wheelchair: "#00b4d8",
+  };
+
+  function veritasBuildPassenger(THREE, colore) {
+    const g = new THREE.Group();
+    const pelle = new THREE.MeshStandardMaterial({ color: 15715486, roughness: 0.7 });
+    const abito = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.8, metalness: 0.05 });
+    const scuro = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(colore).multiplyScalar(0.7), roughness: 0.9 });
+
+    const busto = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.45, 4, 8), abito);
+    busto.position.y = 1.35; busto.castShadow = true; busto.receiveShadow = true;
+    g.add(busto);
+    const testa = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), pelle);
+    testa.position.y = 1.85; testa.castShadow = true;
+    g.add(testa);
+
+    // Gambe e braccia sono PERNI: il ciclo di animazione ruota il perno, non la
+    // mesh, cosi' l'arto gira attorno all'anca e alla spalla invece che attorno
+    // al proprio centro.
+    const geomGamba = new THREE.CylinderGeometry(0.11, 0.1, 0.9, 8);
+    const perno = (x, y, geom, mat, dy) => {
+      const p = new THREE.Group();
+      p.position.set(x, y, 0);
+      const m = new THREE.Mesh(geom, mat);
+      m.position.y = dy; m.castShadow = true;
+      p.add(m); g.add(p);
+      return p;
+    };
+    const leftHip = perno(-0.14, 0.9, geomGamba, scuro, -0.45);
+    const rightHip = perno(0.14, 0.9, geomGamba, scuro, -0.45);
+    const geomBraccio = new THREE.CylinderGeometry(0.07, 0.06, 0.5, 6);
+    const leftArm = perno(-0.36, 1.4, geomBraccio, pelle, -0.25);
+    const rightArm = perno(0.36, 1.4, geomBraccio, pelle, -0.25);
+
+    g.userData = { baseY: 0 };
+    g.scale.setScalar(window.__veritasPassengerScale || 1);
+    return { group: g, leftHip, rightHip, leftArm, rightArm, body: busto };
+  }
+
+  // Quante figure servono lo dicono i FRAME, non il numero chiesto dall'utente:
+  // con lo sfasamento delle partenze gli agenti non compaiono tutti al frame 0,
+  // e il Core puo' restituirne meno di quanti richiesti. Si guarda l'id piu'
+  // alto che compare davvero.
+  function veritasEnsurePassengerPool(frames) {
+    const map = window.__veritasPassengerGroups;
+    const scene = window.__veritasScene;
+    const THREE = window.THREE;
+    if (!map || !map.set || !scene || !THREE) return 0;
+    let maxId = -1;
+    for (const f of frames || []) {
+      for (const a of (f && f.agents) || []) {
+        if (a && typeof a.id === "number" && a.id > maxId) maxId = a.id;
+      }
+    }
+    if (maxId < 0) return 0;
+    const chiavi = Object.keys(ARCHETYPE_COLORS);
+    const prima = map.size;
+    let aggiunti = 0;
+    for (let id = 0; id <= maxId; id++) {
+      if (map.has(id)) continue;
+      const p = veritasBuildPassenger(THREE, ARCHETYPE_COLORS[chiavi[id % chiavi.length]]);
+      p.group.visible = false;
+      scene.add(p.group);
+      map.set(id, p);
+      aggiunti++;
+    }
+    if (aggiunti) {
+      console.log("[VERITAS agenti] pool esteso da " + prima + " a " + map.size
+                  + " figure (id piu' alto nei frame: " + maxId + ")");
+    }
+    return aggiunti;
+  }
+  window.__veritasEnsurePassengerPool = veritasEnsurePassengerPool;
+
   function moveHotspotVisual(index, x, z) {
     const grp = window.__veritasHotspotGroup;
     if (!grp) return;
@@ -4098,6 +4194,9 @@
       }
       traj.frames.length = 0;
       traj.frames.push(...fresh.frames);
+      // Le figure devono esserci PRIMA che il ciclo di animazione legga i
+      // frame: chi non trova la propria viene saltato in silenzio.
+      veritasEnsurePassengerPool(traj.frames);
       console.log("[VERITAS] Traiettoria aggiornata:", fresh.frames.length, "frame,", currentNodes.length, "punti.");
     } catch (e) {
       console.error("[VERITAS] Errore nella generazione della traiettoria:", e);
