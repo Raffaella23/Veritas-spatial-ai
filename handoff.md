@@ -55,7 +55,7 @@ rifinitura, è parte di ciò che vende.
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
-⚠️ `index.html` ha **23 blocchi `<script>`**, non 9 né 20 né 22 come dicono le
+⚠️ `index.html` ha **25 blocchi `<script>`**, non 9 né 20 né 23 come dicono le
 sezioni più vecchie di `CLAUDE.md` e di questo file. Gli indici cambiano a ogni
 inserimento: **riparsali, e individua i blocchi per contenuto, mai per numero.**
 
@@ -157,6 +157,72 @@ contano e misurano; non guardano lo schermo.
 
 ---
 
+## 4-bis. Il 18/08 pomeriggio: il cervello e gli occhi
+
+> Nasce dalla **Regola uno** di `CLAUDE.md`: non si scrive a mano quello che
+> esiste già. Tutto il §4 qui sopra era codice fatto in casa e tarato su un
+> solo modello. Questo lo sostituisce.
+
+### Il cervello: dove si cammina lo decide un software vero
+
+Non decidiamo più noi cos'è un pavimento. Diciamo **quanto è larga e alta una
+persona, che gradino sale e che pendenza affronta**, e la costruzione della
+*navigation mesh* — la stessa che usano Unity, Unreal e Godot — ricava il
+resto guardando tutta la geometria.
+
+| misura | da dove viene |
+|---|---|
+| raggio **0,30 m** | ellisse corporea di Fruin (61 × 46 cm, 1971), lo standard dei modelli di deflusso |
+| altezza **2,00 m** | altezza libera minima di passaggio |
+| gradino **0,40 m** | due alzate a norma (DM 236/89: max 17–18 cm) |
+| pendenza **35°** | una scala comune sta fra 30° e 35°; sopra è una copertura, un'ala, un terrapieno |
+
+Da queste discendono **senza nessuna soglia inventata**: l'ala dell'aereo cade
+per pendenza, i piani dei chioschi e le spalle delle figure umane cadono per
+area minima, i muri sono ostacoli senza doverli leggere, e un piano staccato da
+terra è irraggiungibile per costruzione.
+
+**La misura che conta**, sul modello vero, 1.084 posizioni di agenti campionate
+su 800 fotogrammi — *quante stanno su terreno dove si cammina davvero?*
+
+| | |
+|---|---|
+| prima | agenti che escono dall'aereo **camminando sull'ala** |
+| adesso | **99,8%** — 2 posizioni su 1.084 |
+
+### Il difetto grosso: sei aree che non si raggiungono
+
+Il modello ha **sei aree camminabili grandi e scollegate** (piazzale a −2 m,
+piano del terminal a +0,5, un livello a +3,8), e le sette tappe erano
+distribuite su tutte e sei: si chiedeva un percorso fra posti che a piedi non
+si raggiungono, non si trovava, e partiva la linea retta dentro i muri.
+
+Verificato che fossero separazioni **vere** e non disordine: tolti 2.197 pezzi
+fra arredi, banchi e figure umane, le aree grandi restavano sei. E verificato
+che non fosse precisione: a celle da 10 cm restavano 30 isole.
+
+Quindi non si aggira: le tappe si **prendono dallo spazio camminabile**, lungo
+il suo asse più lungo. Nomi, ruoli e misure restano quelli di prima — si
+sposta il dove, non il cosa.
+
+### Gli occhi: la pianta si guarda
+
+Due pezzi che c'erano già e non si erano mai parlati: `veritas_vista.js`
+disegna la pianta vista dall'alto, `veritas_llm.js` ha il ponte a un modello
+locale. Adesso la pianta con le zone numerate va a **un modello che vede**, che
+dice solo *cosa sono*: parcheggio, atrio, banchi, controlli, sala d'attesa.
+
+Il modello dà **nomi**, mai numeri: una misura contestata da un cliente va
+rifatta identica, e un modello linguistico non è ripetibile. Tutto ciò che non
+combacia con una zona che esiste viene buttato, e c'è una prova che lo
+verifica.
+
+⚠️ **Serve LM Studio acceso** con un modello che vede (Qwen2-VL, LLaVA,
+MiniCPM-V). Spento, il programma lo dice in chat e usa solo le misure, come
+prima. Nel comando di chat si scrive **`occhi`** per farlo guardare.
+
+---
+
 ## 5. Cosa resta aperto, in ordine
 
 ### 1) I KPI finti che sembrano veri — *il più importante*
@@ -172,19 +238,18 @@ corretto il 13/08, ed è il difetto peggiore che questo strumento possa
 produrre, perché il report si vende. **Vanno azzerati o dichiarati non
 disponibili, non lasciati lì.** Deciso a fine sessione 17/08, non ancora fatto.
 
-### 2) Gli occhi veri: leggere la pianta, non solo misurarla
+### 2) Gli occhi: **provarli davvero, con LM Studio acceso**
 
-La separazione dentro/fuori è **geometrica**: capisce che sei circondato da
-muri, non che quello è un parcheggio. Con due aree all'aperto sceglie come
-partenza la più vicina all'edificio, ed è un'ipotesi ragionevole — non una
-lettura.
+Il giro è costruito e collegato (§4-bis), e le prove coprono la domanda, la
+verifica delle risposte e l'immagine. Quello che **non** è stato provato è la
+lettura vera di una pianta: dalla sandbox non si raggiunge nessun modello.
 
-Il pezzo che *guarda* esiste già (`veritas_vista.js`: renderizza una pianta
-ortografica da poco sopra il pavimento, e i pixel non dipendono da come il
-modello è stato costruito). Leggerla vorrebbe dire riconoscere gli stalli
-dipinti di un parcheggio dalle linee gialle di un piazzale, e dare il nome
-giusto a ciascuno. È la mossa naturale adesso che la geometria ha separato i
-pezzi: prima non aveva senso, si sarebbero dati nomi giusti a pezzi sbagliati.
+Serve che Raffaella accenda **LM Studio** con un modello che vede — Qwen2-VL,
+LLaVA o MiniCPM-V vanno tutti — e scriva `occhi` nella console. Poi si guarda
+cosa ha riconosciuto e si calibra la domanda su quello che sbaglia.
+
+Se il modello locale non basta, la strada dichiarata è un servizio a pagamento:
+poche immagini una volta per analisi, circa **1–3 centesimi per modello**.
 
 ### 3) Le porte modellate chiuse
 
@@ -241,13 +306,27 @@ il setter. Chi tocca questa parte deve saperlo prima, non dopo.
 Prove veloci, senza browser, meno di un secondo:
 
 ```bash
+node veritas_navmesh.test.mjs      # il cammino: ala, aereo, rampe, porte, soffitti
+node veritas_occhi.test.mjs        # gli occhi: cosa si accetta di cio che risponde
 node veritas_zone.test.mjs         # nomi, ruoli dalle misure, parcheggio come partenza
 node veritas_play.test.mjs         # niente si muove finche non premi play
 node veritas_dentrofuori.test.mjs  # dentro o fuori: circondato o campo aperto?
-node veritas_navigazione.test.mjs  # muri, porte, strettoie: il modulo
-node veritas_muri.test.mjs         # che il programma lo USI davvero
-node veritas_marker.test.mjs       # cartelli e figure degli agenti
+node veritas_muri.test.mjs         # che il programma USI davvero i moduli
 for t in veritas_*.test.mjs; do node "$t" >/dev/null || echo "$t KO"; done
+```
+
+⚠️ `veritas_navmesh.test.mjs` non usa il modello di Raffaella: costruisce una
+stanza inventata per ogni difetto da bloccare. È la condizione perché il
+modulo valga su un modello qualsiasi e non su uno.
+
+E la prova d'insieme, con browser e modello veri — risponde alla domanda
+diversa *«il programma li usa?»*, che è quella che qui è già costata una
+giornata:
+
+```bash
+sh banco/monta.sh                          # rimonta vendor + index locale
+(cd banco && python3 -m http.server 8899 &)
+node banco/cammino.mjs                     # navmesh, tappe, agenti sul calpestabile
 ```
 
 Estraggono le funzioni **dall'HTML per àncore testuali** e le eseguono su stub

@@ -1439,3 +1439,111 @@ modello e' stato costruito. Leggerla vorrebbe dire distinguere gli stalli
 dipinti di un parcheggio dalle linee gialle di un piazzale. **Adesso ha senso**,
 perche' la geometria ha separato i pezzi: prima si sarebbero dati nomi giusti a
 pezzi sbagliati.
+
+---
+
+## 17. Stato reale — sessione 18 agosto 2026 (sera)
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> Applica la **Regola uno** al pezzo più grosso: la navigazione scritta a mano
+> nelle §15 e §16 è sostituita da una libreria vera.
+> `index.html` ha ora **25 blocchi `<script>`** — riparsali, mai per numero.
+
+### 17.0 Cosa entra, e cosa non c'è più bisogno di scrivere
+
+**`veritas_navmesh.js`** — traduzione fra il modello caricato e **navcat**
+(MIT, JavaScript puro, senza WebAssembly), cioè la costruzione di *navigation
+mesh* di lignaggio Recast/Detour che usano Unity, Unreal e Godot.
+<https://github.com/isaac-mason/navcat> · <https://navcat.dev/docs/>
+
+Non si dichiara più cos'è un pavimento: si dichiarano **le misure di una
+persona** e la libreria ricava il resto voxelizzando tutta la geometria.
+
+| misura | provenienza |
+|---|---|
+| raggio 0,30 m | ellisse corporea di Fruin (61 × 46 cm, 1971) |
+| altezza 2,00 m | altezza libera minima di passaggio |
+| gradino 0,40 m | due alzate a norma (DM 236/89) |
+| pendenza 35° | una scala sta fra 30° e 35°; sopra è copertura, ala, terrapieno |
+
+Da queste discendono senza soglie inventate: ala per pendenza, chioschi e
+spalle delle figure umane per area minima (4 m²), muri come ostacoli, piani
+staccati da terra irraggiungibili **per costruzione**.
+
+⚠️ **`veritas_perception.js` RESTA e cambia mestiere**: navcat CAMMINA, la
+percezione MISURA (area navigabile, larghezze, strettoie, varchi). Sono i
+numeri del referto e devono reggere un confronto normativo. Anche
+`veritas_navigazione.js` resta, come riserva quando navcat non si carica.
+
+**`veritas_occhi.js`** — unione di due pezzi che c'erano già e non si erano
+mai parlati: `veritas_vista.js` (pianta ortografica) + `veritas_llm.js` (ponte
+al modello locale). La pianta con le zone numerate va a un modello che vede,
+che dice **solo cosa sono**. Metodo preso dalla ricerca (ViLLA 2026, FloorplanVLM
+arXiv 2602.06507): una pianta con le regioni segnate, e la sola domanda "cosa
+sono". Comando di chat: **`occhi`**.
+
+⚠️ **Il modello dà NOMI, mai numeri.** Ogni campo numerico che aggiunge di sua
+iniziativa viene buttato dalla verifica, e c'è una prova esplicita. Le zone
+restano dove le ha messe la geometria.
+
+Ordine di autorità, dichiarato su ogni zona in `origine`:
+**nome del modello → occhi → misure → sequenza posizionale.**
+
+### 17.1 Le misure
+
+Frazione delle posizioni degli agenti su terreno calpestabile, modello vero,
+1.084 posizioni su 800 fotogrammi:
+
+```
+prima                      agenti sull'ala dell'aereo (nel video)
+navmesh collegata                       94,0%
++ tappe su spazio collegato            100,0%   (celle da 22 cm)
++ risoluzione che risolve le porte      93,6%   (celle da 15 cm)
++ tappe estreme rientrate di 2 m        99,8%   <- 2 su 1.084
+```
+
+Costo: navmesh 1,24 s una volta sola; un percorso 1,6 ms. `index.html` resta
+a 1,53 MB — navcat (640 KB) si carica dall'importmap, **non è inlinato**.
+
+### 17.2 Tre difetti trovati da una misura, non da un ragionamento
+
+1. **L'ordine dei vertici.** Recast guarda la normale **col segno**: le prime
+   scene di prova avevano i pavimenti avvolti al contrario. Zero poligoni su
+   ogni scena, nessun errore. Non era la libreria, erano le mie scene.
+2. **I tempi.** La navmesh è pronta ~1,2 s dopo il caricamento, le traiettorie
+   nascevano subito: `findRoute` ricadeva sul codice vecchio e tirava tre
+   tratti dritti nei muri **senza che niente lo dicesse**. Ora appena la
+   navmesh è pronta si riapplicano i nodi sempre, ed è quello che fa
+   ricalcolare le traiettorie.
+3. **Sei aree scollegate.** Il modello ha sei aree camminabili grandi che a
+   piedi non si raggiungono (piazzale −2 m, terminal +0,5, un livello +3,8), e
+   le sette tappe erano su tutte e sei. Verificato che fossero separazioni
+   vere: togliendo 2.197 fra arredi, banchi e figure umane restavano sei; e a
+   celle da 10 cm restavano 30 isole. Non è disordine e non è precisione — è
+   architettura. Quindi `catenaCamminabile()` prende le tappe **dentro** lo
+   spazio camminabile più esteso, lungo il suo asse più lungo.
+
+### 17.3 Le prove
+
+```bash
+node veritas_navmesh.test.mjs   # 30 prove su scene INVENTATE, non sul suo modello
+node veritas_occhi.test.mjs     # 33 prove: la regola, non la bravura del modello
+node banco/cammino.mjs          # browser e modello veri: il programma li USA?
+```
+
+`veritas_navmesh.test.mjs` costruisce una stanza per ogni difetto da bloccare
+(due sale e un tramezzo da 15 cm, una fessura da 50 cm, una superficie a 50°,
+una scala a 26°, una piattaforma sospesa, due piani con e senza rampa, un
+soffitto a 1,4 e a 2,4 m, dodici banchi, un modello in millimetri). **Nessuna
+è il modello di Raffaella**: è la condizione perché il modulo valga su un
+modello qualsiasi.
+
+### 17.4 Cosa resta
+
+1. **Gli occhi non sono mai stati provati davvero**: serve LM Studio acceso
+   con un modello che vede (Qwen2-VL, LLaVA, MiniCPM-V). Dalla sandbox non si
+   raggiunge niente.
+2. La verifica a occhio di Raffaella sull'anteprima.
+3. Restano i punti 1 e 3–7 della §5 di `handoff.md` (KPI finti, porte
+   modellate chiuse, pannelli sotto i 1280 px, `main` col frontend vecchio,
+   doppio three, scansione vera).
