@@ -38,6 +38,10 @@ rifinitura, è parte di ciò che vende.
    e **una** `claude/...` per volta.
 5. **Come si parla con Raffaella:** niente tecnicismi, e non chiederle pareri
    tecnici. Vedi `CLAUDE.md` §0-bis — è una regola, non un consiglio.
+6. **Non si scrive a mano quello che esiste già.** Prima di scrivere un
+   algoritmo si cerca lo strumento che lo fa — su GitHub, su npm, fuori da
+   questo repository. Un algoritmo fatto in casa e tarato su un solo modello
+   funziona su quello e si rompe sul successivo. Vedi `CLAUDE.md` Regola uno.
 
 ---
 

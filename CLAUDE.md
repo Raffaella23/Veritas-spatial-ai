@@ -70,6 +70,43 @@ avevano guardato cosa c'era già.
 
 ---
 
+## 🔻 Regola uno — non si scrive a mano quello che esiste già
+
+> Detta da Raffaella il 18/08/2026, dopo una giornata intera buttata.
+> **Sta qui in alto perché viene prima di scrivere qualunque riga.**
+
+**Prima di scrivere un algoritmo, cerca lo strumento che lo fa già.** Su
+GitHub, su npm, su internet. Non su questo repository soltanto: *fuori*.
+
+Non è un consiglio di efficienza, è una regola di qualità. Un algoritmo scritto
+a mano e tarato su **un solo modello** — quello che si ha sotto mano quel
+giorno — funziona su quello e si rompe sul successivo. È esattamente quello che
+è successo il 18/08: griglia di occupazione, distanza dai muri, A\*, tiro della
+corda, lettura dei muri, dentro/fuori — tutto riscritto a mano, tutto tarato su
+`airport_foot_traffic.glb`, e ogni giro chiudeva un buco e ne apriva un altro.
+
+Quello che esiste già è provato da migliaia di progetti e da anni di casi
+limite che qui non si vedranno mai.
+
+**Come si applica, in concreto:**
+
+1. **Cerca prima.** «Esiste una libreria che fa questo?» è la prima domanda,
+   non l'ultima. Cerca in inglese, guarda cosa usano i motori di gioco e i
+   progetti seri del settore.
+2. **Se esiste, usala** — anche se scriverla sembrerebbe più veloce. Sembra
+   sempre più veloce, e non lo è mai.
+3. **Se non esiste, dillo e dimostra di aver cercato**, poi scrivi il minimo
+   indispensabile e provalo su più di un caso.
+4. **Preferisci lo strumento del mestiere** a quello generico: per far
+   camminare la gente in uno spazio si usa una *navigation mesh*, che è quello
+   che usano Unity, Unreal e Godot — non una griglia fatta in casa.
+
+⚠️ Vale anche al contrario: **non buttare quello che è già provato qui**.
+`veritas_perception.js` misura, ed è provato: resta. Si sostituisce ciò che è
+stato inventato, non ciò che funziona ed è verificato.
+
+---
+
 ## 0-bis. Come si parla con Raffaella
 
 > Chiesto esplicitamente da lei il 17/08/2026. Vale in ogni sessione.

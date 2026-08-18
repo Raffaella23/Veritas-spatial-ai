@@ -2,6 +2,7 @@
   "dependencies": {
     "@sparkjsdev/spark": "^2.1.0",
     "@supabase/supabase-js": "^2.112.3",
+    "navcat": "^0.4.1",
     "playwright": "^1.62.1",
     "three": "^0.180.0",
     "three-mesh-bvh": "^0.8.3"
