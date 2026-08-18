@@ -13,7 +13,7 @@
 import { generateSoloNavMesh } from 'navcat/blocks';
 import * as nav from 'navcat';
 import {
-  PERSONA, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino,
+  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino,
 } from './veritas_navmesh.js';
 
 let ko = 0;
@@ -108,8 +108,9 @@ console.log('1. le misure sono quelle di una persona, non di questo modello');
   // Il margine e' l'arrotondamento all'intero delle tre dimensioni in celle,
   // non un'eccezione al tetto.
   check('e in nessuno dei due casi si sfonda il tetto di lavoro',
-    piccola.voxel <= 22e6 * 1.02 && enorme.voxel <= 22e6 * 1.02,
-    (piccola.voxel / 1e6).toFixed(1) + ' e ' + (enorme.voxel / 1e6).toFixed(1) + ' milioni di voxel');
+    piccola.voxel <= VOXEL_MAX * 1.02 && enorme.voxel <= VOXEL_MAX * 1.02,
+    (piccola.voxel / 1e6).toFixed(1) + ' e ' + (enorme.voxel / 1e6).toFixed(1)
+    + ' milioni di voxel su ' + (VOXEL_MAX / 1e6) + ' consentiti');
   check('e il terminal dichiara di essere grossolano', enorme.grossolana);
 
   // ⚠️ Il difetto misurato che costerebbe una navmesh vuota senza un errore.

@@ -12,6 +12,12 @@ cp -r node_modules/three/build banco/vendor/three-build
 mkdir -p banco/vendor/three-addons && cp -r node_modules/three/examples/jsm/* banco/vendor/three-addons/
 cp node_modules/three-mesh-bvh/build/index.module.js banco/vendor/bvh.module.js
 cp node_modules/@sparkjsdev/spark/dist/spark.module.js banco/vendor/spark.module.js
+# navcat (il cammino) e la sua dipendenza mathcat. ⚠️ Si copia TUTTA la
+# cartella dist: navcat/blocks.js importa './index.js' per percorso relativo,
+# e mathcat/index.js riesporta una ventina di file accanto a se'.
+mkdir -p banco/vendor/navcat banco/vendor/mathcat
+cp -r node_modules/navcat/dist/* banco/vendor/navcat/
+cp -r node_modules/mathcat/dist/* banco/vendor/mathcat/
 python3 - <<'PY'
 import re
 d = open('index.html', encoding='utf-8').read()
@@ -19,6 +25,9 @@ d = d.replace('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js'
 d = d.replace('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/', './vendor/three-addons/')
 d = d.replace('https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js', './vendor/bvh.module.js')
 d = d.replace('https://sparkjs.dev/releases/spark/2.1.0/spark.module.js', './vendor/spark.module.js')
+d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/index.js', './vendor/navcat/index.js')
+d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/blocks.js', './vendor/navcat/blocks.js')
+d = d.replace('https://cdn.jsdelivr.net/npm/mathcat@0.0.12/dist/index.js', './vendor/mathcat/index.js')
 d = re.sub(r'src="https://[^"]*supabase[^"]*"', 'src="./finti/supabase_finto.js"', d)
 open('banco/index.html', 'w', encoding='utf-8').write(d)
 print('banco/index.html generato')

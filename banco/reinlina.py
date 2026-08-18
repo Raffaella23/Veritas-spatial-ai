@@ -66,7 +66,8 @@ def sorgente_inline(percorso, legatura):
     testo = open(percorso, encoding="utf-8").read()
     if "</script" in testo:
         raise SystemExit(f"{percorso} contiene '</script': non si puo' inlinare")
-    fuori = re.sub(r"^export function ", "function ", testo, flags=re.M)
+    fuori = re.sub(r"^export (async )?function ", r"\1function ", testo, flags=re.M)
+    fuori = re.sub(r"^export (const|let|var) ", r"\1 ", fuori, flags=re.M)
     fuori = re.sub(r"^export default \{", f"window.{legatura} = {{", fuori, flags=re.M)
     if "export " in fuori:
         raise SystemExit("e' rimasto un export nel testo generato")
@@ -87,14 +88,22 @@ def main():
 
     firma = f"window.{legatura} = {{"
     bersagli = [b for b in p.blocchi if firma in b[0]]
-    if len(bersagli) != 1:
+    if len(bersagli) > 1:
         raise SystemExit(
             f"trovati {len(bersagli)} blocchi con la firma {firma}: "
             "atteso esattamente 1 (individuazione per contenuto)"
         )
-    _, inizio, fine = bersagli[0]
-
-    documento = documento[:inizio] + "\n" + nuovo_corpo + documento[fine:]
+    if bersagli:
+        _, inizio, fine = bersagli[0]
+        documento = documento[:inizio] + "\n" + nuovo_corpo + documento[fine:]
+    else:
+        # Modulo nuovo: si inserisce in fondo, prima della chiusura del corpo.
+        # Va per ultimo di proposito — gli altri moduli devono aver gia' legato
+        # le loro globali quando questo si aggancia a __veritasOnModelLoaded.
+        chiusura = documento.rindex("</body>")
+        blocco = f'<script type="module">\n{nuovo_corpo}</script>\n'
+        documento = documento[:chiusura] + blocco + documento[chiusura:]
+        print(f"(blocco NUOVO, inserito in fondo)")
     open("index.html", "w", encoding="utf-8").write(documento)
 
     # Verifica: il blocco 3 non si tocca, mai.

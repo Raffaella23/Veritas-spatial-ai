@@ -403,3 +403,68 @@ export default {
   FUNZIONI, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
   riquadriZone, immagineConZone, chiedi, guarda, racconta,
 };
+
+// ---------------------------------------------------------------------------
+// 7. L'aggancio al programma
+// ---------------------------------------------------------------------------
+//
+// Un solo punto d'ingresso, `guardaOra()`, che raccoglie da se' quello che
+// serve dalle globali gia' esposte. Lo chiama `assegnaZoneMisurate` in fondo
+// al suo lavoro: prima le misure, poi gli occhi, cosi' se il modello e' spento
+// resta esattamente il comportamento di prima.
+if (typeof window !== 'undefined') {
+  let inCorso = false;
+
+  window.__veritasOcchiGuarda = async function (zone, opz = {}) {
+    if (inCorso) return { disponibile: false, perche: 'sto gia guardando' };
+    const zz = zone || (typeof window.__veritasGetNodes === 'function'
+      ? window.__veritasGetNodes() : null);
+    if (!zz || !zz.length) return { disponibile: false, perche: 'nessuna zona da riconoscere' };
+
+    inCorso = true;
+    try {
+      const esito = await guarda({
+        THREE: window.THREE,
+        renderer: window.__veritasRenderer,
+        radice: window.__veritasModelRoot,
+        zone: zz,
+        vista: window.__veritasVista,
+        doc: typeof document !== 'undefined' ? document : null,
+        cfg: window.__veritasLLM ? window.__veritasLLM.cfg : null,
+        dominio: window.__veritasProjectType || null,
+        punti: window.__veritasUltimiPunti || null,
+        ...opz,
+      });
+
+      // Si dichiara sempre: anche "non ho potuto guardare" e' un'informazione,
+      // ed e' l'unico momento in cui chi guarda lo schermo puo' correggere.
+      const detto = racconta(esito, zz);
+      console.log('[VERITAS occhi]', detto, esito.grezza ? '\n  risposta grezza: ' + esito.grezza : '');
+      if (typeof window.__veritasAnnounce === 'function') {
+        try { window.__veritasAnnounce(detto); } catch (e) {}
+      }
+      window.__veritasOcchiEsito = esito;
+
+      // L'applicazione la fa il programma, non gli occhi: qui non si tocca
+      // nessuna zona. Gli occhi propongono, l'ordine di autorita' decide.
+      if (esito.disponibile && typeof window.__veritasApplicaOcchi === 'function') {
+        try { window.__veritasApplicaOcchi(esito, zz); }
+        catch (e) { console.error('[VERITAS occhi] applicazione fallita:', e); }
+      }
+      return esito;
+    } finally { inCorso = false; }
+  };
+
+  // Comando di console, per rifarlo a mano quando si accende il modello dopo.
+  window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
+  window.__veritasCommandExtensions.push(function (raw) {
+    if (!/^\s*(occhi|guarda|riconosci)\s*$/i.test(String(raw || ''))) return false;
+    const dillo = window.__veritasChatLog || function () {};
+    dillo('system', 'Guardo la pianta...');
+    window.__veritasOcchiGuarda();
+    return true;
+  });
+
+  console.log('[VERITAS occhi] pronti — scrivi "occhi" per far guardare la pianta '
+    + '(serve un modello che vede acceso: LM Studio, Ollama)');
+}

@@ -85,7 +85,13 @@ export const ISOLA_UNIONE_M2 = 20;
 // rende il modulo indipendente dalle dimensioni del modello — con un tetto,
 // la risoluzione si adatta da sola invece di far esplodere i tempi su un
 // aeroporto o sprecare precisione su una stanza.
-export const VOXEL_MAX = 22e6;
+// Misurato su un terminal di 145 x 76 x 15 m: con 22 milioni la cella veniva
+// 22 cm, e una porta da 90 cm sono quattro celle — dopo l'erosione del raggio
+// di una persona puo' chiudersi. Una porta che risulta chiusa dove e' aperta e'
+// esattamente il difetto silenzioso che questo lavoro serve a togliere.
+// Con 70 milioni la cella scende a ~15 cm (meta' del raggio, che e' la
+// raccomandazione di Recast) e la costruzione costa ~1,5 s una volta sola.
+export const VOXEL_MAX = 70e6;
 
 // ---------------------------------------------------------------------------
 // 2. Parametri — logica pura, provabile senza librerie
@@ -111,8 +117,12 @@ export function cellaOttima(ingombro, opz = {}) {
   // Invertita: la cella piu' piccola che sta nel tetto.
   const cNecessaria = Math.cbrt((lx * ly * lz) / (budget * rapportoH));
   const raggio = opz.raggio || PERSONA.raggio;
-  // Non ha senso essere piu' fini di un terzo del raggio: costa e non aggiunge.
-  let cella = Math.max(minima, raggio / 3, cNecessaria);
+  // Non si scende sotto META' DEL RAGGIO: e' la risoluzione raccomandata da
+  // Recast, e sotto quella si paga soltanto. Misurato: col fondo a un terzo
+  // del raggio un edificio di 120 x 80 m si costruiva a celle da 10 cm in
+  // 3,1 s invece che a 15 cm in meno di un secondo, senza vedere una porta
+  // in piu'.
+  let cella = Math.max(minima, raggio / 2, cNecessaria);
 
   // ⚠️ `massima` e' una PREFERENZA, non un tetto: se la si impone quando il
   //    budget chiede di piu', il budget non vale piu' niente e la costruzione
@@ -126,7 +136,7 @@ export function cellaOttima(ingombro, opz = {}) {
   return {
     cella, cellaH, voxel, oltreLaPreferenza,
     // Sopra mezzo raggio di cella una porta comincia a non essere risolta.
-    grossolana: cella > raggio / 2 + 1e-9,
+    grossolana: cella > raggio / 2 * 1.02,
     // Sopra questa soglia il risultato sarebbe ingannevole: porte e passaggi
     // sparirebbero e la navmesh direbbe "non si passa" dove si passa.
     inutilizzabile: cella > (opz.cellaInutile || 0.8),
@@ -471,8 +481,264 @@ export function percorso(nav, navMesh, da, a, opz = {}) {
   return { punti, lunghezza: lung, parziale: !!(r.flags & 4) };
 }
 
+// ---------------------------------------------------------------------------
+// 7. L'aggancio al programma
+// ---------------------------------------------------------------------------
+//
+// navcat pesa 640 KB non minificato: si carica dall'importmap, NON si inlina.
+// `index.html` deve restare snello e scattante (§8.8).
+//
+// Il caricamento e' DINAMICO e dentro un try: se la libreria non arriva — CDN
+// irraggiungibile, rete di un cliente che blocca jsdelivr — il programma torna
+// al comportamento di prima invece di rompersi, e lo dice in console.
+
+let LIB = null;
+let ULTIMA = null;        // l'ultima navmesh costruita
+
+export async function libreria() {
+  if (LIB) return LIB;
+  const [nav, blocks] = await Promise.all([import('navcat'), import('navcat/blocks')]);
+  LIB = { nav, blocks };
+  return LIB;
+}
+
+/** Costruisce la navmesh del modello caricato e la tiene da parte. */
+export async function costruisciDaScena(THREE, radice, opz = {}) {
+  const geo = geometriaDaModello(THREE, radice, opz);
+  if (!geo) { ULTIMA = null; return { ok: false, perche: 'nessuna geometria nel modello' }; }
+  let lib;
+  try { lib = await libreria(); }
+  catch (e) {
+    ULTIMA = null;
+    return { ok: false, perche: 'navcat non si e caricata (' + ((e && e.message) || e) + ')' };
+  }
+  const r = costruisci(lib.blocks, geo, opz);
+  if (!r || !r.poligoni) {
+    ULTIMA = null;
+    return { ok: false, perche: (r && r.diagnosi) || 'nessuna superficie camminabile', esito: r };
+  }
+  ULTIMA = r;
+  r.geometria = { triangoli: geo.triangoli, mesh: geo.mesh, ingombro: geo.ingombro };
+  r.isole = isole(r.navMesh);
+  return { ok: true, ...r };
+}
+
+/** La navmesh corrente, o `null` se non c'e'. */
+export function stato() { return ULTIMA; }
+
+/**
+ * Il percorso sulla navmesh corrente. `null` se non si puo' rispondere —
+ * e chi chiama DEVE distinguere "non c'e' strada" da "non lo so".
+ */
+export function percorsoCorrente(da, a, opz = {}) {
+  if (!ULTIMA || !LIB) return null;
+  return percorso(LIB.nav, ULTIMA.navMesh, da, a, opz);
+}
+
+/** Il punto sta su una superficie calpestabile? */
+export function sulCamminoCorrente(punto, tolleranza) {
+  if (!ULTIMA || !LIB) return { ok: false };
+  return sulCammino(LIB.nav, ULTIMA.navMesh, punto, tolleranza);
+}
+
+/**
+ * Divide dei punti in gruppi che si raggiungono a piedi FRA LORO.
+ *
+ * ⚠️ E' la risposta a un difetto misurato il 18/08 sul modello di prova: la
+ *    navmesh vedeva 6 aree camminabili grandi e NON collegate (piazzale a
+ *    -2 m, piano del terminal a +0,5, un livello a +3,8...), mentre le tappe
+ *    venivano scelte fra tutte indistintamente. Risultato: si chiedeva un
+ *    percorso fra due posti che a piedi non si raggiungono, non lo si trovava,
+ *    e il codice di riserva tirava una linea retta — dentro i muri.
+ *
+ *    Verificato che non fosse disordine: togliendo 2.197 fra arredi, banchi e
+ *    figure umane gia' modellate, le aree grandi restavano SEI. Sono
+ *    separazioni vere dell'edificio, e vanno dette invece che scavalcate.
+ *
+ * Si risponde con i percorsi veri, non con le distanze: due sale confinanti
+ * separate da un muro sono vicine e irraggiungibili.
+ */
+export function gruppiCollegati(punti, opz = {}) {
+  if (!ULTIMA || !LIB || !punti || !punti.length) return null;
+  const gruppo = new Array(punti.length).fill(-1);
+  let n = 0;
+  for (let i = 0; i < punti.length; i++) {
+    if (gruppo[i] >= 0) continue;
+    gruppo[i] = n;
+    for (let k = i + 1; k < punti.length; k++) {
+      if (gruppo[k] >= 0) continue;
+      const r = percorso(LIB.nav, ULTIMA.navMesh, punti[i], punti[k], opz);
+      if (r && !r.parziale) gruppo[k] = n;
+    }
+    n++;
+  }
+  const gruppi = [];
+  for (let g = 0; g < n; g++) gruppi.push(punti.map((_, i) => i).filter((i) => gruppo[i] === g));
+  gruppi.sort((a, b) => b.length - a.length);
+  return { gruppo, gruppi, quanti: n };
+}
+
+/**
+ * Una catena di tappe GARANTITE raggiungibili fra loro.
+ *
+ * Serve quando le zone misurate cadono su aree scollegate — misurato: 7 tappe
+ * distribuite su 6 aree che a piedi non si raggiungono. Filtrarle non basta,
+ * perche' ne resterebbero due: bisogna sceglierle DENTRO lo spazio camminabile
+ * invece di sceglierle prima e verificarle dopo.
+ *
+ * Come: si campiona l'area camminabile piu' estesa, si prendono i due punti
+ * piu' lontani fra loro (i due capi del percorso piu' lungo, cioe' l'asse
+ * dell'edificio), e si distribuiscono le tappe LUNGO IL PERCORSO che li
+ * unisce. Le tappe stanno su un percorso vero per costruzione.
+ *
+ * ⚠️ Da' i PUNTI, non i nomi: i nomi restano quelli gia' decisi dalle misure,
+ *    dai nomi del modello o dagli occhi. Qui si sposta il dove, non il cosa.
+ */
+export function catenaCamminabile(quante, opz = {}) {
+  if (!ULTIMA || !LIB) return null;
+  const g = (ULTIMA.isole && ULTIMA.isole.length ? ULTIMA.isole : isole(ULTIMA.navMesh));
+  if (!g || !g.length) return null;
+  const isola = g[0];
+  const k = Math.max(2, Math.min(quante || 5, 12));
+
+  // Campioni sull'area piu' estesa: un reticolo tarato sulla sua dimensione,
+  // non un passo fisso — un'isola di 20 m e una di 300 vogliono passi diversi.
+  const lx = isola.ingombro.max[0] - isola.ingombro.min[0];
+  const lz = isola.ingombro.max[2] - isola.ingombro.min[2];
+  const passo = Math.max(1.5, Math.sqrt(lx * lz) / 14);
+  const y = isola.quotaMedia;
+  const dentro = [];
+  for (let x = isola.ingombro.min[0] + passo / 2; x < isola.ingombro.max[0]; x += passo)
+    for (let z = isola.ingombro.min[2] + passo / 2; z < isola.ingombro.max[2]; z += passo) {
+      const q = sulCammino(LIB.nav, ULTIMA.navMesh, [x, y, z], [passo * 0.6, 3, passo * 0.6]);
+      if (q.ok) dentro.push(q.punto);
+    }
+  if (dentro.length < 3) return null;
+
+  // I due capi: si parte dal punto piu' lontano dal centro e si cerca chi e'
+  // piu' lontano da lui PER PERCORSO, non in linea d'aria. Su una pianta a
+  // elle la differenza e' tutta.
+  const cx = dentro.reduce((s, p) => s + p[0], 0) / dentro.length;
+  const cz = dentro.reduce((s, p) => s + p[2], 0) / dentro.length;
+  let a = dentro[0], d0 = -1;
+  for (const p of dentro) {
+    const q = Math.hypot(p[0] - cx, p[2] - cz);
+    if (q > d0) { d0 = q; a = p; }
+  }
+  let b = null, meglio = -1, catena = null;
+  for (const p of dentro) {
+    const r = percorso(LIB.nav, ULTIMA.navMesh, a, p, { aderente: true, passo: 1.2 });
+    if (!r || r.parziale || r.lunghezza <= meglio) continue;
+    meglio = r.lunghezza; b = p; catena = r.punti;
+  }
+  if (!catena || catena.length < 2) return null;
+
+  // Le tappe, distribuite a distanza uguale lungo il percorso.
+  const cum = [0];
+  for (let i = 1; i < catena.length; i++)
+    cum.push(cum[i - 1] + Math.hypot(catena[i][0] - catena[i - 1][0], catena[i][2] - catena[i - 1][2]));
+  const tot = cum[cum.length - 1];
+  if (!(tot > 1)) return null;
+
+  // ⚠️ Le due tappe estreme NON vanno sulla punta del percorso. Li' il bordo
+  //    della navmesh e' a un raggio di persona dal muro, e gli agenti attorno
+  //    a una tappa si aprono a ventaglio: quelli esterni finiscono fuori.
+  //    Misurato: il 6,4% delle posizioni fuori dal calpestabile, tutte
+  //    concentrate in due punti — i due capi. Rientrando di due metri
+  //    spariscono. Non e' un ritocco estetico: una partenza mezza dentro un
+  //    muro falsa il conteggio del deflusso.
+  const rientro = Math.min(2.5, tot * 0.06);
+  const da = rientro, a2 = tot - rientro;
+  const punti = [];
+  for (let t = 0; t < k; t++) {
+    const bersaglio = da + (a2 - da) * t / (k - 1);
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < bersaglio) i++;
+    const f = (bersaglio - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1]);
+    punti.push([
+      catena[i - 1][0] + (catena[i][0] - catena[i - 1][0]) * f,
+      catena[i - 1][1] + (catena[i][1] - catena[i - 1][1]) * f,
+      catena[i - 1][2] + (catena[i][2] - catena[i - 1][2]) * f,
+    ]);
+  }
+  return { punti, lunghezza: tot, areaIsola: isola.area, campioni: dentro.length };
+}
+
+/** Riassunto in italiano normale, da dire in chat. */
+export function raccontaCammino(r) {
+  if (!r || !r.ok) return 'Non ho potuto capire dove si cammina ('
+    + ((r && r.perche) || 'motivo ignoto') + ').';
+  const g = r.isole || [];
+  const grandi = g.filter((i) => i.area > r.area * 0.05);
+  return 'Ho capito dove si cammina: ' + Math.round(r.area) + ' m2 calpestabili'
+    + (grandi.length > 1
+        ? ', in ' + grandi.length + ' parti separate fra loro (la piu grande '
+          + Math.round(grandi[0].area) + ' m2)'
+        : ', tutti collegati fra loro')
+    + '. Le superfici troppo ripide, troppo piccole o senza spazio sopra la testa '
+    + 'sono escluse: non ci si cammina.';
+}
+
 export default {
   PERSONA, ISOLA_MINIMA_M2, ISOLA_UNIONE_M2, VOXEL_MAX,
   cellaOttima, parametri, geometriaDaModello, costruisci,
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
+  libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente,
+  gruppiCollegati, catenaCamminabile, raccontaCammino,
 };
+
+// ---------------------------------------------------------------------------
+// 8. Si aggancia da solo al caricamento del modello
+// ---------------------------------------------------------------------------
+//
+// Avvolge `__veritasOnModelLoaded` come fanno gli altri moduli, invece di
+// farsi chiamare da qualcuno: cosi' non c'e' un punto in piu' da ricordare in
+// `index.html`, e togliendo questo blocco il programma resta intero.
+//
+// ⚠️ Si costruisce DOPO aver lasciato lavorare chi viene prima — la scala
+//    automatica sta nel blocco 2 e riscala il modello a caricamento avvenuto.
+//    Costruire la navmesh su un modello 6 volte piu' piccolo del vero
+//    darebbe porte da 20 cm e nessun percorso. Gia' visto succedere con la
+//    nuvola di punti (§13.4: 84 m2 invece di 3.700).
+if (typeof window !== 'undefined') {
+  const precedente = window.__veritasOnModelLoaded;
+  window.__veritasOnModelLoaded = function (radice) {
+    let out;
+    try { out = precedente ? precedente.apply(this, arguments) : undefined; }
+    catch (e) { console.error('[VERITAS cammino] errore nel passo precedente:', e); }
+
+    const THREE = window.THREE;
+    const root = radice || window.__veritasModelRoot;
+    if (!THREE || !root) {
+      console.warn('[VERITAS cammino] manca three o il modello: navmesh non costruita');
+      return out;
+    }
+    // Un giro di eventi dopo la scala automatica.
+    setTimeout(function () {
+      costruisciDaScena(THREE, root).then(function (r) {
+        window.__veritasNavmeshEsito = r;
+        if (!r.ok) {
+          console.warn('[VERITAS cammino] navmesh non costruita:', r.perche);
+          return;
+        }
+        console.log('[VERITAS cammino] navmesh: ' + r.poligoni + ' poligoni, '
+          + Math.round(r.area) + ' m2, ' + (r.isole || []).length + ' parti separate, '
+          + r.ms + ' ms, cella ' + r.parametri.risoluzione.cella.toFixed(2) + ' m');
+        if (typeof window.__veritasAnnounce === 'function') {
+          try { window.__veritasAnnounce(raccontaCammino(r)); } catch (e) {}
+        }
+        // Solo ADESSO le tappe possono essere scelte sapendo dove si cammina,
+        // e i percorsi ricalcolati. Prima di questo momento `findRoute`
+        // ricadeva sul codice di riserva senza che nulla lo dicesse: la
+        // navmesh e' pronta un secondo dopo il caricamento, le traiettorie
+        // nascevano subito. Misurato: 3 tratti tirati dritti nei muri.
+        if (typeof window.__veritasZoneSulCammino === 'function') {
+          try { window.__veritasZoneSulCammino(); }
+          catch (e) { console.error('[VERITAS cammino] riassegnazione fallita:', e); }
+        }
+      });
+    }, 0);
+    return out;
+  };
+  console.log('[VERITAS cammino] pronto (navcat) — window.__veritasNavmesh');
+}
