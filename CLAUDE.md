@@ -1247,3 +1247,158 @@ Vale anche il contrario, ed e' successo: una prova preesistente che falliva
 ("la sosta va sulla zona piu ampia") segnalava un **mio** errore, non un
 comportamento da aggiornare — avevo lasciato inutilizzata una decisione presa
 il 17/08. Le prove che falliscono vanno lette prima di essere cambiate.
+
+---
+
+## 16. Stato reale — sessione 18 agosto 2026 (pomeriggio)
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> Due difetti segnalati da Raffaella guardando l'anteprima dopo le correzioni
+> della mattina. `index.html` resta a **23 blocchi `<script>`**.
+
+### 16.0 Il play che partiva da solo
+
+`#vs-start-btn` — il bottone del pannello di creazione progetto, etichettato
+"Avvia simulazione" — faceva `window.__veritasSimStarted = true` e chiudeva
+l'overlay. Faceva due mestieri: *aprire lo spazio di lavoro* e *avviare*.
+
+Da li' discendeva tutto: `veritasAutoPauseBundleTimeline` esce subito se la
+simulazione risulta avviata, quindi la barra di riproduzione del bundle non
+veniva piu' messa in pausa; e `veritasSetPassengersVisible(true)` teneva
+visibili gli agenti. Camminavano sui **sei nodi cablati nel bundle** (§14.0),
+di un aeroporto che non e' quello dell'utente, prima ancora di caricare un
+modello.
+
+Il cancello giusto esisteva gia' ed era scavalcato: `veritasShowPlayReady()`,
+che aspetta `window.__veritasModelRoot && currentNodes.length >= 2`.
+
+Ora: il bottone **apre soltanto** (etichetta cambiata in "Apri lo spazio di
+lavoro" / "Open the workspace"), `#vp-regen` continua a impostare lo stato
+(li' e' un'azione esplicita), e il comando `avvia` della chat preme
+`veritas-play-ready-btn` invece di `vs-start-btn`.
+
+### 16.1 Il modello di Raffaella, misurato
+
+Aperto e misurato `airport_foot_traffic.glb` invece di ipotizzare. 4.643 nodi,
+2.416 mesh, 89 materiali, ingombro nativo 19,8 x 2,1 x 10,4 (a scala 6x:
+~119 x 12,7 x 62 m).
+
+**I nomi non aiutano:** `part.*` (3.260 nodi) e `cube.*` (484). Nessun nodo
+contiene "parcheggio", "terminal", "floor". Riconoscere per nome, li', e'
+impossibile.
+
+Superficie rivolta verso l'alto (il filtro `ny >= 0.75`), per fascia di quota:
+
+```
+piazzale   -2,1 / -1,8 m    6.038 m2   64,5%
+terminal    0,3 /  0,6 m    1.763 m2   18,8%
+il resto (ali, arredi, teste)  ~16%
+```
+
+**Il piazzale e' 3,4 volte il pavimento del terminal.** `floorOfBand` sceglie
+la fascia piu' popolata come "il piano": sceglieva il piazzale. Da li' i
+cartelli in mezzo alle piste e gli agenti attorno all'aereo.
+
+⚠️ **Errore mio, corretto strada facendo, da non ripetere.** La prima misura
+diceva "l'aereo e' il 24% delle superfici pavimento". Falso: avevo classificato
+per nome, e in Blender **`Plane` e' il nome del piano di terra**, non
+dell'aereo. `Plane_0` e' una superficie piatta da 1.433 m2 a quota -2,02: e' il
+piazzale. Su questo file i nomi ingannano anche chi li legge con attenzione.
+
+### 16.2 Dentro o fuori: due strade scartate misurando
+
+1. **«Ho un tetto sopra la testa?»** — il 71% delle celle di pavimento ha il
+   cielo sopra, e dove qualcosa c'e' l'altezza libera **mediana e' 1,07 m**:
+   ali, arredi e teste, non un tetto. Quel modello il tetto non ce l'ha, come
+   tanti modelli architettonici.
+2. **«Riempio d'acqua dal bordo, dove non arriva e' dentro»** — implementato e
+   provato: **100% allagato**. Da una porta aperta l'acqua entra. Un interno e'
+   connesso all'esterno per definizione, altrimenti nessuno ci entrerebbe.
+   (Scoperto anche che il bordo della griglia non e' un punto di partenza
+   valido: la griglia ha un margine di celle non campionate, e "vuoto" e
+   "muro" si scrivono allo stesso modo — il riempimento non partiva affatto.)
+
+**Quella che regge:** `apertura(mappa, x, z)` in `veritas_navigazione.js`. Da
+un punto si guarda in 32 direzioni e si conta quante portano fuori dal modello.
+In una sala e' 0-3% (il raggio che passa dalla porta), su un piazzale 91%.
+`eFuori()` ha due soglie con una **fascia grigia in mezzo**: sotto il 10%
+dentro, sopra il 30% fuori, in mezzo `null` — "non lo so", che sulla soglia di
+una porta e' la risposta onesta.
+
+⚠️ **Il pezzo che fa funzionare tutto:** `marcaOstacoli` ora tiene una maschera
+`muroLetto` — quali celle sono muro **letto dalla geometria**, distinte da
+quelle semplicemente non campionate. Senza quella distinzione **una stanza sola
+scansionata risulta aperta al 100%**: fuori non c'e' niente perche' non e'
+stato modellato, non perche' sia campo aperto. E' il caso di ogni museo
+rilevato da solo, cioe' la maggioranza dei modelli.
+
+### 16.3 Le superfici appoggiate non sono pavimento
+
+Regola nuova in `extractNavigablePoints`, dopo il filtro "fuori scala": una
+mesh e' un **oggetto appoggiato** se sta almeno 50 cm sopra un'altra, quella
+sotto e' almeno **6 volte** piu' estesa in pianta, e le sta sopra per almeno
+il 60%. Un mezzanino vero non passa il secondo punto: e' una frazione
+importante del piano che lo ospita, non un sesto.
+
+Misurato sul modello vero: **1.828 mesh scartate, 1.084 m2 d'impronta**, in
+26 ms. Sono i piani dei chioschi, i monitor e le spalle delle centinaia di
+figure umane gia' ferme nel modello. Rete di sicurezza: se togliesse piu' di
+meta' dei punti non si applica e lo dichiara.
+
+⚠️ Questa regola **non toglie l'aereo**: i suoi pezzi hanno bounding box che
+arrivano fino a terra, quindi non sono "ben sopra" nulla. A togliere l'aereo
+dal percorso e' la separazione dentro/fuori, che lo lascia sul piazzale.
+
+### 16.4 Come finisce nelle zone
+
+In `assegnaZoneMisurate`, dopo l'ordinamento di flusso:
+
+- ogni zona viene classificata `fuori: true | false | null` (azzerata prima,
+  per non ereditare la risposta di un'analisi precedente);
+- se c'e' almeno una zona fuori **e** almeno due dentro **e** l'interno vale
+  almeno il 15% dell'area totale, la **catena del percorso si costruisce sulle
+  zone interne**;
+- fra quelle esterne se ne tiene **una**: la piu' vicina all'edificio, che
+  diventa `spawn` con il nome del posto (`voc.arrivo`: Parcheggio / Piazzale
+  d'ingresso / Punto di ritrovo / Arrivo). Le altre restano misurate e
+  dichiarate in console, ma non sono tappe;
+- con l'arrivo fuori, la prima zona **interna** e' `checkin`, e non ce n'e' una
+  seconda.
+
+⚠️ **La guardia del 15% e' importante.** Se quasi tutto risultasse "aperto" —
+un parco, o una lettura dei muri andata male — si finirebbe a far camminare la
+gente fra due sole zone buttandone via dieci. In quel caso non si tocca niente
+e vale il comportamento di prima. Stessa cosa quando `eFuori` risponde `null`.
+
+### 16.5 I numeri e le prove
+
+```
+mappa di cammino sul terminal (100.711 punti)     181 ms
+lettura muri + persone + chioschi                  57 ms  -> 6,1% chiuso
+                                       (la rete di sicurezza scatta oltre il 35%)
+regola delle superfici appoggiate (2.142 mesh)     26 ms  -> 1.084 m2 tolti
+```
+
+```bash
+node veritas_play.test.mjs         # il cancello del play, con un DOM finto
+node veritas_dentrofuori.test.mjs  # circondato o campo aperto, e i casi limite
+node veritas_zone.test.mjs         # + parcheggio come partenza, guardia del 15%
+```
+
+`veritas_play.test.mjs` estrae `veritasShowPlayReady` e il ciclo di controllo
+da `index.html` e li esegue su un DOM minimo, piu' una guardia sul sorgente
+del gestore del bottone: e' quella riga che aveva causato il difetto, e se
+qualcuno la rimette la prova lo dice subito.
+
+### 16.6 Cosa resta, e la mossa successiva
+
+La separazione dentro/fuori e' **geometrica**: sa che sei circondato da muri,
+non che quello e' un parcheggio. Con due aree all'aperto sceglie la piu' vicina
+all'edificio, ed e' un'ipotesi ragionevole, non una lettura.
+
+Il pezzo che *guarda* esiste gia': `veritas_vista.js` renderizza una pianta
+ortografica da poco sopra il pavimento, e i pixel non dipendono da come il
+modello e' stato costruito. Leggerla vorrebbe dire distinguere gli stalli
+dipinti di un parcheggio dalle linee gialle di un piazzale. **Adesso ha senso**,
+perche' la geometria ha separato i pezzi: prima si sarebbero dati nomi giusti a
+pezzi sbagliati.

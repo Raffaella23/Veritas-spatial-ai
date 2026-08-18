@@ -225,12 +225,19 @@ export function marcaOstacoli(m, punti, motore, opts = {}) {
   if (!libereePrima) return esito;
 
   const libera = m.libera.slice();
+  // Quali celle sono muro LETTO dal modello, distinte da quelle semplicemente
+  // non campionate. Sembra un dettaglio contabile e non lo e': serve a
+  // `apertura` per distinguere «il mio sguardo ha incontrato una parete» da
+  // «il mio sguardo e' uscito dai dati». Senza questa distinzione una stanza
+  // singola scansionata risulta tutta all'aperto (misurato: 100%).
+  const muroLetto = m.muroLetto ? m.muroLetto.slice() : new Uint8Array(m.libera.length);
   let chiuse = 0;
   for (const p of punti) {
     const x = p[0], z = p.length > 2 ? p[2] : p[1];
     const cx = Math.floor((x - m.minX) / m.cellSize), cz = Math.floor((z - m.minZ) / m.cellSize);
     if (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) continue;
     const i = cz * m.w + cx;
+    muroLetto[i] = 1;
     if (libera[i]) { libera[i] = 0; chiuse++; }
   }
   if (!chiuse) return esito;
@@ -246,8 +253,109 @@ export function marcaOstacoli(m, punti, motore, opts = {}) {
 
   const ft = motore.distanceTransform({ w: m.w, h: m.h, free: libera, cellSize: m.cellSize });
   esito.applicata = true;
-  esito.mappa = { ...m, libera, distanza: ft.dist, muroMinimoVisibileM: 0, muriDalModello: true };
+  esito.mappa = { ...m, libera, distanza: ft.dist, muroLetto,
+                  muroMinimoVisibileM: 0, muriDalModello: true };
   return esito;
+}
+
+/**
+ * Sono dentro un edificio o all'aperto?
+ *
+ * PERCHÉ SERVE. Misurato il 18/08/2026 sul modello di Raffaella: il piazzale
+ * vale **6.038 m² di "pavimento" contro i 1.763 m² del terminal** — il 64%
+ * contro il 19%. Il programma sceglie come piano dell'edificio la fascia di
+ * quota più popolata, e sceglie il piazzale. Da lì i cartelli in mezzo alle
+ * piste e gli agenti attorno all'aereo. Nessuno aveva mai chiesto *dove
+ * finisce l'edificio*.
+ *
+ * DUE STRADE SCARTATE, E PERCHÉ.
+ *
+ * 1. «Ho un tetto sopra la testa?» — misurato su quel modello: il 71% del
+ *    pavimento ha il cielo sopra, e dove c'è copertura l'altezza libera
+ *    mediana è **1,07 m**, cioè ali, arredi e teste. Quel modello il tetto non
+ *    ce l'ha, come tanti modelli architettonici.
+ *
+ * 2. «Riempio d'acqua dal bordo: dove non arriva è dentro» — sembra ovvio, e
+ *    non funziona: **da una porta aperta l'acqua entra e allaga l'edificio.**
+ *    Un interno è connesso all'esterno per definizione, altrimenti nessuno ci
+ *    entrerebbe. Provato e misurato: 100% allagato.
+ *
+ * LA DOMANDA GIUSTA è quella che si fa una persona alzando gli occhi: *sono
+ * circondato, o vedo campo aperto?* Si guarda in tutte le direzioni e si conta
+ * quante portano fuori dal modello senza incontrare niente. In una sala sono
+ * zero: i muri chiudono da ogni parte. Su un piazzale sono quasi tutte.
+ *
+ * ⚠️ Un muro non basta a fermare lo sguardo: oltre il muro perimetrale c'è il
+ * piazzale, e oltre il piazzale il nulla. Per questo un raggio che incontra
+ * qualcosa continua, e conta come "bloccato" solo se **dopo l'ostacolo trova
+ * ancora pavimento** — cioè se quell'ostacolo separava due spazi, come fa un
+ * muro. Se invece dopo l'ostacolo non c'è più niente fino al bordo, quello era
+ * il confine del modello, e lo sguardo è uscito.
+ *
+ * @returns {{frazioneAperta:number, raggiLiberi:number, raggi:number,
+ *            distanzaMinimaM:number, daMuriLetti:boolean}}
+ */
+export function apertura(m, x, z, opts = {}) {
+  const nRaggi = opts.raggi || 32;
+  const esito = { frazioneAperta: 0, raggiLiberi: 0, raggi: nRaggi, distanzaMinimaM: Infinity };
+  if (!m || !m.libera) return esito;
+
+  const passo = m.cellSize * 0.5;
+  const portata = Math.hypot(m.w, m.h) * m.cellSize;   // la diagonale: oltre non c'è griglia
+  const muri = m.muroLetto || null;   // quando i muri sono stati letti dal modello
+  let liberi = 0;
+
+  for (let r = 0; r < nRaggi; r++) {
+    const ang = (r / nRaggi) * Math.PI * 2;
+    const dx = Math.cos(ang) * passo, dz = Math.sin(ang) * passo;
+    let px = x, pz = z, fuoriGriglia = false, incontrato = false, distIncontro = 0;
+
+    for (let s = 0; s * passo <= portata; s++) {
+      px += dx; pz += dz;
+      const cx = Math.floor((px - m.minX) / m.cellSize), cz = Math.floor((pz - m.minZ) / m.cellSize);
+      if (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) { fuoriGriglia = true; break; }
+      const i = cz * m.w + cx;
+      if (muri) {
+        // Con i muri letti dal modello la domanda e' netta: ho incontrato una
+        // PARETE, o sono semplicemente uscito dai dati? Sono due cose diverse,
+        // e confonderle fa sembrare un piazzale una stanza singola scansionata.
+        if (muri[i]) { incontrato = true; distIncontro = s * passo; break; }
+        continue;
+      }
+      const libera = !!m.libera[i];
+      if (!incontrato && !libera) { incontrato = true; distIncontro = s * passo; }
+      else if (incontrato && libera) { break; }   // c'era pavimento oltre: era un muro
+    }
+    // Lo sguardo è uscito se non ha mai incontrato niente, oppure se dopo aver
+    // incontrato qualcosa non ha più trovato pavimento fino al bordo.
+    if (!incontrato || fuoriGriglia) {
+      liberi++;
+    } else if (distIncontro < esito.distanzaMinimaM) {
+      esito.distanzaMinimaM = distIncontro;
+    }
+  }
+  esito.raggiLiberi = liberi;
+  esito.daMuriLetti = !!muri;
+  esito.frazioneAperta = +(liberi / nRaggi).toFixed(3);
+  if (!isFinite(esito.distanzaMinimaM)) esito.distanzaMinimaM = 0;
+  return esito;
+}
+
+/**
+ * Il punto (x, z) sta fuori dall'edificio?
+ *
+ * `null` vuol dire **non lo so**, e va trattato come tale: la soglia lascia
+ * apposta una fascia grigia (una tettoia, un portico, un atrio vetrato aperto
+ * su un lato stanno davvero in mezzo). Meglio dire "non lo so" che spostare le
+ * zone con la sicurezza di una misura che non c'è.
+ */
+export function eFuori(m, x, z, opts = {}) {
+  const dentroMax = opts.dentroMax != null ? opts.dentroMax : 0.10;
+  const fuoriMin = opts.fuoriMin != null ? opts.fuoriMin : 0.30;
+  const a = apertura(m, x, z, opts);
+  if (a.frazioneAperta >= fuoriMin) return true;
+  if (a.frazioneAperta <= dentroMax) return false;
+  return null;
 }
 
 /* ========================================================================== *
@@ -520,7 +628,7 @@ export function trovaPercorso(m, da, a, opts = {}) {
 }
 
 export default {
-  NAVIGAZIONE_DEFAULTS, creaMappa, creaMappaDaNuvola, marcaOstacoli, cellaDa,
-  centroCella, calpestabile, segmentoLibero, agganciaCella, tiraLaCorda,
-  trovaPercorso,
+  NAVIGAZIONE_DEFAULTS, creaMappa, creaMappaDaNuvola, marcaOstacoli,
+  apertura, eFuori, cellaDa, centroCella, calpestabile,
+  segmentoLibero, agganciaCella, tiraLaCorda, trovaPercorso,
 };

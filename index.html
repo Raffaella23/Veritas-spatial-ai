@@ -131,7 +131,7 @@
       settings_subtitle: "Configura i parametri prima di avviare la simulazione",
       settings_scale_label: "Scala passeggeri",
       settings_agents_label: "Numero passeggeri",
-      settings_start_btn: "▶ Avvia simulazione",
+      settings_start_btn: "Apri lo spazio di lavoro",
       settings_speed_label: "Velocità di lettura", settings_speed_hint: "1.0x = passo realistico. Valori più bassi rallentano tutto per renderlo più leggibile in una presentazione.",
       settings_opensky_btn: "🛰 Stima da traffico aereo reale (Fiumicino)",
       settings_opensky_hint: "Stima approssimativa basata sui voli in arrivo a Fiumicino (dati OpenSky Network, aggiornati a batch — non in tempo reale, non sono dati ufficiali sui passeggeri). Richiede un client OpenSky gratuito.",
@@ -217,7 +217,7 @@
       settings_subtitle: "Configure the parameters before starting the simulation",
       settings_scale_label: "Passenger scale",
       settings_agents_label: "Number of passengers",
-      settings_start_btn: "▶ Start simulation",
+      settings_start_btn: "Open the workspace",
       settings_speed_label: "Playback speed", settings_speed_hint: "1.0x = realistic pace. Lower values slow everything down for a more readable presentation.",
       settings_opensky_btn: "🛰 Estimate from real air traffic (Fiumicino)",
       settings_opensky_hint: "Rough estimate based on flights arriving at Fiumicino (OpenSky Network data, batch-updated — not real-time, not official passenger figures). Requires a free OpenSky client.",
@@ -552,17 +552,21 @@
       window.__veritasPassengerScale = parseFloat(scaleInput.value);
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
       window.__veritasSpeedMultiplier = parseFloat(speedInput.value);
-      // Questo bottone si chiama "Avvia simulazione": deve dichiarare che la
-      // simulazione e' partita. Non lo faceva, e lo stato restava falso anche
-      // dopo che l'utente aveva avviato.
+      // ⚠️ Questo bottone NON avvia la simulazione, e non deve.
       //
-      // Conseguenza osservata: applyNodesToScene chiama
-      // veritasSetPassengersVisible(!!__veritasSimStarted), quindi al
-      // caricamento di un modello i passeggeri venivano NASCOSTI e non
-      // tornavano piu'. Senza caricare nulla invece non si passava di li' e i
-      // passeggeri restavano visibili: da qui la differenza fra "premo play
-      // senza modello e li vedo" e "carico il modello e spariscono".
-      window.__veritasSimStarted = true;
+      // Faceva due mestieri: apriva lo spazio di lavoro E dichiarava avviata
+      // la simulazione. Ma qui un modello non e' ancora stato caricato: le
+      // uniche zone che esistono sono i sei punti cablati nel bundle (§14.0),
+      // di un aeroporto che non e' quello dell'utente. Dichiarando avviato:
+      //   - la barra di riproduzione del bundle non veniva piu' messa in pausa
+      //     (veritasAutoPauseBundleTimeline esce subito se e' avviata);
+      //   - i passeggeri restavano visibili e camminavano su quelle sei tappe.
+      // Da qui "la simulazione parte da sola, prima ancora di caricare il
+      // modello", segnalato il 18/08.
+      //
+      // Ora si parte da un posto solo: il bottone ▶ PLAY di
+      // veritasShowPlayReady(), che compare quando c'e' un modello vero e le
+      // sue zone sono state assegnate. Un bottone che dice "apri" apre.
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
@@ -2362,6 +2366,63 @@
                   "(erano superfici a se' e ci si posavano sopra le zone)");
     }
 
+    // Le superfici APPOGGIATE non sono pavimento.
+    //
+    // ⚠️ Misurato il 18/08/2026 sul modello di Raffaella (un terminal con un
+    // aereo parcheggiato, 4.643 nodi): il 24,2% di tutto cio' che il filtro
+    // "rivolto verso l'alto" raccoglie appartiene all'AEREO — ali, flap,
+    // alettoni, timone. Sono piatte e guardano in su, quindi passavano per
+    // pavimento, e a scala reale l'ala da sola vale centinaia di metri
+    // quadrati: troppo perche' il filtro a bande di quota la scartasse come
+    // "banda minoritaria". Da li' i cartelli e gli agenti sull'ala.
+    //
+    // Lo stesso vale per i piani dei chioschi, i monitor e le SPALLE delle
+    // centinaia di figure umane gia' ferme dentro quel modello.
+    //
+    // La regola e' geometrica, non per nome (i nomi li' sono `part.001` e
+    // `cube.042`: non dicono niente). Una superficie e' appoggiata se:
+    //   1. sta BEN SOPRA un'altra (non pochi centimetri: quella e' vernice,
+    //      e la gestisce il blocco qui sopra);
+    //   2. sotto ha una superficie MOLTO piu' estesa;
+    //   3. le sta sopra in pianta.
+    // Un mezzanino vero non passa il punto 2: e' una frazione importante del
+    // piano che lo ospita, non un sesto. E' cosi' che il supporto multipiano
+    // resta intatto.
+    const APPOGGIO_STACCO_MIN = 0.5;   // m sopra l'ospite: oltre la vernice
+    const APPOGGIO_RAPPORTO = 6;       // l'ospite dev'essere 6 volte piu' esteso
+    const APPOGGIO_SOPRA = 0.6;        // quanta parte di se' ha sotto l'ospite
+    const appoggiate = new Set();
+    for (const m of filtered) {
+      for (const o of filtered) {
+        if (o === m || appoggiate.has(o)) continue;
+        if (o.footprint < m.footprint * APPOGGIO_RAPPORTO) continue;
+        if (m.yMin - o.yMax < APPOGGIO_STACCO_MIN) continue;
+        if (overlapRatio(m.box, o.box) < APPOGGIO_SOPRA) continue;
+        appoggiate.add(m);
+        break;
+      }
+    }
+    if (appoggiate.size) {
+      const restanti = filtered.filter((m) => !appoggiate.has(m));
+      let puntiPrima = 0, puntiDopo = 0, areaTolta = 0;
+      for (const m of filtered) puntiPrima += m.pts.length;
+      for (const m of restanti) puntiDopo += m.pts.length;
+      for (const m of appoggiate) areaTolta += m.footprint;
+      // Rete di sicurezza, come per la lettura dei muri: se questa regola
+      // toglie piu' di meta' del pavimento non sta riconoscendo oggetti
+      // appoggiati — sta leggendo male l'edificio, e non le si crede.
+      if (puntiDopo >= puntiPrima * 0.5) {
+        filtered = restanti;
+        console.log("[VERITAS quota] " + appoggiate.size + " superfici APPOGGIATE scartate ("
+          + areaTolta.toFixed(0) + " m2 d'impronta): stanno sopra un piano molto piu' esteso,"
+          + " quindi sono oggetti (ali, arredi, figure), non pavimento.");
+      } else {
+        console.warn("[VERITAS quota] regola delle superfici appoggiate NON applicata:"
+          + " avrebbe tolto il " + (100 - puntiDopo / puntiPrima * 100).toFixed(0)
+          + "% dei punti, troppo per essere solo oggetti.");
+      }
+    }
+
     let points = [];
     for (const m of filtered) points = points.concat(m.pts);
     // Scarta le bande di quota minoritarie: cime di muri, pilastri, banchi,
@@ -2626,15 +2687,22 @@
   // in una ventina di punti. Cambiarlo sarebbe un refactor, non una correzione.
   const LESSICO_ZONE = {
     aeroporto: { spawn: "Ingresso", checkin: "Accettazione", security: "Controllo",
-                 lounge: "Lounge", gate: "Gate ", passaggio: "Passaggio " },
+                 lounge: "Lounge", gate: "Gate ", passaggio: "Passaggio ",
+                 // Le aree all'aperto: da qui arriva la gente, e finora non
+                 // avevano un nome perche' non si sapeva nemmeno che fossero
+                 // all'aperto.
+                 arrivo: "Parcheggio", esterno: "Area esterna " },
     museo:     { spawn: "Ingresso", checkin: "Biglietteria", security: "Controllo accessi",
-                 lounge: "Sala espositiva", gate: "Uscita ", passaggio: "Passaggio " },
+                 lounge: "Sala espositiva", gate: "Uscita ", passaggio: "Passaggio ",
+                 arrivo: "Piazzale d'ingresso", esterno: "Area esterna " },
     gaming:    { spawn: "Spawn", checkin: "Hub", security: "Varco",
-                 lounge: "Arena", gate: "Obiettivo ", passaggio: "Corridoio " },
+                 lounge: "Arena", gate: "Obiettivo ", passaggio: "Corridoio ",
+                 arrivo: "Punto di ritrovo", esterno: "Area esterna " },
     // Quando il tipo di progetto non e' dichiarato non si indovina: si usano
     // nomi che descrivono la FUNZIONE e valgono in qualunque edificio.
     generico:  { spawn: "Ingresso", checkin: "Accoglienza", security: "Filtro",
-                 lounge: "Area di sosta", gate: "Destinazione ", passaggio: "Passaggio " },
+                 lounge: "Area di sosta", gate: "Destinazione ", passaggio: "Passaggio ",
+                 arrivo: "Arrivo", esterno: "Area esterna " },
   };
 
   function assegnaZoneMisurate(zones, root, dominio) {
@@ -2683,6 +2751,38 @@
       if (!etichette.has(migliore)) etichette.set(migliore, { type: n.type, label: n.label });
     }
 
+    // 3-bis. DENTRO o FUORI.
+    //
+    // ⚠️ Misurato il 18/08/2026 sul modello di Raffaella: il piazzale vale
+    // 6.038 m2 di "pavimento" contro i 1.763 m2 del pavimento del terminal —
+    // il 64% contro il 19%. Il programma sceglieva come piano dell'edificio la
+    // fascia di quota piu' popolata, cioe' il piazzale, e ci posava sopra i
+    // cartelli: da li' le zone in mezzo alle piste, accanto all'aereo.
+    //
+    // La domanda "dove finisce l'edificio" non gliel'aveva mai posta nessuno.
+    // Ora gliela pone `apertura()`: da ogni zona si guarda in tutte le
+    // direzioni e si conta quante portano in campo aperto. In una sala sono
+    // zero, su un piazzale quasi tutte. Non si guarda in alto — su quel
+    // modello il 71% del pavimento ha il cielo sopra e il tetto non c'e'.
+    const nav = window.__veritasNavigazione;
+    let conFuori = 0, conDentro = 0, incerte = 0;
+    // Si azzera sempre: se una zona arrivasse gia' marcata da un'analisi
+    // precedente, quella risposta vecchia deciderebbe dove va l'ingresso di
+    // un modello nuovo, e nessuno se ne accorgerebbe.
+    for (const z of ordinate) z.fuori = null;
+    if (nav && typeof nav.eFuori === "function") {
+      for (const z of ordinate) {
+        let m = null;
+        try { m = veritasMappaCammino(z.pos[1]); } catch (e) { m = null; }
+        z.fuori = m ? nav.eFuori(m, z.pos[0], z.pos[2]) : null;
+        if (z.fuori === true) conFuori++;
+        else if (z.fuori === false) conDentro++;
+        else incerte++;
+      }
+      console.log("[VERITAS zone] dentro/fuori: " + conDentro + " dentro, " + conFuori
+        + " all'aperto" + (incerte ? ", " + incerte + " incerte (soglia o senza risposta)" : ""));
+    }
+
     // 4. I ruoli mancanti si deducono dalle MISURE quando ci sono, dalla
     //    posizione nel flusso quando mancano. Le zone gia' etichettate tengono
     //    il proprio, perche' un nome scritto da chi ha modellato lo spazio vale
@@ -2716,9 +2816,57 @@
     //
     // Prima e ultima restano ingresso e destinazione: le definisce il flusso.
     // Un corridoio non e' ne' un filtro ne' una sosta, e resta fuori.
-    const centrali = ordinate
-      .map((z, i) => i)
-      .filter((i) => i > 0 && i < ordinate.length - 1 && ordinate[i].role !== "corridoio");
+    // L'ARRIVO — da dove entra la gente.
+    //
+    // Le aree all'aperto non seguono la sequenza di un edificio: un piazzale
+    // non e' "l'accettazione perche' e' secondo". Quando si sa quali zone
+    // stanno fuori (§ dentro/fuori qui sopra), la catena del percorso si
+    // costruisce sulle zone INTERNE, e fra quelle esterne se ne tiene UNA: la
+    // piu' vicina all'edificio, che e' il parcheggio o il sagrato — il posto
+    // da cui si entra. Le altre (piste, piazzali di servizio) restano
+    // misurate e dichiarate, ma non sono tappe di un percorso a piedi:
+    // metterle nella catena vorrebbe dire far camminare i passeggeri sul
+    // piazzale accanto all'aereo, che e' esattamente il difetto segnalato.
+    const idxFuori = ordinate.map((z, i) => i).filter((i) => ordinate[i].fuori === true);
+    const idxDentro = ordinate.map((z, i) => i).filter((i) => ordinate[i].fuori === false);
+    // ⚠️ Guardia. Costruire il percorso sulle sole zone interne ha senso solo
+    // se un edificio c'e' davvero. Se quasi tutto risultasse "all'aperto" —
+    // perche' il modello e' un parco, o perche' la lettura dei muri e' andata
+    // male — si finirebbe a far camminare la gente fra due sole zone,
+    // buttandone via dieci. In quel caso non si tocca niente: meglio il
+    // comportamento di prima che un percorso costruito su una lettura debole.
+    const areaDi = (i) => ordinate[i].areaM2 || 0;
+    const areaDentro = idxDentro.reduce((s, i) => s + areaDi(i), 0);
+    const areaTotale = ordinate.reduce((s, z) => s + (z.areaM2 || 0), 0);
+    const usaDentroFuori = idxFuori.length > 0 && idxDentro.length >= 2
+      && (!areaTotale || areaDentro >= areaTotale * 0.15);
+    const escluseFuori = new Set();
+    let iArrivo = -1;
+    if (usaDentroFuori) {
+      let migliore = -1, minDist = Infinity;
+      for (const i of idxFuori) {
+        let d = Infinity;
+        for (const k of idxDentro) {
+          const dd = Math.hypot(ordinate[i].pos[0] - ordinate[k].pos[0],
+                                ordinate[i].pos[2] - ordinate[k].pos[2]);
+          if (dd < d) d = dd;
+        }
+        if (d < minDist) { minDist = d; migliore = i; }
+      }
+      iArrivo = migliore;
+      for (const i of idxFuori) if (i !== iArrivo) escluseFuori.add(i);
+    }
+    // La catena del percorso: le zone interne quando si sa distinguerle,
+    // tutte quante quando non lo si sa (nessuna regressione sui modelli di
+    // soli interni, che sono la maggioranza).
+    const catena = usaDentroFuori ? idxDentro : ordinate.map((z, i) => i);
+    const primo = catena[0], ultimo = catena[catena.length - 1];
+
+    // Le zone di mezzo: quelle della catena, escluse la prima e l'ultima (che
+    // sono ingresso e destinazione per definizione del flusso) e i corridoi
+    // (un corridoio non e' ne' un filtro ne' una sosta).
+    const centrali = catena.filter((i) => i !== primo && i !== ultimo
+                                       && ordinate[i].role !== "corridoio");
     const conMisura = centrali.filter((i) => ordinate[i].widthMinor > 0);
 
     // IL FILTRO — dove lo spazio si stringe.
@@ -2758,15 +2906,26 @@
         iAccoglienza = centrali[0]; iSosta = -1;
       }
     }
+    // Quando l'arrivo e' fuori, chi accoglie e' la PRIMA zona interna: si entra
+    // dalla porta e ci si presenta li'. Una seconda accoglienza piu' avanti
+    // sarebbe un doppione, ed e' proprio il difetto corretto stamattina.
+    if (usaDentroFuori) iAccoglienza = -1;
 
     ordinate.forEach((z, i) => {
+      // Le aree all'aperto che non sono l'arrivo restano misurate ma non
+      // diventano tappe: sono piste e piazzali di servizio, non posti dove
+      // cammina un passeggero.
+      if (escluseFuori.has(i)) return;
       const dato = etichette.get(i);
       let type, label;
       if (dato) {
         type = dato.type; label = dato.label;
       } else {
-        if (i === 0) type = "spawn";
-        else if (i === ordinate.length - 1) type = "gate";
+        if (i === iArrivo) type = "spawn";
+        // Con l'arrivo all'aperto, la prima zona interna e' dove ci si
+        // presenta; senza, e' lei stessa l'ingresso.
+        else if (i === primo) type = usaDentroFuori ? "checkin" : "spawn";
+        else if (i === ultimo) type = "gate";
         else if (i === iFiltro) type = "security";
         else if (i === iAccoglienza) type = "checkin";
         else if (i === iSosta) type = "lounge";
@@ -2776,7 +2935,9 @@
         // sull'edificio e non una misura.
         else type = seq[Math.min(i, seq.length - 2)] || "lounge";
 
-        if (type === "lounge") {
+        if (i === iArrivo) {
+          label = voc.arrivo || voc.spawn;
+        } else if (type === "lounge") {
           // La sala principale ha un nome proprio; le altre sono numerate
           // lungo il FLUSSO, cioe' nell'ordine in cui si attraversano.
           // "Sala espositiva 1, 2, 3" si legge e si ritrova sullo schermo:
@@ -2792,7 +2953,7 @@
         // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
         // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
         // della sequenza e' il modo di far sostare gli agenti in un corridoio.
-        if (z.role === "corridoio" && type !== "spawn" && type !== "gate") {
+        if (z.role === "corridoio" && type !== "spawn" && type !== "gate" && i !== iArrivo) {
           if (type === "lounge" && i !== iSosta) nSosta--;
           type = "lounge"; nPassaggio++; label = voc.passaggio + nPassaggio;
         }
@@ -2824,6 +2985,15 @@
       const q = visti.get(base) + 1;
       visti.set(base, q);
       n.label = base + " " + q;
+    }
+
+    if (escluseFuori.size) {
+      // Dichiarate, non sparite in silenzio: restano nelle misure e nel
+      // referto, semplicemente non sono tappe di un percorso a piedi.
+      console.log("[VERITAS zone] " + escluseFuori.size + " area/e all'aperto tenute fuori dal"
+        + " percorso (piste, piazzali di servizio). L'arrivo e': "
+        + (iArrivo >= 0 && nodi.length ? (nodi.find((n) => n.id === "zona_" + iArrivo) || {}).label : "—")
+        + ", l'area all'aperto piu' vicina all'edificio.");
     }
 
     const conNome = etichette.size;
@@ -11492,7 +11662,11 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     }
     if (/\b(avvia|avviare|parti|play|start)\b/.test(t)) {
       log("assistant", S.starting_sim);
-      if (!clickIfExists("vs-start-btn")) { if (!clickIfExists("veritas-play-ready-btn")) { if (!clickIfExists("vp-regen")) log("system", S.no_model); } }
+      // Nell'ordine giusto: prima il PLAY vero (c'e' solo a modello caricato),
+      // poi "rigenera". `vs-start-btn` apre soltanto lo spazio di lavoro e non
+      // avvia niente: chiedere "avvia" e vedersi aprire un pannello sarebbe
+      // una risposta che non risponde.
+      if (!clickIfExists("veritas-play-ready-btn")) { if (!clickIfExists("vp-regen")) log("system", S.no_model); }
       return;
     }
     if (/\b(rigenera|regenerate|aggiorna simulazione)\b/.test(t)) {

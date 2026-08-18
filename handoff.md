@@ -2,7 +2,7 @@
 
 > Aggiornato il **18/08/2026**, a fine sessione.
 > Questo file dice **su cosa si lavora adesso**. La storia lunga sta in
-> `CLAUDE.md`; il dettaglio tecnico dell'ultima sessione nella sua **§15**.
+> `CLAUDE.md`; il dettaglio tecnico dell'ultima sessione nelle sue **§15 e §16**.
 >
 > ⚠️ Il vecchio contenuto di questo file (cartelle `/core/`, `/data/`,
 > `visualizzatore.html`, `main.py` come avvio) era **superato da mesi**: quei
@@ -59,8 +59,8 @@ inserimento: **riparsali, e individua i blocchi per contenuto, mai per numero.**
 
 ## 4. Cosa è stato fatto il 18/08 (da verificare a occhio)
 
-Due difetti segnalati da Raffaella guardando l'anteprima. Tutti e due chiusi,
-tutti e due misurati prima e dopo.
+Quattro difetti segnalati da Raffaella guardando l'anteprima, in due giri.
+Tutti misurati prima e dopo.
 
 ### I nomi delle zone
 
@@ -94,6 +94,60 @@ della distanza fra un punto campionato e l'altro — su un edificio grande,
 circa **un metro**. Ora un tramezzo da **dieci centimetri** viene visto,
 perché nel modello è una parete e la si legge come tale.
 
+### La simulazione partiva da sola
+
+Il bottone del pannello iniziale si chiamava "Avvia simulazione" e faceva due
+mestieri: apriva lo spazio di lavoro **e** dichiarava avviata la simulazione —
+quando l'unica cosa caricata erano i sei punti finti dentro il bundle, di un
+aeroporto che non è il tuo.
+
+Adesso quel bottone **apre soltanto** (e si chiama così). Si parte da un posto
+solo: il **▶ PLAY**, che compare quando c'è un modello vero e le sue zone sono
+state assegnate. Prima di allora niente si muove e i passeggeri restano
+invisibili.
+
+### Il parcheggio, e le zone sul piazzale
+
+Ho aperto il tuo modello e l'ho misurato. Il piazzale vale **6.038 m² di
+"pavimento" contro i 1.763 m² del pavimento del terminal** — il 64% contro il
+19%. Il programma sceglieva come piano dell'edificio la fascia di quota più
+popolata: sceglieva il piazzale, e ci posava sopra i cartelli. Ecco perché
+finivano accanto all'aereo.
+
+Nessuno gli aveva mai chiesto **dove finisce l'edificio**. Ho provato due
+strade e le ho scartate misurando:
+
+- *«ho un tetto sopra la testa?»* — nel tuo modello il 71% del pavimento ha il
+  cielo sopra, e dove c'è qualcosa l'altezza libera mediana è 1,07 m: sono ali,
+  arredi e teste. Il tetto non c'è.
+- *«riempio d'acqua dal bordo, dove non arriva è dentro»* — da una porta aperta
+  l'acqua entra e allaga l'edificio. Misurato: 100%.
+
+Quella che regge è la domanda che ti fai tu guardandoti intorno: **sono
+circondato, o vedo campo aperto?** Da ogni zona si guarda in tutte le
+direzioni e si conta quante portano fuori. In una sala sono zero, su un
+piazzale quasi tutte.
+
+Da lì: **il parcheggio è la partenza** (la gente scende dall'auto ed entra), le
+piste e i piazzali di servizio restano misurati e nominati ma non sono tappe di
+un percorso a piedi, e le zone del percorso stanno dentro l'edificio.
+
+⚠️ Se questa lettura non è netta il programma **non la usa** e si comporta come
+prima: meglio il comportamento di ieri che un percorso costruito su una lettura
+debole.
+
+### Ali, chioschi e teste non sono pavimento
+
+Nel tuo modello ci sono un aereo intero, 80 chioschi, 80 monitor e centinaia di
+figure umane già ferme. Le loro superfici piatte guardano in su, quindi il
+programma le prendeva per pavimento. Ora una superficie che sta **sopra
+un'altra molto più grande** è un oggetto, non un piano: misurato sul tuo file,
+**1.084 m² di finto pavimento tolti**.
+
+E come avevi scelto, persone ferme e aereo restano **ostacoli da aggirare**:
+occupano il 6,1% dello spazio calpestabile, ben sotto la soglia oltre la quale
+il programma smetterebbe di crederci.
+
 **Il prossimo passo è il tuo occhio su un modello vero.** Le prove automatiche
 contano e misurano; non guardano lo schermo.
 
@@ -114,7 +168,21 @@ corretto il 13/08, ed è il difetto peggiore che questo strumento possa
 produrre, perché il report si vende. **Vanno azzerati o dichiarati non
 disponibili, non lasciati lì.** Deciso a fine sessione 17/08, non ancora fatto.
 
-### 2) Le porte modellate chiuse
+### 2) Gli occhi veri: leggere la pianta, non solo misurarla
+
+La separazione dentro/fuori è **geometrica**: capisce che sei circondato da
+muri, non che quello è un parcheggio. Con due aree all'aperto sceglie come
+partenza la più vicina all'edificio, ed è un'ipotesi ragionevole — non una
+lettura.
+
+Il pezzo che *guarda* esiste già (`veritas_vista.js`: renderizza una pianta
+ortografica da poco sopra il pavimento, e i pixel non dipendono da come il
+modello è stato costruito). Leggerla vorrebbe dire riconoscere gli stalli
+dipinti di un parcheggio dalle linee gialle di un piazzale, e dare il nome
+giusto a ciascuno. È la mossa naturale adesso che la geometria ha separato i
+pezzi: prima non aveva senso, si sarebbero dati nomi giusti a pezzi sbagliati.
+
+### 3) Le porte modellate chiuse
 
 I muri ora si leggono dal modello. Una porta modellata come pannello pieno è,
 per il programma, un muro: gli agenti la aggirano invece di attraversarla. È il
@@ -123,24 +191,24 @@ modello dove tutte le porte sono disegnate chiuse può bloccare percorsi veri.
 Se succede, il programma lo dice in console (`[VERITAS cammino] nessuna
 strada…`). Da guardare al primo modello con le porte modellate.
 
-### 3) I pannelli KPI sotto i 1280 px
+### 4) I pannelli KPI sotto i 1280 px
 
 Sotto quella larghezza il bundle non usa più le colonne laterali ma mette i
 numeri in una riga in fondo, che i selettori attuali non intercettano: si
 sovrappongono ai comandi e li coprono.
 
-### 4) `main` ha ancora il frontend vecchio
+### 5) `main` ha ancora il frontend vecchio
 
 `index.html` su `main` è un rimando di 217 byte alla build vecchia. La
 promozione della build nuova **aspetta il via libera esplicito di Raffaella**.
 
-### 5) Doppio Three.js, e le gaussiane ferme
+### 6) Doppio Three.js, e le gaussiane ferme
 
 Il bundle porta la propria copia di Three (0.160), l'importmap ne carica
 un'altra (0.180). Aggirato, non risolto: la soluzione pulita è ricompilare il
 bundle. Da qui dipende anche il Gaussian Splat.
 
-### 6) Provare con una scansione vera
+### 7) Provare con una scansione vera
 
 Lo splat sintetico verifica l'impianto, non la qualità su dati rumorosi.
 Su una scansione a gaussiane non c'è geometria di muri da leggere: lì valgono
@@ -169,10 +237,12 @@ il setter. Chi tocca questa parte deve saperlo prima, non dopo.
 Prove veloci, senza browser, meno di un secondo:
 
 ```bash
-node veritas_zone.test.mjs         # nomi per dominio, ruoli dalle misure, nessun doppione
-node veritas_marker.test.mjs       # cartelli e figure degli agenti
+node veritas_zone.test.mjs         # nomi, ruoli dalle misure, parcheggio come partenza
+node veritas_play.test.mjs         # niente si muove finche non premi play
+node veritas_dentrofuori.test.mjs  # dentro o fuori: circondato o campo aperto?
 node veritas_navigazione.test.mjs  # muri, porte, strettoie: il modulo
 node veritas_muri.test.mjs         # che il programma lo USI davvero
+node veritas_marker.test.mjs       # cartelli e figure degli agenti
 for t in veritas_*.test.mjs; do node "$t" >/dev/null || echo "$t KO"; done
 ```
 

@@ -13,9 +13,31 @@ if (a < 0 || fine < 0) { console.error('Ancore non trovate.'); process.exit(2); 
 
 let meshNominate = [];
 const analyzeMesh = () => meshNominate;
-const assegna = new Function('analyzeMesh', 'console',
+
+// Dentro/fuori: la funzione lo chiede al modulo di navigazione, che qui non
+// c'e'. Di default non c'e' nessuna risposta — ed e' giusto: la stragrande
+// maggioranza dei modelli e' di soli interni, e il comportamento deve restare
+// quello di prima. Le prove che riguardano il fuori se lo montano da sole,
+// dichiarando `fuori` sulle zone.
+let navFinta = null;
+const finestra = { get __veritasNavigazione() { return navFinta; } };
+const veritasMappaCammino = () => ({ finta: true });
+const assegna = new Function('analyzeMesh', 'console', 'window', 'veritasMappaCammino',
   html.slice(a, fine) + '\n  return assegnaZoneMisurate;'
-)(analyzeMesh, { log(){} });
+)(analyzeMesh, { log(){}, warn(){} }, finestra, veritasMappaCammino);
+
+// Chi sta fuori, per posizione. Il modulo vero risponde guardandosi intorno;
+// qui si dichiara la risposta, perche' la prova riguarda COSA SE NE FA
+// l'assegnazione, non come la ottiene (quello lo prova veritas_dentrofuori).
+const FUORI = new Map();          // "x,z" -> true | false
+const conDentroFuori = () => {
+  navFinta = { eFuori: (m, x, z) => {
+    const v = FUORI.get(x + ',' + z);
+    return v === undefined ? null : v;
+  } };
+};
+const senzaDentroFuori = () => { navFinta = null; FUORI.clear(); };
+senzaDentroFuori();
 
 let ko = 0; const check = (n, ok, d='') => { console.log((ok?'  ok  ':' FAIL ')+n+(d?'   '+d:'')); if(!ok) ko++; };
 const zona = (x, z, area, role='area', dAir=null) =>
@@ -222,6 +244,91 @@ meshNominate = [];
 check('tre mesh chiamate "Gate" danno tre nomi distinti',
       new Set(treGate.map((n) => n.label)).size === treGate.length,
       treGate.map((n) => n.label).join(' / '));
+
+// ===========================================================================
+// DIFETTO 2: il parcheggio non veniva assegnato (18/08/2026).
+// ===========================================================================
+// Misurato sul modello di Raffaella: il piazzale vale 6.038 m2 di "pavimento"
+// contro i 1.763 m2 del terminal — il 64% contro il 19%. Le zone si formavano
+// li', e i cartelli finivano in mezzo alle piste accanto all'aereo. Adesso si
+// sa quali zone stanno all'aperto, e da quelle si tiene l'ARRIVO: il posto da
+// cui si entra.
+console.log('\nDIFETTO 2: il parcheggio e la partenza, le piste no');
+
+// Cinque zone: due all'aperto (parcheggio vicino all'edificio, pista lontana)
+// e tre dentro.
+const conEsterni = [
+  { pos: [0,  0, 0], areaM2: 900, widthMinor: 30, role: 'area', distFromAirside: 90 },  // parcheggio
+  { pos: [20, 0, 0], areaM2: 400, widthMinor: 18, role: 'area', distFromAirside: 70 },  // atrio
+  { pos: [30, 0, 0], areaM2: 120, widthMinor: 2.0, role: 'area', distFromAirside: 60 }, // varco
+  { pos: [40, 0, 0], areaM2: 600, widthMinor: 22, role: 'area', distFromAirside: 50 },  // sala
+  { pos: [60, 0, 0], areaM2: 300, widthMinor: 20, role: 'area', distFromAirside: 30 },  // gate
+  { pos: [95, 0, 0], areaM2: 4000, widthMinor: 60, role: 'area', distFromAirside: 5 },  // pista
+];
+conDentroFuori();
+FUORI.set('0,0', true);      // il parcheggio
+FUORI.set('95,0', true);     // la pista
+for (const x of [20, 30, 40, 60]) FUORI.set(x + ',0', false);
+meshNominate = [];
+const conParcheggio = assegna(conEsterni, {}, 'aeroporto');
+
+check('la pista NON diventa una tappa del percorso',
+      conParcheggio.length === 5, conParcheggio.length + ' nodi da 6 zone');
+check('il parcheggio e la PARTENZA',
+      conParcheggio[0].type === 'spawn' && /Parcheggio/.test(conParcheggio[0].label),
+      conParcheggio.map((n) => n.type + ':' + n.label).join(' / '));
+check('e non ci sono due partenze',
+      conParcheggio.filter((n) => n.type === 'spawn').length === 1);
+check('la prima zona interna e dove ci si presenta',
+      conParcheggio[1].type === 'checkin', conParcheggio[1].label);
+check('il varco stretto resta il controllo',
+      conParcheggio[2].type === 'security', conParcheggio[2].label);
+check('l ultima zona interna resta la destinazione',
+      conParcheggio[conParcheggio.length - 1].type === 'gate',
+      conParcheggio[conParcheggio.length - 1].label);
+check('nessun nome ripetuto',
+      new Set(conParcheggio.map((n) => n.label)).size === conParcheggio.length);
+
+// Il nome dell'arrivo segue il dominio, come tutto il resto.
+for (const [dom, atteso] of [['museo', /Piazzale/], ['gaming', /ritrovo/], ['generico', /Arrivo/]]) {
+  const n = assegna(conEsterni, {}, dom);
+  check(dom + ': l arrivo ha il nome del posto', atteso.test(n[0].label), n[0].label);
+}
+
+console.log('\nsenza aree all aperto non cambia niente (nessuna regressione)');
+// E' il caso della stragrande maggioranza dei modelli: soli interni.
+senzaDentroFuori();
+const soliInterni = assegna(conEsterni.slice(0, 5).map((z) => ({ ...z })), {}, 'aeroporto');
+check('la prima zona resta l ingresso', soliInterni[0].type === 'spawn', soliInterni[0].label);
+check('e tutte le zone restano tappe', soliInterni.length === 5);
+check('e si chiama Ingresso, non Parcheggio', soliInterni[0].label === 'Ingresso', soliInterni[0].label);
+
+console.log('\nse quasi tutto risulta all aperto, non si tocca niente');
+// La guardia: costruire il percorso su due sole zone perche' le altre dieci
+// sono state dichiarate "fuori" sarebbe peggio del difetto che si sta
+// correggendo. Qui l'interno vale il 3% dell'area: la lettura non si usa.
+conDentroFuori();
+FUORI.clear();
+const quasiTutto = [
+  { pos: [0, 0, 0],  areaM2: 5000, widthMinor: 60, role: 'area', distFromAirside: 90 },
+  { pos: [20, 0, 0], areaM2: 4000, widthMinor: 55, role: 'area', distFromAirside: 70 },
+  { pos: [40, 0, 0], areaM2: 150,  widthMinor: 10, role: 'area', distFromAirside: 50 },
+  { pos: [60, 0, 0], areaM2: 150,  widthMinor: 10, role: 'area', distFromAirside: 30 },
+];
+FUORI.set('0,0', true); FUORI.set('20,0', true);
+FUORI.set('40,0', false); FUORI.set('60,0', false);
+const tuttoAperto = assegna(quasiTutto, {}, 'aeroporto');
+check('nessuna zona viene tolta', tuttoAperto.length === 4, tuttoAperto.length + ' nodi');
+check('e la prima resta l ingresso, non il parcheggio',
+      tuttoAperto[0].type === 'spawn' && tuttoAperto[0].label === 'Ingresso', tuttoAperto[0].label);
+
+console.log('\nquando il dentro/fuori non sa rispondere, si tiene il comportamento di prima');
+conDentroFuori();
+FUORI.clear();                       // eFuori restituisce sempre null: "non lo so"
+const incerto = assegna(conEsterni, {}, 'aeroporto');
+check('nessuna zona viene tolta dal percorso', incerto.length === 6, incerto.length + ' nodi');
+check('e la prima resta l ingresso', incerto[0].type === 'spawn', incerto[0].label);
+senzaDentroFuori();
 
 console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
 process.exit(ko?1:0);
