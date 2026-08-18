@@ -1,8 +1,8 @@
 # VERITAS Spatial AI — punto della situazione
 
-> Aggiornato il **17/08/2026**, a fine sessione.
+> Aggiornato il **18/08/2026**, a fine sessione.
 > Questo file dice **su cosa si lavora adesso**. La storia lunga sta in
-> `CLAUDE.md`; il dettaglio tecnico dell'ultima sessione nella sua **§14**.
+> `CLAUDE.md`; il dettaglio tecnico dell'ultima sessione nella sua **§15**.
 >
 > ⚠️ Il vecchio contenuto di questo file (cartelle `/core/`, `/data/`,
 > `visualizzatore.html`, `main.py` come avvio) era **superato da mesi**: quei
@@ -46,32 +46,56 @@ rifinitura, è parte di ciò che vende.
 | Ramo | Cosa c'è | A cosa serve |
 |---|---|---|
 | `main` | **frontend vecchio** + i file Python | produzione e sorgente del deploy Render |
-| `veritas-ai-os-preview` | `index.html` completo, aggiornato al 17/08 | anteprima pubblica |
+| `veritas-ai-os-preview` | `index.html` completo, aggiornato al 18/08 | anteprima pubblica |
 | `claude/veritas-spatial-ai-resume-z0iuw9` | uguale alla preview | ramo di lavoro della sessione |
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
-⚠️ `index.html` ha **22 blocchi `<script>`**, non 9 né 20 come dicono le
-sezioni più vecchie di `CLAUDE.md`. Gli indici cambiano a ogni inserimento:
-**riparsali, e individua i blocchi per contenuto, mai per numero.**
+⚠️ `index.html` ha **23 blocchi `<script>`**, non 9 né 20 né 22 come dicono le
+sezioni più vecchie di `CLAUDE.md` e di questo file. Gli indici cambiano a ogni
+inserimento: **riparsali, e individua i blocchi per contenuto, mai per numero.**
 
 ---
 
-## 4. Cosa è stato fatto il 17/08 (da verificare a occhio)
+## 4. Cosa è stato fatto il 18/08 (da verificare a occhio)
 
-Tutte e tre le correzioni nascono dalla stessa causa: dentro il bundle c'è un
-**finto aeroporto di prova** con sei punti fissi, e il programma continuava a
-usare quelli invece delle stanze misurate nel modello caricato.
+Due difetti segnalati da Raffaella guardando l'anteprima. Tutti e due chiusi,
+tutti e due misurati prima e dopo.
 
-| Cosa si vedeva prima | Cosa si deve vedere adesso |
+### I nomi delle zone
+
+| Prima | Adesso |
 |---|---|
-| Scatole con scritto `LOUNGE` / `GATE A1` in mezzo al piazzale | Un cartello per ogni stanza vera, e nient'altro |
-| Chiedendo 50 persone se ne vedevano 28 | 50 persone quando ne chiedi 50 |
-| "Accettazione" e "Controllo" scritti sulle sale di un museo | I nomi del posto: museo, aeroporto o gioco |
+| Otto ambienti, **quattro chiamati tutti "Accettazione"** — in un museo, quattro "Biglietteria" | Otto ambienti, otto nomi diversi: *Ingresso · Biglietteria · Sala espositiva 1 · Sala espositiva 2 · Controllo accessi · Sala espositiva principale · Sala espositiva 3 · Uscita A* |
+| Una sala diventava "Controllo" per dieci centimetri di differenza dalle altre | Il controllo compare solo dove lo spazio si stringe **davvero**. In una fila di sale uguali non ce n'è, e va bene così |
+| Tre mesh chiamate "Gate" nel modello davano tre zone con lo stesso nome | Nessun nome ripetuto, mai, da qualunque parte venga |
 
-**Il prossimo passo è il feedback di Raffaella su questi tre punti**, guardando
-un modello vero. Le prove automatiche contano gli oggetti, non guardano lo
-schermo: se qualcosa non torna, lo dice solo il suo occhio.
+### I passeggeri nei muri
+
+Il controllo che doveva impedirlo chiedeva *«almeno il 70% del tratto ha del
+pavimento entro 2,5 metri?»*. Misurato: **un muro pieno spesso sei metri
+passava quel controllo.** Adesso la domanda è un'altra — *«ogni passo di questo
+tratto sta dove ci passa una persona?»* — e un solo passo fuori basta a dire no.
+
+Quando la strada dritta è chiusa non si improvvisa una deviazione: si cerca il
+percorso vero sulle celle calpestabili, come fa una persona che gira attorno a
+un muro per trovare la porta.
+
+Sullo stesso spazio di prova (due sale, un muro, una porta spostata di lato):
+
+| | il muro è visto? | quanto percorso passa **dentro** il muro |
+|---|---|---|
+| Prima | no | **6,3%** |
+| Adesso | sì | **0,0%** |
+
+E soprattutto: **i muri adesso si leggono dal modello**, non si indovinano dai
+buchi nel campionamento. Prima un tramezzo era visibile solo se più spesso
+della distanza fra un punto campionato e l'altro — su un edificio grande,
+circa **un metro**. Ora un tramezzo da **dieci centimetri** viene visto,
+perché nel modello è una parete e la si legge come tale.
+
+**Il prossimo passo è il tuo occhio su un modello vero.** Le prove automatiche
+contano e misurano; non guardano lo schermo.
 
 ---
 
@@ -90,27 +114,38 @@ corretto il 13/08, ed è il difetto peggiore che questo strumento possa
 produrre, perché il report si vende. **Vanno azzerati o dichiarati non
 disponibili, non lasciati lì.** Deciso a fine sessione 17/08, non ancora fatto.
 
-### 2) I pannelli KPI sotto i 1280 px
+### 2) Le porte modellate chiuse
+
+I muri ora si leggono dal modello. Una porta modellata come pannello pieno è,
+per il programma, un muro: gli agenti la aggirano invece di attraversarla. È il
+comportamento corretto — una porta chiusa si apre, non si attraversa — ma su un
+modello dove tutte le porte sono disegnate chiuse può bloccare percorsi veri.
+Se succede, il programma lo dice in console (`[VERITAS cammino] nessuna
+strada…`). Da guardare al primo modello con le porte modellate.
+
+### 3) I pannelli KPI sotto i 1280 px
 
 Sotto quella larghezza il bundle non usa più le colonne laterali ma mette i
 numeri in una riga in fondo, che i selettori attuali non intercettano: si
 sovrappongono ai comandi e li coprono.
 
-### 3) `main` ha ancora il frontend vecchio
+### 4) `main` ha ancora il frontend vecchio
 
 `index.html` su `main` è un rimando di 217 byte alla build vecchia. La
 promozione della build nuova **aspetta il via libera esplicito di Raffaella**.
 
-### 4) Doppio Three.js, e le gaussiane ferme
+### 5) Doppio Three.js, e le gaussiane ferme
 
 Il bundle porta la propria copia di Three (0.160), l'importmap ne carica
 un'altra (0.180). Aggirato, non risolto: la soluzione pulita è ricompilare il
 bundle. Da qui dipende anche il Gaussian Splat.
 
-### 5) Provare con una scansione vera
+### 6) Provare con una scansione vera
 
 Lo splat sintetico verifica l'impianto, non la qualità su dati rumorosi.
-Dalla sandbox non si scarica niente: passa solo git.
+Su una scansione a gaussiane non c'è geometria di muri da leggere: lì valgono
+solo i muri dedotti, con il limite dichiarato. Dalla sandbox non si scarica
+niente: passa solo git.
 
 ---
 
@@ -134,8 +169,10 @@ il setter. Chi tocca questa parte deve saperlo prima, non dopo.
 Prove veloci, senza browser, meno di un secondo:
 
 ```bash
-node veritas_zone.test.mjs      # 30 prove: nomi per dominio, ruoli dalle misure
-node veritas_marker.test.mjs    # 33 prove: cartelli e figure degli agenti
+node veritas_zone.test.mjs         # nomi per dominio, ruoli dalle misure, nessun doppione
+node veritas_marker.test.mjs       # cartelli e figure degli agenti
+node veritas_navigazione.test.mjs  # muri, porte, strettoie: il modulo
+node veritas_muri.test.mjs         # che il programma lo USI davvero
 for t in veritas_*.test.mjs; do node "$t" >/dev/null || echo "$t KO"; done
 ```
 

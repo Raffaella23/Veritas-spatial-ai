@@ -1065,3 +1065,185 @@ avrebbe svuotato la scena senza un errore. L'ha smontata la lettura delle
 **dipendenze dell'effetto** (`}, [W]);`), non un ragionamento sull'API.
 Vale la regola gia' scritta in §11.5: qui i difetti gravi sono silenziosi, e
 quello che "sembra funzionare" va verificato guardando il codice che lo esegue.
+
+---
+
+## 15. Stato reale — sessione 18 agosto 2026
+
+> **Dove questa sezione contraddice le precedenti, vale questa.**
+> Due difetti segnalati da Raffaella guardando l'anteprima, chiusi entrambi.
+> `index.html` ha ora **23 blocchi `<script>`**: individuali per contenuto,
+> mai per numero.
+
+### 15.0 Nomi delle zone: quattro stanze si chiamavano uguale
+
+Misurato prima di toccare niente, su otto ambienti senza nomi utili nel
+modello (i modelli veri hanno mesh chiamate `Mesh_012`):
+
+```
+Ingresso / Accettazione / Accettazione / Accettazione / Controllo /
+Lounge / Accettazione / Gate A          <- quattro "Accettazione"
+```
+
+In un museo, quattro "Biglietteria". La causa stava in una riga sola di
+`assegnaZoneMisurate`: era previsto **un** filtro e **una** sosta, e tutto il
+resto ricadeva su `type = "checkin"` con l'etichetta `voc.checkin` **senza
+numero**. Un edificio in cui quattro stanze hanno lo stesso nome non e'
+descritto: e' illeggibile, e il referto che ne esce non si vende.
+
+Un secondo difetto, della stessa famiglia di quello gia' corretto il 17/08
+("la terza zona e' il controllo perche' e' terza"): `iFiltro` era il minimo
+assoluto di `widthMinor`, e il minimo **esiste sempre**. In una fila di sale
+uguali una diventava "Controllo accessi" per dieci centimetri di differenza —
+una misura usata come se fosse una prova.
+
+Come e' adesso:
+
+| Ruolo | Da cosa si decide |
+|---|---|
+| ingresso / destinazione | primi e ultimi lungo il flusso, per definizione |
+| filtro (`security`) | il piu' stretto, **solo se** `widthMinor < 0.6 x mediana` **e** almeno 1 m sotto la mediana. Se nessuno lo e', questo edificio non ha un filtro |
+| sala principale (`lounge`) | area massima fra le zone di mezzo |
+| accoglienza (`checkin`) | la prima zona di mezzo lungo il flusso, e **una sola** |
+| le altre | `lounge` numerate lungo il flusso: "Sala espositiva 1, 2, 3" |
+| corridoi | `passaggio` numerati, come prima |
+
+Piu' una **rete finale di unicita'** su tutte le etichette, comprese quelle
+prese dal modello: tre mesh chiamate `Gate` non danno piu' tre zone omonime.
+
+⚠️ Il vocabolario dei `type` resta portante e **non e' cambiato**. Quando non
+c'e' nessuna `widthMinor` si ricade ancora sulla sequenza posizionale, che
+resta un'ipotesi dichiarata: le 30 prove preesistenti di
+`veritas_zone.test.mjs` passano tutte senza essere state indebolite.
+
+### 15.1 I passeggeri nei muri: il controllo era cieco per costruzione
+
+`lineHasSupport` chiedeva: *«lungo questo tratto, almeno il 70% dei campioni
+ha del pavimento entro 2,5 metri?»*. Tre errori sovrapposti, ciascuno
+sufficiente da solo:
+
+1. **raggio 2,5 m** — in mezzo a un muro il pavimento della stanza accanto e'
+   sempre entro due metri e mezzo;
+2. **voto a maggioranza (70%)** — attraversare un muro e' un fatto **locale**:
+   due metri di ostacolo su cinquanta di percorso sono il 4% e passano sempre.
+   Un muro non e' mai la maggioranza di un percorso, quindi non perde mai;
+3. **sette campioni in tutto** — su cinquanta metri, uno ogni otto: un muro
+   puo' stare per intero fra due campioni.
+
+Misurato: **un muro pieno spesso sei metri risultava attraversabile.**
+
+C'era anche una **seconda** logica di aggiramento, dentro `densifySegment`:
+spostava di 2,5 m in perpendicolare rispetto al baricentro della zona piu'
+vicina, senza mai verificare che il punto di deviazione fosse calpestabile —
+poteva spostare un passeggero da dentro un muro a dentro un altro muro. E'
+stata **rimossa**: due risposte diverse alla stessa domanda.
+
+### 15.2 Come e' adesso — `veritas_navigazione.js` (blocco inlinato)
+
+Modulo nuovo in radice, inlinato dopo il motore percettivo ed esposto come
+`window.__veritasNavigazione`. Non ricalcola niente: griglia e distanze dai
+muri arrivano da `veritas_perception.js`, lette con un'altra domanda.
+
+- `segmentoLibero` campiona a **mezza cella** e **un solo** campione fuori
+  basta a bloccare. Nessuna maggioranza.
+- `calpestabile` = cella libera **e** distanza dal muro >= mezza larghezza di
+  spalle (0,28 m ⇒ 56 cm di ingombro).
+- `trovaPercorso` = A* a 8 vicini sulle celle calpestabili, con divieto di
+  tagliare gli spigoli in diagonale e una penalita' vicino ai muri, cosi' la
+  gente passa **in mezzo** alla porta e non rasente allo stipite.
+  Se non trova strada restituisce `null`: chi chiama deve sapere che non lo sa.
+- `tiraLaCorda` verifica le scorciatoie con un raggio **piu' largo** (x1,3) di
+  quello con cui ha cercato: senza quel margine, uscendo da una porta la
+  spezzata sfiorava lo stipite (misurato: 22 cm invece di 28).
+- `findRoute` prova prima la mappa, poi il grafo delle zone, poi il tratto
+  dritto — e se arriva li' lo **dichiara** in console e conta i tratti forzati
+  in `window.__veritasTrattiForzati`, invece di consegnare un muro attraversato
+  in silenzio.
+
+### 15.3 La cosa piu' importante: i muri si LEGGONO, non si indovinano
+
+Fin qui i muri erano un'inferenza per **assenza**: dove non e' atterrato un
+campione di pavimento, si assume che ci sia qualcosa. Ha un limite
+invalicabile — **non si vede un muro piu' sottile del passo di
+campionamento**. Misurato su un terminal di 120 x 80 m con i 40.000 punti che
+il programma si concede:
+
+```
+spessore muro   0,3 m   0,6 m   1,0 m   1,5 m   2,0 m
+muro visto?      NO      NO      si      si      si
+```
+
+I tramezzi veri sono spessi 10-20 cm: **nessuno di loro era visibile.**
+
+Ma nel modello i muri ci sono: sono superfici verticali, e
+`extractNavigablePoints` le scarta di proposito (`ny < 0.75 continue`, cerca
+il pavimento). `muriDalModello(quota, passo)` legge proprio quelle — fascia da
+40 cm a 1,80 m da terra, normale con `|ny|/len <= 0.35` — e `marcaOstacoli`
+le stampa sulla mappa, ricalcolando la distance transform. E' informazione
+**positiva**: un tramezzo da dieci centimetri che attraversa una cella la
+rende occupata, e la barriera resta continua a qualunque risoluzione.
+
+⚠️ **Difetto trovato dalla prova, da non rifare.** Il numero di campioni per
+triangolo era legato all'**area**: un muro lungo 17 m e alto 3 (26 m², radice
+5,1) riceveva un campione ogni 1,2 m e veniva marcato **bucherellato**. A*
+passava dai buchi e i passeggeri attraversavano il muro esattamente come
+prima, con un codice che sembrava corretto. Ora il passo e' fissato **lungo
+ciascuno dei due lati** del triangolo.
+
+**Rete di sicurezza:** se la lettura chiude piu' del 35% dello spazio
+calpestabile viene **scartata** e si tiene la mappa dedotta, dicendolo in
+console. Non stiamo leggendo muri, in quel caso — stiamo leggendo altro.
+
+**Effetto collaterale accettato:** una porta modellata come pannello pieno e'
+un muro, e gli agenti la aggirano. E' corretto (una porta chiusa si apre, non
+si attraversa) ma su un modello con tutte le porte disegnate chiuse puo'
+bloccare percorsi veri. Da guardare al primo modello che le ha.
+
+### 15.4 I numeri
+
+Stesso spazio (due sale 20x20, muro, porta larga 1,2 m spostata di lato),
+stesse domande, build di partenza contro build attuale:
+
+```
+                  il muro e visto?   tappe   percorso DENTRO il muro
+PRIMA (git HEAD)        NO             1            6,3%
+ADESSO                  si             3            0,0%
+```
+
+Costo, su terminal 120 x 80 m / 2.338 triangoli / 40.180 punti:
+
+```
+mappa di cammino, muri compresi   161 ms   una volta per analisi
+un percorso                       8-16 ms  e i percorsi sono in cache
+```
+
+### 15.5 Le prove
+
+```bash
+node veritas_navigazione.test.mjs   # il modulo: muri, porte, fessure, vicoli ciechi
+node veritas_muri.test.mjs          # che il PROGRAMMA lo usi davvero
+node veritas_zone.test.mjs          # nomi e ruoli, comprese le 30 prove preesistenti
+```
+
+`veritas_muri.test.mjs` e' quella che conta di piu': estrae `lineHasSupport`,
+`veritasMappaCammino`, `muriDalModello` e `findRoute` **da `index.html`** per
+ancore testuali e le esegue su stub minimi (un `THREE` finto con il solo
+`Vector3` che serve). Un modulo giusto collegato male non da' nessun errore:
+questa e' l'unica prova che lo vedrebbe.
+
+Il caso decisivo e' il §5 di quel file: una nuvola che dichiara un pavimento
+**perfettamente continuo** e un tramezzo da 10 cm che esiste solo nella
+geometria. Se il programma lo vede, lo vede perche' l'ha letto.
+
+### 15.6 Nota di metodo
+
+Tre difetti di questa sessione sono stati trovati da una **misura**, non da un
+ragionamento: il muro da sei metri che passava, i quattro "Accettazione", il
+muro bucherellato. Nessuno dei tre dava un errore in console. Vale ancora
+quanto scritto in §11.5: qui i difetti gravi sono silenziosi, e "sembra
+funzionare" non e' una verifica.
+
+Vale anche il contrario, ed e' successo: una prova preesistente che falliva
+("la sosta va sulla zona piu ampia") segnalava un **mio** errore, non un
+comportamento da aggiornare — avevo lasciato inutilizzata una decisione presa
+il 17/08. Le prove che falliscono vanno lette prima di essere cambiate.
