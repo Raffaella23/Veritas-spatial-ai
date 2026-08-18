@@ -168,5 +168,60 @@ check('il nome scritto da chi ha modellato non viene sovrascritto',
       conNomeSuStretta.map((n)=>n.label).join(' / '));
 meshNominate = [];
 
+// ===========================================================================
+// I difetti segnalati da Raffaella il 18/08/2026, guardando l'anteprima.
+// ===========================================================================
+
+console.log('\nDIFETTO 1: nessun nome ripetuto, mai');
+// Misurato prima della correzione: otto ambienti, QUATTRO chiamati tutti
+// "Accettazione" — e in un museo, quattro "Biglietteria". Un edificio in cui
+// quattro stanze hanno lo stesso nome non e' descritto: e' illeggibile.
+const otto = [0,10,20,30,40,50,60,70].map((x, k) => ({
+  pos: [x, 0, 0], areaM2: [300,260,180,420,95,510,240,330][k],
+  widthMinor: [12,10,9,14,2.2,16,11,13][k], role: 'area', distFromAirside: 100 - x,
+}));
+for (const dom of ['aeroporto', 'museo', 'gaming', 'generico']) {
+  const n = assegna(otto, {}, dom);
+  const et = n.map((x) => x.label);
+  const dup = [...new Set(et.filter((v, i) => et.indexOf(v) !== i))];
+  check(dom + ': otto ambienti, otto nomi diversi', dup.length === 0,
+        dup.length ? 'ripetuti: ' + dup.join(', ') : et.join(' / '));
+}
+
+console.log('\nDIFETTO 1-bis: un filtro non si inventa dove non c e');
+// In una fila di sale tutte uguali la "piu stretta" esiste sempre, ma non e'
+// un varco di controllo: e' una sala come le altre, stretta di dieci
+// centimetri. Prima diventava "Controllo accessi" per quella differenza.
+const saleUguali = [0,10,20,30,40,50].map((x, k) => ({
+  pos: [x, 0, 0], areaM2: 300 + k * 5, widthMinor: 12 - k * 0.1,
+  role: 'area', distFromAirside: 100 - x,
+}));
+const museoUniforme = assegna(saleUguali, {}, 'museo');
+check('sale tutte uguali: nessun controllo inventato',
+      !museoUniforme.some((n) => n.type === 'security'),
+      museoUniforme.map((n) => n.label).join(' / '));
+check('e le sale hanno comunque nomi distinti',
+      new Set(museoUniforme.map((n) => n.label)).size === museoUniforme.length);
+
+// Ma dove lo spazio si stringe DAVVERO il filtro deve esserci ancora.
+const conVarco = saleUguali.map((z, k) => (k === 3 ? { ...z, widthMinor: 2.0 } : z));
+check('un varco davvero stretto viene ancora riconosciuto',
+      assegna(conVarco, {}, 'museo').filter((n) => n.type === 'security').length === 1,
+      assegna(conVarco, {}, 'museo').map((n) => n.type).join(','));
+
+console.log('\nDIFETTO 1-ter: anche i nomi presi dal modello devono restare distinti');
+// Se chi ha modellato ha chiamato "Gate" tre mesh diverse, tre zone finivano
+// con lo stesso nome e sullo schermo non si distinguevano.
+meshNominate = [
+  { type:'gate', label:'Gate', pos:[10, 0, 0] },
+  { type:'gate', label:'Gate', pos:[30, 0, 0] },
+  { type:'gate', label:'Gate', pos:[50, 0, 0] },
+];
+const treGate = assegna(otto, {}, 'aeroporto');
+meshNominate = [];
+check('tre mesh chiamate "Gate" danno tre nomi distinti',
+      new Set(treGate.map((n) => n.label)).size === treGate.length,
+      treGate.map((n) => n.label).join(' / '));
+
 console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
 process.exit(ko?1:0);

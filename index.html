@@ -1162,18 +1162,248 @@
     // silenziosamente width/height/turnRadius/accessibleOnly - unificata)
   };
 
-  function lineHasSupport(a, b, points, sampleN, radius) {
-    sampleN = sampleN || 6; radius = radius || 2.5;
-    if (!points || !points.length) return true; // nessun dato -> non blocca (comportamento precedente)
-    let ok = 0;
-    for (let i = 0; i <= sampleN; i++) {
-      const t = i / sampleN;
-      const px = a[0] + (b[0] - a[0]) * t, pz = a[2] + (b[2] - a[2]) * t;
-      let found = false;
-      for (const p of points) { if (Math.hypot(p[0] - px, p[2] - pz) < radius) { found = true; break; } }
-      if (found) ok++;
+  // La mappa di cammino: per ogni cella, se ci passa una persona.
+  //
+  // Non e' una seconda misura dello spazio. La griglia e la distanza dai muri
+  // le ha gia' calcolate il motore percettivo per misurare l'edificio: qui si
+  // rileggono con un'altra domanda. Si costruisce una volta per analisi, non a
+  // ogni percorso, e una per livello: in un edificio a piu' piani il piano
+  // terra non dice dove sono i muri del primo.
+  let navMappe = null, navMappePer = null;
+  let navSegnalato = false;
+  function veritasMappaCammino(y) {
+    const nav = window.__veritasNavigazione;
+    if (!nav) return null;
+    if (navMappePer !== lastNavigablePoints) { navMappe = null; navMappePer = lastNavigablePoints; }
+    if (!navMappe) {
+      navMappe = [];
+      const motore = window.__veritasPerceptionEngine;
+      const quote = (lastFloorLevels && lastFloorLevels.length) ? lastFloorLevels : [0];
+      for (const q of quote) {
+        try {
+          // Dalla nuvola, con la chiusura dei buchi STRETTA. Quella larga della
+          // percezione va benissimo per misurare, ma salda i tramezzi fra loro,
+          // e un tramezzo saldato e' una persona che attraversa il muro.
+          let m = (motore && lastNavigablePoints && lastNavigablePoints.length)
+            ? nav.creaMappaDaNuvola(motore, lastNavigablePoints, q) : null;
+          if (m && typeof nav.marcaOstacoli === "function") {
+            // I muri veri, sopra quelli dedotti. Se la lettura chiudesse mezzo
+            // edificio non le si crede e si tiene la mappa di prima: e' scritto
+            // dentro marcaOstacoli, qui si riporta solo cosa e' successo.
+            const muri = muriDalModello(q, m.cellSize * 0.5);
+            if (muri.length) {
+              const esito = nav.marcaOstacoli(m, muri, motore);
+              if (esito.applicata) {
+                m = esito.mappa;
+                console.log("[VERITAS cammino] muri letti dal modello: "
+                  + muri.length + " campioni, " + esito.celleChiuse + " celle chiuse ("
+                  + esito.fraseCalo + "% del calpestabile)");
+              } else if (esito.celleChiuse) {
+                console.warn("[VERITAS cammino] lettura dei muri SCARTATA: chiudeva il "
+                  + esito.fraseCalo + "% dello spazio calpestabile, troppo per essere"
+                  + " solo muri. Si usano i muri dedotti dal campionamento.");
+              }
+            }
+          }
+          if (m) navMappe.push(m);
+        } catch (e) { console.warn("[VERITAS cammino] livello " + q + " non mappato:", e && e.message); }
+      }
+      // Se la nuvola non e' disponibile resta la griglia gia' percepita: vede i
+      // muri un po' piu' spessi, ma e' sempre meglio di nessuna mappa.
+      if (!navMappe.length && window.__veritasPercezione && window.__veritasPercezione.levels) {
+        for (const liv of window.__veritasPercezione.levels) {
+          try { const m = nav.creaMappa(liv); if (m) navMappe.push(m); } catch (e) { /* si prosegue */ }
+        }
+      }
+      if (navMappe.length && !navSegnalato) {
+        navSegnalato = true;
+        const m0 = navMappe[0];
+        console.log("[VERITAS cammino] " + navMappe.length + " livello/i mappati; celle da "
+          + m0.cellSize.toFixed(3) + " m; i muri "
+          + (m0.muriDalModello
+             ? "sono letti dal modello, quindi si vedono anche i tramezzi sottili"
+             : "sono dedotti dal campionamento: sotto " + m0.muroMinimoVisibileM
+               + " m di spessore non si vedono"));
+        // Il limite non e' del programma: e' dei dati. Non si puo' vedere un
+        // muro piu' sottile della distanza fra un punto campionato e l'altro,
+        // e su un edificio molto grande i campioni si diradano. Quando la
+        // soglia diventa grossa abbastanza da nascondere un tramezzo vero, va
+        // DETTO: altrimenti la scena sembra corretta e non lo e'. E' lo stesso
+        // principio dei numeri finti che sembrano misurati.
+        if (!m0.muriDalModello && m0.muroMinimoVisibileM > 0.35
+            && typeof window.__veritasAnnounce === "function") {
+          window.__veritasAnnounce("Attenzione: questo modello e' grande rispetto ai punti che riesco a"
+            + " campionarci sopra, quindi riconosco solo i muri piu' spessi di "
+            + m0.muroMinimoVisibileM.toFixed(2).replace(".", ",") + " m."
+            + " I tramezzi piu' sottili non li vedo, e li' i passeggeri possono passare."
+            + " Le misure delle aree restano valide.");
+        }
+      }
     }
-    return ok / (sampleN + 1) >= 0.7;
+    if (!navMappe.length) return null;
+    if (y == null || navMappe.length === 1) return navMappe[0];
+    let best = navMappe[0], bd = Infinity;
+    for (const m of navMappe) {
+      const d = Math.abs((m.quota || 0) - y);
+      if (d < bd) { bd = d; best = m; }
+    }
+    return best;
+  }
+
+  // I MURI LETTI DAL MODELLO, invece che dedotti dai buchi.
+  //
+  // Fin qui i muri erano un'inferenza per ASSENZA: dove non e' atterrato
+  // nessun campione di pavimento, si assume che ci sia qualcosa. Ha un limite
+  // invalicabile — non si vede un muro piu' sottile della distanza fra un
+  // campione e l'altro. Misurato su un terminal di 120 x 80 m con i 40.000
+  // punti che il programma si concede: sotto il metro di spessore, nessun
+  // muro risultava visibile. E i tramezzi veri sono spessi 10-20 cm.
+  //
+  // Ma i muri nel modello CI SONO: sono superfici verticali, e
+  // `extractNavigablePoints` le scarta di proposito (tiene solo cio' che e'
+  // rivolto verso l'alto, perche' cerca il pavimento). Qui si leggono quelle,
+  // ed e' un'informazione positiva: un tramezzo di dieci centimetri che
+  // attraversa una cella la rende occupata, e la barriera resta continua
+  // qualunque sia la risoluzione.
+  //
+  // Si guarda la fascia fra 40 cm e 1,80 m da terra: sotto ci sono zoccolini e
+  // gradini, sopra ci sono controsoffitti e travi, e ne' gli uni ne' gli altri
+  // fermano una persona che cammina.
+  function muriDalModello(quota, passo) {
+    const root = window.__veritasModelRoot, THREE = window.THREE;
+    if (!root || !THREE) return [];
+    root.updateMatrixWorld(true);
+    const yMin = quota + 0.4, yMax = quota + 1.8;
+    const punti = [];
+    const TETTO = 300000;   // oltre non serve: la griglia ha molte meno celle
+    const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
+    const ab = new THREE.Vector3(), ac = new THREE.Vector3(), nrm = new THREE.Vector3();
+    root.traverse((obj) => {
+      if (punti.length > TETTO) return;
+      if (!obj.isMesh || !obj.geometry) return;
+      const nome = (obj.name || "").toLowerCase();
+      if (EXCLUDE_KEYWORDS.some((kw) => nome.includes(kw))) return;
+      const geo = obj.geometry, pos = geo.attributes && geo.attributes.position;
+      if (!pos || !pos.count) return;
+      const index = geo.index;
+      const nTri = Math.floor((index ? index.count : pos.count) / 3);
+      if (!nTri) return;
+      const salto = Math.max(1, Math.floor(nTri / 20000));
+      for (let t = 0; t < nTri; t += salto) {
+        if (punti.length > TETTO) break;
+        const b0 = t * 3;
+        const i0 = index ? index.getX(b0) : b0;
+        const i1 = index ? index.getX(b0 + 1) : b0 + 1;
+        const i2 = index ? index.getX(b0 + 2) : b0 + 2;
+        va.fromBufferAttribute(pos, i0).applyMatrix4(obj.matrixWorld);
+        vb.fromBufferAttribute(pos, i1).applyMatrix4(obj.matrixWorld);
+        vc.fromBufferAttribute(pos, i2).applyMatrix4(obj.matrixWorld);
+        if (Math.max(va.y, vb.y, vc.y) < yMin || Math.min(va.y, vb.y, vc.y) > yMax) continue;
+        ab.subVectors(vb, va); ac.subVectors(vc, va); nrm.crossVectors(ab, ac);
+        const len = nrm.length();
+        if (!len) continue;
+        // Verticale davvero: una rampa o un pavimento inclinato si cammina.
+        if (Math.abs(nrm.y) / len > 0.35) continue;
+        // Quanti campioni: un passo lungo CIASCUNO dei due lati.
+        //
+        // Difetto trovato dalla prova, e istruttivo. Legando il numero di
+        // campioni all'AREA, un muro lungo 17 m e alto 3 (26 m², radice 5,1)
+        // riceveva un campione ogni 1,2 m e veniva marcato BUCHERELLATO: A*
+        // passava dai buchi e i passeggeri attraversavano il muro esattamente
+        // come prima, con un codice che sembrava corretto.
+        //
+        // Legarlo al solo lato lungo copre il muro ma spreca: su un triangolo
+        // 100 x 3 servirebbero 600 suddivisioni anche nell'altezza. Un passo
+        // per lato da' la copertura giusta in entrambe le direzioni e un
+        // numero di campioni proporzionale all'area, che e' quello che serve.
+        const l1 = Math.hypot(ab.x, ab.y, ab.z), l2 = Math.hypot(ac.x, ac.y, ac.z);
+        const pa = Math.max(0.02, passo);
+        const n1 = Math.max(1, Math.min(2000, Math.ceil(l1 / pa)));
+        const n2 = Math.max(1, Math.min(2000, Math.ceil(l2 / pa)));
+        for (let a1 = 0; a1 <= n1; a1++) {
+          const w1 = a1 / n1;
+          for (let a2 = 0; w1 + a2 / n2 <= 1; a2++) {
+            const w2 = a2 / n2, w0 = 1 - w1 - w2;
+            const y = va.y * w0 + vb.y * w1 + vc.y * w2;
+            if (y < yMin || y > yMax) continue;
+            punti.push([va.x * w0 + vb.x * w1 + vc.x * w2, va.z * w0 + vb.z * w1 + vc.z * w2]);
+          }
+        }
+      }
+    });
+    return punti;
+  }
+
+  // Indice a griglia della nuvola, per la via di riserva. Senza, ogni campione
+  // costerebbe una scansione di tutti i punti: con quarantamila punti e un
+  // campione ogni mezzo metro il controllo diventa piu' lento della scena.
+  let nuvolaIdx = null, nuvolaIdxPer = null;
+  function indiceNuvola(points) {
+    if (nuvolaIdxPer === points && nuvolaIdx) return nuvolaIdx;
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of points) {
+      if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
+      if (p[2] < minZ) minZ = p[2]; if (p[2] > maxZ) maxZ = p[2];
+    }
+    const area = Math.max(1, (maxX - minX) * (maxZ - minZ));
+    // Spaziatura tipica dalla densita' reale, non da un'ipotesi.
+    const passo = Math.max(0.05, Math.sqrt(area / Math.max(1, points.length)));
+    const cella = Math.max(0.3, passo * 2);
+    const h = new Map();
+    for (const p of points) {
+      const k = Math.floor(p[0] / cella) + "," + Math.floor(p[2] / cella);
+      const arr = h.get(k);
+      if (arr) arr.push(p); else h.set(k, [p]);
+    }
+    nuvolaIdx = { h, cella, raggio: Math.max(0.45, passo * 1.8) };
+    nuvolaIdxPer = points;
+    return nuvolaIdx;
+  }
+
+  // Il tratto fra due punti e' percorribile per intero?
+  //
+  // ⚠️ Il controllo precedente chiedeva: «lungo questo tratto, almeno il 70%
+  // dei campioni ha del pavimento entro 2,5 metri?». Erano tre errori
+  // sovrapposti, e ciascuno da solo bastava a renderlo cieco:
+  //   - raggio 2,5 m: in mezzo a un muro il pavimento della stanza accanto e'
+  //     sempre entro due metri e mezzo;
+  //   - voto a maggioranza: attraversare un muro e' un fatto LOCALE, due metri
+  //     di ostacolo su cinquanta di percorso sono il 4% e passano sempre;
+  //   - sette campioni in tutto: un muro puo' stare fra due campioni.
+  // Misurato il 18/08/2026: un muro pieno spesso SEI METRI passava il controllo.
+  // Da li' i passeggeri che attraversavano le pareti.
+  //
+  // La domanda giusta e' un'altra: «ogni passo di questo tratto sta dove ci
+  // passa una persona?». Un solo passo fuori basta a dire no.
+  function lineHasSupport(a, b, points, sampleN, radius) {
+    const mappa = veritasMappaCammino(((a[1] || 0) + (b[1] || 0)) / 2);
+    if (mappa) return window.__veritasNavigazione.segmentoLibero(mappa, a[0], a[2], b[0], b[2]);
+
+    // Via di riserva, senza mappa: stessa domanda, sulla nuvola. Passo fitto,
+    // raggio legato alla spaziatura vera dei punti, e nessuna maggioranza.
+    if (!points || !points.length) return true; // nessun dato -> non si blocca nulla
+    const ix = indiceNuvola(points);
+    const r = radius || ix.raggio, r2 = r * r;
+    const lung = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    const passi = Math.max(sampleN || 1, Math.ceil(lung / Math.max(0.25, r * 0.75)));
+    for (let i = 0; i <= passi; i++) {
+      const t = i / passi;
+      const px = a[0] + (b[0] - a[0]) * t, pz = a[2] + (b[2] - a[2]) * t;
+      const cx = Math.floor(px / ix.cella), cz = Math.floor(pz / ix.cella);
+      let trovato = false;
+      for (let dx = -1; dx <= 1 && !trovato; dx++) {
+        for (let dz = -1; dz <= 1 && !trovato; dz++) {
+          const arr = ix.h.get((cx + dx) + "," + (cz + dz));
+          if (!arr) continue;
+          for (const p of arr) {
+            const ddx = p[0] - px, ddz = p[2] - pz;
+            if (ddx * ddx + ddz * ddz < r2) { trovato = true; break; }
+          }
+        }
+      }
+      if (!trovato) return false;
+    }
+    return true;
   }
 
   function buildZoneGraph(zones, points) {
@@ -1212,6 +1442,30 @@
   // altrimenti passa per le zone rilevate dall'analisi (evita di attraversare
   // muri/ostacoli che non fanno parte dello spazio calpestabile).
   function findRoute(fromPos, toPos) {
+    // Prima la mappa di cammino: se una strada esiste la trova, e passa dalle
+    // porte. Il grafo delle zone qui sotto non puo' farlo, perche' collega
+    // baricentri con linee rette: due stanze unite da una porta spostata di
+    // lato restano scollegate, e il percorso ricadeva sulla linea dritta,
+    // cioe' dentro il muro.
+    const nav = window.__veritasNavigazione;
+    if (nav) {
+      const mappa = veritasMappaCammino(((fromPos[1] || 0) + (toPos[1] || 0)) / 2);
+      if (mappa) {
+        const r = nav.trovaPercorso(mappa, fromPos, toPos);
+        if (r) return r.punti.map((p) => [p[0], toPos[1], p[1]]);
+        // Nessuna strada: o la destinazione e' davvero irraggiungibile, o la
+        // mappa e' peggiore dello spazio vero. In entrambi i casi il tratto
+        // dritto che si usa piu' sotto puo' attraversare un muro: lo si dice,
+        // invece di lasciarlo credibile e sbagliato.
+        window.__veritasTrattiForzati = (window.__veritasTrattiForzati || 0) + 1;
+        if (window.__veritasTrattiForzati <= 3) {
+          console.warn("[VERITAS cammino] nessuna strada da ["
+            + fromPos[0].toFixed(1) + "," + fromPos[2].toFixed(1) + "] a ["
+            + toPos[0].toFixed(1) + "," + toPos[2].toFixed(1)
+            + "]: si passa in linea retta, che puo' attraversare un muro.");
+        }
+      }
+    }
     if (!lastZones || !lastZones.length || !lastNavigablePoints) return [toPos];
     if (lineHasSupport(fromPos, toPos, lastNavigablePoints)) return [toPos];
     let fi = 0, fd = Infinity, ti = 0, td = Infinity;
@@ -1518,61 +1772,22 @@
     window.__veritasFloorYNear = realFloorYNear;
 
         function densifySegment(from, to, maxSegLen) {
-      // === VERITAS FIX v2: NESSUN SALTO, SOLO AGGIRAMENTO ===
-      // Se il segmento diretto attraversa un ostacolo (no support), non interpolare
-      // ma genera waypoint che aggirano il bounding box dell'ostacolo
+      // Qui si INFITTISCE soltanto. Aggirare gli ostacoli non e' piu' affare
+      // di questa funzione: lo fa findRoute, sulla mappa di cammino, una volta
+      // sola e per tutti.
+      //
+      // Prima c'era qui una seconda logica di aggiramento, e sbagliava in modo
+      // silenzioso: quando trovava un ostacolo si spostava di 2,5 m in
+      // perpendicolare rispetto al BARICENTRO della zona piu' vicina, senza
+      // mai verificare che il punto di deviazione fosse calpestabile. Poteva
+      // quindi spostare un passeggero da dentro un muro a dentro un altro
+      // muro, e chiamarsi soddisfatta. Due logiche diverse per la stessa
+      // domanda davano due risposte diverse: ne resta una.
       const dx = to[0] - from[0], dy = (to[1] || 0) - (from[1] || 0), dz = to[2] - from[2];
       const len = Math.hypot(dx, dz);
       const steps = Math.max(1, Math.ceil(len / maxSegLen));
       const pts = [];
-      
-      // Controlla se il segmento attraversa area senza supporto (muro/ostacolo)
-      function hasSupportAt(x,z) {
-        if (typeof lastNavigablePoints === 'undefined' || !lastNavigablePoints) return true;
-        for (const p of lastNavigablePoints) {
-          if (Math.hypot(p[0]-x, p[2]-z) < 1.0) return true;
-        }
-        return false;
-      }
-      
-      let needsDetour = false;
-      let obstacleCenter = null;
-      for (let k=1;k<steps;k++) {
-        const tt = k/steps;
-        const ix = from[0] + dx*tt, iz = from[2] + dz*tt;
-        if (!hasSupportAt(ix,iz)) { needsDetour = true; obstacleCenter = [ix,iz]; break; }
-      }
-      
-      if (needsDetour && lastZones) {
-        // Trova la zona ostacolo più vicina e aggirala
-        let closestZone = null, minD = Infinity;
-        for (const z of lastZones) {
-          const d = Math.hypot(z.pos[0]-obstacleCenter[0], z.pos[2]-obstacleCenter[1]);
-          if (d < minD && d < 8) { minD = d; closestZone = z; }
-        }
-        if (closestZone) {
-          // Calcola due waypoint laterali (sinistra/destra) rispetto alla direzione
-          const angle = Math.atan2(dz, dx);
-          const perp = angle + Math.PI/2;
-          const clearance = 2.5; // metri di distanza dall'ostacolo
-          const leftX = closestZone.pos[0] + Math.cos(perp)*clearance;
-          const leftZ = closestZone.pos[2] + Math.sin(perp)*clearance;
-          const rightX = closestZone.pos[0] - Math.cos(perp)*clearance;
-          const rightZ = closestZone.pos[2] - Math.sin(perp)*clearance;
-          
-          // Scegli il lato più vicino al percorso originale
-          const leftDist = Math.hypot(leftX - (from[0]+to[0])/2, leftZ - (from[2]+to[2])/2);
-          const rightDist = Math.hypot(rightX - (from[0]+to[0])/2, rightZ - (from[2]+to[2])/2);
-          const detour = leftDist < rightDist ? [leftX, leftZ] : [rightX, rightZ];
-          
-          const detourY = realFloorYNear(detour[0], detour[1], 3, (from[1]+to[1])/2) || (from[1]+to[1])/2;
-          // Ricorsivo: from -> detour -> to
-          const firstHalf = densifySegment(from, [detour[0], detourY, detour[1]], maxSegLen);
-          const secondHalf = densifySegment([detour[0], detourY, detour[1]], to, maxSegLen);
-          return [...firstHalf, ...secondHalf];
-        }
-      }
-      
+
       // Percorso libero: densifica con raycasting vero per Y
       for (let k = 1; k <= steps; k++) {
         const tt = k / steps;
@@ -2478,23 +2693,69 @@
     //    lo spazio si STRINGE, una sosta dove si ALLARGA. E' come legge una
     //    pianta un progettista, ed e' gia' misurato: widthMinor e' clearance
     //    per due, cioe' la larghezza libera reale, non una stima.
+    // La sequenza tipica di un edificio di transito. Serve solo come
+    // ultima risorsa, quando non c'e' NESSUNA larghezza misurata: e'
+    // un'ipotesi sull'edificio, non una misura, e va usata sapendolo.
     const seq = ["spawn", "checkin", "security", "lounge", "gate"];
     const nodi = [];
-    let contatoreGate = 0;
+    let contatoreGate = 0, nSosta = 0, nPassaggio = 0;
 
-    // Prima e ultima sono ingresso e destinazione per definizione del flusso, e
-    // un corridoio non e' ne' un filtro ne' una sosta: restano fuori dalla
-    // scelta. Si decide solo fra le zone di mezzo dove si sta.
+    // I ruoli delle zone di mezzo.
+    //
+    // ⚠️ Difetto corretto il 18/08/2026, misurato: su otto ambienti se ne
+    // ottenevano QUATTRO chiamati tutti "Accettazione" — e in un museo,
+    // quattro "Biglietteria". Il motivo stava qui sotto: era prevista una
+    // sola sosta e un solo filtro, e TUTTO il resto diventava accettazione,
+    // con la stessa identica etichetta. Un edificio in cui quattro stanze
+    // hanno lo stesso nome non e' descritto: e' illeggibile, e il referto
+    // che ne esce non si puo' vendere.
+    //
+    // Il criterio corretto e' quello gia' scelto per il resto del progetto:
+    // i ruoli vengono dalle MISURE, e cio' che non ha una misura che lo
+    // distingua non riceve un ruolo speciale — riceve un nome proprio.
+    //
+    // Prima e ultima restano ingresso e destinazione: le definisce il flusso.
+    // Un corridoio non e' ne' un filtro ne' una sosta, e resta fuori.
     const centrali = ordinate
       .map((z, i) => i)
       .filter((i) => i > 0 && i < ordinate.length - 1 && ordinate[i].role !== "corridoio");
     const conMisura = centrali.filter((i) => ordinate[i].widthMinor > 0);
-    let iFiltro = -1, iSosta = -1;
+
+    // IL FILTRO — dove lo spazio si stringe.
+    //
+    // Non piu' "la piu' stretta" e basta: quella c'e' sempre, anche in una
+    // fila di sale identiche, e allora una sala diventava "Controllo" per
+    // dieci centimetri di differenza. E' lo stesso errore del "la terza zona
+    // e' il controllo perche' e' terza", solo travestito da misura.
+    // Un varco di controllo e' STRETTO davvero: molto piu' stretto delle sale
+    // attorno. Se nessuno lo e', questo edificio non ha un filtro, e dirlo e'
+    // piu' onesto che inventarlo.
+    let iFiltro = -1, iSosta = -1, iAccoglienza = -1;
     if (conMisura.length) {
-      iFiltro = conMisura.reduce((a, b) => (ordinate[b].widthMinor < ordinate[a].widthMinor ? b : a));
+      const larghezze = conMisura.map((i) => ordinate[i].widthMinor).sort((a, b) => a - b);
+      const mediana = larghezze[larghezze.length >> 1];
+      const candidato = conMisura.reduce((a, b) => (ordinate[b].widthMinor < ordinate[a].widthMinor ? b : a));
+      const w = ordinate[candidato].widthMinor;
+      if (w < mediana * 0.6 && w <= mediana - 1.0) iFiltro = candidato;
+
+      // LA SALA PRINCIPALE — la piu' estesa. E' dove la gente si ferma e dove
+      // la densita' conta, quindi merita un nome che la distingua.
       const restanti = conMisura.filter((i) => i !== iFiltro);
       if (restanti.length) {
         iSosta = restanti.reduce((a, b) => ((ordinate[b].areaM2 || 0) > (ordinate[a].areaM2 || 0) ? b : a));
+      }
+
+      // L'ACCOGLIENZA — la prima zona dopo l'ingresso, e UNA SOLA.
+      //
+      // Non e' un'ipotesi sull'edificio ma sul percorso, ed e' quella che
+      // regge in tutti e tre i domini: in un aeroporto si presenta il
+      // biglietto appena entrati, in un museo si paga appena entrati, in un
+      // livello di gioco il primo ambiente e' l'hub.
+      for (const i of centrali) { if (i !== iFiltro && i !== iSosta) { iAccoglienza = i; break; } }
+      // Se di mezzo c'e' un ambiente solo, e' li' che si viene ricevuti: non
+      // ha senso chiamarlo "sala principale" quando non ce n'e' un'altra.
+      if (iAccoglienza < 0 && centrali.length === 1 && centrali[0] !== iFiltro) {
+        iAccoglienza = centrali[0]; iSosta = -1;
       }
     }
 
@@ -2504,25 +2765,36 @@
       if (dato) {
         type = dato.type; label = dato.label;
       } else {
-        // Prima zona = ingresso, ultima = gate. In mezzo comandano le misure;
-        // senza misure si ricade sulla sequenza, che resta un'ipotesi.
         if (i === 0) type = "spawn";
         else if (i === ordinate.length - 1) type = "gate";
         else if (i === iFiltro) type = "security";
+        else if (i === iAccoglienza) type = "checkin";
         else if (i === iSosta) type = "lounge";
-        else if (conMisura.length) type = "checkin";
+        else if (conMisura.length) type = "lounge";
+        // Senza nessuna larghezza misurata non si sa dove lo spazio si
+        // stringe: si ricade sulla sequenza tipica, che resta un'ipotesi
+        // sull'edificio e non una misura.
         else type = seq[Math.min(i, seq.length - 2)] || "lounge";
-        label = type === "spawn" ? voc.spawn
-              : type === "checkin" ? voc.checkin
-              : type === "security" ? voc.security
-              : type === "gate" ? voc.gate + String.fromCharCode(65 + contatoreGate)
-              : type === "lounge" ? (i === iSosta ? voc.lounge : voc.lounge + " " + (i + 1))
-              : "Area " + (i + 1);
+
+        if (type === "lounge") {
+          // La sala principale ha un nome proprio; le altre sono numerate
+          // lungo il FLUSSO, cioe' nell'ordine in cui si attraversano.
+          // "Sala espositiva 1, 2, 3" si legge e si ritrova sullo schermo:
+          // quattro stanze chiamate tutte uguale, no.
+          if (i === iSosta) label = voc.lounge + " principale";
+          else { nSosta++; label = voc.lounge + " " + nSosta; }
+        } else {
+          label = type === "spawn" ? voc.spawn
+                : type === "checkin" ? voc.checkin
+                : type === "security" ? voc.security
+                : voc.gate + String.fromCharCode(65 + contatoreGate);
+        }
         // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
         // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
         // della sequenza e' il modo di far sostare gli agenti in un corridoio.
         if (z.role === "corridoio" && type !== "spawn" && type !== "gate") {
-          type = "lounge"; label = voc.passaggio + (i + 1);
+          if (type === "lounge" && i !== iSosta) nSosta--;
+          type = "lounge"; nPassaggio++; label = voc.passaggio + nPassaggio;
         }
       }
       if (type === "gate") contatoreGate++;
@@ -2538,6 +2810,21 @@
         areaM2: z.areaM2 || null,
       });
     });
+
+    // Nessun nome ripetuto, mai.
+    //
+    // La numerazione qui sopra basta per i nomi dedotti, ma i nomi presi dal
+    // modello no: se chi ha modellato ha chiamato "Gate" tre mesh diverse, tre
+    // zone si chiamerebbero uguale, e sullo schermo non si distinguono. E'
+    // l'ultima rete, e vale per ogni provenienza.
+    const visti = new Map();
+    for (const n of nodi) {
+      const base = n.label;
+      if (!visti.has(base)) { visti.set(base, 1); continue; }
+      const q = visti.get(base) + 1;
+      visti.set(base, q);
+      n.label = base + " " + q;
+    }
 
     const conNome = etichette.size;
     console.log("[VERITAS zone] " + nodi.length + " nodi da " + zones.length + " zone MISURATE ("
@@ -13647,6 +13934,7 @@ window.__veritasPerceptionEngine = {
   segmentZones,
   findBottlenecks,
   buildOccupancyGrid,
+  closeHoles,
   distanceTransform,
   extractMedialAxis,
   estimatePointSpacing,
@@ -13654,6 +13942,548 @@ window.__veritasPerceptionEngine = {
 };
 console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasPerceptionEngine");
 
+</script>
+<script type="module">
+// ===== VERITAS NAVIGAZIONE (inlinato da veritas_navigazione.js) =====
+// veritas_navigazione.js — dove si può camminare davvero, e per che strada.
+//
+// IL PROBLEMA
+// Gli agenti attraversavano i muri. Il controllo che avrebbe dovuto impedirlo
+// (`lineHasSupport`) chiedeva: «lungo questo tratto, almeno il 70% dei campioni
+// ha del pavimento entro 2,5 metri?». Sono tre errori sovrapposti, e ciascuno
+// da solo basta a rendere il controllo cieco:
+//
+//   1. RAGGIO 2,5 m — in mezzo a un muro di trenta centimetri il pavimento
+//      della stanza accanto è sempre entro due metri e mezzo. Un muro più
+//      sottile di cinque metri non viene mai visto.
+//   2. VOTO A MAGGIORANZA (70%) — attraversare un muro è un fatto LOCALE:
+//      due metri di ostacolo su cinquanta di percorso sono il 4%, e passano.
+//      Un muro non è mai la maggioranza di un percorso, quindi non perde mai.
+//   3. SETTE CAMPIONI IN TUTTO — su un tratto di cinquanta metri è un campione
+//      ogni otto. Un muro può stare per intero fra due campioni.
+//
+// Misurato: con quel controllo un muro pieno spesso SEI METRI risultava
+// attraversabile.
+//
+// COME SI RISOLVE
+// Non con un raggio più piccolo: con un'altra domanda. Non «c'è del pavimento
+// qui vicino?» ma «questa cella è calpestabile da una persona?». La risposta
+// è già stata misurata dal motore percettivo, che per ogni cella conosce la
+// distanza dal muro più vicino. Una persona passa dove quella distanza è
+// almeno mezza larghezza di spalle. Un campione fuori posto basta a bloccare:
+// nessun voto a maggioranza.
+//
+// E quando la linea diretta è bloccata non si indovina una deviazione: si
+// cerca la strada con A* sulle celle calpestabili, che è la stessa cosa che
+// fa una persona quando gira attorno a un muro per trovare la porta.
+//
+// PERCHÉ NON RICALCOLA NULLA
+// La griglia e le distanze dai muri arrivano dal motore percettivo
+// (`veritas_perception.js`), che le ha già calcolate per misurare lo spazio.
+// Qui si riusano così come sono: due misure della stessa cosa darebbero due
+// risposte diverse alla stessa domanda.
+
+export const NAVIGAZIONE_DEFAULTS = {
+  /**
+   * Mezza larghezza di spalle, in metri. 0,28 ⇒ una persona occupa 56 cm, che
+   * è la misura antropometrica corrente per un adulto in movimento. È questo
+   * il valore che decide se un varco è una porta o una fessura.
+   */
+  raggioPersona: 0.28,
+  /**
+   * Entro questa distanza da un muro camminare "costa" di più. Non è un
+   * divieto: serve a far passare la gente in mezzo alla stanza e in mezzo alla
+   * porta, invece che rasente allo stipite. Senza, A* produce percorsi
+   * matematicamente corretti e visibilmente innaturali.
+   */
+  comfortMuro: 0.9,
+  /** Quanto costa di più camminare attaccati al muro (moltiplicatore). */
+  penalitaMuro: 1.6,
+  /** Quanto lontano cercare una cella calpestabile se il punto chiesto è dentro un muro. */
+  raggioAggancioM: 8,
+  /**
+   * Se la mappa non regge la persona intera si riprova più stretti, in
+   * quest'ordine, prima di arrendersi. Serve per le nuvole rade, dove la
+   * griglia è più grossolana della realtà e i passaggi risultano più stretti
+   * di quello che sono. L'ultimo tentativo (0) chiede solo di stare sul
+   * calpestabile: è l'ultima difesa prima di tornare alla linea dritta.
+   */
+  tolleranzeRaggio: [1, 0.65, 0.35, 0],
+  /** Oltre questo numero di celle la mappa di cammino viene infittita di meno. */
+  maxCelleMappa: 4e6,
+  /** Tetto di sicurezza sulle celle esplorate da una singola ricerca. */
+  maxCelleEsplorate: 8e5,
+  /**
+   * Quanto spazio calpestabile puo' al massimo togliere la lettura dei muri
+   * dal modello prima che si smetta di crederle. I muri di un edificio
+   * occupano una frazione modesta della pianta: se ne sparisce un terzo non
+   * stiamo leggendo muri, stiamo leggendo altro.
+   */
+  maxChiusuraFrazione: 0.35,
+  /**
+   * Raggio della chiusura dei buchi, in celle, per la mappa di CAMMINO.
+   *
+   * Il motore percettivo usa 2, e per misurare è giusto: tappa i buchi del
+   * campionamento, che altrimenti diventerebbero finte strettoie. Ma la stessa
+   * operazione SALDA i muri sottili, e un muro saldato è un muro che gli
+   * agenti attraversano.
+   *
+   * La relazione è esatta e misurata: la chiusura scavalca `2 × raggio × cella`
+   * metri, e un muro più sottile di così sparisce dalla mappa. Con cella 5 cm
+   * e raggio 2 sparisce ogni muro sotto i 25 cm — cioè quasi tutti i tramezzi
+   * veri. Con raggio 1 la soglia scende a 15 cm.
+   *
+   * Per camminare si preferisce sbagliare per eccesso di prudenza: un buco non
+   * tappato è un ostacolo finto, e A* ci gira attorno; un muro saldato è una
+   * persona che passa attraverso una parete.
+   */
+  chiusuraCammino: 1,
+};
+
+/* ========================================================================== *
+ * 1. La mappa di cammino
+ * ========================================================================== */
+
+/**
+ * Costruisce la mappa di cammino da un livello già percepito.
+ *
+ * Non è la griglia della percezione: è la stessa griglia letta con un'altra
+ * domanda. La percezione chiede «questa cella è spazio libero?», qui si chiede
+ * «ci passa una persona?». La differenza è la distanza dal muro, che il motore
+ * percettivo ha già misurato cella per cella.
+ *
+ * @param {object} livello  un elemento di `perceive().levels`: { grid, dist }
+ * @returns {object|null} mappa, oppure null se il livello non è utilizzabile
+ */
+export function creaMappa(livello, opts = {}) {
+  if (!livello || !livello.grid || !livello.dist) return null;
+  const o = { ...NAVIGAZIONE_DEFAULTS, ...opts };
+  const g = livello.grid;
+  if (!g.w || !g.h) return null;
+
+  let { w, h, cellSize, minX, minZ } = g;
+  let libera = g.free, distanza = livello.dist;
+
+  // Su modelli molto estesi la griglia della percezione può avere milioni di
+  // celle: per misurare va bene, per cercare una strada no. Si accorpa a
+  // blocchi, tenendo per ogni blocco la distanza dal muro MIGLIORE — così una
+  // porta larga 90 cm resta una porta invece di sparire nell'accorpamento.
+  const fattore = Math.max(1, Math.ceil(Math.sqrt((w * h) / o.maxCelleMappa)));
+  if (fattore > 1) {
+    const w2 = Math.ceil(w / fattore), h2 = Math.ceil(h / fattore);
+    const lib2 = new Uint8Array(w2 * h2);
+    const dist2 = new Float32Array(w2 * h2);
+    for (let y = 0; y < h; y++) {
+      const y2 = (y / fattore) | 0;
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (!libera[i]) continue;
+        const i2 = y2 * w2 + ((x / fattore) | 0);
+        lib2[i2] = 1;
+        if (distanza[i] > dist2[i2]) dist2[i2] = distanza[i];
+      }
+    }
+    w = w2; h = h2; cellSize = cellSize * fattore;
+    libera = lib2; distanza = dist2;
+  }
+
+  return {
+    w, h, cellSize, minX, minZ,
+    quota: g.levelY != null ? g.levelY : (livello.levelY || 0),
+    libera, distanza,
+    accorpamento: fattore,
+    /**
+     * Il muro più sottile che questa mappa può vedere, in metri. Dichiarato e
+     * non sottinteso: sotto questa soglia la mappa non sa che il muro c'è, e
+     * nessun controllo a valle può rimediare. Chi legge un percorso deve
+     * poterlo sapere.
+     */
+    muroMinimoVisibileM: +((livello.pontechiusuraM != null
+      ? livello.pontechiusuraM
+      : 2 * (livello.closeRadius != null ? livello.closeRadius : 2) * (g.cellSize || cellSize))
+      .toFixed(3)),
+    // Il raggio effettivamente in uso: lo fissa `trovaPercorso` provando le
+    // tolleranze, e resta scritto qui per chi vuole sapere con che larghezza
+    // è stata calcolata una strada.
+    raggio: o.raggioPersona,
+  };
+}
+
+/**
+ * Mappa di cammino a partire da una nuvola di punti, quando la percezione
+ * completa non è disponibile.
+ *
+ * Usa le funzioni del motore percettivo, non una copia: la griglia di
+ * occupazione e la distanza dai muri sono calcolate da lui.
+ *
+ * @param {object} motore  window.__veritasPerceptionEngine
+ */
+export function creaMappaDaNuvola(motore, punti, quota = 0, opts = {}) {
+  if (!motore || typeof motore.buildOccupancyGrid !== "function") return null;
+  if (!punti || !punti.length) return null;
+  const o = { ...NAVIGAZIONE_DEFAULTS, ...opts };
+  const passo = typeof motore.estimatePointSpacing === "function"
+    ? motore.estimatePointSpacing(punti, quota, o) : null;
+  const cella = opts.cellSize || Math.max(0.05, +(passo ? passo * 1.5 : 0.15).toFixed(3));
+
+  const chiusura = opts.chiusuraCammino != null ? opts.chiusuraCammino : o.chiusuraCammino;
+  let grid = motore.buildOccupancyGrid(punti, quota, { ...o, cellSize: cella });
+  if (!grid) return null;
+  if (typeof motore.closeHoles === "function" && chiusura > 0) grid = motore.closeHoles(grid, chiusura);
+  const ft = motore.distanceTransform(grid);
+  return creaMappa({ grid, dist: ft.dist, levelY: quota, pontechiusuraM: 2 * chiusura * cella }, opts);
+}
+
+/**
+ * Marca sulla mappa gli ostacoli letti direttamente dal modello.
+ *
+ * PERCHÉ SERVE. Fin qui i muri sono DEDOTTI: dove non è atterrato nessun
+ * campione di pavimento, si assume che ci sia qualcosa. È un'inferenza per
+ * assenza, e ha un limite invalicabile — non si può vedere un muro più sottile
+ * della distanza fra un campione e l'altro. Misurato su un terminal di
+ * 120 x 80 m campionato con i 40.000 punti che il programma si concede: sotto
+ * il metro di spessore, nessun muro risulta visibile.
+ *
+ * Ma i muri nel modello ci sono: sono superfici verticali, e il campionamento
+ * del pavimento le scarta di proposito (tiene solo ciò che è rivolto verso
+ * l'alto). Leggerle è un'informazione POSITIVA, e non ha quel limite: un
+ * tramezzo di dieci centimetri che attraversa una cella rende occupata quella
+ * cella, e la barriera resta continua.
+ *
+ * SICUREZZA. Marcare troppo è pericoloso quanto marcare troppo poco: una porta
+ * modellata chiusa, o una vetrata, chiuderebbero un passaggio vero. Per questo
+ * il risultato viene misurato prima di essere accettato: se lo spazio
+ * calpestabile crolla oltre la soglia, la marcatura viene SCARTATA e si tiene
+ * la mappa di prima, dicendolo. Meglio la mappa di ieri che una mappa che
+ * chiude l'edificio.
+ *
+ * @param {object} m       mappa di cammino
+ * @param {Array} punti    campioni di superfici verticali, [x, z] o [x, y, z]
+ * @param {object} motore  window.__veritasPerceptionEngine (per la distance transform)
+ * @returns {object} { applicata, celleChiuse, fraseCalo, mappa }
+ */
+export function marcaOstacoli(m, punti, motore, opts = {}) {
+  const o = { ...NAVIGAZIONE_DEFAULTS, ...opts };
+  const esito = { applicata: false, celleChiuse: 0, fraseCalo: 0, mappa: m };
+  if (!m || !punti || !punti.length || !motore || typeof motore.distanceTransform !== "function") return esito;
+
+  let libereePrima = 0;
+  for (let i = 0; i < m.libera.length; i++) if (m.libera[i]) libereePrima++;
+  if (!libereePrima) return esito;
+
+  const libera = m.libera.slice();
+  let chiuse = 0;
+  for (const p of punti) {
+    const x = p[0], z = p.length > 2 ? p[2] : p[1];
+    const cx = Math.floor((x - m.minX) / m.cellSize), cz = Math.floor((z - m.minZ) / m.cellSize);
+    if (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) continue;
+    const i = cz * m.w + cx;
+    if (libera[i]) { libera[i] = 0; chiuse++; }
+  }
+  if (!chiuse) return esito;
+
+  const calo = chiuse / libereePrima;
+  esito.celleChiuse = chiuse;
+  esito.fraseCalo = +(calo * 100).toFixed(1);
+  // Soglia prudente: i muri di un edificio occupano una frazione modesta della
+  // pianta. Se ne risulta chiusa un terzo, non stiamo leggendo i muri — stiamo
+  // leggendo qualcos'altro (arredi ovunque, una mesh sbagliata, un modello con
+  // le stanze piene). In quel caso non ci si fida.
+  if (calo > (o.maxChiusuraFrazione != null ? o.maxChiusuraFrazione : 0.35)) return esito;
+
+  const ft = motore.distanceTransform({ w: m.w, h: m.h, free: libera, cellSize: m.cellSize });
+  esito.applicata = true;
+  esito.mappa = { ...m, libera, distanza: ft.dist, muroMinimoVisibileM: 0, muriDalModello: true };
+  return esito;
+}
+
+/* ========================================================================== *
+ * 2. Le domande elementari
+ * ========================================================================== */
+
+const idx = (m, cx, cz) => cz * m.w + cx;
+
+export function cellaDa(m, x, z) {
+  return [Math.floor((x - m.minX) / m.cellSize), Math.floor((z - m.minZ) / m.cellSize)];
+}
+
+export function centroCella(m, cx, cz) {
+  return [m.minX + (cx + 0.5) * m.cellSize, m.minZ + (cz + 0.5) * m.cellSize];
+}
+
+/** Ci passa una persona di questo raggio? */
+export function calpestabile(m, cx, cz, raggio) {
+  if (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) return false;
+  const i = idx(m, cx, cz);
+  if (!m.libera[i]) return false;
+  return m.distanza[i] >= (raggio != null ? raggio : m.raggio);
+}
+
+/**
+ * Il segmento fra due punti è percorribile per intero?
+ *
+ * Qui sta la correzione del difetto: si campiona a mezza cella — quindi
+ * nessun muro può nascondersi fra due campioni — e **un solo** campione fuori
+ * dal calpestabile basta a rispondere no. Niente maggioranze: un muro è un
+ * muro anche se occupa il 4% del percorso.
+ */
+export function segmentoLibero(m, ax, az, bx, bz, raggio) {
+  if (!m) return true;                       // senza mappa non si blocca nulla
+  const r = raggio != null ? raggio : m.raggio;
+  const lung = Math.hypot(bx - ax, bz - az);
+  const passi = Math.max(1, Math.ceil((lung / m.cellSize) * 2));
+  for (let k = 0; k <= passi; k++) {
+    const t = k / passi;
+    const [cx, cz] = cellaDa(m, ax + (bx - ax) * t, az + (bz - az) * t);
+    if (!calpestabile(m, cx, cz, r)) return false;
+  }
+  return true;
+}
+
+/**
+ * La cella calpestabile più vicina a quella chiesta.
+ *
+ * Serve perché i baricentri delle zone non cadono per forza sul calpestabile:
+ * il baricentro di una stanza a L può stare dentro il muro. Senza questo
+ * aggancio la ricerca partirebbe da un punto impossibile e fallirebbe sempre.
+ */
+export function agganciaCella(m, cx, cz, raggio, raggioMaxM) {
+  if (calpestabile(m, cx, cz, raggio)) return [cx, cz];
+  const maxCelle = Math.ceil((raggioMaxM != null ? raggioMaxM : NAVIGAZIONE_DEFAULTS.raggioAggancioM) / m.cellSize);
+  for (let r = 1; r <= maxCelle; r++) {
+    for (let d = -r; d <= r; d++) {
+      const cand = [[cx + d, cz - r], [cx + d, cz + r], [cx - r, cz + d], [cx + r, cz + d]];
+      for (const [qx, qz] of cand) if (calpestabile(m, qx, qz, raggio)) return [qx, qz];
+    }
+  }
+  return null;
+}
+
+/* ========================================================================== *
+ * 3. La ricerca della strada
+ * ========================================================================== */
+
+/** Coda di priorità minima: senza, A* su mezzo milione di celle non finisce. */
+class Coda {
+  constructor(n) { this.k = new Float64Array(n); this.v = new Int32Array(n); this.n = 0; }
+  push(kk, vv) {
+    let i = this.n++;
+    this.k[i] = kk; this.v[i] = vv;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.k[p] <= this.k[i]) break;
+      const tk = this.k[p], tv = this.v[p];
+      this.k[p] = this.k[i]; this.v[p] = this.v[i];
+      this.k[i] = tk; this.v[i] = tv;
+      i = p;
+    }
+  }
+  pop() {
+    const top = this.v[0];
+    if (--this.n > 0) {
+      this.k[0] = this.k[this.n]; this.v[0] = this.v[this.n];
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1, r = l + 1;
+        let s = i;
+        if (l < this.n && this.k[l] < this.k[s]) s = l;
+        if (r < this.n && this.k[r] < this.k[s]) s = r;
+        if (s === i) break;
+        const tk = this.k[s], tv = this.v[s];
+        this.k[s] = this.k[i]; this.v[s] = this.v[i];
+        this.k[i] = tk; this.v[i] = tv;
+        i = s;
+      }
+    }
+    return top;
+  }
+  get vuota() { return this.n === 0; }
+}
+
+const DIR = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+function aStar(m, partenza, arrivo, raggio, o) {
+  const N = m.w * m.h;
+  const gCost = new Float64Array(N).fill(Infinity);
+  const prev = new Int32Array(N).fill(-1);
+  const chiuso = new Uint8Array(N);
+  // Capienza generosa: una cella può entrare in coda più volte, perché non si
+  // fa decrease-key ma si reinserisce (più semplice, e più veloce in pratica).
+  const coda = new Coda(Math.min(N * 4, 4e6) | 0);
+
+  const iP = idx(m, partenza[0], partenza[1]), iA = idx(m, arrivo[0], arrivo[1]);
+  const ax = arrivo[0], az = arrivo[1];
+  // Distanza ottile: il costo minimo reale su griglia a 8 vicini, quindi
+  // ammissibile — A* non può sbagliare percorso per colpa sua.
+  const stima = (cx, cz) => {
+    const dx = Math.abs(cx - ax), dz = Math.abs(cz - az);
+    return (Math.max(dx, dz) + (Math.SQRT2 - 1) * Math.min(dx, dz)) * m.cellSize;
+  };
+
+  gCost[iP] = 0;
+  coda.push(stima(partenza[0], partenza[1]), iP);
+  let esplorate = 0;
+
+  while (!coda.vuota) {
+    const cur = coda.pop();
+    if (chiuso[cur]) continue;
+    chiuso[cur] = 1;
+    if (cur === iA) break;
+    if (++esplorate > o.maxCelleEsplorate) return { trovato: false, esplorate, motivo: "troppo grande" };
+
+    const cx = cur % m.w, cz = (cur / m.w) | 0;
+    for (let d = 0; d < 8; d++) {
+      const nx = cx + DIR[d][0], nz = cz + DIR[d][1];
+      if (!calpestabile(m, nx, nz, raggio)) continue;
+      // In diagonale non si taglia lo spigolo: se uno dei due lati è muro,
+      // quel passo attraverserebbe il vertice del muro. È il modo classico in
+      // cui un agente "sfiora" l'angolo e sembra passarci dentro.
+      if (d >= 4 && (!calpestabile(m, cx + DIR[d][0], cz, raggio) ||
+                     !calpestabile(m, cx, cz + DIR[d][1], raggio))) continue;
+      const ni = idx(m, nx, nz);
+      if (chiuso[ni]) continue;
+      const passo = (d >= 4 ? Math.SQRT2 : 1) * m.cellSize;
+      // Stare attaccati al muro costa di più: è ciò che tiene i passeggeri in
+      // mezzo alla porta invece che rasente allo stipite.
+      const libero = m.distanza[ni];
+      const stretto = Math.max(0, (o.comfortMuro - libero) / o.comfortMuro);
+      const costo = gCost[cur] + passo * (1 + o.penalitaMuro * stretto * stretto);
+      if (costo < gCost[ni]) {
+        gCost[ni] = costo; prev[ni] = cur;
+        coda.push(costo + stima(nx, nz), ni);
+      }
+    }
+  }
+
+  if (gCost[iA] === Infinity) return { trovato: false, esplorate, motivo: "nessuna strada" };
+  const celle = [];
+  for (let c = iA; c !== -1; c = prev[c]) celle.push([c % m.w, (c / m.w) | 0]);
+  celle.reverse();
+  return { trovato: true, celle, esplorate, costo: gCost[iA] };
+}
+
+/**
+ * Riduce la scia di celle a poche tappe.
+ *
+ * A* restituisce una cella dopo l'altra: centinaia di punti a zig-zag di mezzo
+ * passo. Qui si tira la corda — si tiene una tappa solo dove la linea dritta
+ * smette di essere libera — e restano i pochi angoli veri, quelli che una
+ * persona farebbe davvero.
+ *
+ * ⚠️ La scorciatoia si verifica con un raggio PIU' LARGO di quello con cui e'
+ * stata cercata la strada. Senza questo margine, uscendo da una porta la
+ * spezzata taglia l'angolo e sfiora lo stipite: misurato, due punti su 552 a
+ * 22 cm dal muro invece dei 28 richiesti. Non e' un muro attraversato — e' una
+ * spalla che struscia — ma su un modello si vede, e qui l'aspetto conta.
+ * Se il margine non passa la tappa resta: meglio una tappa in piu' che un
+ * passeggero incastrato nella porta.
+ */
+export function tiraLaCorda(m, celle, raggio, margine) {
+  if (!celle || celle.length <= 2) return (celle || []).map(([cx, cz]) => centroCella(m, cx, cz));
+  const r = (raggio != null ? raggio : m.raggio) * (margine != null ? margine : 1.3);
+  const punti = [centroCella(m, celle[0][0], celle[0][1])];
+  let ancora = 0;
+  for (let i = 2; i < celle.length; i++) {
+    const [ax, az] = centroCella(m, celle[ancora][0], celle[ancora][1]);
+    const [bx, bz] = centroCella(m, celle[i][0], celle[i][1]);
+    if (!segmentoLibero(m, ax, az, bx, bz, r)) {
+      ancora = i - 1;
+      punti.push(centroCella(m, celle[ancora][0], celle[ancora][1]));
+    }
+  }
+  punti.push(centroCella(m, celle[celle.length - 1][0], celle[celle.length - 1][1]));
+  return punti;
+}
+
+/**
+ * La strada da un punto all'altro, che non attraversa muri.
+ *
+ * @returns {object|null} { punti: [[x,z]…], lunghezzaM, raggioUsato, diretta, nota }
+ *   `punti` esclude la partenza e termina sull'arrivo, come si aspetta chi
+ *   costruisce la traiettoria. `null` significa "non lo so": chi chiama deve
+ *   decidere cosa fare, e non deve credere che la strada sia libera.
+ */
+export function trovaPercorso(m, da, a, opts = {}) {
+  if (!m) return null;
+  const o = { ...NAVIGAZIONE_DEFAULTS, ...opts };
+  const [dx, dz] = [da[0], da[2] != null ? da[2] : da[1]];
+  const [ax, az] = [a[0], a[2] != null ? a[2] : a[1]];
+
+  for (const frazione of o.tolleranzeRaggio) {
+    const raggio = o.raggioPersona * frazione;
+
+    // Se si vede l'arrivo, non c'è niente da cercare.
+    if (segmentoLibero(m, dx, dz, ax, az, raggio)) {
+      return {
+        punti: [[ax, az]], lunghezzaM: Math.hypot(ax - dx, az - dz),
+        raggioUsato: raggio, diretta: true,
+        nota: frazione < 1 ? "linea libera solo restringendo a " + raggio.toFixed(2) + " m" : "linea libera",
+      };
+    }
+
+    const cP = agganciaCella(m, ...cellaDa(m, dx, dz), raggio, o.raggioAggancioM);
+    const cA = agganciaCella(m, ...cellaDa(m, ax, az), raggio, o.raggioAggancioM);
+    if (!cP || !cA) continue;
+    if (cP[0] === cA[0] && cP[1] === cA[1]) {
+      return { punti: [[ax, az]], lunghezzaM: Math.hypot(ax - dx, az - dz),
+               raggioUsato: raggio, diretta: true, nota: "stessa cella" };
+    }
+
+    const r = aStar(m, cP, cA, raggio, o);
+    if (!r.trovato) continue;
+
+    const punti = tiraLaCorda(m, r.celle, raggio);
+    // La prima tappa è la cella d'aggancio della partenza: se coincide con
+    // dove siamo già, è un punto in più che non serve a nessuno.
+    if (punti.length && Math.hypot(punti[0][0] - dx, punti[0][1] - dz) < m.cellSize) punti.shift();
+    // Si arriva dove è stato chiesto — ma solo se l'ultimo tratto è davvero
+    // libero. Quando la destinazione cade dentro un muro (capita: il baricentro
+    // di una stanza a L ci finisce) l'ultimo passo la raggiungerebbe passando
+    // per il pieno. Meglio fermarsi al punto calpestabile più vicino e dirlo,
+    // che consegnare un arrivo perfetto ottenuto attraversando una parete.
+    let arrivoEsatto = true;
+    if (punti.length) {
+      const [ux, uz] = punti.length > 1 ? punti[punti.length - 2] : [dx, dz];
+      if (segmentoLibero(m, ux, uz, ax, az, raggio)) punti[punti.length - 1] = [ax, az];
+      else arrivoEsatto = false;
+    } else if (segmentoLibero(m, dx, dz, ax, az, raggio)) {
+      punti.push([ax, az]);
+    } else {
+      arrivoEsatto = false;
+      punti.push(centroCella(m, cA[0], cA[1]));
+    }
+
+    let lung = 0, px = dx, pz = dz;
+    for (const [qx, qz] of punti) { lung += Math.hypot(qx - px, qz - pz); px = qx; pz = qz; }
+    return {
+      punti, lunghezzaM: lung, raggioUsato: raggio, diretta: false,
+      celleEsplorate: r.esplorate, arrivoEsatto,
+      nota: "aggirato in " + punti.length + " tappe"
+        + (frazione < 1 ? ", restringendo a " + raggio.toFixed(2) + " m" : "")
+        + (arrivoEsatto ? "" : "; la destinazione non e' calpestabile, ci si ferma al punto utile piu' vicino"),
+    };
+  }
+  return null;
+}
+
+export default {
+  NAVIGAZIONE_DEFAULTS, creaMappa, creaMappaDaNuvola, marcaOstacoli, cellaDa,
+  centroCella, calpestabile, segmentoLibero, agganciaCella, tiraLaCorda,
+  trovaPercorso,
+};
+
+// ---------------------------------------------------------------
+// Esposizione sul bridge window.__veritas*
+//
+// Il blocco boot e' uno script classico e non puo' importare un modulo:
+// lo raggiunge da qui, come gia' fa con il motore percettivo.
+// ---------------------------------------------------------------
+window.__veritasNavigazione = {
+  creaMappa, creaMappaDaNuvola, trovaPercorso, segmentoLibero,
+  calpestabile, agganciaCella, cellaDa, centroCella, tiraLaCorda,
+  DEFAULTS: NAVIGAZIONE_DEFAULTS,
+};
+console.log("[VERITAS Navigazione] mappa di cammino pronta — window.__veritasNavigazione");
 </script>
 
 <script type="module">
