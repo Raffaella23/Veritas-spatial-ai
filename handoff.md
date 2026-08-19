@@ -225,7 +225,24 @@ prima. Nel comando di chat si scrive **`occhi`** per farlo guardare.
 
 ## 5. Cosa resta aperto, in ordine
 
-### 1) I KPI finti che sembrano veri — *il più importante*
+### 0) 🔴 Le tappe devono stare **sopra la cosa che le definisce** — *il primo*
+
+> Detto da Raffaella il 18/08 guardando l'anteprima:
+> *«Le tappe stanno tutte in un posto dove si arriva davvero a piedi, ma non in
+> maniera da avere senso! Il parcheggio deve stare dove stanno le macchine.»*
+
+Il parcheggio va **sulle automobili**, l'accettazione **sulla fila dei
+banconi**, il controllo **sui varchi**, l'attesa **sulle sedute**, il gate
+**dove attacca il pontile**. Oggi invece sono a distanza uguale lungo il
+percorso più lungo: percorribili e in fila indiana, cioè senza senso.
+
+Le due condizioni valgono **insieme**: significato *e* percorribilità.
+Soddisfarne una sola è lo stato di oggi (e quello di ieri, invertito).
+
+Il testo completo, con le due strade praticabili e come si verifica, è
+**in cima a `CLAUDE.md`** — è la prima cosa che deve leggere chi riprende.
+
+### 1) I KPI finti che sembrano veri
 
 In basso a destra ci sono flusso, rallentamenti, tempo di transito e
 saturazione. Sono **cablati dentro la demo** (`hV()` nel bundle: flusso 0.156,

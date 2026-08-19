@@ -1,5 +1,79 @@
 # CLAUDE.md — VERITAS Spatial AI
 
+## 🔴 IL PUNTO CHE MANCA, E VIENE PRIMA DI TUTTO
+
+> Detto da Raffaella il 18/08/2026 guardando l'anteprima, subito dopo il
+> passaggio a navcat. **È l'ultimo pezzo che manca, ed è fondamentale.**
+> Sta qui, in cima, perché è la prima cosa che deve leggere chi riprende.
+
+### UNA ZONA STA DOVE STA LA COSA CHE LA DEFINISCE
+
+> *«Le tappe stanno tutte in un posto dove si arriva davvero a piedi, ma non
+> in maniera da avere senso! Il parcheggio deve stare dove stanno le
+> macchine. Il controllo, dove si vedono i banchi del check-in. Stanno sul
+> pavimento in fila indiana.»*
+
+| tappa | deve stare **sopra** |
+|---|---|
+| Parcheggio | dove ci sono le **automobili** |
+| Accettazione / check-in | dove c'è la **fila dei banconi** |
+| Controllo | dove ci sono i **varchi**, il punto stretto in cui si passa uno per volta |
+| Attesa / lounge | dove ci sono le **sedute** |
+| Gate / imbarco | dove attacca il **pontile** che va all'aereo |
+
+Il parcheggio è un parcheggio **perché lì ci sono le auto**, non perché è il
+primo punto della fila.
+
+### Cosa c'è che non va, oggi
+
+`catenaCamminabile()` (§17) distribuisce le tappe **a distanza uguale lungo il
+percorso camminabile più lungo**. Risultato misurato: 99,8% delle posizioni
+degli agenti su terreno calpestabile — e sette tappe **in fila indiana**, che
+non vogliono dire niente. **Percorribili e insensate.** È una regressione di
+significato pagata per avere una di percorribilità: quella riga di codice ha
+risolto un problema e ne ha creato un altro, e va rifatta, non ritoccata.
+
+### Le due condizioni valgono INSIEME, non una alla volta
+
+1. **Significato** — ogni tappa sopra l'oggetto che la definisce.
+2. **Percorribilità** — le tappe si raggiungono a piedi fra loro (§17.2 punto 3:
+   quel modello ha sei aree scollegate, ed è un fatto vero).
+
+Chi rifà questa parte deve reggerle tutte e due. Soddisfarne una sola è
+esattamente lo stato di oggi, e lo stato di ieri.
+
+### Perché le misure da sole non ci arriveranno mai
+
+Le automobili, i banconi, le sedute, il pontile **si vedono**. Non si deducono
+da quanto è largo un corridoio o da dove lo spazio si stringe. È il limite già
+dichiarato in §16.6, e questa richiesta lo rende il problema centrale invece
+che un miglioramento.
+
+Le due strade praticabili, **entrambe già mezze pronte nel repository**:
+
+- **Gli occhi** (`veritas_occhi.js`, §17.0) — la pianta renderizzata va a un
+  modello che vede. Oggi chiede *«cos'è la zona 3?»* su zone già decise.
+  Deve invece **dire dove sono le cose**, e le zone nascere da lì.
+  ⚠️ **Non ancora provato con un modello vero acceso.**
+- **Gli oggetti ripetuti** — una fila di sedute è un gruppo di mesh identiche
+  in griglia; una fila di banconi lo stesso; le auto pure. È geometria, quindi
+  è ripetibile e non costa niente, e oggi viene **scartata** da
+  `extractNavigablePoints` come "roba che non è pavimento". Sono proprio loro
+  a dire cos'è ogni posto.
+
+Consigliata: **le due insieme** — gli oggetti ripetuti danno il *dove* in modo
+ripetibile, gli occhi danno il *cosa*. Ma prima **misurare** quanti gruppi di
+oggetti ripetuti ci sono davvero in un modello, invece di darlo per scontato.
+
+### Come si verifica che sia risolto
+
+Non con una percentuale: **guardando**. Su un modello con auto, banconi e
+sedute, ogni cartellino deve cadere sopra la cosa che nomina. Se il cartellino
+"Parcheggio" non sta sulle auto, non è risolto — per quanto buono sia ogni
+altro numero.
+
+---
+
 > Istruzioni operative per Claude Code su questo repository.
 > **Leggi tutto questo file prima di scrivere una sola riga di codice.**
 >
