@@ -26,6 +26,7 @@
 // esiste affatto: il modello l'ha gia' aperto three.js.
 import { readFileSync } from "node:fs";
 import C from "../veritas_cose.js";
+import P from "../veritas_controprova.js";
 
 // ---------------------------------------------------------------------------
 // Da GLB a inventario
@@ -124,7 +125,26 @@ export function inventarioDaGlb(g) {
         }
         // la scala del mondo, per riportare l'ingombro locale alla misura vera
         const s = [Math.hypot(M[0], M[1], M[2]), Math.hypot(M[4], M[5], M[6]), Math.hypot(M[8], M[9], M[10])];
+
+        // DA CHE PARTE GUARDA. Una comparsa e' quasi sempre un piano sottile
+        // con sopra la fotografia di una persona: la direzione dello sguardo e'
+        // la normale di quel piano, cioe' l'asse locale piu' sottile portato
+        // nel mondo.
+        //
+        // ⚠️ Si conosce l'ASSE, non il verso: il piano ha due facce e quale sia
+        //    quella stampata non si sa senza leggere la texture. Chi usa questo
+        //    dato deve saperlo — `veritas_controprova.js` infatti confronta
+        //    solo assi.
+        const dLoc = [(b.mx[0] - b.mn[0]) * s[0], (b.mx[1] - b.mn[1]) * s[1], (b.mx[2] - b.mn[2]) * s[2]];
+        let asse = 0;
+        if (dLoc[1] < dLoc[asse]) asse = 1;
+        if (dLoc[2] < dLoc[asse]) asse = 2;
+        const col = [M[asse * 4], M[asse * 4 + 1], M[asse * 4 + 2]];
+        const nCol = Math.hypot(col[0], col[2]);            // solo in pianta
+        const avanti = nCol > 1e-6 ? [col[0] / nCol, 0, col[2] / nCol] : null;
+
         fuori.push({
+          avanti,
           id: "n" + idx,
           nome: n.name || "",              // ⚠️ solo per stamparlo: non entra mai nella firma
           centro: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2],
@@ -229,3 +249,34 @@ for (const p of posti.slice(0, 12)) {
 }
 
 console.log("\n" + C.racconta(r, posti));
+
+// ---------------------------------------------------------------------------
+// La risposta che il modello si porta dietro
+// ---------------------------------------------------------------------------
+//
+// Raffaella, 19/08: *«dovrei ritrovare una corrispondenza fra la presenza delle
+// persone, le facce e le zone che metti tu. Questa sara' la controprova.»*
+// Qui si stampa solo la RISPOSTA — dove il modello dice che sta la gente. Il
+// confronto con le zone si fa nel browser, dove le zone esistono.
+
+const f = P.figure(r.cose);
+if (!f.length) {
+  console.log("\n[controprova] nessuna figura umana in questo modello: "
+    + "manca il termine di paragone.");
+} else {
+  const gruppi = P.capannelli(f);
+  console.log("\n=== LA RISPOSTA DEL MODELLO: dove sta la gente ===");
+  console.log(P.quantePersone(f) + " figure umane, in " + gruppi.length + " capannelli.");
+  console.log("\npersone | raggio | sguardo concorde | dove (x,z)");
+  for (const g of gruppi.slice(0, 15)) {
+    console.log(
+      String(g.persone).padStart(7), "|",
+      (g.raggio.toFixed(1) + " m").padStart(6), "|",
+      (g.sguardo == null ? "non noto" : g.sguardo.toFixed(2)
+        + (g.sguardo > 0.8 ? "  <- coda o platea" : "")).padEnd(22), "|",
+      g.centro[0].toFixed(1) + ", " + g.centro[2].toFixed(1));
+  }
+  console.log("\nOgni riga e' un posto dove il progettista ha messo delle persone.");
+  console.log("Se le zone del programma non ci cadono sopra, non ha capito lo spazio.");
+  console.log("⚠️ Queste figure NON devono servire a decidere le zone: solo a verificarle.");
+}
