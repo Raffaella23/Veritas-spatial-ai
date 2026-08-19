@@ -65,6 +65,27 @@ Consigliata: **le due insieme** — gli oggetti ripetuti danno il *dove* in modo
 ripetibile, gli occhi danno il *cosa*. Ma prima **misurare** quanti gruppi di
 oggetti ripetuti ci sono davvero in un modello, invece di darlo per scontato.
 
+### La prova numerica, se serve convincersi
+
+Le sette tappe che il programma mette oggi, distanze fra una e l'altra:
+
+```
+10.8 | 10.6 | 10.8 | 10.8 | 10.7 | 9.6 m      media 10.5, scarto 0.42 m
+```
+
+Passo costante. Non e' un'impressione guardando lo schermo: e' una fila.
+Si rifa' con `node banco/fotografia.mjs` (stampa anche posizione e origine di
+ogni tappa).
+
+⚠️ Quello script prova anche a **fotografare** il difetto, e finora non ci
+riesce: lo schermo non si puo' catturare perche' la telecamera del bundle si
+riprende il controllo un fotogramma dopo e i pannelli coprono la scena; e la
+pianta ortografica su questo modello esce quasi vuota, con i cartellini fuori
+dall'edificio. Chi riprende faccia due cose: **chieda a Raffaella di
+incollare la sua schermata direttamente in chat** (arriva subito e vale piu'
+di mille righe), e sistemi quella resa — che il punto 1 e il punto 6 cadano
+fuori dal grigio del terminal e' gia' di per se' un indizio da capire.
+
 ### Come si verifica che sia risolto
 
 Non con una percentuale: **guardando**. Su un modello con auto, banconi e
