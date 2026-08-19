@@ -783,7 +783,308 @@ export function posti(elenco, opz = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. Raccontarlo in italiano
+// 8. Appoggiare le tappe sulle cose
+// ---------------------------------------------------------------------------
+//
+// E' il punto di arrivo di tutto il modulo, e chiude il difetto in cima a
+// CLAUDE.md. Oggi `catenaCamminabile()` distribuisce le tappe A DISTANZA
+// UGUALE lungo il percorso piu' lungo: percorribili e in fila indiana.
+// Qui invece le tappe si posano sui POSTI misurati — dove ci sono davvero
+// degli arredi — e la percorribilita' resta garantita perche' si tengono solo
+// i posti che stanno sul calpestabile e che si raggiungono fra loro.
+//
+//     Le due condizioni valgono INSIEME: significato E percorribilita'.
+//     Soddisfarne una sola e' lo stato di ieri, e quello di oggi.
+//
+// ⚠️ COSA NON FA
+// Non decide QUALE tappa va su QUALE posto — cioe' non dice «il parcheggio va
+// su queste auto». Quello richiede di sapere cosa sono le cose, e lo dira'
+// l'occhio. Qui si fa la meta' che si puo' fare per sola geometria: le tappe
+// smettono di cadere nel vuoto e si posano su qualcosa di reale, tenendo
+// l'ordine del percorso che era gia' stato deciso.
+//
+// ⚠️ E NON USA LE FIGURE UMANE.
+// Sono la controprova (`veritas_controprova.js`): se servissero anche a
+// mettere le tappe, la verifica si darebbe ragione da sola. Vengono tolte qui,
+// una volta, in modo esplicito — non e' una dimenticanza da nessuna parte.
+
+/**
+ * Le cose su cui una tappa puo' posarsi.
+ *
+ * Si tolgono: le figure umane (sono la controprova) e gli oggetti appesi (un
+ * monitor a tre metri d'altezza non e' un posto dove si sta). Le placche sono
+ * gia' fuori da `posti()`.
+ *
+ * ⚠️ SI TOLGONO DAL POSTO, non si scarta il posto che le contiene.
+ *
+ *    Prima si buttava via un posto solo se era fatto INTERAMENTE di figure. Un
+ *    posto con dentro un arredo e duecento comparse passava intero, comparse
+ *    comprese, e il suo baricentro era il baricentro della folla. Misurato sul
+ *    modello di esempio: la tappa «Imbarco / Gate» si e' appoggiata su un
+ *    posto di 231 oggetti verticali, cioe' in gran parte sulla gente.
+ *
+ *    E' esattamente la circolarita' che la controprova deve evitare: una tappa
+ *    messa sulle persone e poi verificata contro le persone si da' ragione da
+ *    sola. Le figure vanno tolte dal conto E dal baricentro.
+ */
+export function posiAppoggiabili(elencoPosti, opz = {}) {
+  const eFigura = opz.eFigura || (() => false);
+  const fuori = [];
+  for (const p of elencoPosti || []) {
+    const resta = (p.cose || []).filter((c) => !eFigura(c) && c.forma !== "appeso");
+    if (!resta.length) continue;
+
+    // Il posto va RICALCOLATO su cio' che resta: centro, conteggio, ingombro.
+    // Tenere i numeri di prima vorrebbe dire portarsi dietro le comparse
+    // nascoste dentro una media.
+    const oggetti = resta.reduce((s, c) => s + c.quante, 0);
+    let px = 0, py = 0, pz = 0, peso = 0;
+    for (const c of resta) {
+      px += c.centro[0] * c.quante; py += c.centro[1] * c.quante; pz += c.centro[2] * c.quante;
+      peso += c.quante;
+    }
+    const ing = ingombroDi(resta.map((c) => ({ centro: c.centro, ingombro: c.ingombro.dim })));
+    const perForma = {};
+    for (const c of resta) perForma[c.forma] = (perForma[c.forma] || 0) + c.quante;
+
+    fuori.push({
+      ...p,
+      centro: [px / peso, py / peso, pz / peso],
+      ingombro: ing,
+      area: Math.max(0, ing.dim[0]) * Math.max(0, ing.dim[2]),
+      oggetti,
+      gruppi: resta.length,
+      forme: perForma,
+      formaPrevalente: Object.keys(perForma).sort((a, b) => perForma[b] - perForma[a])[0] || null,
+      quota: Math.min(...resta.map((c) => c.quota)),
+      cose: resta,
+      // quante ne sono state tolte: si dice, non si nasconde
+      figureTolte: (p.oggetti || 0) - oggetti,
+    });
+  }
+  return fuori;
+}
+
+/**
+ * Posa `quante` tappe sui posti misurati, in ordine lungo il percorso.
+ *
+ * @param {number} quante  quante tappe servono (l'ordine e i nomi sono gia'
+ *                         decisi altrove: qui si sposta il DOVE, non il COSA)
+ * @param {Array}  elencoPosti  l'uscita di `posti()`
+ * @param {Object} opz
+ *   @param {Function} opz.raggiungibile(pos) -> {ok, punto} | bool
+ *          dice se un punto sta sul calpestabile, e dove esattamente. E' la
+ *          navmesh, iniettata: cosi' questo modulo resta provabile senza.
+ *   @param {Function} opz.collegati(a, b) -> bool
+ *          dice se due punti si raggiungono a piedi. Opzionale.
+ *   @param {Function} opz.eFigura(cosa) -> bool
+ *   @param {Array}    opz.asse  [ax, az] direzione del flusso, se nota
+ *
+ * @returns {null|{punti, posti, scartati, perche}}
+ *          null quando non c'e' abbastanza materiale: in quel caso il
+ *          chiamante deve tenere il comportamento di prima. Meglio quello di
+ *          ieri che una lettura debole — la stessa regola gia' scritta per il
+ *          dentro/fuori e per la catena camminabile.
+ */
+export function appoggiaTappe(quante, elencoPosti, opz = {}) {
+  const k = Math.max(2, quante | 0);
+  const raggiungibile = opz.raggiungibile || null;
+  const collegati = opz.collegati || null;
+
+  let candidati = posiAppoggiabili(elencoPosti, opz);
+  const scartati = { appesiOFigure: (elencoPosti || []).length - candidati.length };
+
+  // 1. Solo cio' che sta dove si cammina. Un blocco di sedute e' un posto vero
+  //    anche se ci si siede sopra invece di camminarci: la tappa va messa sul
+  //    calpestabile PIU' VICINO, non sopra il sedile.
+  if (raggiungibile) {
+    const prima = candidati.length;
+    candidati = candidati.map((p) => {
+      const r = raggiungibile(p.centro);
+      if (!r) return null;
+      const punto = r === true ? p.centro : (r.ok ? r.punto : null);
+      return punto ? { ...p, appoggio: punto } : null;
+    }).filter(Boolean);
+    scartati.fuoriDalCammino = prima - candidati.length;
+  } else {
+    candidati = candidati.map((p) => ({ ...p, appoggio: p.centro }));
+    scartati.fuoriDalCammino = 0;
+  }
+  if (candidati.length < 2) {
+    return null;
+  }
+
+  // 2. Solo il gruppo piu' numeroso fra quelli che si raggiungono a piedi.
+  //    Un modello con sei aree scollegate e' un fatto di progetto, non un
+  //    errore: si sceglie la piu' popolata e si dice quante se ne lasciano
+  //    fuori.
+  if (collegati) {
+    const padre = candidati.map((_, i) => i);
+    const radice = (i) => { while (padre[i] !== i) { padre[i] = padre[padre[i]]; i = padre[i]; } return i; };
+    for (let i = 0; i < candidati.length; i++) for (let j = i + 1; j < candidati.length; j++)
+      if (collegati(candidati[i].appoggio, candidati[j].appoggio)) {
+        const a = radice(i), b = radice(j);
+        if (a !== b) padre[b] = a;
+      }
+    const per = new Map();
+    candidati.forEach((c, i) => {
+      const r = radice(i);
+      if (!per.has(r)) per.set(r, []);
+      per.get(r).push(c);
+    });
+    // ⚠️ Si sceglie il gruppo con piu' OGGETTI DENTRO, non quello con piu'
+    //    posti e non quello piu' esteso.
+    //
+    //    Misurato sul modello di esempio: la catena camminabile sceglieva
+    //    l'isola piu' grande per area (1.730 m2) e ci posava sopra tutte e
+    //    sette le tappe — ma le persone del modello stavano in gran parte da
+    //    tutt'altra parte, a cinquanta metri di distanza. Il risultato: 28%
+    //    delle persone con una zona vicina, distanza mediana 28 m.
+    //
+    //    Un'area grande e vuota non e' dove succedono le cose. Il piazzale di
+    //    un aeroporto e' quasi sempre l'area piu' estesa, e non e' li' che si
+    //    fa la fila. Contano gli oggetti che ci stanno sopra.
+    //
+    // ⚠️ E si sceglie SOLO FRA I GRUPPI CHE REGGONO UNA CATENA, cioe' che
+    //    hanno almeno due posti.
+    //
+    //    Trovato misurando sul modello vero: il gruppo con piu' oggetti era un
+    //    posto SOLO, isolato sulla sua area. Vinceva il confronto, poi non
+    //    superava il controllo «servono almeno due ancore», e la funzione
+    //    restituiva null — cioe' si tornava alla fila indiana per tutte e sette
+    //    le tappe, mentre c'era un gruppo da cinque posti perfettamente buono
+    //    poco piu' in giu' nell'elenco. Un difetto silenzioso: in console si
+    //    leggeva solo «nessun posto appoggiabile», che era falso.
+    const gruppi = [...per.values()]
+      .filter((g) => g.length >= 2)
+      .sort((a, b) => b.reduce((s, p) => s + p.oggetti, 0) - a.reduce((s, p) => s + p.oggetti, 0));
+    if (!gruppi.length) return null;
+    scartati.scollegati = candidati.length - gruppi[0].length;
+    candidati = gruppi[0];
+    if (candidati.length < 2) return null;
+  } else {
+    scartati.scollegati = 0;
+  }
+
+  // 3. In ordine lungo il percorso. L'asse e' quello del flusso se lo si
+  //    conosce, altrimenti l'asse principale dei posti stessi — che su un
+  //    edificio lungo e' la sua lunghezza, cioe' proprio la direzione in cui
+  //    la gente lo attraversa.
+  let ax, az;
+  if (opz.asse) { ax = opz.asse[0]; az = opz.asse[1]; }
+  else {
+    const a = assePrincipale(candidati.map((p) => [p.appoggio[0], p.appoggio[2]]));
+    ax = Math.cos(a.angolo); az = Math.sin(a.angolo);
+  }
+  const ordinati = candidati
+    .map((p) => ({ ...p, t: p.appoggio[0] * ax + p.appoggio[2] * az }))
+    .sort((a, b) => a.t - b.t);
+
+  // 4. Se i posti sono piu' delle tappe, si prendono quelli piu' importanti
+  //    (piu' oggetti dentro) distribuiti lungo l'asse: uno per ogni tratto.
+  //    ⚠️ Si sceglie fra i POSTI, non fra i metri. E' tutta qui la differenza
+  //       con la fila indiana: prima si prendeva un punto ogni tot metri, ora
+  //       si prende il posto piu' importante di ogni tratto. Se in un tratto
+  //       non c'e' niente, non ci va nessuna tappa — ed e' giusto cosi'.
+  if (ordinati.length >= k) {
+    const scelti = [];
+    const perTratto = ordinati.length / k;
+    for (let i = 0; i < k; i++) {
+      const da = Math.floor(i * perTratto), a = Math.max(da + 1, Math.floor((i + 1) * perTratto));
+      const tratto = ordinati.slice(da, a);
+      scelti.push(tratto.reduce((m, p) => (p.oggetti > m.oggetti ? p : m), tratto[0]));
+    }
+    return {
+      punti: scelti.map((p) => p.appoggio),
+      posti: scelti,
+      suCose: scelti.map(() => true),
+      ancore: scelti.length,
+      scartati, perche: null,
+    };
+  }
+
+  // 5. Meno posti che tappe. Succede, ed e' un fatto di progetto: sul modello
+  //    di esempio le 13 ancore stanno su 9 aree che a piedi non si raggiungono
+  //    fra loro, e la piu' popolata ne ha 3.
+  //
+  //    ⚠️ Rinunciare qui vorrebbe dire tornare alla fila indiana per TUTTE e
+  //       sette le tappe — buttare via anche le tre che sarebbero cadute su
+  //       qualcosa di reale. Meglio: le ancore restano dove sono, e le tappe
+  //       che avanzano si distribuiscono lungo il percorso che le unisce.
+  //       Cosi' ogni tappa resta raggiungibile, e quelle appoggiate su una
+  //       cosa vera si sanno riconoscere una per una (`suCose`).
+  const catena = [];
+  for (let i = 0; i < ordinati.length; i++) {
+    if (i === 0) { catena.push({ p: ordinati[0].appoggio, posto: ordinati[0] }); continue; }
+    const tratto = opz.percorso
+      ? opz.percorso(ordinati[i - 1].appoggio, ordinati[i].appoggio)
+      : null;
+    const mezzo = tratto && tratto.punti ? tratto.punti.slice(1, -1) : [];
+    for (const q of mezzo) catena.push({ p: q, posto: null });
+    catena.push({ p: ordinati[i].appoggio, posto: ordinati[i] });
+  }
+
+  // lunghezze cumulate lungo la spezzata
+  const cum = [0];
+  for (let i = 1; i < catena.length; i++)
+    cum.push(cum[i - 1] + Math.hypot(catena[i].p[0] - catena[i - 1].p[0],
+                                     catena[i].p[2] - catena[i - 1].p[2]));
+  const tot = cum[cum.length - 1];
+
+  // Le ancore tengono il loro posto; le tappe che avanzano si mettono nei
+  // vuoti fra un'ancora e l'altra, tanti quanto il vuoto e' lungo.
+  const indiciAncora = catena.map((c, i) => (c.posto ? i : -1)).filter((i) => i >= 0);
+  const avanzo = k - indiciAncora.length;
+  const vuoti = [];
+  for (let i = 1; i < indiciAncora.length; i++)
+    vuoti.push({ da: indiciAncora[i - 1], a: indiciAncora[i],
+                 lung: cum[indiciAncora[i]] - cum[indiciAncora[i - 1]] });
+  const lungTot = vuoti.reduce((s, v) => s + v.lung, 0) || 1;
+  let restano = avanzo;
+  for (const v of vuoti) { v.quante = Math.floor(avanzo * v.lung / lungTot); restano -= v.quante; }
+  // gli arrotondamenti avanzati vanno ai vuoti piu' lunghi
+  vuoti.sort((a, b) => b.lung - a.lung);
+  for (let i = 0; i < restano && vuoti.length; i++) vuoti[i % vuoti.length].quante++;
+  vuoti.sort((a, b) => a.da - b.da);
+
+  const suPercorso = (t) => {
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < t) i++;
+    const f = (t - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1]);
+    return [
+      catena[i - 1].p[0] + (catena[i].p[0] - catena[i - 1].p[0]) * f,
+      catena[i - 1].p[1] + (catena[i].p[1] - catena[i - 1].p[1]) * f,
+      catena[i - 1].p[2] + (catena[i].p[2] - catena[i - 1].p[2]) * f,
+    ];
+  };
+
+  const punti = [], posti_ = [], suCose = [];
+  for (let i = 0; i < indiciAncora.length; i++) {
+    punti.push(catena[indiciAncora[i]].p);
+    posti_.push(catena[indiciAncora[i]].posto);
+    suCose.push(true);
+    const v = vuoti.find((x) => x.da === indiciAncora[i]);
+    if (!v || !v.quante) continue;
+    for (let j = 1; j <= v.quante; j++) {
+      punti.push(suPercorso(cum[v.da] + v.lung * j / (v.quante + 1)));
+      posti_.push(null);
+      suCose.push(false);
+    }
+  }
+
+  if (punti.length !== k || !(tot > 0)) return null;
+  return {
+    punti, posti: posti_, suCose,
+    ancore: indiciAncora.length,
+    scartati,
+    perche: "solo " + indiciAncora.length + " posti su " + k
+      + " tappe si raggiungono a piedi fra loro: le altre le ho messe lungo il "
+      + "percorso che li unisce",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 9. Raccontarlo in italiano
 // ---------------------------------------------------------------------------
 //
 // Un'analisi automatica deve dire cosa ha capito, non solo lasciarlo in
@@ -825,10 +1126,176 @@ export function racconta(esito, elencoPosti) {
     + "\nCosa siano lo dice l'occhio: qui ho solo misurato.";
 }
 
+// ---------------------------------------------------------------------------
+// 10. Dalla scena caricata all'inventario
+// ---------------------------------------------------------------------------
+//
+// L'unico pezzo che sa di three.js. Tutto il resto del modulo lavora su un
+// elenco di pezzi e non sa da dove vengano — per questo si puo' provare senza
+// browser, e per questo il banco (`banco/cose_nel_modello.mjs`, che legge un
+// GLB) e il programma danno la stessa risposta sullo stesso file.
+//
+// ⚠️ Presuppone il modello GIA' IN SCALA E APPOGGIATO A TERRA. Se ne occupa la
+//    sequenza (`veritas_sequenza.js`): nessuna misura esce dalla fase
+//    «ambiente». Su un modello sei volte piu' piccolo del vero ogni fascia di
+//    questo file sarebbe priva di senso, ed e' lo stesso motivo per cui il
+//    confronto normativo aspetta.
+
+/**
+ * @param THREE   il namespace three.js
+ * @param radice  THREE.Object3D del modello caricato
+ * @returns {Array} l'inventario, come lo vuole `cose()`
+ */
+export function inventarioDaScena(THREE, radice, opz = {}) {
+  if (!THREE || !radice) return [];
+  radice.updateMatrixWorld(true);
+
+  const tettoIstanze = opz.tettoIstanze || 4096;
+  const fuori = [];
+  const M = new THREE.Matrix4();
+  const scatola = new THREE.Box3();
+  const dim = new THREE.Vector3();
+  const scala = new THREE.Vector3();
+  const centro = new THREE.Vector3();
+
+  function aggiungi(o, matrice, n) {
+    const geom = o.geometry;
+    if (!geom) return;
+    if (!geom.boundingBox) geom.computeBoundingBox();
+    const bb = geom.boundingBox;
+    if (!bb) return;
+
+    // ingombro nel mondo: la scatola locale portata dalla matrice
+    scatola.copy(bb).applyMatrix4(matrice);
+    scatola.getSize(dim);
+    scatola.getCenter(centro);
+
+    // ingombro locale, in scala di mondo: e' quello che entra nella firma,
+    // perche' un oggetto ruotato resta lo stesso oggetto
+    scala.setFromMatrixScale(matrice);
+    const dl = [
+      (bb.max.x - bb.min.x) * Math.abs(scala.x),
+      (bb.max.y - bb.min.y) * Math.abs(scala.y),
+      (bb.max.z - bb.min.z) * Math.abs(scala.z),
+    ];
+
+    // da che parte guarda: la normale della faccia piu' sottile, in pianta.
+    // ⚠️ E' un ASSE, non un verso — vedi `veritas_controprova.js`.
+    let asse = 0;
+    if (dl[1] < dl[asse]) asse = 1;
+    if (dl[2] < dl[asse]) asse = 2;
+    const e = matrice.elements;
+    const cx = e[asse * 4], cz = e[asse * 4 + 2];
+    const nrm = Math.hypot(cx, cz);
+
+    const attr = geom.attributes && geom.attributes.position;
+    const mat = Array.isArray(o.material) ? o.material : [o.material];
+
+    fuori.push({
+      id: o.uuid + (n != null ? ":" + n : ""),
+      nome: o.name || "",           // ⚠️ solo per poterlo mostrare: mai nella firma
+      centro: [centro.x, centro.y, centro.z],
+      ingombro: [dim.x, dim.y, dim.z],
+      ingombroLocale: dl,
+      nVertici: attr ? attr.count : 0,
+      nTriangoli: geom.index ? Math.floor(geom.index.count / 3)
+        : (attr ? Math.floor(attr.count / 3) : 0),
+      // l'identita' del materiale, non il suo aspetto: due copie dello stesso
+      // oggetto condividono l'istanza del materiale
+      materiale: mat.map((m) => (m && m.uuid) || "-").sort().join(","),
+      avanti: nrm > 1e-6 ? [cx / nrm, 0, cz / nrm] : null,
+    });
+  }
+
+  radice.traverse((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    if (o.visible === false) return;
+    // Roba nostra: marker delle zone, agenti, aiuti visivi. Non e' architettura,
+    // e contarla falserebbe tutto. Stessa guardia di `geometriaDaModello`.
+    if (o.userData && (o.userData.__veritasHelper || o.userData.__veritasAgent)) return;
+
+    if (o.isInstancedMesh && o.count > 0) {
+      const n = Math.min(o.count, tettoIstanze);
+      for (let i = 0; i < n; i++) {
+        o.getMatrixAt(i, M);
+        M.premultiply(o.matrixWorld);
+        aggiungi(o, M, i);
+      }
+      return;
+    }
+    aggiungi(o, o.matrixWorld, null);
+  });
+
+  return fuori;
+}
+
+/** Tutto il piano 2 in una chiamata sola, dalla scena. */
+export function leggiScena(THREE, radice, opz = {}) {
+  const inventario = inventarioDaScena(THREE, radice, opz);
+  const esito = cose(inventario, opz);
+  return { inventario, ...esito, posti: posti(esito.cose, opz) };
+}
+
+// ---------------------------------------------------------------------------
+// 11. Si aggancia da solo al caricamento del modello
+// ---------------------------------------------------------------------------
+//
+// Come gli altri moduli: avvolge `__veritasOnModelLoaded` invece di farsi
+// chiamare da qualcuno, cosi' non c'e' un punto in piu' da ricordare in
+// `index.html` e togliendo questo blocco il programma resta intero.
+//
+// ⚠️ Si legge DOPO che l'ambiente e' stato sistemato — scala e appoggio a
+//    terra stanno nel blocco 2 e agiscono a caricamento avvenuto. Su un
+//    modello sei volte piu' piccolo del vero, un bancone alto un metro
+//    misurerebbe 17 cm e finirebbe classificato «placca». E' lo stesso motivo
+//    per cui la navmesh e il confronto normativo aspettano.
+
+if (typeof window !== "undefined") {
+  const precedente = window.__veritasOnModelLoaded;
+  window.__veritasOnModelLoaded = function (radice) {
+    let out;
+    try { out = precedente ? precedente.apply(this, arguments) : undefined; }
+    catch (e) { console.error("[VERITAS cose] errore nel passo precedente:", e); }
+
+    setTimeout(function () {
+      const THREE = window.THREE;
+      const root = radice || window.__veritasModelRoot;
+      if (!THREE || !root) {
+        console.warn("[VERITAS cose] manca three o il modello: niente da leggere");
+        return;
+      }
+      try {
+        const t0 = Date.now();
+        const r = leggiScena(THREE, root);
+        r.ms = Date.now() - t0;
+        window.__veritasCoseTrovate = r;
+        console.log("[VERITAS cose] " + r.cose.length + " gruppi di oggetti ripetuti su "
+          + r.pezzi + " pezzi, " + r.posti.length + " posti, " + r.ms + " ms");
+        if (typeof window.__veritasAnnounce === "function") {
+          try { window.__veritasAnnounce(racconta(r, r.posti)); } catch (e) {}
+        }
+        // Le tappe possono essere riappoggiate solo ora che le cose si
+        // conoscono. Se la navmesh e' gia' pronta lo si fa subito; altrimenti
+        // ci pensera' lei quando finisce, che chiama la stessa funzione.
+        if (typeof window.__veritasZoneSulCammino === "function") {
+          try { window.__veritasZoneSulCammino(); }
+          catch (e) { console.error("[VERITAS cose] riassegnazione fallita:", e); }
+        }
+      } catch (e) {
+        console.error("[VERITAS cose] lettura fallita:", e);
+      }
+    }, 0);
+    return out;
+  };
+  console.log("[VERITAS cose] pronto — window.__veritasCose");
+}
+
 export default {
   CORPO, VICINANZA, SALTO, RAGGIO_MAX_IN_OGGETTI, COPIE_MINIME, FORME,
   firma, perFirma, forma, mucchi, assePrincipale, disposizione,
   quotePavimento, pavimentoSotto, distanzaDiUnione,
   distanzaFraScatole, sovrapposizione, mucchiPerScatola,
-  cose, posti, racconta, raccontaCosa,
+  cose, posti, posiAppoggiabili, appoggiaTappe,
+  inventarioDaScena, leggiScena,
+  racconta, raccontaCosa,
 };
