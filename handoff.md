@@ -35,7 +35,12 @@ Serviva perché il lavoro dei giorni scorsi **non era mai stato sullo schermo**,
 e perché dalla sandbox non si scarica il modello di visione: **nel browser di
 Raffaella l'occhio può girare per la prima volta.**
 
-**1. `veritas_bim.js` — l'IFC come ingresso di prima classe.** ⬅️ *si comincia da qui*
+**1. ✅ `veritas_bim.js` — l'IFC come ingresso di prima classe.** *(fatto il 19/08)*
+Carichi un `.ifc` e le stanze compaiono **col nome che gli hai dato tu**, dove
+le hai disegnate. Provato su un progetto vero esportato da ArchiCAD: sette
+stanze su due piani, i loro nomi, le porte fra una stanza e l'altra con la
+luce netta, e le due porte che danno sulla strada — quindi **l'ingresso non si
+indovina più, c'è scritto**. Il dettaglio completo sta in `CLAUDE.md` §19.
 - lettore `web-ifc` v0.0.77, **MPL-2.0 (uso commerciale consentito)**, via
   importmap come navcat — non inlinato;
 - `IfcSpace` → zone dichiarate, con `origine: "bim"` che diventa il gradino
@@ -71,11 +76,22 @@ l'immagine**, non disproiettando le scatole.
 
 ### Cosa serve e non ce l'ha la macchina
 
-**Un IFC architettonico vero con le Zone.** I campioni pubblici provati erano
-strutturali, e `api.github.com` è bloccato dalla sandbox (non si possono
-elencare i file di un repository). **Un export IFC da un progetto ArchiCAD di
-Raffaella vale di più di qualsiasi campione**: `File → Esporta → IFC`, anche un
-progetto piccolo.
+**✅ Trovato un file pubblico, il 19/08: `AC20-FZK-Haus.ifc`** — modello di
+riferimento del KIT, **esportato da ARCHICAD 20**, 2,45 MB, un comando solo:
+
+```bash
+curl -sL -o banco/AC20-FZK-Haus.ifc \
+  https://raw.githubusercontent.com/ThatOpen/engine_web-ifc/main/tests/ifcfiles/public/AC20-FZK-Haus.ifc
+```
+
+È quello con cui è stato costruito e provato il Passo 1: ha le Zone col nome,
+due piani, le porte, i bordi di spazio e i property set — tutto quello che
+serve. **Ma è una casa di sette stanze.**
+
+**Serve ancora un export IFC da un progetto ArchiCAD di Raffaella**:
+`File → Esporta → IFC`, anche un progetto piccolo. È un edificio del suo
+dominio, con la sua nomenclatura, ed è l'unico modo di misurare quanto VERITAS
+ci prendeva prima partendo dalla sola geometria.
 
 ⚠️ **`.pln` e `.pla` non si leggono**: formati chiusi Graphisoft, nessuna
 libreria esiste, versioni non retrocompatibili. Non perderci tempo.
@@ -86,6 +102,12 @@ libreria esiste, versioni non retrocompatibili. Non perderci tempo.
 tappe su arredi veri     3 su 7      persone con una zona vicina   3%
 distanza mediana         16,1 m      (misurato il 19/08 sul GLB)
 ```
+
+⚠️ **Questo numero non si può ancora battere, e va detto.** Serve un IFC con le
+stanze dichiarate per fare il confronto: su un file con N stanze scritte dal
+progettista, quante ne indovinava VERITAS partendo dalla sola geometria.
+Finora non c'era modo di saperlo perché non c'era niente con cui confrontarsi.
+Il banco è pronto (`node banco/bim.mjs <file.ifc>`), manca il file.
 
 ---
 
@@ -129,11 +151,23 @@ rifinitura, è parte di ciò che vende.
 |---|---|---|
 | `main` | **frontend vecchio** + i file Python | produzione e sorgente del deploy Render |
 | `veritas-ai-os-preview` | **allineata al 19/08** (promossa in quella sessione) | anteprima pubblica |
-| `claude/veritas-spatial-ai-resume-z0iuw9` | uguale alla preview | ramo di lavoro della sessione |
+| `claude/veritas-spatial-ai-resume-z0iuw9` | il lavoro in corso | ramo di lavoro della sessione |
+| `claude/new-session-wqeyfh` | ⚠️ **da cancellare, dopo un ok** | vedi qui sotto |
+
+⚠️ **Il quarto ramo, e cosa c'era dentro.** Controllato il 19/08 su richiesta
+di Raffaella. `claude/new-session-wqeyfh` (17/08) è interamente contenuto in
+z0iuw9 **tranne un commit di sola documentazione**, che scriveva una §14
+diversa da quella attuale: la sessione successiva ha riscritto la §14 con
+altro contenuto, e quelle pagine erano rimaste solo lì. Il **codice** che
+descrivevano c'è e funziona (`veritas_aspetto.js`, `veritas_scala.js`,
+`veritas_pavimento.test.mjs`); erano perse le **cause e le misure**, cioè la
+parte che impedisce di rifare la stessa strada. Recuperata come **§14-bis** di
+`CLAUDE.md`. Adesso il ramo si può cancellare senza perdere niente — ma non si
+tocca senza un ok esplicito.
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
-⚠️ `index.html` ha **29 blocchi `<script>`**, non 9 né 20 né 25 come dicono le
+⚠️ `index.html` ha **30 blocchi `<script>`**, non 9 né 20 né 25 come dicono le
 sezioni più vecchie di `CLAUDE.md` e di questo file. Gli indici cambiano a ogni
 inserimento: **riparsali, e individua i blocchi per contenuto, mai per numero.**
 

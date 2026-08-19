@@ -118,7 +118,7 @@ export function eIfc(testa) {
 
 /**
  * La versione dello schema e chi ha esportato il file, letti dall'intestazione.
- * Serve al referto: «questo edificio viene da un export ArchiCAD 20» e'
+ * Serve al referto: «questo edificio viene da un'esportazione ArchiCAD 20» e'
  * un'informazione di provenienza, e la provenienza in questo progetto si
  * dichiara sempre.
  *
@@ -224,7 +224,7 @@ const IDENTIFICATIVO_INTERNO = /^(ACID|GUID|ID)?[0-9A-F]{6,}(-[0-9A-F]{4,}){2,}$
 /**
  * Il nome di un PIANO. ⚠️ Qui la regola e' ROVESCIATA rispetto agli spazi.
  *
- * Misurato il 19/08 su AC20-FZK-Haus.ifc, export ARCHICAD 20:
+ * Misurato il 19/08 su AC20-FZK-Haus.ifc, esportato da ARCHICAD 20:
  *
  *     IfcSpace          Name='4'          LongName='Schlafzimmer'   <- nome in LongName
  *     IfcBuildingStorey Name='Erdgeschoss' LongName='ACID00000001-…' <- nome in Name
@@ -862,7 +862,7 @@ function riga(api, modello, id) {
 }
 
 // Il codice numerico del tipo -> il nome IFC. web-ifc espone le costanti come
-// export del modulo (IFCDOOR, IFCWALL...), quindi la tabella si costruisce una
+// costanti del modulo (IFCDOOR, IFCWALL...), quindi la tabella si costruisce una
 // volta sola dal modulo stesso: non si scrive a mano nessun numero.
 let TABELLA_TIPI = null;
 function nomeTipo(WebIFC, codice) {

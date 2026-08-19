@@ -18,6 +18,13 @@ cp node_modules/@sparkjsdev/spark/dist/spark.module.js banco/vendor/spark.module
 mkdir -p banco/vendor/navcat banco/vendor/mathcat
 cp -r node_modules/navcat/dist/* banco/vendor/navcat/
 cp -r node_modules/mathcat/dist/* banco/vendor/mathcat/
+# web-ifc (il lettore IFC). ⚠️ Serve ANCHE il .wasm, e va accanto al modulo:
+# senza, la lettura muore all'Init con un errore di rete che sembra un
+# problema del banco e non lo e'.
+mkdir -p banco/vendor/webifc
+cp node_modules/web-ifc/web-ifc-api.js banco/vendor/webifc/
+cp node_modules/web-ifc/web-ifc.wasm banco/vendor/webifc/
+cp node_modules/web-ifc/web-ifc-mt.wasm banco/vendor/webifc/ 2>/dev/null || true
 python3 - <<'PY'
 import re
 d = open('index.html', encoding='utf-8').read()
@@ -28,6 +35,10 @@ d = d.replace('https://sparkjs.dev/releases/spark/2.1.0/spark.module.js', './ven
 d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/index.js', './vendor/navcat/index.js')
 d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/blocks.js', './vendor/navcat/blocks.js')
 d = d.replace('https://cdn.jsdelivr.net/npm/mathcat@0.0.12/dist/index.js', './vendor/mathcat/index.js')
+d = d.replace('https://cdn.jsdelivr.net/npm/web-ifc@0.0.77/web-ifc-api.js', './vendor/webifc/web-ifc-api.js')
+# il .wasm di web-ifc: la costante sta in chiaro dentro veritas_bim.js proprio
+# per poter essere riscritta qui, come l'importmap.
+d = d.replace('https://cdn.jsdelivr.net/npm/web-ifc@0.0.77/', '/vendor/webifc/')
 d = re.sub(r'src="https://[^"]*supabase[^"]*"', 'src="./finti/supabase_finto.js"', d)
 open('banco/index.html', 'w', encoding='utf-8').write(d)
 print('banco/index.html generato')

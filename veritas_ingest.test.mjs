@@ -95,6 +95,23 @@ for (const e of [".glb", ".gltf", ".fbx", ".obj", ".ply", ".splat", ".ksplat", "
   ok(acc.includes(e), `accept contiene ${e}`);
 }
 
+console.log("\n=== IFC: l'unico formato che porta dentro la semantica ===");
+// Un IFC e' un file STEP e comincia sempre per ISO-10303-21. E' il formato in
+// cui le stanze hanno ancora un nome — vedi veritas_bim.js e il blocco rosso
+// in cima a CLAUDE.md.
+const ifc = byte("ISO-10303-21;\nHEADER;\nFILE_SCHEMA(('IFC4'));\n");
+uguale(riconosciDaByte(ifc, "progetto.ifc").formato, "ifc", "un IFC dalla firma");
+uguale(riconosciDaByte(ifc, "progetto.ifc").famiglia, "bim", "famiglia bim, non mesh");
+uguale(riconosciDaByte(ifc, "senzaestensione").formato, "ifc",
+  "e si riconosce anche senza estensione, come tutti gli altri");
+// Il BOM di UTF-8 e' TRE BYTE: un editor Windows lo mette, e senza saltarlo
+// il file risulta di formato sconosciuto.
+uguale(riconosciDaByte(new Uint8Array([0xEF, 0xBB, 0xBF, ...ifc]), "x.ifc").formato, "ifc",
+  "un BOM di UTF-8 davanti non lo nasconde");
+uguale(riconosciDaByte(new Uint8Array([1, 2, 3, 4]), "x.ifc").formato, "ifc",
+  "e in mancanza di firma vale l'estensione, dichiarandolo");
+ok(acc.includes(".ifc"), "accept contiene .ifc");
+
 console.log("\n=== colore di una gaussiana ===");
 ok(Math.abs(coloreDaGaussiana(0) - 0.5) < 1e-9,
   "f_dc = 0 da' grigio medio 0.5, non 0");

@@ -58,3 +58,9 @@ banco/*.glb
 banco/*.ply
 banco/schermata.png
 banco/aspetto/
+
+# File IFC di prova scaricati dal banco: si riprendono con un comando
+# (vedi l'intestazione di banco/bim.mjs), non si tengono in repository.
+banco/*.ifc
+!banco/finti/*.ifc
+banco/bim_collegato.png

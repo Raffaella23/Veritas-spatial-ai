@@ -50,6 +50,15 @@ const FIRME = [
   ["glb", "mesh", (b) => leggiAscii(b, 0, 4) === "glTF"],
   ["fbx", "mesh", (b) => leggiAscii(b, 0, 18) === "Kaydara FBX Binary"],
   ["ply", "?", (b) => /^ply[\r\n]/.test(leggiAscii(b, 0, 4))],
+  // Un IFC e' un file STEP: comincia sempre per ISO-10303-21, che e' la prima
+  // riga della norma. E' l'unica famiglia che porta dentro la SEMANTICA —
+  // stanze con un nome, piani, porte — mentre tutte le altre sono esportazioni in
+  // cui quella semantica e' gia' stata buttata via. Vedi veritas_bim.js.
+  // Il BOM di UTF-8 e' tre byte e va saltato: un editor Windows lo mette.
+  ["ifc", "bim", (b) => {
+    const da = (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) ? 3 : 0;
+    return leggiAscii(b, da, 80).trimStart().startsWith("ISO-10303-21");
+  }],
   // Gli altri formati di gaussiane non hanno una firma stabile e pubblica:
   // per quelli si ricade sull'estensione, dichiarandolo.
 ];
@@ -59,6 +68,7 @@ const PER_ESTENSIONE = {
   gltf: ["gltf", "mesh"],
   fbx: ["fbx", "mesh"],
   obj: ["obj", "mesh"],
+  ifc: ["ifc", "bim"],
   ply: ["ply", "?"],
   splat: ["splat", "splat"],
   ksplat: ["ksplat", "splat"],
@@ -256,7 +266,25 @@ export function ingombroDiPunti(punti) {
   return { min, max, dim: [max[0] - min[0], max[1] - min[1], max[2] - min[2]] };
 }
 
+/**
+ * Legge i primi 4 KB di un File e ne stabilisce il formato.
+ *
+ * Bastano 4 KB: l'intestazione di un PLY di gaussiane ci sta dentro anche con
+ * tutte le armoniche sferiche, e la prima riga di un IFC e' la prima riga.
+ *
+ * ⚠️ Questa funzione era finita SOLO nella copia inlinata dentro index.html e
+ * non nel sorgente: rigenerando l'inline dal sorgente e' sparita, e il
+ * caricamento di ogni file e' ricaduto sull'estensione senza dare un errore
+ * visibile. E' il difetto che la §13.2 vuole impedire dicendo che il sorgente
+ * in radice e' la fonte unica — vale anche quando la modifica sembra piccola
+ * abbastanza da farla al volo sull'inline.
+ */
+export async function riconosci(file) {
+  const testa = new Uint8Array(await file.slice(0, 4096).arrayBuffer());
+  return riconosciDaByte(testa, file.name);
+}
+
 export default {
-  estensione, riconosciDaByte, estensioniAccettate,
+  estensione, riconosciDaByte, estensioniAccettate, riconosci,
   puntiDaMesh, ingombroDiPunti, coloreDaGaussiana, SH_C0, MB,
 };

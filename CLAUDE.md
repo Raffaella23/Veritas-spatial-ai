@@ -1831,3 +1831,180 @@ repository per trovarne uno buono. Chi riprende può ritentare.
 
 **Meglio: un export IFC da un progetto ArchiCAD di Raffaella.** Edificio vero,
 sua nomenclatura, suo dominio. Anche piccolo va bene.
+
+---
+
+## 19. Stato reale — sessione 19 agosto 2026 (Passo 1: l'IFC entra)
+
+> **Dove questa sezione contraddice le precedenti, vale questa**, insieme al
+> blocco rosso in cima.
+> `index.html` ha ora **30 blocchi `<script>`** — riparsali, mai per numero.
+
+### 19.0 Cosa e' stato costruito
+
+Il Passo 1 del piano del 19/08 (`handoff.md` §0). **`veritas_bim.js`**: legge
+un IFC con **web-ifc 0.0.77** (ThatOpen, MPL-2.0, uso commerciale consentito)
+e ne ricava quello che il file DICHIARA.
+
+⚠️ **In quel modulo non c'e' una sola soglia geometrica, e non deve
+entrarcene nessuna.** Tutto quello che ne esce o e' scritto nel file, o e' una
+misura presa sulla geometria dichiarata. Quando il file non dice una cosa, il
+modulo la mette in `avvisi` e passa oltre.
+
+| file | cosa fa | prove |
+|---|---|---|
+| `veritas_bim.js` | l'IFC come ingresso di prima classe | 122 |
+| `banco/finti/casa_finta.ifc` | un IFC scritto a mano, un caso per riga | — |
+| `banco/bim.mjs` | cosa dice un edificio VERO, in chiaro | — |
+| `banco/bim_collegato.mjs` | il PROGRAMMA lo usa? (browser vero) | 6 |
+
+`veritas_ingest.js` riconosce l'IFC dai byte (famiglia `bim`), l'importmap
+porta `web-ifc`, e `banco/monta.sh` lo vendorizza **col suo `.wasm`**.
+
+### 19.1 Le prove girano sul lettore VERO
+
+`web-ifc` si importa con lo **stesso specificatore** nel browser e in node
+(`web-ifc` -> `web-ifc-api.js` da CDN / `web-ifc-api-node.js` da
+`node_modules`). Quindi `veritas_bim.test.mjs` non prova una copia della
+logica: apre un IFC col lettore che gira in produzione.
+
+Il file di prova e' **scritto a mano riga per riga** e non e' il modello di
+nessuno: ogni caso che deve funzionare e' visibile a occhio nudo dentro il
+file (una stanza col nome, una col solo numero, una senza volume, una porta
+fra due stanze, una porta verso l'esterno, un muro che borda due stanze, un
+bordo che punta a un elemento inesistente, l'affollamento dichiarato).
+
+### 19.2 LE TRAPPOLE, tutte misurate su un file vero
+
+Il file di riferimento e' **`AC20-FZK-Haus.ifc`** (modello pubblico del KIT,
+esportato da **ARCHICAD 20**), 2,45 MB, letto in ~110 ms. Si riprende con:
+
+```bash
+curl -sL -o banco/AC20-FZK-Haus.ifc \
+  https://raw.githubusercontent.com/ThatOpen/engine_web-ifc/main/tests/ifcfiles/public/AC20-FZK-Haus.ifc
+```
+
+**1. Il nome di una Zona sta in `LongName`.** Confermata la nota gia' scritta
+nel blocco rosso: `Name='4' LongName='Schlafzimmer'`. Chi legge `Name` ottiene
+un edificio le cui stanze si chiamano «1, 2, 3, 4».
+
+**2. ⚠️ Per i PIANI la regola e' ROVESCIATA, e questo non lo sapeva nessuno.**
+
+```
+IfcSpace          Name='4'           LongName='Schlafzimmer'
+IfcBuildingStorey Name='Erdgeschoss' LongName='ACID00000001-0000-0000-0000-000000000000'
+```
+
+Applicando ai piani la regola delle Zone, il banco ha stampato piani chiamati
+`ACID00000001-…`. **Si vede solo guardando l'uscita**, mai leggendo il codice.
+Quindi la regola non e' «sempre `LongName`»: e' **`LongName` per le Zone,
+`Name` per i piani**, piu' una rete che scarta cio' che e' palesemente un
+codice interno.
+
+**3. Un muro borda due stanze esattamente come una porta.** Sul file vero: 81
+bordi di spazio, e gli elementi che toccano due o piu' ambienti sono in
+maggioranza **muri e solai**. Prendere tutti i bordi come collegamenti vuol
+dire dichiarare che si passa attraverso i muri — il difetto chiuso a mano il
+18/08. Passano solo porte, scale, rampe e varchi virtuali (62 bordi scartati
+su 81, ed e' giusto cosi').
+
+**4. Un passaggio che borda UN SOLO ambiente da' sull'esterno.** «Haustuer»
+borda il solo Flur, «Terrassentuer» il solo Wohnen. **L'ingresso di un
+edificio non si indovina piu': e' scritto nel grafo dei bordi.**
+
+### 19.3 Il difetto peggiore, e non era nel modulo
+
+Il modulo era giusto e il programma lo usava. Ma `__veritasZoneSulCammino`
+appoggia le tappe sulla navmesh, ed e' stato scritto per rimettere in piedi
+tappe **dedotte** cadute male. Su un IFC non c'e' niente da rimettere in piedi.
+
+**Misurato:** le sette stanze, dichiarate a quota 0,00 e 2,70, finivano fra
+**5,09 e 7,35 m** — cioe' **sul tetto**, che su una casa e' una superficie
+orizzontale come un'altra e la navmesh la trova. Sullo schermo: sette
+cartelli col nome giusto appoggiati sul tetto, e **nessun errore in console**.
+
+E' il difetto di famiglia di questo progetto (§11.5, §15.6): un modulo giusto,
+collegato bene, e un pezzo a valle che disfa in silenzio. L'ha visto solo
+`banco/bim_collegato.mjs`, che guarda la quota delle tappe DOPO il
+caricamento — non le prove del modulo, che erano tutte verdi.
+
+Ora una zona `origine: "bim"` **non si sposta**. Se non e' raggiungibile a
+piedi lo si dichiara (`fuoriDalCammino`), non la si sposta: e' una domanda da
+fare a chi guarda lo schermo, non un dato da correggere di nascosto.
+
+### 19.4 Le tre guardie che tengono l'ordine di autorita'
+
+`bim` e' il gradino piu' alto: **bim > nome del modello > occhi > misure >
+sequenza posizionale.** Tre punti lo fanno rispettare, e sono tre perche' tre
+sono i pezzi che riscrivevano i nodi:
+
+1. `applyAutoAssignment` — se ci sono zone dichiarate non le tocca. ⚠️ **Le
+   MISURE restano**: sono gia' scritte in `__veritasAutoZones` due righe
+   sopra, e ci restano. L'IFC dice QUALI stanze ci sono; quanto e' largo un
+   passaggio con gli arredi dentro lo dicono le misure.
+2. `__veritasApplicaOcchi` — un modello che guarda una pianta prende il 33-38%
+   su una pianta architettonica (ArchPlanVQA); una dichiarazione IFC e' quello
+   che l'edificio E'.
+3. `__veritasZoneSulCammino` — §19.3.
+
+Piu' una quarta, di natura diversa: **`veritasScaleSanity` non gira su un
+IFC**, perche' un IFC dichiara le proprie unita' e il lettore riporta tutto in
+metri. Lasciarla girare vorrebbe dire moltiplicare per sei un edificio gia'
+giusto.
+
+### 19.5 Un difetto di metodo, da non ripetere
+
+`riconosci(file)` — la funzione che legge i primi 4 KB per stabilire il
+formato — esisteva **solo nella copia inlinata dentro `index.html`**, non nel
+sorgente in radice. Rigenerando l'inline dal sorgente (che e' la procedura
+giusta, §13.2) e' sparita, e il caricamento di ogni file e' ricaduto
+sull'estensione **senza un errore visibile**.
+
+E' esattamente cio' che la §13.2 vuole impedire: **il sorgente in radice e' la
+fonte unica**, anche quando la modifica sembra piccola abbastanza da farla al
+volo sull'inline. Ora sta nel sorgente, e c'e' un commento che lo racconta.
+
+### 19.6 Cosa esce, su un edificio vero
+
+```
+7 ambienti su 2 piani, 7 col nome scritto dal progettista
+6 passaggi dichiarati + 2 verso l'esterno, con la luce netta delle porte
+4 ambienti dichiarati accessibili        -> vanno diritti alle normative
+2 gruppi che non comunicano, DICHIARATI  -> la scala c'e', ma il file non dice
+                                            quali ambienti collega
+lettura 110 ms · nessun riscalo · zone ferme dove le ha messe il progettista
+```
+
+L'affollamento dichiarato (`Pset_SpaceOccupancyRequirements.OccupancyNumber`),
+quando c'e', entra in `window.__veritasDatiProgetto`: passa da **dato che il
+programma chiede a una persona** a **dato dichiarato dal progetto**, che e' la
+differenza fra una verifica che si puo' fare e una che non si puo' fare.
+
+### 19.7 Le prove
+
+```bash
+node veritas_bim.test.mjs             # 122: il modulo, sul lettore vero
+node banco/bim.mjs <file.ifc>         # cosa dice un edificio vero, in chiaro
+sh banco/monta.sh
+(cd banco && python3 -m http.server 8899 &)
+node banco/bim_collegato.mjs          # il PROGRAMMA lo usa? (e' quella che conta)
+for t in veritas_*.test.mjs; do node "$t" >/dev/null || echo "$t KO"; done
+```
+
+29 file di prova, tutti verdi.
+
+### 19.8 Cosa resta
+
+1. **Un IFC di Raffaella.** AC20-FZK-Haus e' un edificio vero ma e' una casa
+   di sette stanze. Un export da un suo progetto ArchiCAD (`File → Esporta →
+   IFC`) e' un edificio del suo dominio, con la sua nomenclatura. **E' anche
+   l'unico modo di avere il primo numero onesto**: su un file con N stanze
+   dichiarate, quante ne indovinava VERITAS partendo dalla sola geometria.
+2. **Passi 2, 3 e 4 del piano** (`handoff.md` §0): la conferma umana per i
+   file senza BIM, l'occhio che guarda di sbieco, le isole irraggiungibili.
+   Il Passo 2 ha gia' il suo gancio: ogni zona porta `confermata` e `fiducia`,
+   e una stanza che nel file ha solo un numero nasce **da confermare**.
+3. **Il ramo `claude/new-session-wqeyfh`** si puo' cancellare: il suo unico
+   contenuto non replicato e' stato recuperato nella §14-bis. **Aspetta il via
+   libera di Raffaella.**
+4. Restano aperti i punti gia' elencati in §17.4 e in `handoff.md` §5.
