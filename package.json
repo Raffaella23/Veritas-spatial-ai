@@ -6,6 +6,7 @@
     "navcat": "^0.4.1",
     "playwright": "^1.62.1",
     "three": "^0.180.0",
-    "three-mesh-bvh": "^0.8.3"
+    "three-mesh-bvh": "^0.8.3",
+    "web-ifc": "^0.0.77"
   }
 }

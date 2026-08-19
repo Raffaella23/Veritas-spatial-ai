@@ -1,0 +1,97 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [CoordinationView, SpaceBoundary2ndLevelAddOnView]'),'2;1');
+FILE_NAME('casa_finta.ifc','2026-08-19T10:00:00',('VERITAS'),('prova a mano'),'scritto a mano','scritto a mano','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+/* ------------------------------------------------------------------------
+   Edificio inventato per le prove di veritas_bim.js. NON e' il modello di
+   nessuno: e' una casa di tre stanze scritta a mano perche' ogni caso che
+   deve funzionare sia dichiarato qui dentro e visibile a occhio nudo.
+
+   Cosa contiene, e perche':
+     - una stanza con Name='101' e LongName='Sala d'attesa'  <- la trappola
+       ArchiCAD: chi legge Name si ritrova "101"
+     - una stanza con Name='102' e LongName='Gate A'
+     - una stanza con Name='103' e NESSUN LongName           <- non si inventa
+     - una stanza SENZA geometria                            <- si dichiara
+     - una porta che collega due stanze                      <- collegamento
+     - una porta che ne tocca UNA sola                       <- porta esterna
+     - un MURO che ne tocca due                              <- NON collega
+     - un property set con l'affollamento dichiarato
+   ------------------------------------------------------------------------ */
+#1= IFCPROJECT('0aVeRiTaSPrOjEcT0001',$,'Prova',$,$,$,$,(#20),#30);
+#20= IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#21,$);
+#21= IFCAXIS2PLACEMENT3D(#22,$,$);
+#22= IFCCARTESIANPOINT((0.,0.,0.));
+#30= IFCUNITASSIGNMENT((#31));
+#31= IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
+#40= IFCSITE('0aVeRiTaSSiTe000001',$,'Sito',$,$,#50,$,$,.ELEMENT.,$,$,$,$,$);
+#41= IFCBUILDING('0aVeRiTaSBuIlD00001',$,'Casa',$,$,#50,$,$,.ELEMENT.,$,$,$);
+/* ⚠️ ATTENZIONE: per il PIANO la regola e' ROVESCIATA rispetto agli spazi.
+   ArchiCAD scrive il nome leggibile in Name e un identificativo interno in
+   LongName. Verificato su AC20-FZK-Haus.ifc: Name='Erdgeschoss',
+   LongName='ACID00000001-0000-0000-0000-000000000000'. Qui e' riprodotto
+   uguale, perche' una prova su un file irrealistico non prova niente. */
+#42= IFCBUILDINGSTOREY('0aVeRiTaSStOrEy0001',$,'Piano terra',$,$,#50,$,'ACID00000001-0000-0000-0000-000000000000',.ELEMENT.,0.);
+#50= IFCLOCALPLACEMENT($,#21);
+/* posizioni: la prima stanza a (5,4), la seconda a (20,4) */
+#60= IFCCARTESIANPOINT((5.,4.,0.));
+#61= IFCAXIS2PLACEMENT3D(#60,$,$);
+#62= IFCLOCALPLACEMENT(#50,#61);
+#63= IFCCARTESIANPOINT((20.,4.,0.));
+#64= IFCAXIS2PLACEMENT3D(#63,$,$);
+#65= IFCLOCALPLACEMENT(#50,#64);
+/* volume della stanza 1: rettangolo 10 x 8, alto 3 -> 80 m2 */
+#70= IFCRECTANGLEPROFILEDEF(.AREA.,'S1',#71,10.,8.);
+#71= IFCAXIS2PLACEMENT2D(#72,$);
+#72= IFCCARTESIANPOINT((0.,0.));
+#73= IFCEXTRUDEDAREASOLID(#70,#21,#74,3.);
+#74= IFCDIRECTION((0.,0.,1.));
+#75= IFCSHAPEREPRESENTATION(#20,'Body','SweptSolid',(#73));
+#76= IFCPRODUCTDEFINITIONSHAPE($,$,(#75));
+/* volume della stanza 2: rettangolo 12 x 8, alto 3 -> 96 m2 */
+#80= IFCRECTANGLEPROFILEDEF(.AREA.,'S2',#71,12.,8.);
+#81= IFCEXTRUDEDAREASOLID(#80,#21,#74,3.);
+#82= IFCSHAPEREPRESENTATION(#20,'Body','SweptSolid',(#81));
+#83= IFCPRODUCTDEFINITIONSHAPE($,$,(#82));
+/* volume della stanza 3: rettangolo 4 x 4, alto 3 -> 16 m2 */
+#90= IFCRECTANGLEPROFILEDEF(.AREA.,'S3',#71,4.,4.);
+#91= IFCEXTRUDEDAREASOLID(#90,#21,#74,3.);
+#92= IFCSHAPEREPRESENTATION(#20,'Body','SweptSolid',(#91));
+#93= IFCPRODUCTDEFINITIONSHAPE($,$,(#92));
+/* gli spazi */
+#100= IFCSPACE('0aVeRiTaSSpAcE00001',$,'101',$,$,#62,#76,'Sala d''attesa',.ELEMENT.,.INTERNAL.,$);
+#101= IFCSPACE('0aVeRiTaSSpAcE00002',$,'102',$,$,#65,#83,'Gate A',.ELEMENT.,.INTERNAL.,$);
+#102= IFCSPACE('0aVeRiTaSSpAcE00003',$,'103',$,$,#65,#93,$,.ELEMENT.,.INTERNAL.,$);
+#103= IFCSPACE('0aVeRiTaSSpAcE00004',$,'104',$,$,#62,$,'Locale tecnico',.ELEMENT.,.INTERNAL.,$);
+/* i passaggi e una parete */
+#110= IFCDOOR('0aVeRiTaSDoOr000001',$,'Porta interna',$,$,#62,$,$,2.1,0.9,.DOOR.,.SINGLE_SWING_LEFT.,$);
+#111= IFCDOOR('0aVeRiTaSDoOr000002',$,'Porta d''ingresso',$,$,#62,$,$,2.1,1.2,.DOOR.,.DOUBLE_DOOR_SINGLE_SWING.,$);
+#112= IFCWALL('0aVeRiTaSWaLl000001',$,'Muro divisorio',$,$,#62,$,$,.SOLIDWALL.);
+/* la struttura */
+#120= IFCRELAGGREGATES('0aVeRiTaSAgGr000001',$,$,$,#1,(#40));
+#121= IFCRELAGGREGATES('0aVeRiTaSAgGr000002',$,$,$,#40,(#41));
+#122= IFCRELAGGREGATES('0aVeRiTaSAgGr000003',$,$,$,#41,(#42));
+#123= IFCRELAGGREGATES('0aVeRiTaSAgGr000004',$,$,$,#42,(#100,#101,#102,#103));
+/* i bordi di spazio: la porta interna collega 101 e 102, quella d'ingresso
+   tocca solo la 101 (quindi da' sull'esterno), il muro tocca 101 e 102 ma
+   NON e' un passaggio */
+#130= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000001',$,$,$,#100,#110,$,.PHYSICAL.,.INTERNAL.);
+#131= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000002',$,$,$,#101,#110,$,.PHYSICAL.,.INTERNAL.);
+#132= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000003',$,$,$,#100,#111,$,.PHYSICAL.,.EXTERNAL.);
+#133= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000004',$,$,$,#100,#112,$,.PHYSICAL.,.INTERNAL.);
+#134= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000005',$,$,$,#101,#112,$,.PHYSICAL.,.INTERNAL.);
+/* un bordo che punta a un elemento inesistente: capita nei file veri, e non
+   deve far cadere la lettura */
+#135= IFCRELSPACEBOUNDARY('0aVeRiTaSBoUn000006',$,$,$,#102,#9999,$,.PHYSICAL.,.INTERNAL.);
+/* l'affollamento, dichiarato */
+#140= IFCPROPERTYSINGLEVALUE('OccupancyNumber',$,IFCCOUNTMEASURE(120.),$);
+#141= IFCPROPERTYSET('0aVeRiTaSPsEt000001',$,'Pset_SpaceOccupancyRequirements',$,(#140));
+#142= IFCRELDEFINESBYPROPERTIES('0aVeRiTaSDeFi000001',$,$,$,(#100),#141);
+#143= IFCPROPERTYSINGLEVALUE('OccupancyNumber',$,IFCCOUNTMEASURE(40.),$);
+#144= IFCPROPERTYSET('0aVeRiTaSPsEt000002',$,'Pset_SpaceOccupancyRequirements',$,(#143));
+#145= IFCRELDEFINESBYPROPERTIES('0aVeRiTaSDeFi000002',$,$,$,(#101),#144);
+ENDSEC;
+END-ISO-10303-21;
