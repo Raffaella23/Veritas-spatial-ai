@@ -1,112 +1,93 @@
 # CLAUDE.md — VERITAS Spatial AI
 
-## 🔴 IL PUNTO CHE MANCA, E VIENE PRIMA DI TUTTO
+## 🔴 IL PUNTO DI SVOLTA — LEGGI QUESTO PRIMA DI TUTTO
 
-> Detto da Raffaella il 18/08/2026 guardando l'anteprima, subito dopo il
-> passaggio a navcat. **È l'ultimo pezzo che manca, ed è fondamentale.**
-> Sta qui, in cima, perché è la prima cosa che deve leggere chi riprende.
+> Detto da Raffaella il 19/08/2026, dopo dieci giorni di lavoro che non
+> sbloccavano niente. **È la cosa più importante scritta in questo file**, e
+> rende superato — non sbagliato, superato — tutto l'impianto delle §15-17.
 
-### UNA ZONA STA DOVE STA LA COSA CHE LA DEFINISCE
+### SI PARTE DAL FILE CHE SA GIÀ LE COSE
 
-> *«Le tappe stanno tutte in un posto dove si arriva davvero a piedi, ma non
-> in maniera da avere senso! Il parcheggio deve stare dove stanno le
-> macchine. Il controllo, dove si vedono i banchi del check-in. Stanno sul
-> pavimento in fila indiana.»*
+> *«Probabilmente avevo sbagliato la base del ragionamento. Il punto per cui
+> ci siamo uccisi la vita nell'ultimo periodo è proprio non partire da questo
+> presupposto.»*
 
-| tappa | deve stare **sopra** |
-|---|---|
-| Parcheggio | dove ci sono le **automobili** |
-| Accettazione / check-in | dove c'è la **fila dei banconi** |
-| Controllo | dove ci sono i **varchi**, il punto stretto in cui si passa uno per volta |
-| Attesa / lounge | dove ci sono le **sedute** |
-| Gate / imbarco | dove attacca il **pontile** che va all'aereo |
+VERITAS riceveva un **GLB scaricato da Sketchfab**. Un GLB è un **export**:
+è il formato in cui la semantica **è già stata buttata via**. Chi ha fatto quel
+modello le stanze, i nomi e le funzioni ce li aveva nel suo progetto;
+l'esportazione li ha appiattiti in 2.416 mesh chiamate `Cube.083`.
 
-Il parcheggio è un parcheggio **perché lì ci sono le auto**, non perché è il
-primo punto della fila.
+**Stavamo facendo archeologia su un file a cui la risposta era stata
+cancellata.** Non mancava un'idea: mancava il file giusto.
 
-### Cosa c'è che non va, oggi
+### La prova che non si poteva vincere, ed è geometrica
 
-`catenaCamminabile()` (§17) distribuisce le tappe **a distanza uguale lungo il
-percorso camminabile più lungo**. Risultato misurato: 99,8% delle posizioni
-degli agenti su terreno calpestabile — e sette tappe **in fila indiana**, che
-non vogliono dire niente. **Percorribili e insensate.** È una regressione di
-significato pagata per avere una di percorribilità: quella riga di codice ha
-risolto un problema e ne ha creato un altro, e va rifatta, non ritoccata.
+L'ultimo difetto: **«Ingresso / Parcheggio» sull'ala di un aereo, a quota
+3,64 m.** Misurato: la navmesh di quel modello ha isole a quota 3,6 m (329,
+138, 71 m²). Sono le ali.
 
-### Le due condizioni valgono INSIEME, non una alla volta
+> **Un'ala d'aereo e un mezzanino sono geometricamente identici**: superficie
+> orizzontale, larga qualche metro, a tre metri e mezzo da terra, senza niente
+> sopra la testa.
 
-1. **Significato** — ogni tappa sopra l'oggetto che la definisce.
-2. **Percorribilità** — le tappe si raggiungono a piedi fra loro (§17.2 punto 3:
-   quel modello ha sei aree scollegate, ed è un fatto vero).
+Nessuna misura li distingue. **Mai.** Chi prova ad aggiungere una soglia in più
+sta ricominciando il ciclo di dieci giorni, ed è la Regola uno che si ripete.
 
-Chi rifà questa parte deve reggerle tutte e due. Soddisfarne una sola è
-esattamente lo stato di oggi, e lo stato di ieri.
+### Ogni dominio ha un file d'origine che la semantica ce l'ha
 
-### Perché le misure da sole non ci arriveranno mai
+| dominio | file d'origine | cosa porta già dentro |
+|---|---|---|
+| **architettura** (aeroporti, musei, ospedali) | **IFC / BIM** | `IfcSpace` con nome e funzione, piani, porte, scale, e i property set di antincendio e affollamento |
+| **gioco** | progetto Unity | tag, collider, NavMesh, prefab — dichiarati dal level designer |
+| nessuno dei due | GLB nudo | niente: **qui e solo qui** servono gli occhi e la conferma umana |
 
-Le automobili, i banconi, le sedute, il pontile **si vedono**. Non si deducono
-da quanto è largo un corridoio o da dove lo spazio si stringe. È il limite già
-dichiarato in §16.6, e questa richiesta lo rende il problema centrale invece
-che un miglioramento.
+Conferma da un'altra strada: gli agenti di Meta che testano i videogiochi
+(Unity ML-Agents + PPO) **non deducono cos'è una stanza** — gliela dichiara il
+progetto. Nessuno, in nessun campo, deduce la semantica dalla geometria quando
+può leggerla.
 
-Le due strade praticabili, **entrambe già mezze pronte nel repository**:
+### ArchiCAD — verificato il 19/08
 
-- **Gli occhi** (`veritas_occhi.js`, §17.0) — la pianta renderizzata va a un
-  modello che vede. Oggi chiede *«cos'è la zona 3?»* su zone già decise.
-  Deve invece **dire dove sono le cose**, e le zone nascere da lì.
-  ⚠️ **Non ancora provato con un modello vero acceso.**
-- **Gli oggetti ripetuti** — una fila di sedute è un gruppo di mesh identiche
-  in griglia; una fila di banconi lo stesso; le auto pure. È geometria, quindi
-  è ripetibile e non costa niente, e oggi viene **scartata** da
-  `extractNavigablePoints` come "roba che non è pavimento". Sono proprio loro
-  a dire cos'è ogni posto.
+- **`.pln` e `.pla` NON si leggono.** Formati chiusi di Graphisoft, nessuna
+  libreria aperta esiste, e non sono retrocompatibili nemmeno fra versioni.
+  Solo ArchiCAD li apre. **Non perderci tempo.**
+- **Ma ArchiCAD esporta IFC nativamente, e le sue Zone diventano `IfcSpace`.**
+  Raffaella ha progetti in ArchiCAD: `File → Esporta → IFC` e la risposta è nel
+  file.
+- ⚠️ **Dettaglio da non sbagliare:** ArchiCAD mette il **nome** della Zona in
+  `IfcSpace.LongName` e il **numero** in `IfcSpace.Name`. Chi legge `Name` si
+  ritrova «101» invece di «Sala d'attesa».
+- Le `IfcSpace` portano anche i property set di antincendio, illuminazione e
+  affollamento: **entrano diretti in `veritas_normative.js`**, che oggi lavora
+  su soglie stimate.
 
-Consigliata: **le due insieme** — gli oggetti ripetuti danno il *dove* in modo
-ripetibile, gli occhi danno il *cosa*. Ma prima **misurare** quanti gruppi di
-oggetti ripetuti ci sono davvero in un modello, invece di darlo per scontato.
+### Il lettore, e la licenza
 
-### GUARDALA. È la cosa più veloce per capire il problema
+**`web-ifc` v0.0.77** (ThatOpen), **MPL-2.0 → uso commerciale consentito**,
+gira nel browser via WebAssembly. È l'unica strada legalmente pulita: tutti i
+dataset 3D annotati (HSSD, HM3DSem di Meta, Replica, ScanNet, Structured3D)
+sono **CC BY-NC o solo ricerca**, quindi utili per misurare in sviluppo ma non
+per il prodotto.
 
-![Le sette tappe in fila indiana, fuori dall'edificio](documentazione/tappe-in-fila-indiana.png)
+### Cosa resta valido di tutto il lavoro precedente
 
-La pianta vista a piombo, con i **cartellini che il programma mette oggi**,
-numerati da 1 a 7 nell'ordine del percorso.
+**Quasi tutto, e diventa più forte.** L'IFC dice *quali* stanze ci sono e come
+si chiamano. **Non dice** quanto è largo il passaggio libero con gli arredi
+dentro, dove si formano le code, quanto ci mette la gente a uscire, se una
+porta è a norma. Il piano delle cose, la navmesh, le file, la controprova e le
+misure **smettono di indovinare il COSA e tornano a fare quello per cui sono
+buone: misurare**.
 
-Due cose si vedono in un colpo, e sono tutt'e due il problema:
+Resta valido anche il principio in cima alla versione precedente di questo
+file — *«una zona sta dove sta la cosa che la definisce»* — che era giusto. Era
+sbagliato il presupposto che quella cosa si dovesse **dedurre** invece che
+**leggere**.
 
-1. **Sono in fila su una diagonale, a passo costante.** Non seguono niente:
-   non un corridoio, non una sequenza di funzioni. Seguono una retta.
-2. **Cadono FUORI dall'edificio.** Il grigio a destra è il terminal — con
-   dentro i banconi, le sedute, i varchi, cioè tutte le cose che dovrebbero
-   *definire* quelle tappe. I cartellini stanno nel vuoto accanto.
+### La regola di disciplina
 
-⚠️ Il punto 2 è un secondo difetto, distinto dal primo e non ancora capito:
-va indagato. Le tappe sono su spazio calpestabile (misurato: 99,8% delle
-posizioni degli agenti ci sta sopra), quindi o quello spazio non è dentro
-l'edificio, oppure questa pianta ne rende solo una fetta. Da chiarire prima
-di correggere.
-
-### La prova numerica, la stessa cosa senza guardare
-
-Distanze fra una tappa e la successiva:
-
-```
-10.8 | 10.6 | 10.8 | 10.8 | 10.7 | 9.6 m      media 10.5, scarto 0.42 m
-```
-
-Passo costante: è una fila, non un'impressione.
-
-L'immagine e i numeri si rifanno con **`node banco/fotografia.mjs`** (serve il
-banco montato — vedi §17.3). Non è uno screenshot preso a mano che invecchia
-senza che nessuno se ne accorga: si rigenera, e quando il difetto sarà
-risolto quella stessa immagine lo mostrerà.
-
-### Come si verifica che sia risolto
-
-Non con una percentuale: **guardando**. Su un modello con auto, banconi e
-sedute, ogni cartellino deve cadere sopra la cosa che nomina. Se il cartellino
-"Parcheggio" non sta sulle auto, non è risolto — per quanto buono sia ogni
-altro numero.
+> **Nessuna nuova euristica geometrica.** Se una tappa finisce nel posto
+> sbagliato, la risposta non è una soglia in più: è **leggere una
+> dichiarazione**, o **chiedere a chi guarda lo schermo**.
 
 ---
 
@@ -1657,3 +1638,111 @@ modello qualsiasi.
 3. Restano i punti 1 e 3–7 della §5 di `handoff.md` (KPI finti, porte
    modellate chiuse, pannelli sotto i 1280 px, `main` col frontend vecchio,
    doppio three, scansione vera).
+
+---
+
+## 18. Stato reale — sessione 19 agosto 2026
+
+> **Dove questa sezione contraddice le precedenti, vale questa**, insieme al
+> blocco di svolta in cima.
+> `index.html` ha ora **29 blocchi `<script>`** — riparsali, mai per numero.
+
+### 18.0 Cosa è stato costruito (4 commit, tutti provati)
+
+Nasce dalla richiesta *«una zona sta dove sta la cosa che la definisce»*, ed è
+stato costruito applicando la Regola uno alla **struttura**, non a una
+funzione: il **grafo di scena 3D** (Kimera IJRR 2021, Hydra RSS 2022 —
+MIT-SPARK; ConceptGraphs ICRA 2024). Cinque piani, e VERITAS aveva l'1 e il 3
+e ricavava il 4 saltando il 2.
+
+| file | cosa fa | prove |
+|---|---|---|
+| `veritas_cose.js` | **il piano 2**: mucchi di oggetti ripetuti, misurati, senza nomi | 68 |
+| `veritas_controprova.js` | le figure umane del modello come **risposta**, tenute fuori dalle decisioni | 31 |
+| `veritas_fila.js` | le persone ferme sono **code**: chi arriva si mette dietro (Fruin, Helbing & Molnár) | 36 |
+| `veritas_riconosce.js` | **l'occhio**: OWLv2 nel browser, vocabolario **ADE20K-150** pubblicato | 47 |
+
+Tutte le prove sono su **scene inventate**, mai sul modello di esempio.
+Banchi nuovi: `banco/cose_nel_modello.mjs`, `banco/controprova.mjs`,
+`banco/occhio.mjs`.
+
+### 18.1 I numeri misurati, compreso quello che non va
+
+```
+tappe appoggiate su arredi veri        3 su 7
+persone con una zona vicina (10 m)     3%          <- e' questo il problema
+distanza mediana capannello-zona       16,1 m      (era 28,3)
+quote di pavimento trovate da sole     -1,89 / -1,29 / +0,50 / +1,50 / +2,30 / +2,90
+                                       (+0,50 e' il terminal, -2 il piazzale:
+                                        la misura ritrova da sola cio' che era
+                                        gia' documentato a mano)
+andata e ritorno dell'occhio           6 nomi su 6 sul mucchio giusto
+```
+
+⚠️ **La controprova dice di NO, ed è il suo mestiere.** Non è un numero da
+nascondere: è la prova che la strada puramente geometrica non arrivava.
+
+### 18.2 Difetti silenziosi trovati e chiusi (per memoria)
+
+Nessuno dava un errore in console:
+
+- un'automobile alta 1,50 m usciva «banco»: l'altezza non separa un arredo da
+  un volume, serve la **portata del braccio**;
+- otto banconi a 2,5 m di passo davano **zero** mucchi con una distanza fissa:
+  la spaziatura ora **si misura** sul gruppo (60 cm i sedili, 2,5 m i banconi);
+- un monitor a 1,90 m usciva «seduta»: la fascia di altezza va misurata **dal
+  pavimento**, e un pavimento è un **picco** dell'istogramma delle quote dove
+  appoggiano cose di **tipi diversi**;
+- due sedie su piani diversi erano a distanza **zero in pianta**: azzeravano la
+  spaziatura tipica e spezzavano tutti gli altri mucchi;
+- il cerchio circoscritto a un aereo di 31 m «toccava» tutto entro venti metri
+  e incatenava l'edificio in **un posto solo**;
+- un posto con un arredo e **231 comparse** passava intero, e una tappa si è
+  appoggiata sulla gente — la circolarità che la controprova deve impedire;
+- il gruppo con più oggetti era **un posto solo**, isolato: vinceva e poi non
+  bastava per una catena, e in console si leggeva «nessun posto appoggiabile»,
+  che era falso.
+
+### 18.3 La ricerca fatta, con le fonti
+
+- **VLM generici su piante architettoniche: 33-38%** di accuratezza semantica
+  (ArchPlanVQA). Su viste fotografiche molto meglio. **Dare all'occhio una
+  pianta a piombo è la vista peggiore**: un'automobile vista da sopra è un
+  rettangolo. Da correggere con **viste oblique** e voto fra viste
+  (associazione multi-vista, metodo ConceptGraphs).
+- **Meta / agenti che testano videogiochi**: Unity ML-Agents + PPO. Non
+  deducono la semantica: gliela dichiara il progetto.
+- **Dataset 3D annotati**: HM3DSem (Meta, 216 edifici, 3.100 stanze), HSSD
+  (211 scene), Replica, ScanNet, Structured3D. **Tutti non commerciali.**
+- **`web-ifc` MPL-2.0**: unica strada legalmente pulita per il prodotto.
+
+### 18.4 Il piano approvato — quattro passi
+
+0. ✅ **Anteprima promossa** (19/08): `veritas-ai-os-preview` ora è allineata
+   al lavoro di oggi. Serviva perché l'occhio non era **mai** stato sullo
+   schermo di Raffaella — e dalla sandbox `huggingface.co` e `jsdelivr` sono
+   bloccati, quindi **il modello di visione non è mai stato provato davvero**.
+1. **`veritas_bim.js`**: l'IFC come ingresso di prima classe. `IfcSpace` →
+   zone dichiarate (`origine: "bim"`, gradino più alto dell'ordine di
+   autorità); `IfcDoor`/`IfcStair`/`IfcRamp` → i collegamenti che nel GLB non
+   c'erano e che producono le 32 isole scollegate; property set → normative.
+2. **La macchina propone, la persona conferma** — ripiego onesto per i file
+   senza BIM. Ogni zona con `confermata` e `fiducia`; spostarla la conferma;
+   la chat **chiede** dove non sa; il referto lo dichiara.
+3. **L'occhio guarda di sbieco**, non a piombo. Il ritorno al 3D si fa
+   **proiettando i mucchi misurati dentro l'immagine**, non disproiettando le
+   scatole.
+4. **Le isole irraggiungibili si dichiarano, non si usano.**
+
+Il piano completo sta in `handoff.md` §0.
+
+### 18.5 Cosa serve, e non ce l'ho io
+
+**Un IFC architettonico vero, con le Zone.** Verificato che
+`raw.githubusercontent.com` è raggiungibile dalla sandbox, ma i campioni
+provati erano strutturali (una sola `IfcSpace`, ed era una trave) e
+`api.github.com` è bloccato, quindi non si possono elencare i file di un
+repository per trovarne uno buono. Chi riprende può ritentare.
+
+**Meglio: un export IFC da un progetto ArchiCAD di Raffaella.** Edificio vero,
+sua nomenclatura, suo dominio. Anche piccolo va bene.

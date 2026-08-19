@@ -1,13 +1,91 @@
 # VERITAS Spatial AI — punto della situazione
 
-> Aggiornato il **18/08/2026**, a fine sessione.
-> Questo file dice **su cosa si lavora adesso**. La storia lunga sta in
-> `CLAUDE.md`; il dettaglio tecnico dell'ultima sessione nelle sue **§15 e §16**.
->
-> ⚠️ Il vecchio contenuto di questo file (cartelle `/core/`, `/data/`,
-> `visualizzatore.html`, `main.py` come avvio) era **superato da mesi**: quei
-> file non esistono. Se un riassunto e il repository divergono, vale il
-> repository.
+> Aggiornato il **19/08/2026**. Questo file dice **su cosa si lavora adesso**.
+> La storia lunga sta in `CLAUDE.md`; il blocco rosso in cima a quel file e la
+> sua §18 sono da leggere **prima** di questo.
+
+---
+
+## 0. 🔴 IL PIANO IN CORSO — si parte dal file che sa già le cose
+
+### Cosa è cambiato, e perché conta più di tutto il resto
+
+Per dieci giorni VERITAS ha ricevuto un **GLB scaricato da Sketchfab** e ha
+provato a dedurre da lì cos'era ogni spazio. Un GLB è un **export**: la
+semantica è già stata buttata via. Era **archeologia su un file a cui la
+risposta era stata cancellata**.
+
+L'ultimo difetto lo dice meglio di qualunque spiegazione: **una tappa
+«Ingresso / Parcheggio» sull'ala di un aereo, a quota 3,64 m.** E non era
+correggibile, perché **un'ala e un mezzanino sono geometricamente identici**.
+
+Adesso si parte dal file d'origine, che la semantica ce l'ha:
+
+| dominio | file | cosa porta dentro |
+|---|---|---|
+| architettura | **IFC / BIM** | stanze con nome e funzione, piani, porte, dati antincendio |
+| gioco | progetto Unity | tag, collider, NavMesh — dichiarati dal level designer |
+| nessuno dei due | GLB nudo | niente: **solo qui** servono occhi e conferma umana |
+
+### I quattro passi approvati
+
+**0. ✅ Anteprima promossa** (fatto il 19/08). `veritas-ai-os-preview` è
+allineata: https://raffaella23.github.io/Veritas-spatial-ai/
+Serviva perché il lavoro dei giorni scorsi **non era mai stato sullo schermo**,
+e perché dalla sandbox non si scarica il modello di visione: **nel browser di
+Raffaella l'occhio può girare per la prima volta.**
+
+**1. `veritas_bim.js` — l'IFC come ingresso di prima classe.** ⬅️ *si comincia da qui*
+- lettore `web-ifc` v0.0.77, **MPL-2.0 (uso commerciale consentito)**, via
+  importmap come navcat — non inlinato;
+- `IfcSpace` → zone dichiarate, con `origine: "bim"` che diventa il gradino
+  più alto dell'ordine di autorità già in uso;
+- ⚠️ **il nome sta in `LongName`, non in `Name`** (ArchiCAD ci mette il numero
+  della Zona);
+- `IfcDoor` / `IfcStair` / `IfcRamp` → i collegamenti fra ambienti, cioè
+  esattamente il dato mancante che produce le 32 isole scollegate;
+- property set (antincendio, affollamento) → `veritas_normative.js`, come dati
+  **dichiarati** invece che stimati;
+- `veritas_ingest.js` riconosce già i formati dai byte: un IFC comincia per
+  `ISO-10303-21;`.
+
+**2. La macchina propone, la persona conferma** — ripiego onesto per i file
+senza BIM. Ogni zona con `confermata` e `fiducia`; una zona `bim` nasce
+confermata; **spostare una zona la conferma** (l'editor c'è già); la chat
+**chiede** dove non sa; il referto dichiara quante zone ha confermato una
+persona.
+
+**3. L'occhio guarda di sbieco, non a piombo.** I VLM generici sulle piante
+prendono il 33-38%; sulle fotografie molto di più. Viste prospettiche a
+30-45°, e il ritorno al 3D si fa **proiettando i mucchi misurati dentro
+l'immagine**, non disproiettando le scatole.
+
+**4. Le isole irraggiungibili si dichiarano, non si usano.**
+
+### ⚠️ La regola di disciplina di questo piano
+
+> **Nessuna nuova euristica geometrica.** Se una tappa finisce nel posto
+> sbagliato la risposta non è una soglia in più: è **leggere una
+> dichiarazione** o **chiedere**. Provarci ancora è ricominciare il ciclo di
+> dieci giorni.
+
+### Cosa serve e non ce l'ha la macchina
+
+**Un IFC architettonico vero con le Zone.** I campioni pubblici provati erano
+strutturali, e `api.github.com` è bloccato dalla sandbox (non si possono
+elencare i file di un repository). **Un export IFC da un progetto ArchiCAD di
+Raffaella vale di più di qualsiasi campione**: `File → Esporta → IFC`, anche un
+progetto piccolo.
+
+⚠️ **`.pln` e `.pla` non si leggono**: formati chiusi Graphisoft, nessuna
+libreria esiste, versioni non retrocompatibili. Non perderci tempo.
+
+### Il numero da battere
+
+```
+tappe su arredi veri     3 su 7      persone con una zona vicina   3%
+distanza mediana         16,1 m      (misurato il 19/08 sul GLB)
+```
 
 ---
 
@@ -50,12 +128,12 @@ rifinitura, è parte di ciò che vende.
 | Ramo | Cosa c'è | A cosa serve |
 |---|---|---|
 | `main` | **frontend vecchio** + i file Python | produzione e sorgente del deploy Render |
-| `veritas-ai-os-preview` | `index.html` completo, aggiornato al 18/08 | anteprima pubblica |
+| `veritas-ai-os-preview` | **allineata al 19/08** (promossa in quella sessione) | anteprima pubblica |
 | `claude/veritas-spatial-ai-resume-z0iuw9` | uguale alla preview | ramo di lavoro della sessione |
 
 Anteprima live: **https://raffaella23.github.io/Veritas-spatial-ai/**
 
-⚠️ `index.html` ha **25 blocchi `<script>`**, non 9 né 20 né 23 come dicono le
+⚠️ `index.html` ha **29 blocchi `<script>`**, non 9 né 20 né 25 come dicono le
 sezioni più vecchie di `CLAUDE.md` e di questo file. Gli indici cambiano a ogni
 inserimento: **riparsali, e individua i blocchi per contenuto, mai per numero.**
 
@@ -225,22 +303,20 @@ prima. Nel comando di chat si scrive **`occhi`** per farlo guardare.
 
 ## 5. Cosa resta aperto, in ordine
 
-### 0) 🔴 Le tappe devono stare **sopra la cosa che le definisce** — *il primo*
+### 0) ✅ SUPERATO — vedi il §0 in cima a questo file
 
-> Detto da Raffaella il 18/08 guardando l'anteprima:
-> *«Le tappe stanno tutte in un posto dove si arriva davvero a piedi, ma non in
-> maniera da avere senso! Il parcheggio deve stare dove stanno le macchine.»*
+Era: *«le tappe devono stare sopra la cosa che le definisce»*. Il principio
+resta giusto; era sbagliato il presupposto che quella cosa si dovesse
+**dedurre** dalla geometria invece che **leggere** da un file che la dichiara.
 
-Il parcheggio va **sulle automobili**, l'accettazione **sulla fila dei
-banconi**, il controllo **sui varchi**, l'attesa **sulle sedute**, il gate
-**dove attacca il pontile**. Oggi invece sono a distanza uguale lungo il
-percorso più lungo: percorribili e in fila indiana, cioè senza senso.
+Costruito il 19/08 e provato (182 prove, tutte su scene inventate):
+`veritas_cose.js` (il piano delle cose), `veritas_controprova.js` (le figure
+umane come verifica), `veritas_fila.js` (le code), `veritas_riconosce.js`
+(l'occhio). Misurato: 3 tappe su 7 su arredi veri, **3% delle persone con una
+zona vicina** — cioè la controprova dice di no, ed è per questo che è stata
+costruita.
 
-Le due condizioni valgono **insieme**: significato *e* percorribilità.
-Soddisfarne una sola è lo stato di oggi (e quello di ieri, invertito).
-
-Il testo completo, con le due strade praticabili e come si verifica, è
-**in cima a `CLAUDE.md`** — è la prima cosa che deve leggere chi riprende.
+**Il seguito è il piano del §0**, non un'altra passata di geometria.
 
 ### 1) I KPI finti che sembrano veri
 
