@@ -65,26 +65,41 @@ Consigliata: **le due insieme** — gli oggetti ripetuti danno il *dove* in modo
 ripetibile, gli occhi danno il *cosa*. Ma prima **misurare** quanti gruppi di
 oggetti ripetuti ci sono davvero in un modello, invece di darlo per scontato.
 
-### La prova numerica, se serve convincersi
+### GUARDALA. È la cosa più veloce per capire il problema
 
-Le sette tappe che il programma mette oggi, distanze fra una e l'altra:
+![Le sette tappe in fila indiana, fuori dall'edificio](documentazione/tappe-in-fila-indiana.png)
+
+La pianta vista a piombo, con i **cartellini che il programma mette oggi**,
+numerati da 1 a 7 nell'ordine del percorso.
+
+Due cose si vedono in un colpo, e sono tutt'e due il problema:
+
+1. **Sono in fila su una diagonale, a passo costante.** Non seguono niente:
+   non un corridoio, non una sequenza di funzioni. Seguono una retta.
+2. **Cadono FUORI dall'edificio.** Il grigio a destra è il terminal — con
+   dentro i banconi, le sedute, i varchi, cioè tutte le cose che dovrebbero
+   *definire* quelle tappe. I cartellini stanno nel vuoto accanto.
+
+⚠️ Il punto 2 è un secondo difetto, distinto dal primo e non ancora capito:
+va indagato. Le tappe sono su spazio calpestabile (misurato: 99,8% delle
+posizioni degli agenti ci sta sopra), quindi o quello spazio non è dentro
+l'edificio, oppure questa pianta ne rende solo una fetta. Da chiarire prima
+di correggere.
+
+### La prova numerica, la stessa cosa senza guardare
+
+Distanze fra una tappa e la successiva:
 
 ```
 10.8 | 10.6 | 10.8 | 10.8 | 10.7 | 9.6 m      media 10.5, scarto 0.42 m
 ```
 
-Passo costante. Non e' un'impressione guardando lo schermo: e' una fila.
-Si rifa' con `node banco/fotografia.mjs` (stampa anche posizione e origine di
-ogni tappa).
+Passo costante: è una fila, non un'impressione.
 
-⚠️ Quello script prova anche a **fotografare** il difetto, e finora non ci
-riesce: lo schermo non si puo' catturare perche' la telecamera del bundle si
-riprende il controllo un fotogramma dopo e i pannelli coprono la scena; e la
-pianta ortografica su questo modello esce quasi vuota, con i cartellini fuori
-dall'edificio. Chi riprende faccia due cose: **chieda a Raffaella di
-incollare la sua schermata direttamente in chat** (arriva subito e vale piu'
-di mille righe), e sistemi quella resa — che il punto 1 e il punto 6 cadano
-fuori dal grigio del terminal e' gia' di per se' un indizio da capire.
+L'immagine e i numeri si rifanno con **`node banco/fotografia.mjs`** (serve il
+banco montato — vedi §17.3). Non è uno screenshot preso a mano che invecchia
+senza che nessuno se ne accorga: si rigenera, e quando il difetto sarà
+risolto quella stessa immagine lo mostrerà.
 
 ### Come si verifica che sia risolto
 
