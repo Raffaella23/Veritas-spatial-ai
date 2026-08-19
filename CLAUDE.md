@@ -1196,6 +1196,91 @@ quello che "sembra funzionare" va verificato guardando il codice che lo esegue.
 
 ---
 
+## 14-bis. RECUPERATO — sessione 17 agosto 2026 (mattina)
+
+> ⚠️ **Questa sezione era andata perduta.** Stava su `claude/new-session-wqeyfh`,
+> un ramo mai unito: la sessione successiva ha riscritto la §14 con altro
+> contenuto e queste pagine sono rimaste solo li'. Il **codice** descritto qui
+> (`veritas_aspetto.js`, `veritas_scala.js`, `veritas_pavimento.test.mjs`) e'
+> in repository e funziona; erano andate perse le **cause e le misure**, cioe'
+> la parte che impedisce di rifare la stessa strada.
+> Recuperata il 19/08/2026. E' il terzo caso della stessa famiglia dopo quelli
+> elencati nella Regola zero.
+
+### 14-bis.0 Cosa e' cambiato quella mattina, in ordine di causa-effetto
+
+1. **Aspetto** (`veritas_aspetto.js`, 53 prove). La tela 3D occupava il 60%
+   della finestra: nascondendo i pannelli nativi nessuno emetteva l'evento
+   `resize` che il renderer aspetta. Corretto con un `ResizeObserver`. La
+   camera non era mai inquadrata sull'ingombro reale (preset fisso
+   `[0,80,0]`). La console e' passata dal centro (copriva play/pausa) a un
+   dock a destra; i comandi sono in un rail a sinistra che chiama
+   `__veritasRunCommand`, cioe' la console stessa — nessuna logica duplicata.
+
+2. **Pavimento** (`veritas_pavimento.test.mjs`, 20 prove). Il difetto che
+   Raffaella ha descritto come "i passeggeri camminano sopra gli aerei":
+   `realFloorYNear` lanciava un raggio dall'alto verso il basso e restituiva
+   il **primo** colpo, che con un raggio discendente e' la superficie **piu'
+   alta** — il tetto. Il codice aveva perfino il commento "Verifica che sia
+   pavimento (Y normale > 0.5)" senza il controllo scritto. Ora
+   `scegliPavimento()` filtra per normale rivolta verso l'alto e sceglie la
+   superficie alla quota ATTESA (passata da ogni chiamante), non la piu' alta.
+   Misurato: quote agenti da 0,41–**11,21 m** (tetto) a 0,41–**5,44 m** (i due
+   piani veri). Fuori posto: da 36% a 4% nel banco.
+
+3. **Scala** (`veritas_scala.js`, 88 prove). `veritasScaleSanity` deduceva il
+   fattore dalla mediana dei VARCHI misurati dal motore di occupazione — che
+   dipende dalla densita' della nuvola campionata. Dipendenza circolare
+   (verificata rompendola: cambiando i punti della prima passata il modello e'
+   finito 10x piu' piccolo). Sostituita con: (1) unita' DICHIARATE dal file —
+   FBX `UnitScaleFactor` letto dai byte (il FBXLoader di three.js lo ignora,
+   bug noto), glTF = metri per specifica; (2) se assenti, invarianti
+   architettonici (altezza di piano 2,5–6,5 m, altezza totale) come BANDA di
+   fattori plausibili, non un numero secco; (3) i varchi restano come banda
+   fra le altre, marcata `circolare: true`, che da sola abbassa la fiducia
+   invece di decidere. Quando file e geometria si contraddicono vince la
+   geometria (un esportatore sbagliato e' piu' comune di un edificio
+   impossibile).
+
+   ⚠️ **Questo punto 3 e' la stessa idea del blocco rosso in cima, scritta due
+   giorni prima e su una scala sola: si legge la dichiarazione del file, e
+   solo se non c'e' si deduce.** Vale la pena rileggerlo.
+
+### 14-bis.1 Cosa di questa sezione e' SUPERATO
+
+- Il «blocco vero» delle zone (1 ambiente da 3545 m² + 30 briciole, causa
+  `underSampled`) e' stato chiuso: prima con la lettura dei muri dal modello
+  (§15.3), poi con la navmesh di navcat (§17).
+- Il «sospetto sui nodi di default» era **giusto** ed e' stato verificato e
+  corretto il 17/08 pomeriggio: sono i sei nodi cablati nel bundle, vedi
+  §14.0 della sezione 14 attuale. Chi lo aveva scritto aveva ragione.
+- `banco/dentro.mjs` misurava "fuori posto" contro l'ingombro del file intero,
+  che comprende piazzale e piste: il collaudo era largo e diceva 0. Stretto poi
+  con la separazione dentro/fuori (§16.2).
+
+### 14-bis.2 La letteratura citata quel giorno, che resta utile
+
+Bormann et al., *Room Segmentation: Survey, Implementation, and Analysis*
+(morfologico vs distance transform vs Voronoi: Voronoi piu' accurato, piu'
+lento); MIT-SPARK / Hydra; Meta Habitat e Habitat-GS. Il principio che se n'e'
+ricavato — **separare cio' che si disegna da cio' su cui si cammina** — e'
+esattamente quello che ha poi portato a navcat (§17).
+
+### 14-bis.3 Gli script del banco nati quella mattina
+
+```
+banco/nuovoaspetto.mjs   misura + schermate della shell
+banco/tela.mjs           quanto della finestra occupa la tela 3D
+banco/scena.mjs          prima/dopo su inquadratura e luce
+banco/dentro.mjs         quanti agenti sono fuori posto
+banco/ambienti.mjs       le superfici REALI dei livelli/ambienti del motore
+banco/regressione.mjs    A/B fra index.html corrente e una versione committata
+banco/reinlina.py        rigenera un blocco inline da un modulo in radice,
+                         individuandolo per CONTENUTO, e verifica il blocco 3
+```
+
+---
+
 ## 15. Stato reale — sessione 18 agosto 2026
 
 > **Dove questa sezione contraddice le precedenti, vale questa.**
