@@ -266,6 +266,58 @@ console.log('\n— quello che il modulo NON deve fare —');
 }
 
 // =============================================================================
+console.log('\n— nascere dentro un solido —');
+// =============================================================================
+// E' LA cosa che decide se il motore fisico regge un edificio vero. Un piano
+// che manda una persona dentro un muro non e' un caso raro: e' il caso normale
+// quando le tappe stanno su piani diversi e il percorso e' una retta. Un corpo
+// nato li' dentro non ne esce piu' da solo, costa duecento volte tanto e non
+// produce niente di vero.
+{
+  // Il piano fa nascere l'agente NEL PIENO di un pilastro 2 x 2 m.
+  const g = Scatole().box(20, -0.15, 10, 40, 0.3, 20).box(10, 1.5, 10, 2, 3, 2).geometria();
+  const scena = CORPO.mondoDaGeometria(RAPIER, g);
+  const piano = pianoRetto([10, 0, 10], [30, 0, 10], 40);
+  const e = CORPO.filtraFrames(scena, piano.frames);
+  check('il filtro ha lavorato', e.ok, e.perche || '');
+  check('lo dichiara: un corpo e nato dentro un solido', e.natiDentro === 1, 'natiDentro = ' + e.natiDentro);
+  check('ma non e rimasto dentro', e.dentroUnSolido === 0, 'dentro = ' + e.dentroUnSolido);
+  check('e non e stato dichiarato impossibile: un posto libero c era',
+    e.impossibili === 0, 'impossibili = ' + e.impossibili);
+  const p0 = e.frames[0].agents[0].pos;
+  const spostato = Math.hypot(p0[0] - 10, p0[2] - 10);
+  check('lo ha spostato POCO, sul libero piu vicino (< 3 m)', spostato > 0 && spostato < 3,
+    spostato.toFixed(2) + ' m');
+  console.log('       piano: nascita nel pieno di un pilastro | corpo: spostato di '
+    + spostato.toFixed(2) + ' m sul punto libero piu vicino');
+}
+{
+  // Nessun posto libero: dentro un blocco pieno da 30 m. Va DETTO, non
+  // macinato per ottocento fotogrammi.
+  const g = Scatole().box(20, -0.15, 10, 40, 0.3, 20).box(20, 1.5, 10, 30, 3, 18).geometria();
+  const scena = CORPO.mondoDaGeometria(RAPIER, g);
+  const piano = pianoRetto([20, 0, 10], [25, 0, 10], 20);
+  const e = CORPO.filtraFrames(scena, piano.frames);
+  check('un agente senza un posto libero attorno viene dichiarato',
+    e.impossibili === 1, 'impossibili = ' + e.impossibili);
+  check('e non viene simulato affatto', e.corpi === 0, 'corpi = ' + e.corpi);
+  check('la sua posizione resta quella del piano, non inventata',
+    e.frames[10].agents[0].pos[0] === piano.frames[10].agents[0].pos[0]);
+  check('e il racconto lo dice', /non li ho fatti camminare|non lo ho fatto camminare|il piano li metteva/
+    .test(CORPO.racconta(e)), CORPO.racconta(e).slice(-120));
+}
+{
+  // La ricerca non deve spostare chi sta gia' bene.
+  const g = Scatole().box(20, -0.15, 10, 40, 0.3, 20).geometria();
+  const scena = CORPO.mondoDaGeometria(RAPIER, g);
+  const piano = pianoRetto([5, 0, 10], [30, 0, 10], 40);
+  const e = CORPO.filtraFrames(scena, piano.frames);
+  check('in campo libero nessuno viene spostato alla nascita', e.natiDentro === 0,
+    'natiDentro = ' + e.natiDentro);
+  check('e nessuno viene dichiarato impossibile', e.impossibili === 0);
+}
+
+// =============================================================================
 console.log('\n— la resa, misurata —');
 // =============================================================================
 // Il costo va dichiarato prima di prometterlo. Questo e' il caso vero:

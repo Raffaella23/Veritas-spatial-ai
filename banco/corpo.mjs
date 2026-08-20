@@ -49,6 +49,7 @@ const r = await p.evaluate(() => {
     mondo: window.__veritasCorpoEsito || null,
     esito: (C && C.ultimoEsito) ? C.ultimoEsito() : null,
     racconto: (C && C.racconta) ? C.racconta() : null,
+    tetto: (C && C.TETTO_MS) || null,
   };
   const scena = (C && C.stato) ? C.stato() : null;
   if (!scena) return out;
@@ -91,6 +92,27 @@ const r = await p.evaluate(() => {
   }
   out.misura = { campioni, dentro, sottoterra, esempi, errori, primoErrore, fotogrammi: frames.length };
 
+  // Il costo VERO, senza tetto: quanto ci metterebbe a finire, e quanti corpi
+  // il piano fa nascere dentro un solido. Senza questi due numeri non si sa
+  // se il filtro e' lento o se e' il piano a essere impossibile.
+  const t0 = performance.now();
+  const senzaTetto = C.filtraFrames(scena, frames, { tettoMs: 600000 });
+  out.senzaTetto = {
+    ok: senzaTetto.ok, perche: senzaTetto.perche,
+    ms: Math.round(performance.now() - t0),
+    corpi: senzaTetto.corpi, mosse: senzaTetto.mosse,
+    natiDentro: senzaTetto.natiDentro, caduti: senzaTetto.caduti,
+    dentroUnSolido: senzaTetto.dentroUnSolido,
+    scostamentoMediano: senzaTetto.scostamentoMediano,
+    scostamentoMassimo: senzaTetto.scostamentoMassimo,
+  };
+  if (senzaTetto.ok) {
+    const q2 = new Set();
+    for (let f = 0; f < senzaTetto.frames.length; f += passo)
+      for (const a of senzaTetto.frames[f].agents || []) if (a && a.pos) q2.add(Math.round(a.pos[1] * 4) / 4);
+    out.senzaTetto.quote = [...q2].sort((x, y) => x - y);
+  }
+
   // Le quote: quante diverse? Un modello a piu' piani deve produrre agenti a
   // piu' quote, altrimenti nessuno ha usato le scale.
   const quote = new Set();
@@ -127,7 +149,9 @@ if (r.esito) {
     console.log(`      scostamento dal piano: ${r.esito.scostamentoMediano} m mediano, `
       + `${r.esito.scostamentoMassimo} m massimo`);
     if (r.esito.caduti) console.log(`      ⚠️ ${r.esito.caduti} volte il piano mandava un agente dove sotto non c'e pavimento`);
-    ok("costa meno del tetto dichiarato (15 s)", r.esito.ms < 15000, r.esito.ms + " ms");
+    const tetto = r.tetto || 45000;
+    ok(`costa meno del tetto dichiarato (${(tetto / 1000).toFixed(0)} s)`, r.esito.ms < tetto,
+      r.esito.ms + " ms");
   }
 } else {
   ok("il filtro fisico e stato applicato alla traiettoria", false, r.perche || "nessun esito");
@@ -144,6 +168,17 @@ if (r.misura) {
   ok("nessun agente sprofondato sotto il modello", sottoterra === 0, sottoterra + " su " + campioni);
 }
 if (r.quote) console.log(`      quote occupate dagli agenti: [${r.quote.join(", ")}]`);
+
+if (r.senzaTetto) {
+  const s = r.senzaTetto;
+  console.log("\n=== IL FILTRO FATTO FINIRE, SENZA TETTO DI TEMPO ===");
+  console.log(`      ${s.corpi} corpi, ${(s.mosse || 0).toLocaleString("it-IT")} passi, ${s.ms} ms`);
+  console.log(`      corpi che il PIANO fa nascere dentro un solido: ${s.natiDentro} su ${s.corpi}`);
+  console.log(`      posizioni dentro un solido DOPO il filtro: ${s.dentroUnSolido}`);
+  console.log(`      scostamento dal piano: ${s.scostamentoMediano} m mediano, ${s.scostamentoMassimo} m massimo`);
+  if (s.caduti) console.log(`      ⚠️ ${s.caduti} volte il piano mandava un agente dove sotto non c'e pavimento`);
+  if (s.quote) console.log(`      quote dopo il filtro: [${s.quote.join(", ")}]`);
+}
 if (r.racconto) console.log(`\n      in chat direbbe:\n      "${r.racconto}"`);
 
 console.log("\n=== RIGHE DI CONSOLE PERTINENTI ===");

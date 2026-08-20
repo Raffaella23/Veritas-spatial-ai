@@ -69,8 +69,13 @@ def sorgente_inline(percorso, legatura):
     fuori = re.sub(r"^export (async )?function ", r"\1function ", testo, flags=re.M)
     fuori = re.sub(r"^export (const|let|var) ", r"\1 ", fuori, flags=re.M)
     fuori = re.sub(r"^export default \{", f"window.{legatura} = {{", fuori, flags=re.M)
-    if "export " in fuori:
-        raise SystemExit("e' rimasto un export nel testo generato")
+    # ⚠️ A INIZIO RIGA, non ovunque nel testo. La versione precedente cercava
+    #    "export " dovunque, e un commento in italiano che diceva «un export
+    #    architettonico» faceva fallire il reinline — che poi vuol dire girare
+    #    con la copia vecchia in pagina senza accorgersene, che e' esattamente
+    #    il difetto silenzioso che questo script serve a evitare.
+    if re.search(r"^export ", fuori, flags=re.M):
+        raise SystemExit("e' rimasto un export a inizio riga nel testo generato")
     if f"window.{legatura} = {{" not in fuori:
         raise SystemExit(f"la legatura window.{legatura} non e' stata creata")
     return fuori

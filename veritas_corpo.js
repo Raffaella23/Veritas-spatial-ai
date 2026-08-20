@@ -72,23 +72,36 @@
 //   28 corpi x 800 fotogrammi = 22.400 passi     1.886 ms   (2,4 ms/fotogramma)
 //   collisore dell'edificio, 2.412 triangoli         2 ms
 //
-// e le singole operazioni, su un edificio da 96.012 triangoli:
+// ⚠️ E la misura che conta davvero, perche' e' quella che decide se il motore
+//    fisico funziona su un edificio vero. STESSO edificio, STESSI 168.012
+//    triangoli, 28 corpi, 800 fotogrammi — cambia solo dove passa la gente:
 //
-//   world.step()                    0,012 ms   trascurabile
-//   computeColliderMovement()       0,022 ms   in condizioni normali
-//   computeColliderMovement()       0,41  ms   con il corpo DENTRO un solido
+//      il corridoio e' libero            0,9 s      0 posizioni dentro un solido
+//      il piano li fa nascere dentro     202,6 s    5.600 dentro un solido
 //
-// ⚠️ Il costo NON dipende dal numero di triangoli — 96.012 costano quanto
-//    2.412, perche' sotto c'e' un albero — ma dalla PENETRAZIONE. Un corpo
-//    che si trova dentro un muro paga venti volte tanto, perche' il
-//    controller passa il tempo a tirarlo fuori. Un modello che facesse
-//    nascere gli agenti dentro i solidi non sarebbe lento: sarebbe rotto, e
-//    la lentezza sarebbe il sintomo da leggere.
+//    Duecento volte il costo, e un risultato sbagliato per giunta. Il numero
+//    di triangoli NON conta — 168.012 costano quanto 6.012 quando il corpo
+//    cammina libero, perche' sotto c'e' un albero che li scarta. Conta una
+//    cosa sola: se il corpo si trova DENTRO un solido. Da li' non esce piu' da
+//    solo, e il controller passa ogni fotogramma a provarci.
 //
-// Per questo c'e' un tetto di tempo dichiarato (`tettoMs`, 15 s): oltre
-// quello si smette e si restituisce la traiettoria pianificata DICENDOLO.
-// Meglio il comportamento di ieri, dichiarato, che una pagina bloccata
-// mezzo minuto.
+//    E' per questo che esiste `nascitaLibera` (§4-bis): non e' una
+//    ottimizzazione, e' la condizione perche' la cosa funzioni.
+//
+// E sul VERO, un progetto Revit di una clinica — 4 piani, 269 ambienti,
+// 174.381 triangoli, 25 corpi, 800 fotogrammi:
+//
+//   posizioni dentro un solido nel piano pianificato    72,8 %
+//   posizioni dentro un solido dopo il filtro            4,2 %
+//   costo                                               24,3 s
+//
+// Il filtro fa il suo mestiere anche li'. I 24 secondi sono una simulazione
+// di quasi sette minuti di tempo reale calcolata tutta in una volta, si
+// pagano una volta per analisi, e sono il motivo per cui `TETTO_MS` sta a 45
+// e non a 15: col tetto stretto il motore fisico non veniva applicato MAI su
+// un edificio vero. Oltre il tetto si smette e si restituisce il piano
+// DICENDOLO — mai un risultato mezzo filtrato, che avrebbe l'aria di essere
+// stato verificato.
 //
 // =============================================================================
 
@@ -143,6 +156,25 @@ export const PELLE = 0.01;
 // niente che il corpo non attraverserebbe comunque. Non e' una soglia
 // inventata: e' la stessa misura, usata come limite di integrazione.
 export const SOTTOPASSI_MAX = 8;
+
+// Quanto si concede al filtro prima di arrendersi e restituire il piano.
+//
+// ⚠️ MISURATO su un progetto Revit vero (clinica, 4 piani, 174.381 triangoli,
+//    25 corpi, 800 fotogrammi): 24,3 s. Con il tetto a 15 s il filtro si
+//    fermava a meta' e non veniva applicato MAI su un edificio vero — cioe'
+//    il motore fisico c'era e non serviva a niente. Un edificio vero deve
+//    poter finire.
+//
+//    Il costo e' quello che e': una simulazione di quasi sette minuti di
+//    tempo reale, calcolata tutta in una volta. Si paga una volta sola per
+//    analisi. La strada per non farla pesare sulla pagina e' spostarla su un
+//    thread separato, e non e' stata ancora fatta.
+export const TETTO_MS = 45000;
+
+// Ogni quanti fotogrammi si verifica se un corpo e' dentro un solido. Il
+// collaudo interroga il motore due volte per corpo, e non serve a muovere
+// nessuno: campionarlo costa un quarto e dice la stessa cosa.
+export const PASSO_COLLAUDO = 4;
 
 // -----------------------------------------------------------------------------
 // 2. La libreria
@@ -321,21 +353,95 @@ export function passo(scena, corpo, desideratoXZ, dt) {
 }
 
 /**
- * La capsula, dove sta adesso, e' dentro un solido? E' IL collaudo — quello
- * che il piano di lavoro chiama «zero posizioni dentro un solido».
+ * Il corpo, dove sta adesso, e' dentro un solido? E' IL collaudo — quello che
+ * il piano di lavoro chiama «zero posizioni dentro un solido».
  *
- * ⚠️ Il CONTATTO non e' penetrazione. Un corpo appoggiato al pavimento o
+ * Servono DUE domande, perche' i due modi di stare dentro sono diversi:
+ *
+ *   - un corpo compenetrato in un muro sottile o in un arredo TOCCA le
+ *     superfici -> lo vede `toccaUnaSuperficie`;
+ *   - un corpo dentro un solido piu' grosso di lui — un pilastro, un nucleo,
+ *     la massa di un edificio — non tocca NIENTE -> lo vede solo la parita'
+ *     dei raggi.
+ *
+ * Chiederne una sola vuol dire dare zero per il motivo sbagliato.
+ */
+export function dentroUnSolido(scena, corpo, margine) {
+  return toccaUnaSuperficie(scena, corpo, margine) || dentroPerParita(scena, corpo.pos);
+}
+
+/**
+ * Il punto sta DENTRO un solido? Si contano gli attraversamenti di un raggio:
+ * dispari = dentro. E' il test di appartenenza classico, e qui e' l'unico che
+ * risponda alla domanda giusta.
+ *
+ * ⚠️ MISURATO, e sarebbe passato inosservato. Una trimesh e' una SUPERFICIE,
+ *    non un solido: una capsula interamente dentro un pilastro 2 x 2 m non
+ *    tocca nessun triangolo, e la sola interrogazione di contatto rispondeva
+ *    «libero» — al centro esatto del pilastro. Il collaudo «zero posizioni
+ *    dentro un solido» stava misurando il CONTATTO e non l'appartenenza, e
+ *    dava zero per il motivo sbagliato.
+ *
+ *    Provate anche le alternative: `projectPoint(p, true).isInside` risponde
+ *    sempre falso su una trimesh senza pseudo-normali, e le pseudo-normali si
+ *    accendono col flag `ORIENTED`, cugino di quel `FIX_INTERNAL_EDGES` che
+ *    su questa geometria fa cadere i corpi attraverso il pavimento. Non vale
+ *    il rischio: i raggi costano 0,0027 ms e non toccano il collisore.
+ *
+ * ⚠️ Tre direzioni, e devono essere d'accordo TUTTE E TRE. La parita' vale
+ *    solo su una superficie chiusa, e i modelli veri quasi mai lo sono: un
+ *    export architettonico e' pieno di gusci aperti, facce singole e pezzi
+ *    non solidi, e su quelli la parita' di un asse dice "dentro" quando non
+ *    lo e'.
+ *
+ *    MISURATO su un progetto Revit vero (clinica, 269 ambienti, 174.381
+ *    triangoli): con la maggioranza di due assi su tre, 25 corpi su 25
+ *    risultavano nati dentro un solido — impossibile in un edificio, e vuol
+ *    dire che a sbagliare era il test. Bastare a un asse dire "fuori" per
+ *    concludere fuori e' la lettura prudente: si preferisce lasciar passare
+ *    un corpo davvero dentro piuttosto che spostarne uno che stava bene.
+ *
+ *    Il costo scende anche: si smette al primo asse che dice fuori, che e'
+ *    il caso normale.
+ */
+export function dentroPerParita(scena, punto) {
+  const { RAPIER, world } = scena;
+  const ing = scena.ingombro;
+  const lungo = ing
+    ? Math.hypot(ing.max[0] - ing.min[0], ing.max[1] - ing.min[1], ing.max[2] - ing.min[2]) * 1.1
+    : 1e4;
+  let dentro = 0;
+  for (const d of DIREZIONI_PARITA) {
+    let n = 0;
+    world.intersectionsWithRay(new RAPIER.Ray(punto, d), lungo, false, () => { n++; return true; },
+      RAPIER.QueryFilterFlags ? RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC : undefined);
+    if (n % 2 === 1) dentro++;
+    else return false;   // un solo asse che dice "fuori" basta: vedi sotto
+  }
+  return dentro === DIREZIONI_PARITA.length;
+}
+
+const DIREZIONI_PARITA = Object.freeze([
+  Object.freeze({ x: 0, y: 1, z: 0 }),
+  Object.freeze({ x: 1, y: 0, z: 0 }),
+  Object.freeze({ x: 0, y: 0, z: 1 }),
+]);
+
+/**
+ * La capsula tocca la superficie dell'edificio? Contatto, non appartenenza.
+ *
+ * ⚠️ Il CONTATTO non e' compenetrazione. Un corpo appoggiato al pavimento o
  *    fermo contro un muro tocca l'edificio per costruzione: il controller
  *    tiene esattamente `PELLE` di distanza, ed e' quello che deve fare. Una
  *    prova che contasse i contatti direbbe «7.928 posizioni dentro un solido»
  *    su una passeggiata perfettamente corretta lungo una parete — misurato.
  *
  *    Quindi si interroga una capsula RIMPICCIOLITA del margine: se anche
- *    cosi' tocca l'edificio, il corpo e' dentro davvero. Il margine non e' una
- *    soglia di comportamento, e' la stessa pelle del controller presa due
- *    volte: un centimetro per parte.
+ *    cosi' tocca l'edificio, il corpo e' compenetrato davvero. Il margine non
+ *    e' una soglia di comportamento, e' la stessa pelle del controller presa
+ *    due volte: un centimetro per parte.
  */
-export function dentroUnSolido(scena, corpo, margine) {
+export function toccaUnaSuperficie(scena, corpo, margine) {
   const { RAPIER, world } = scena;
   const m = margine != null ? margine : (scena.pelle || PELLE) * 2;
   const raggio = Math.max(0.001, scena.misure.raggio - m);
@@ -365,6 +471,84 @@ export function dentroUnSolido(scena, corpo, margine) {
 const ROTAZIONE_FERMA = Object.freeze({ x: 0, y: 0, z: 0, w: 1 });
 
 // -----------------------------------------------------------------------------
+// 4-bis. Un corpo non puo' NASCERE dentro un solido
+// -----------------------------------------------------------------------------
+//
+// E' la cosa che decide se il motore fisico funziona su un edificio vero o no,
+// e vale la pena spiegarla perche' non e' ovvia.
+//
+// MISURATO. Stesso edificio, 168.012 triangoli, 28 corpi, 800 fotogrammi:
+//
+//   il corridoio e' libero                    0,9 s     0 posizioni dentro un solido
+//   il piano li fa nascere dentro gli arredi  202,6 s   5.600 dentro un solido
+//
+// Stessa geometria, stesso numero di triangoli, duecento volte il costo — e un
+// risultato sbagliato per giunta. Il numero di triangoli NON conta: l'albero
+// della libreria fa il suo mestiere. Conta una cosa sola, se il corpo si trova
+// dentro un solido: da li' non esce piu' da solo, e il controller passa ogni
+// fotogramma a provarci.
+//
+// Un piano che manda una persona dentro un muro esiste eccome — e' il caso
+// normale quando le tappe stanno su piani diversi e il percorso e' una retta —
+// quindi il corpo deve saperci fare. Ogni motore di gioco risolve questa cosa
+// allo stesso modo: non si fa nascere un personaggio dentro il livello, gli si
+// cerca il punto libero piu' vicino.
+//
+// La ricerca e' puramente geometrica e non decide niente sul significato dello
+// spazio: si prova il punto voluto, poi si sale (un pavimento e' quasi sempre
+// il solido in cui si finisce dentro), poi si allarga in cerchio. I passi sono
+// le misure gia' dichiarate — l'alzata e il raggio del corpo — e il raggio di
+// ricerca si ferma presto: oltre non si sta piu' correggendo una nascita, si
+// sta teletrasportando qualcuno.
+
+/** Fin dove si accetta di spostare una nascita: dieci raggi, cioe' 3 m. */
+export const RICERCA_MAX_RAGGI = 10;
+
+/**
+ * Cerca il punto libero piu' vicino a `piede` dove far nascere un corpo.
+ * Restituisce il piede corretto, oppure `null` se non ce n'e' uno.
+ */
+export function nascitaLibera(scena, piede) {
+  const m = scena.misure;
+  const mezza = Math.max(0.01, m.altezza / 2 - m.raggio);
+  const finto = { pos: null, mezza };
+  const libero = (x, y, z) => {
+    finto.pos = { x, y: y + m.altezza / 2, z };
+    return !dentroUnSolido(scena, finto);
+  };
+
+  const x0 = piede[0], y0 = piede[1] || 0, z0 = piede[2];
+  if (libero(x0, y0, z0)) return [x0, y0, z0];
+
+  // 1. In alto, ma di UN'ALZATA SOLA.
+  //
+  // ⚠️ Alzarsi finche' si trova libero e' sbagliato, e la prova lo ha
+  //    mostrato: da dentro un pilastro alto 3 m si sale fino a scavalcarlo e
+  //    la persona nasce IN CIMA AL PILASTRO. Sopra un pilastro non ci sta
+  //    nessuno, e la ricerca avrebbe risolto la compenetrazione producendo
+  //    una scena assurda — di nuovo un difetto che non da' errori.
+  //
+  //    Un'alzata basta per uscire da un solaio in cui si e' immersi di poco,
+  //    che e' l'unico caso in cui salire e' la risposta giusta: la gravita'
+  //    poi ti riappoggia dove stavi. Per tutto il resto ci si sposta di
+  //    fianco, restando alla quota che il piano voleva.
+  if (libero(x0, y0 + m.gradino, z0)) return [x0, y0 + m.gradino, z0];
+
+  // 2. In cerchio, allargando. Otto direzioni: sono i vicini di una cella,
+  //    la stessa vicinanza che usa il cammino.
+  for (let r = 1; r <= RICERCA_MAX_RAGGI; r++) {
+    const raggio = r * m.raggio;
+    for (let a = 0; a < 8; a++) {
+      const ang = a * Math.PI / 4;
+      const x = x0 + Math.cos(ang) * raggio;
+      const z = z0 + Math.sin(ang) * raggio;
+      if (libero(x, y0, z)) return [x, y0, z];
+    }
+  }
+  return null;
+}
+
+// -----------------------------------------------------------------------------
 // 5. Il cuore: la traiettoria pianificata passa dai corpi
 // -----------------------------------------------------------------------------
 
@@ -392,7 +576,7 @@ export function filtraFrames(scena, frames, opz = {}) {
   }
   const m = scena.misure;
   const t0 = ora();
-  const tettoMs = opz.tettoMs != null ? opz.tettoMs : 15000;
+  const tettoMs = opz.tettoMs != null ? opz.tettoMs : TETTO_MS;
   // Quanto puo' recuperare chi e' rimasto indietro, in frazione del passo
   // pianificato. Mezzo passo in piu' e' abbastanza per rientrare dietro un
   // pilastro e non abbastanza per saltare un muro.
@@ -400,8 +584,9 @@ export function filtraFrames(scena, frames, opz = {}) {
   const dt = opz.dt || dedottoDt(frames);
 
   const corpi = new Map();     // id agente -> corpo
+  const impossibili = new Set();  // agenti che il piano mette dentro un solido
   const pianoPrec = new Map(); // id agente -> ultima posizione PIANIFICATA
-  let mosse = 0, dentro = 0, caduti = 0, scostamenti = [];
+  let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
   const quotaMinima = scena.ingombro
     ? scena.ingombro.min[1] - Math.max(10, m.altezza * 5)
     : -1e4;
@@ -421,6 +606,7 @@ export function filtraFrames(scena, frames, opz = {}) {
         continue;
       }
       const id = ag.id;
+      if (impossibili.has(id)) { fuori[a] = ag; continue; }
       let corpo = corpi.get(id);
       if (!corpo) {
         // Nasce dove il piano lo voleva, e prima di camminare si LASCIA
@@ -436,7 +622,20 @@ export function filtraFrames(scena, frames, opz = {}) {
         //    -3,8 cm e restava li' per tutto il tragitto. Partendo piu' in
         //    alto la caduta e' un appoggio normale, che e' il caso per cui il
         //    controller e' fatto. L'alzata e' la misura gia' dichiarata.
-        corpo = aggiungiCorpo(scena, [p[0], (p[1] || 0) + m.gradino, p[2]]);
+        const voluto = [p[0], (p[1] || 0) + m.gradino, p[2]];
+        const dove = nascitaLibera(scena, voluto);
+        if (!dove) {
+          // Il piano lo mette dentro un solido e attorno non c'e' un posto
+          // dove starebbe una persona. Non lo si simula: un corpo dentro un
+          // muro non ne esce, costa venti volte tanto e non produce niente di
+          // vero. Si conserva la posizione voluta e si DICHIARA — e' una cosa
+          // da far sapere, non da nascondere in un conteggio.
+          impossibili.add(id);
+          fuori[a] = ag;
+          continue;
+        }
+        if (dove[0] !== voluto[0] || dove[1] !== voluto[1] || dove[2] !== voluto[2]) natiDentro++;
+        corpo = aggiungiCorpo(scena, dove);
         corpi.set(id, corpo);
         scena.world.step();
         for (let k = 0; k < 12 && !corpo.aTerra; k++) {
@@ -481,7 +680,16 @@ export function filtraFrames(scena, frames, opz = {}) {
 
       const piede = [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z];
       scostamenti.push(Math.hypot(piede[0] - p[0], piede[2] - p[2]));
-      if (dentroUnSolido(scena, corpo)) dentro++;
+      // ⚠️ Il collaudo si CAMPIONA, non gira a ogni fotogramma: due
+      //    interrogazioni per agente per fotogramma sono decine di migliaia
+      //    di interrogazioni che non servono a muovere nessuno. Un
+      //    fotogramma su `PASSO_COLLAUDO` da' la stessa frazione — quello che
+      //    interessa e' la percentuale, non il conteggio assoluto — e il
+      //    denominatore viene dichiarato insieme.
+      if (f % PASSO_COLLAUDO === 0) {
+        controllate++;
+        if (dentroUnSolido(scena, corpo)) dentro++;
+      }
       fuori[a] = { ...ag, pos: piede };
     }
 
@@ -511,7 +719,19 @@ export function filtraFrames(scena, frames, opz = {}) {
     fotogrammi: frames.length,
     mosse,
     dentroUnSolido: dentro,
+    // Il denominatore del collaudo: e' campionato, e va detto insieme al
+    // numeratore, altrimenti "zero dentro un solido" non vuol dire niente.
+    posizioniControllate: controllate,
     caduti,
+    // Quanti corpi il piano faceva NASCERE dentro un solido. E' il numero che
+    // spiega il costo (un corpo compenetrato costa venti volte tanto) ed e'
+    // anche un giudizio sul piano, non sul motore.
+    natiDentro,
+    // Agenti che il piano metteva dentro un solido senza un posto libero
+    // attorno: non simulati, e detti. Se questo numero e' alto non e' il
+    // motore fisico a essere in difficolta', e' il percorso a essere
+    // impossibile su questo edificio.
+    impossibili: impossibili.size,
     scostamentoMediano: +mediano.toFixed(3),
     scostamentoMassimo: +massimo.toFixed(3),
     triangoli: scena.triangoli,
@@ -604,11 +824,18 @@ export function racconta(esito) {
   parti.push('Ho fatto camminare ' + e.corpi + (e.corpi === 1 ? ' corpo' : ' corpi')
     + ' dentro il modello: ognuno e una capsula alta ' + fmt(m.altezza) + ' m e larga '
     + fmt(m.raggio * 2) + ' m che collide con l edificio.');
+  const su = (e.posizioniControllate || e.mosse || 0).toLocaleString('it-IT');
   parti.push('Nessuno attraversa muri o solai: ' + (e.dentroUnSolido === 0
-    ? 'zero posizioni dentro un solido su ' + e.mosse.toLocaleString('it-IT') + '.'
-    : e.dentroUnSolido + ' posizioni ancora dentro un solido su ' + e.mosse.toLocaleString('it-IT') + '.'));
+    ? 'zero posizioni dentro un solido su ' + su + ' verificate.'
+    : e.dentroUnSolido + ' posizioni ancora dentro un solido su ' + su + ' verificate ('
+      + (100 * e.dentroUnSolido / Math.max(1, e.posizioniControllate || e.mosse)).toFixed(1) + '%).'));
   parti.push('Scostamento dal percorso pianificato: ' + fmt(e.scostamentoMediano) + ' m mediano, '
     + fmt(e.scostamentoMassimo) + ' m al massimo — e quanto il corpo ha dovuto correggere il piano.');
+  if (e.natiDentro) parti.push(e.natiDentro + (e.natiDentro === 1 ? ' corpo partiva' : ' corpi partivano')
+    + ' dentro un solido e li ho spostati sul punto libero piu vicino.');
+  if (e.impossibili) parti.push('⚠️ ' + e.impossibili + (e.impossibili === 1 ? ' agente' : ' agenti')
+    + ' il piano li metteva dentro un muro senza un posto libero attorno: non li ho fatti camminare, '
+    + 'perche non saprei dove. E il percorso a non stare in piedi su questo edificio, non il corpo.');
   if (e.caduti) parti.push('⚠️ ' + e.caduti + ' volte il piano mandava un agente dove sotto non c e pavimento.');
   parti.push('(' + e.ms + ' ms su ' + e.fotogrammi + ' fotogrammi.)');
   return parti.join(' ');
@@ -631,8 +858,9 @@ function ora() {
 }
 
 export default {
-  MISURE, PELLE, SOTTOPASSI_MAX,
-  misure, libreria, mondoDaGeometria, aggiungiCorpo, passo, dentroUnSolido,
+  MISURE, PELLE, SOTTOPASSI_MAX, TETTO_MS, PASSO_COLLAUDO, RICERCA_MAX_RAGGI,
+  misure, libreria, mondoDaGeometria, aggiungiCorpo, passo,
+  dentroUnSolido, dentroPerParita, toccaUnaSuperficie, nascitaLibera,
   filtraFrames, preparaDaScena, filtraTraiettoria, stato, ultimoEsito, racconta,
 };
 
@@ -671,6 +899,25 @@ if (typeof window !== 'undefined') {
           + ' triangoli, capsula r=' + r.misure.raggio + ' m h=' + r.misure.altezza
           + ' m, scalino ' + r.misure.gradino + ' m, pendenza max ' + r.misure.pendenzaMax + '°, '
           + r.ms + ' ms');
+
+        // ⚠️ SOLO ADESSO gli agenti possono camminare invece di scivolare.
+        //
+        //    Il mondo fisico e' pronto qualche centinaio di millisecondi dopo
+        //    il caricamento, e la traiettoria nasce subito: senza questa
+        //    riga il filtro non partecipa mai, e non lo dice nessuno.
+        //    E' lo stesso difetto di tempi che il 18/08 aveva la navmesh
+        //    (CLAUDE.md §17.2), e si chiude allo stesso modo.
+        //
+        //    MISURATO sul progetto di una clinica (Revit, 269 ambienti):
+        //    prima di questa riga, 867 posizioni su 1.689 dentro un solido —
+        //    il 51% — e in console «modello non ancora preparato».
+        //
+        //    Una volta sola: `applyNodesToScene` rigenera la traiettoria, che
+        //    ripassa dal filtro, e il filtro non richiama questa.
+        if (typeof window.__veritasRicalcolaTraiettoria === 'function') {
+          try { window.__veritasRicalcolaTraiettoria(); }
+          catch (e) { console.error('[VERITAS corpo] ricalcolo della traiettoria fallito:', e); }
+        }
       });
     }, 50);
     return out;
