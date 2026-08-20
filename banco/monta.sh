@@ -12,6 +12,12 @@ cp -r node_modules/three/build banco/vendor/three-build
 mkdir -p banco/vendor/three-addons && cp -r node_modules/three/examples/jsm/* banco/vendor/three-addons/
 cp node_modules/three-mesh-bvh/build/index.module.js banco/vendor/bvh.module.js
 cp node_modules/@sparkjsdev/spark/dist/spark.module.js banco/vendor/spark.module.js
+# rapier (il corpo). ⚠️ Si copia la variante `-compat`, quella col WebAssembly
+# incorporato in base64: senza, servirebbe un secondo file .wasm accanto e il
+# motore fisico morirebbe all'init con un errore di rete che sembra un
+# problema del banco e non lo e' — stessa trappola gia' vista con web-ifc.
+mkdir -p banco/vendor/rapier
+cp node_modules/@dimforge/rapier3d-compat/dist/rapier.mjs banco/vendor/rapier/
 # navcat (il cammino) e la sua dipendenza mathcat. ⚠️ Si copia TUTTA la
 # cartella dist: navcat/blocks.js importa './index.js' per percorso relativo,
 # e mathcat/index.js riesporta una ventina di file accanto a se'.
@@ -32,6 +38,7 @@ d = d.replace('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js'
 d = d.replace('https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/', './vendor/three-addons/')
 d = d.replace('https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js', './vendor/bvh.module.js')
 d = d.replace('https://sparkjs.dev/releases/spark/2.1.0/spark.module.js', './vendor/spark.module.js')
+d = d.replace('https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.20.0/dist/rapier.mjs', './vendor/rapier/rapier.mjs')
 d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/index.js', './vendor/navcat/index.js')
 d = d.replace('https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/blocks.js', './vendor/navcat/blocks.js')
 d = d.replace('https://cdn.jsdelivr.net/npm/mathcat@0.0.12/dist/index.js', './vendor/mathcat/index.js')
