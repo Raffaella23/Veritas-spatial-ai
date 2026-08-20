@@ -22,6 +22,7 @@ import {
   eIfc, intestazione, testoDi, numeroDi, booleanoDi,
   nomeDiSpazio, nomeDiPiano, funzioneDaNome, VOCABOLARIO_SPAZI, TIPO_DA_FUNZIONE,
   collegamentiDaBordi, isole, datiDaProprieta, zoneDaSpazi, misuraVolume,
+  grafoCamminabile, stanzaDelPunto, percorsoDichiarato, confineFra,
   leggi, riassunto,
 } from "./veritas_bim.js";
 
@@ -187,6 +188,67 @@ const tre = collegamentiDaBordi([
 uguale(tre.collegamenti.length, 3, "una porta su tre ambienti dichiara tutte e tre le coppie");
 uguale(collegamentiDaBordi([]).collegamenti.length, 0, "nessun bordo, nessun collegamento");
 uguale(collegamentiDaBordi(null).collegamenti.length, 0, "null non fa cadere niente");
+
+// ===========================================================================
+console.log("\n=== 5-bis. CAMMINARE DALLE PORTE, non dentro i muri ===");
+// ===========================================================================
+// Il difetto che Raffaella ha visto il 20/08: «attraversano i muri e non usano
+// le scale». Sapere CHE due stanze comunicano non basta: serve sapere DA DOVE.
+// Tre stanze in fila: A -porta a x=5- B -porta a x=15- C
+const stanza = (id, x, largo) => ({
+  ifc: { id }, pos: [x, 0, 0], label: "S" + id,
+  ingombro: { min: [x - largo / 2, 0, -4], max: [x + largo / 2, 3, 4] },
+});
+const zoneTre = [stanza(1, 0, 10), stanza(2, 10, 10), stanza(3, 20, 10)];
+const gr = grafoCamminabile(zoneTre, [
+  { da: 1, a: 2, punto: [5, 0, 2], tipo: "porta" },
+  { da: 2, a: 3, punto: [15, 0, -2], tipo: "porta" },
+]);
+uguale(gr.quanti, 2, "due passaggi dichiarati");
+uguale(gr.stanze.size, 3, "tre ambienti");
+
+const via = percorsoDichiarato(gr, [-3, 0, 0], [19, 0, 0]);
+ok(via && via.length >= 3, "un percorso da A a C esiste");
+// ⚠️ la prova che conta: passa DAI DUE PUNTI DELLE PORTE, non in linea retta
+ok(via.some((p) => Math.abs(p[0] - 5) < 0.01 && Math.abs(p[2] - 2) < 0.01),
+  "il percorso passa dalla PORTA fra A e B, non dal muro");
+ok(via.some((p) => Math.abs(p[0] - 15) < 0.01 && Math.abs(p[2] + 2) < 0.01),
+  "e dalla porta fra B e C");
+const dritto = via.filter((p) => Math.abs(p[2]) < 0.01).length;
+ok(dritto < via.length, "quindi NON e' una linea retta");
+
+uguale(percorsoDichiarato(gr, [-3, 0, 0], [-1, 0, 0]).length, 1,
+  "dentro la stessa stanza si va dritti, e va bene");
+
+// Una stanza scollegata: non si inventa una strada
+const grRotto = grafoCamminabile(zoneTre, [{ da: 1, a: 2, punto: [5, 0, 2] }]);
+uguale(percorsoDichiarato(grRotto, [-3, 0, 0], [19, 0, 0]), null,
+  "se il file non dichiara una strada, si risponde NULL invece di una retta nel muro");
+
+// La scala: due ambienti a quote diverse, collegati da una scala dichiarata
+const sopra = { ifc: { id: 9 }, pos: [0, 2.7, 0], label: "Galleria",
+                ingombro: { min: [-5, 2.7, -4], max: [5, 5.4, 4] } };
+const conScala = grafoCamminabile([zoneTre[0], sopra], [
+  { da: 1, a: 9, punto: [2, 0, 3], tipo: "scala" },
+]);
+const salita = percorsoDichiarato(conScala, [-3, 0, 0], [0, 2.7, 0]);
+ok(salita && salita.some((p) => Math.abs(p[1]) < 0.01) && salita.some((p) => p[1] > 2),
+  "per salire di piano il percorso passa dalla SCALA dichiarata, non buca il solaio");
+
+// Il varco aperto: nel file non ha geometria, e il punto si ricava dal confine
+// dichiarato fra i due volumi. Senza questo, meta' di una casa moderna resta
+// scollegata (misurato su AC20-FZK-Haus: 3 varchi virtuali su 6 passaggi).
+const aperto = grafoCamminabile(zoneTre, [{ da: 1, a: 2, punto: null, tipo: "varco" }]);
+uguale(aperto.quanti, 1, "un varco senza geometria resta percorribile");
+const c1 = confineFra(zoneTre[0], zoneTre[1]);
+ok(c1 && Math.abs(c1[0] - 5) < 0.01, "il punto e' dove i due volumi si affacciano");
+uguale(confineFra(zoneTre[0], zoneTre[2]), null,
+  "due stanze che non si toccano non ricevono un punto inventato");
+
+uguale(stanzaDelPunto(gr, [0, 0, 0]), 1, "un punto dentro una stanza sa in quale sta");
+uguale(stanzaDelPunto(gr, [500, 0, 500]), null, "un punto lontano da tutto non appartiene a nessuna");
+uguale(percorsoDichiarato({ quanti: 0 }, [0, 0, 0], [1, 0, 0]), null,
+  "senza grafo, nessun percorso dichiarato");
 
 // ===========================================================================
 console.log("\n=== 6. le isole: cosa non si raggiunge, dichiarato ===");

@@ -6,7 +6,91 @@
 
 ---
 
-## 0. 🔴 IL PIANO IN CORSO — si parte dal file che sa già le cose
+## 0. 🔴 IL PROSSIMO PASSO — UN MOTORE FISICO, e non è negoziabile
+
+> Detto da Raffaella il **20/08/2026**, guardando l'anteprima. Viene prima di
+> qualunque altra cosa scritta in questo file.
+
+### Cosa ha visto sullo schermo
+
+> *«Ho impostato 3 persone ma entrano in massa, attraversano i muri e non usano
+> le scale. Il comportamento nello spazio deve seguire quello di un corpo
+> fisico, l'ho specificato più volte: non devono attraversare muri e solai, né
+> fluttuare.»*
+
+### ⚠️ E L'ERRORE CHE HO FATTO IO, che è più importante del difetto
+
+Davanti a quel difetto ho cominciato a far camminare gli agenti **leggendo le
+porte dichiarate nell'IFC**. Funziona, ed è misurato — ma è la risposta
+sbagliata, e Raffaella l'ha fermata subito:
+
+> *«Il punto non è che lo deve ricavare dal modello che ti ho dato io. Deve
+> trovare un motore fisico da applicare nell'applicazione, non risolvere il
+> problema sul modello X. Ne dovrai trovare milioni davanti a te.»*
+
+**Ha ragione, ed è la Regola uno che si ripete per la terza volta.** Un corpo
+che non attraversa i muri non è una proprietà del *percorso*: è una proprietà
+del *corpo*. Nessun percorso, per quanto giusto, impedisce a una figura di
+fluttuare o di bucare un solaio — quello lo impedisce solo un **collisore**.
+E deve valere su qualunque modello arrivi: GLB, IFC, scansione, livello di
+gioco. Risolverlo sulle dichiarazioni di un file vuol dire non averlo risolto.
+
+### La strada, e lo strumento che esiste già
+
+**`@dimforge/rapier3d-compat`** — motore fisico in WebAssembly, licenza Apache-2.0
+(uso commerciale consentito), ed è **quello che three.js stesso adotta**: il
+pacchetto `three` che è già in questo repository contiene
+`examples/jsm/physics/RapierPhysics.js`. Non c'è niente da scrivere a mano.
+
+Quello che serve si chiama **`KinematicCharacterController`**, ed è fatto
+esattamente per questo problema:
+
+| cosa fa | come si chiama in Rapier | quale difetto chiude |
+|---|---|---|
+| il corpo è una capsula che collide | `ColliderDesc.capsule(h, r)` | **attraversano i muri** |
+| l'edificio è un collisore vero | `ColliderDesc.trimesh(vertici, indici)` | **attraversano i solai** |
+| resta appoggiato al pavimento | `enableSnapToGround(d)` | **fluttuano** |
+| sale gli scalini da solo | `enableAutostep(alzata, pedata, true)` | **non usano le scale** |
+| non cammina sulle pareti | `setMaxSlopeClimbAngle(45°)` | agenti sui tetti e sulle ali |
+
+Le misure da dargli sono quelle **già dichiarate** in `veritas_navmesh.js`
+(§17): raggio 0,30 m dall'ellisse di Fruin, altezza 2,00 m, gradino 0,40 m,
+pendenza 35°. Nessuna soglia nuova.
+
+⚠️ **La navmesh (navcat) NON si butta e non è in concorrenza.** Fanno due
+mestieri diversi, e vanno insieme come in ogni motore di gioco:
+
+```
+navcat  -> DOVE andare      (il percorso: pianifica)
+Rapier  -> COME ci si va    (il corpo: nessuno attraversa niente)
+```
+
+### Come si innesta
+
+1. `rapier3d-compat` dall'importmap, come navcat e web-ifc — non inlinato.
+2. Un collisore trimesh costruito **una volta** dalla geometria caricata,
+   qualunque sia il formato: il punto è che sia indipendente dal file.
+3. Ogni agente diventa una capsula. Il generatore di traiettorie smette di
+   scrivere posizioni e comincia a scrivere **direzioni**: il controller
+   decide dove il corpo finisce davvero.
+4. Il collaudo che conta: **zero posizioni dentro un solido**, su modelli
+   diversi. `banco/dentro.mjs` misura già una cosa simile e va stretto a
+   questa.
+
+⚠️ **Costo da dichiarare**: 28 capsule per ~800 fotogrammi sono un calcolo
+vero. Va misurato prima di prometterlo, non dopo.
+
+### Cosa è già stato corretto il 20/08
+
+- **«3 persone ma entrano in massa»** ✅ **risolto.** Il bundle costruisce
+  sempre 28 figure (`for (i = 0; i < 28; i++)`) e le si accendeva tutte
+  insieme: tre camminavano e venticinque restavano lì. Ora si accendono solo
+  quelle che i fotogrammi descrivono davvero.
+- Muri, solai, scale e fluttuazione: **NON risolti.** Serve il motore fisico.
+
+---
+
+## 0-bis. Il piano precedente — l'IFC (Passo 1 ✅ fatto)
 
 ### Cosa è cambiato, e perché conta più di tutto il resto
 

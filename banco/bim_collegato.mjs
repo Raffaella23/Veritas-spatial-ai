@@ -78,6 +78,35 @@ const r = await p.evaluate(() => {
     scala: radice ? +radice.scale.x.toFixed(3) : null,
     ingombro,
     zoneDichiarate: (window.__veritasZoneDichiarate || []).length,
+    grafo: window.__veritasGrafoDichiarato
+      ? { passaggi: window.__veritasGrafoDichiarato.quanti,
+          stanze: window.__veritasGrafoDichiarato.stanze.size } : null,
+    // ⚠️ LA PROVA CHE CONTA: fra due stanze separate da un muro, il percorso
+    // passa dalla porta o taglia dritto? Si misura lo scarto dalla retta.
+    cammino: (() => {
+      const G = window.__veritasGrafoDichiarato, B = window.__veritasBim;
+      if (!G || !B) return null;
+      const z = window.__veritasZoneDichiarate || [];
+      const fuori = [];
+      for (let i = 0; i < z.length && fuori.length < 4; i++) {
+        for (let j = i + 1; j < z.length && fuori.length < 4; j++) {
+          const via = B.percorsoDichiarato(G, z[i].pos, z[j].pos);
+          if (!via) { fuori.push({ da: z[i].label, a: z[j].label, via: null }); continue; }
+          // quanto il percorso si scosta dalla retta fra i due baricentri
+          let max = 0;
+          const ax = z[i].pos[0], az = z[i].pos[2], bx = z[j].pos[0], bz = z[j].pos[2];
+          const L = Math.hypot(bx - ax, bz - az) || 1;
+          for (const p of via) {
+            const d = Math.abs((bx - ax) * (az - p[2]) - (ax - p[0]) * (bz - az)) / L;
+            if (d > max) max = d;
+          }
+          fuori.push({ da: z[i].label, a: z[j].label, tappe: via.length,
+                       scarto: +max.toFixed(2),
+                       dislivello: +(Math.max(...via.map((p) => p[1])) - Math.min(...via.map((p) => p[1]))).toFixed(2) });
+        }
+      }
+      return fuori;
+    })(),
     nodi: nodi.map((n) => ({ label: n.label, type: n.type, origine: n.origine,
                              confermata: n.confermata,
                              y: +(n.pos ? n.pos[1] : 0).toFixed(2) })),
@@ -120,6 +149,24 @@ if (r.ingombro) console.log("    ingombro del modello in scena: y da " + r.ingom
 const quote = r.nodi.map((n) => n.y);
 verifica(quote.length > 0 && quote.every((y) => r.ingombro && y >= r.ingombro.min[1] - 0.6 && y <= r.ingombro.max[1] + 0.6),
   "ogni tappa sta dentro l'altezza del modello", "quote " + [...new Set(quote)].join(", "));
+
+console.log("\n=== SI CAMMINA DALLE PORTE, NON DENTRO I MURI ===");
+if (r.grafo) {
+  verifica(r.grafo.passaggi >= 2, "il grafo camminabile e' stato costruito dalle porte dichiarate",
+    r.grafo.passaggi + " passaggi fra " + r.grafo.stanze + " ambienti");
+  for (const c of r.cammino || []) {
+    console.log("    " + (c.da + " -> " + c.a).padEnd(30) +
+      (c.via === null ? "nessuna strada dichiarata"
+        : c.tappe + " tappe, scarto dalla retta " + c.scarto + " m, dislivello " + c.dislivello + " m"));
+  }
+  const conStrada = (r.cammino || []).filter((c) => c.via !== null);
+  verifica(conStrada.length > 0, "esistono percorsi dichiarati fra gli ambienti",
+    conStrada.length + " coppie su " + (r.cammino || []).length);
+  verifica(conStrada.some((c) => c.scarto > 0.3),
+    "almeno un percorso DEVIA dalla retta per passare da una porta");
+} else {
+  verifica(false, "il grafo camminabile non e' stato costruito");
+}
 
 console.log("\n=== LA SCALA NON VIENE INDOVINATA ===");
 verifica(r.scala === 1, "il modello NON e' stato riscalato: un IFC dichiara le unita'",

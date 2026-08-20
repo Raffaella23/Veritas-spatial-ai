@@ -425,6 +425,176 @@ export function collegamentiDaBordi(bordi) {
   return { collegamenti, esterni, scartati };
 }
 
+// ---------------------------------------------------------------------------
+// 5-bis. CAMMINARE SUL GRAFO DICHIARATO
+// ---------------------------------------------------------------------------
+//
+// ⚠️ E' il pezzo che trasforma una lettura in un comportamento.
+//
+// Sapere CHE due stanze comunicano non basta a camminare: serve sapere DA
+// DOVE. Senza il punto di passaggio si finisce a tirare una retta fra due
+// baricentri, cioe' dentro il muro che le separa — ed e' esattamente quello
+// che Raffaella ha visto sullo schermo: «attraversano i muri e non usano le
+// scale».
+//
+// Qui non c'e' nessuna euristica: le stanze sono quelle dichiarate, i
+// passaggi sono quelli dichiarati, e il punto di passaggio e' il centro
+// misurato del varco. Un percorso e' la sequenza stanza -> porta -> stanza,
+// che e' come cammina una persona in un edificio.
+//
+// E la scala funziona per la stessa ragione, senza una riga in piu': una
+// scala e' un passaggio dichiarato fra due ambienti a quote diverse, quindi
+// il percorso ci passa sopra invece di attraversare il solaio.
+
+/**
+ * Costruisce il grafo camminabile da quello che il file dichiara.
+ *
+ * @param {Array} zone          le zone (una per ambiente, con `pos` e `ifc.id`)
+ * @param {Array} collegamenti  [{da, a, punto, tipo}]
+ * @returns {{stanze:Map, vicini:Map, quanti:number}}
+ */
+export function grafoCamminabile(zone, collegamenti) {
+  const stanze = new Map();   // idIfc -> zona
+  for (const z of zone || []) if (z && z.ifc && z.ifc.id != null) stanze.set(z.ifc.id, z);
+  const vicini = new Map();   // idIfc -> [{a, punto}]
+  let quanti = 0;
+  for (const c of collegamenti || []) {
+    if (!stanze.has(c.da) || !stanze.has(c.a)) continue;
+    // Un passaggio di cui non si sa DOVE sta non e' utilizzabile per
+    // camminare: si conosce, ma non produce un percorso. Dichiararlo
+    // utilizzabile vorrebbe dire tornare alla linea retta.
+    //
+    // ⚠️ Tranne un caso, e non e' un'eccezione di comodo: un VARCO VIRTUALE
+    // per definizione non ha geometria — e' la dichiarazione che fra due
+    // ambienti NON c'e' niente. Misurato su AC20-FZK-Haus: tre dei sei
+    // passaggi sono di questo tipo (soggiorno-corridoio, soggiorno-cucina,
+    // corridoio-cucina), cioe' proprio le aperture di una casa moderna.
+    // Scartarli lascerebbe mezza casa scollegata.
+    //
+    // Il punto di passaggio si ricava allora dai DUE VOLUMI DICHIARATI: dove
+    // le due stanze si affacciano l'una sull'altra. E' una misura su
+    // geometria dichiarata, non un'ipotesi su cosa sia quello spazio.
+    if (!c.punto) c.punto = confineFra(stanze.get(c.da), stanze.get(c.a));
+    if (!c.punto) continue;
+    if (!vicini.has(c.da)) vicini.set(c.da, []);
+    if (!vicini.has(c.a)) vicini.set(c.a, []);
+    vicini.get(c.da).push({ a: c.a, punto: c.punto, tipo: c.tipo });
+    vicini.get(c.a).push({ a: c.da, punto: c.punto, tipo: c.tipo });
+    quanti++;
+  }
+  return { stanze, vicini, quanti };
+}
+
+/**
+ * Dove due ambienti dichiarati si affacciano l'uno sull'altro.
+ *
+ * Serve solo ai varchi che nel file non hanno una geometria propria (i varchi
+ * virtuali: la dichiarazione che fra due stanze non c'e' niente). Si prende la
+ * sovrapposizione dei due ingombri in pianta e se ne piglia il centro, alla
+ * quota del pavimento piu' alto dei due — quella e' la soglia.
+ *
+ * Se i due volumi non si sovrappongono per niente non si inventa un punto: si
+ * restituisce null, e quel passaggio resta dichiarato ma non percorribile.
+ */
+export function confineFra(a, b) {
+  if (!a || !b || !a.ingombro || !b.ingombro) return null;
+  const A = a.ingombro, B = b.ingombro;
+  const x0 = Math.max(A.min[0], B.min[0]), x1 = Math.min(A.max[0], B.max[0]);
+  const z0 = Math.max(A.min[2], B.min[2]), z1 = Math.min(A.max[2], B.max[2]);
+  if (x1 < x0 || z1 < z0) return null;
+  return [(x0 + x1) / 2, Math.max(A.min[1], B.min[1]), (z0 + z1) / 2];
+}
+
+/** In quale ambiente dichiarato cade questo punto? Null se in nessuno. */
+export function stanzaDelPunto(grafo, p) {
+  if (!grafo || !p) return null;
+  let dentro = null, scartoQuota = Infinity, vicina = null, distanza = Infinity;
+  for (const [id, z] of grafo.stanze) {
+    const b = z.ingombro;
+    if (b && p[0] >= b.min[0] && p[0] <= b.max[0] && p[2] >= b.min[2] && p[2] <= b.max[2]
+        && p[1] >= b.min[1] - 1.2 && p[1] <= b.max[1] + 1.2) {
+      // ⚠️ Non basta la prima stanza che contiene il punto in pianta: in un
+      // edificio a piu' piani le stanze sono SOVRAPPOSTE, e la prima trovata
+      // sarebbe quella dell'ordine di lettura. Vince quella il cui PAVIMENTO
+      // e' piu' vicino al punto, cioe' quella su cui si sta in piedi.
+      // Senza questo, salire una scala risulta un movimento dentro la stessa
+      // stanza e il percorso non passa mai dalla scala.
+      const s = Math.abs(p[1] - b.min[1]);
+      if (s < scartoQuota) { scartoQuota = s; dentro = id; }
+      continue;
+    }
+    const d = Math.hypot(p[0] - z.pos[0], p[2] - z.pos[2]) + Math.abs(p[1] - z.pos[1]) * 2;
+    if (d < distanza) { distanza = d; vicina = id; }
+  }
+  // Se non cade dentro nessun ambiente si prende il piu' vicino, ma solo se e'
+  // vicino davvero: un agente in mezzo al giardino non appartiene a una stanza.
+  return dentro != null ? dentro : (distanza <= 6 ? vicina : null);
+}
+
+/**
+ * Il percorso fra due punti, passando dalle porte dichiarate.
+ *
+ * @returns {Array|null} le tappe intermedie + la destinazione, oppure null
+ *   quando il file non dichiara una strada — e allora chi chiama deve saperlo,
+ *   non ricevere una linea retta travestita da percorso.
+ */
+export function percorsoDichiarato(grafo, da, a) {
+  if (!grafo || !grafo.quanti) return null;
+  const partenza = stanzaDelPunto(grafo, da);
+  const arrivo = stanzaDelPunto(grafo, a);
+  if (partenza == null || arrivo == null) return null;
+  if (partenza === arrivo) return [a];   // stessa stanza: si va dritti, e va bene
+
+  // Dijkstra sulle stanze, con il costo in metri veri fra i punti di
+  // passaggio: cosi' fra due strade si prende quella che una persona
+  // prenderebbe, non la prima trovata.
+  const costo = new Map([[partenza, 0]]);
+  const arrivoDa = new Map();
+  const daVisitare = [partenza];
+  const visti = new Set();
+  while (daVisitare.length) {
+    daVisitare.sort((x, y) => (costo.get(x) || 0) - (costo.get(y) || 0));
+    const q = daVisitare.shift();
+    if (visti.has(q)) continue;
+    visti.add(q);
+    if (q === arrivo) break;
+    for (const v of grafo.vicini.get(q) || []) {
+      if (visti.has(v.a)) continue;
+      const z = grafo.stanze.get(q);
+      const c = (costo.get(q) || 0)
+        + Math.hypot(v.punto[0] - z.pos[0], v.punto[2] - z.pos[2]);
+      if (costo.has(v.a) && costo.get(v.a) <= c) continue;
+      costo.set(v.a, c);
+      arrivoDa.set(v.a, { da: q, punto: v.punto });
+      daVisitare.push(v.a);
+    }
+  }
+  if (!arrivoDa.has(arrivo) && partenza !== arrivo) return null;
+
+  // Si risale la catena e si costruiscono le tappe: il punto della porta, poi
+  // il baricentro della stanza in cui si entra, poi la porta dopo.
+  const catena = [];
+  let q = arrivo;
+  while (q !== partenza) {
+    const passo = arrivoDa.get(q);
+    if (!passo) return null;
+    catena.unshift({ porta: passo.punto, stanza: q });
+    q = passo.da;
+  }
+  const tappe = [];
+  for (let i = 0; i < catena.length; i++) {
+    tappe.push(catena[i].porta.slice());
+    // Il baricentro della stanza si mette solo se non e' l'ultima: per l'ultima
+    // la destinazione vera e' il punto chiesto.
+    if (i < catena.length - 1) {
+      const z = grafo.stanze.get(catena[i].stanza);
+      if (z) tappe.push(z.pos.slice());
+    }
+  }
+  tappe.push(a.slice ? a.slice() : a);
+  return tappe;
+}
+
 /**
  * Le isole: gruppi di ambienti che fra loro si raggiungono a piedi.
  *
@@ -535,6 +705,10 @@ export function zoneDaSpazi(spazi, opzioni) {
       escluso: !!(mappa && mappa.escluso),
       fuori: mappa ? mappa.fuori : false,
       areaM2: s.areaM2 != null ? s.areaM2 : null,
+      // L'ingombro del volume dichiarato serve a sapere se un punto sta DENTRO
+      // questa stanza: e' cosi' che un agente sa in che ambiente si trova, e
+      // quindi da quale porta deve uscire.
+      ingombro: s.ingombro || null,
       piano: s.piano || null,
       ifc: { guid: s.guid, numero: s.numero, nome: s.nome, id: s.id },
     });
@@ -786,7 +960,56 @@ export async function leggi(byte, opzioni) {
     if (bordiRotti) {
       avvisi.push(bordiRotti + " bordo/i di spazio punta a un elemento che nel file non c'e': ignorati.");
     }
+    // ⚠️ DOVE STA LA PORTA, non solo che c'e'.
+    //
+    // Senza questo, sapere che due stanze comunicano non serve a camminare: si
+    // sa CHE si passa, non DA DOVE. E il risultato e' la linea retta fra due
+    // baricentri, cioe' dentro il muro — il difetto che Raffaella ha visto
+    // sullo schermo il 20/08 («attraversano i muri e non usano le scale»).
+    //
+    // Il punto di passaggio e' il centro dell'ingombro del varco in pianta,
+    // alla quota del suo piede: e' li' che ci si passa. E' una misura sulla
+    // geometria dichiarata, non una stima.
+    const puntoDiVarco = new Map();
+    try {
+      const tipiVarco = [WebIFC.IFCDOOR, WebIFC.IFCSTAIR, WebIFC.IFCSTAIRFLIGHT,
+                         WebIFC.IFCRAMP, WebIFC.IFCRAMPFLIGHT, WebIFC.IFCVIRTUALELEMENT]
+                        .filter((t) => t !== undefined);
+      api.StreamAllMeshesWithTypes(modello, tipiVarco, (mesh) => {
+        let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+        for (let i = 0; i < mesh.geometries.size(); i++) {
+          const p = mesh.geometries.get(i);
+          const g = api.GetGeometry(modello, p.geometryExpressID);
+          const v = api.GetVertexArray(g.GetVertexData(), g.GetVertexDataSize());
+          const idx = api.GetIndexArray(g.GetIndexData(), g.GetIndexDataSize());
+          const m = misuraVolume(v, idx, p.flatTransformation);
+          if (g.delete) g.delete();
+          if (!m) continue;
+          for (let k = 0; k < 3; k++) {
+            min[k] = Math.min(min[k], m.ingombro.min[k]);
+            max[k] = Math.max(max[k], m.ingombro.max[k]);
+          }
+        }
+        if (min[0] < Infinity) {
+          puntoDiVarco.set(mesh.expressID,
+            [(min[0] + max[0]) / 2, min[1], (min[2] + max[2]) / 2]);
+        }
+      });
+    } catch (e) {
+      avvisi.push("Non sono riuscito a leggere dove stanno le porte: " + (e && e.message || e));
+    }
+
     const { collegamenti, esterni, scartati } = collegamentiDaBordi(bordi);
+    let senzaPunto = 0;
+    for (const c of collegamenti) {
+      c.punto = puntoDiVarco.get(c.tramite) || null;
+      if (!c.punto) senzaPunto++;
+    }
+    for (const e of esterni) e.punto = puntoDiVarco.get(e.tramite) || null;
+    if (senzaPunto) {
+      avvisi.push(senzaPunto + " passaggio/i e' dichiarato ma senza una geometria che dica dove"
+        + " sta: quel collegamento lo conosco, ma non so da che punto ci si passa.");
+    }
     if (!bordi.length && spazi.length > 1) {
       avvisi.push("Il file non dichiara nessun bordo di spazio (IfcRelSpaceBoundary): so quali "
         + "ambienti ci sono, non quali comunicano fra loro. Chi ha esportato puo' riesportare "
@@ -990,5 +1213,6 @@ export default {
   eIfc, intestazione, testoDi, numeroDi, booleanoDi,
   nomeDiSpazio, funzioneDaNome, VOCABOLARIO_SPAZI, TIPO_DA_FUNZIONE,
   collegamentiDaBordi, isole, datiDaProprieta, zoneDaSpazi, misuraVolume,
+  grafoCamminabile, stanzaDelPunto, percorsoDichiarato, confineFra,
   leggi, scena, riassunto,
 };
