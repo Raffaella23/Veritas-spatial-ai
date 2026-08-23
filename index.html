@@ -23359,21 +23359,32 @@ function filtraFrames(scena, frames, opz = {}) {
   const m = scena.misure;
   const t0 = ora();
   const tettoMs = opz.tettoMs != null ? opz.tettoMs : TETTO_MS;
-  // Quanto puo' recuperare chi e' rimasto indietro, in frazione del passo
-  // pianificato. Mezzo passo in piu' e' abbastanza per rientrare dietro un
-  // pilastro e non abbastanza per saltare un muro.
   const recupero = opz.recupero != null ? opz.recupero : 1.5;
   const dt = opz.dt || dedottoDt(frames);
 
-  const corpi = new Map();     // id agente -> corpo
-  const impossibili = new Set();  // agenti che il piano mette dentro un solido
-  const pianoPrec = new Map(); // id agente -> ultima posizione PIANIFICATA
+  const corpi = new Map();
+  const impossibili = new Set();
+  const pianoPrec = new Map();
   let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
   const quotaMinima = scena.ingombro
     ? scena.ingombro.min[1] - Math.max(10, m.altezza * 5)
     : -1e4;
 
   const nuovi = new Array(frames.length);
+
+  // Diagnostica: quale chiamata a Rapier ha appena tentato di eseguire,
+  // per che agente, a che fotogramma — cosi' se scoppia un "unreachable"
+  // il log dice ESATTAMENTE dove, invece del generico messaggio che arriva
+  // fino a filtraTraiettoria.
+  function logTrapEQuietaLancia(fase, f, id, extra, e) {
+    console.error('[VERITAS corpo][DIAGNOSTICA] trap nel motore fisico',
+      '- fase:', fase,
+      '- fotogramma:', f, '/', frames.length,
+      '- agente:', id,
+      extra ? ('- ' + extra) : '',
+      '- errore:', (e && e.message) || e);
+    throw e;
+  }
 
   for (let f = 0; f < frames.length; f++) {
     const fr = frames[f];
@@ -23391,39 +23402,28 @@ function filtraFrames(scena, frames, opz = {}) {
       if (impossibili.has(id)) { fuori[a] = ag; continue; }
       let corpo = corpi.get(id);
       if (!corpo) {
-        // Nasce dove il piano lo voleva, e prima di camminare si LASCIA
-        // CADERE: e' cosi' che una tappa a mezz'aria (la quota media di un
-        // grappolo che mescola pavimento, pedane e arredi) si appoggia da
-        // sola al pavimento vero, senza nessun raycast in piu'.
-        //
-        // ⚠️ Si nasce un gradino PIU' IN ALTO di dove il piano diceva. Una
-        //    tappa cade quasi sempre esattamente sulla quota del pavimento, e
-        //    un corpo creato li' nasce gia' in contatto: il controller si
-        //    trova a dover risolvere una compenetrazione invece di un
-        //    appoggio, e lo fa sprofondando. Misurato: il piede finiva a
-        //    -3,8 cm e restava li' per tutto il tragitto. Partendo piu' in
-        //    alto la caduta e' un appoggio normale, che e' il caso per cui il
-        //    controller e' fatto. L'alzata e' la misura gia' dichiarata.
         const voluto = [p[0], (p[1] || 0) + m.gradino, p[2]];
         const dove = nascitaLibera(scena, voluto);
         if (!dove) {
-          // Il piano lo mette dentro un solido e attorno non c'e' un posto
-          // dove starebbe una persona. Non lo si simula: un corpo dentro un
-          // muro non ne esce, costa venti volte tanto e non produce niente di
-          // vero. Si conserva la posizione voluta e si DICHIARA — e' una cosa
-          // da far sapere, non da nascondere in un conteggio.
           impossibili.add(id);
           fuori[a] = ag;
           continue;
         }
         if (dove[0] !== voluto[0] || dove[1] !== voluto[1] || dove[2] !== voluto[2]) natiDentro++;
-        corpo = aggiungiCorpo(scena, dove);
-        corpi.set(id, corpo);
-        scena.world.step();
-        for (let k = 0; k < 12 && !corpo.aTerra; k++) {
-          passo(scena, corpo, { x: 0, z: 0 }, dt / 4);
+
+        try {
+          corpo = aggiungiCorpo(scena, dove);
+          corpi.set(id, corpo);
           scena.world.step();
+          for (let k = 0; k < 12 && !corpo.aTerra; k++) {
+            passo(scena, corpo, { x: 0, z: 0 }, dt / 4);
+            scena.world.step();
+          }
+        } catch (e) {
+          logTrapEQuietaLancia('nascita corpo (aggiungiCorpo/world.step/caduta iniziale)', f, id,
+            'posizione nascita: ' + JSON.stringify(dove), e);
         }
+
         pianoPrec.set(id, [p[0], p[1], p[2]]);
         fuori[a] = { ...ag, pos: [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z] };
         continue;
@@ -23433,7 +23433,6 @@ function filtraFrames(scena, frames, opz = {}) {
       const passoPianificato = Math.hypot(p[0] - prec[0], p[2] - prec[2]);
       pianoPrec.set(id, [p[0], p[1], p[2]]);
 
-      // La direzione: da dove il corpo E', verso dove il piano lo VUOLE.
       let dx = p[0] - corpo.pos.x;
       let dz = p[2] - corpo.pos.z;
       const dist = Math.hypot(dx, dz);
@@ -23443,34 +23442,43 @@ function filtraFrames(scena, frames, opz = {}) {
       const lunghezza = Math.hypot(dx, dz);
       const n = Math.max(1, Math.min(SOTTOPASSI_MAX, Math.ceil(lunghezza / m.raggio)));
       const dtSub = dt / n;
-      for (let s = 0; s < n; s++) {
-        passo(scena, corpo, { x: dx / n, z: dz / n }, dtSub);
-        scena.world.step();
+
+      try {
+        for (let s = 0; s < n; s++) {
+          passo(scena, corpo, { x: dx / n, z: dz / n }, dtSub);
+          scena.world.step();
+        }
+      } catch (e) {
+        logTrapEQuietaLancia('camminata (passo/world.step)', f, id,
+          'da: ' + JSON.stringify([corpo.pos.x, corpo.pos.y, corpo.pos.z]) +
+          ' verso: ' + JSON.stringify(p) +
+          ' delta: ' + JSON.stringify([dx, dz]) + ' sottopassi: ' + n, e);
       }
       mosse++;
 
       if (corpo.pos.y < quotaMinima) {
-        // Sotto il modello non c'e' niente: il piano lo mandava dove non c'e'
-        // pavimento. Si dichiara e si lascia dov'era, invece di farlo cadere
-        // all'infinito.
-        caduti++;
-        corpo.pos = { x: corpo.pos.x, y: (prec[1] || 0) + m.altezza / 2, z: corpo.pos.z };
-        corpo.vy = 0;
-        corpo.rb.setTranslation(corpo.pos, true);
-        scena.world.step();
+        try {
+          caduti++;
+          corpo.pos = { x: corpo.pos.x, y: (prec[1] || 0) + m.altezza / 2, z: corpo.pos.z };
+          corpo.vy = 0;
+          corpo.rb.setTranslation(corpo.pos, true);
+          scena.world.step();
+        } catch (e) {
+          logTrapEQuietaLancia('recupero caduta (setTranslation/world.step)', f, id,
+            'quotaMinima: ' + quotaMinima + ' posizione: ' + JSON.stringify(corpo.pos), e);
+        }
       }
 
       const piede = [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z];
       scostamenti.push(Math.hypot(piede[0] - p[0], piede[2] - p[2]));
-      // ⚠️ Il collaudo si CAMPIONA, non gira a ogni fotogramma: due
-      //    interrogazioni per agente per fotogramma sono decine di migliaia
-      //    di interrogazioni che non servono a muovere nessuno. Un
-      //    fotogramma su `PASSO_COLLAUDO` da' la stessa frazione — quello che
-      //    interessa e' la percentuale, non il conteggio assoluto — e il
-      //    denominatore viene dichiarato insieme.
       if (f % PASSO_COLLAUDO === 0) {
         controllate++;
-        if (dentroUnSolido(scena, corpo)) dentro++;
+        try {
+          if (dentroUnSolido(scena, corpo)) dentro++;
+        } catch (e) {
+          logTrapEQuietaLancia('collaudo (dentroUnSolido)', f, id,
+            'posizione: ' + JSON.stringify(corpo.pos), e);
+        }
       }
       fuori[a] = { ...ag, pos: piede };
     }
@@ -23478,9 +23486,6 @@ function filtraFrames(scena, frames, opz = {}) {
     nuovi[f] = { ...fr, agents: fuori };
 
     if (ora() - t0 > tettoMs) {
-      // Onesta': si dice quanto si e' fatto e si restituisce il piano intatto.
-      // Un risultato mezzo filtrato sarebbe peggio di nessun filtro, perche'
-      // avrebbe l'aria di essere stato verificato.
       return {
         ok: false,
         perche: 'oltre il tempo massimo (' + tettoMs + ' ms) al fotogramma ' + f + ' di ' + frames.length,
@@ -23501,18 +23506,9 @@ function filtraFrames(scena, frames, opz = {}) {
     fotogrammi: frames.length,
     mosse,
     dentroUnSolido: dentro,
-    // Il denominatore del collaudo: e' campionato, e va detto insieme al
-    // numeratore, altrimenti "zero dentro un solido" non vuol dire niente.
     posizioniControllate: controllate,
     caduti,
-    // Quanti corpi il piano faceva NASCERE dentro un solido. E' il numero che
-    // spiega il costo (un corpo compenetrato costa venti volte tanto) ed e'
-    // anche un giudizio sul piano, non sul motore.
     natiDentro,
-    // Agenti che il piano metteva dentro un solido senza un posto libero
-    // attorno: non simulati, e detti. Se questo numero e' alto non e' il
-    // motore fisico a essere in difficolta', e' il percorso a essere
-    // impossibile su questo edificio.
     impossibili: impossibili.size,
     scostamentoMediano: +mediano.toFixed(3),
     scostamentoMassimo: +massimo.toFixed(3),
