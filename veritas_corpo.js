@@ -213,6 +213,73 @@ export async function libreria() {
  *                   gia' produce per la navmesh. Non si estrae la geometria una
  *                   seconda volta: e' la stessa lettura, usata da due motori.
  */
+
+// -----------------------------------------------------------------------------
+// 2b. SANIFICAZIONE — nessun triangolo malformato entra in Rapier
+// -----------------------------------------------------------------------------
+//
+// Aggiunta dopo un crash WASM ("unreachable") osservato su un modello reale
+// esportato (186.074 triangoli, 32 parti navmesh scollegate — tipico di un
+// export Sketchfab/CAD dove la semantica e' gia' persa, vedi veritas_bim.js).
+// Rapier va in panic su input degenere: coordinate non finite (NaN/Infinity),
+// indici fuori dai limiti dell'array posizioni, o triangoli ad area zero
+// (vertici duplicati). Nessuno di questi casi e' raro in un export vero.
+//
+// PURA E DIFENSIVA: su geometria gia' pulita non toglie nessun triangolo,
+// quindi non cambia il comportamento sui casi gia' testati (52 prove in
+// veritas_corpo.test.mjs). Filtra solo cio' che avrebbe fatto crashare tutto.
+function sanificaTriangoli(positions, indices) {
+  const nTri = Math.floor(indices.length / 3);
+  const buoni = [];
+  let scartatiNonFiniti = 0;
+  let scartatiFuoriLimite = 0;
+  let scartatiDegeneri = 0;
+  const nVert = positions.length / 3;
+
+  for (let t = 0; t < nTri; t++) {
+    const ia = indices[t * 3], ib = indices[t * 3 + 1], ic = indices[t * 3 + 2];
+
+    if (ia >= nVert || ib >= nVert || ic >= nVert || ia < 0 || ib < 0 || ic < 0) {
+      scartatiFuoriLimite++;
+      continue;
+    }
+
+    const ax = positions[ia * 3], ay = positions[ia * 3 + 1], az = positions[ia * 3 + 2];
+    const bx = positions[ib * 3], by = positions[ib * 3 + 1], bz = positions[ib * 3 + 2];
+    const cx = positions[ic * 3], cy = positions[ic * 3 + 1], cz = positions[ic * 3 + 2];
+
+    if (![ax, ay, az, bx, by, bz, cx, cy, cz].every(Number.isFinite)) {
+      scartatiNonFiniti++;
+      continue;
+    }
+
+    // Area doppia via prodotto vettoriale: sotto una soglia minuscola il
+    // triangolo e' degenere (vertici coincidenti o allineati).
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    const cxp = uy * vz - uz * vy, cyp = uz * vx - ux * vz, czp = ux * vy - uy * vx;
+    const areaDoppia = Math.sqrt(cxp * cxp + cyp * cyp + czp * czp);
+    if (areaDoppia < 1e-9) {
+      scartatiDegeneri++;
+      continue;
+    }
+
+    buoni.push(ia, ib, ic);
+  }
+
+  const scartatiTotali = scartatiNonFiniti + scartatiFuoriLimite + scartatiDegeneri;
+  if (scartatiTotali > 0 && typeof console !== 'undefined') {
+    console.warn(
+      '[VERITAS corpo] sanificazione: ' + scartatiTotali + '/' + nTri +
+      ' triangoli scartati (non finiti: ' + scartatiNonFiniti +
+      ', fuori limite: ' + scartatiFuoriLimite +
+      ', degeneri: ' + scartatiDegeneri + ') prima di costruire il collisore.'
+    );
+  }
+
+  return { positions, indices: Uint32Array.from(buoni) };
+}
+
 export function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   if (!RAPIER || !geometria || !geometria.indices || !geometria.indices.length) return null;
   const m = misure(opz);
@@ -238,7 +305,9 @@ export function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   //    appoggiato a un solaio produce facce coincidenti, ed e' la regola, non
   //    l'eccezione. Su un modello a caso — che e' il caso che ci interessa —
   //    e' un difetto silenzioso, del genere peggiore.
-  const desc = RAPIER.ColliderDesc.trimesh(geometria.positions, geometria.indices);
+  const geoSicura = sanificaTriangoli(geometria.positions, geometria.indices);
+  if (!geoSicura.indices.length) return null;
+  const desc = RAPIER.ColliderDesc.trimesh(geoSicura.positions, geoSicura.indices);
   const collisoreEdificio = world.createCollider(desc, corpoEdificio);
 
   // Un giro a vuoto: il controller interroga le strutture di collisione, che
