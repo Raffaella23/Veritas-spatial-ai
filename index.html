@@ -15100,6 +15100,65 @@ export function segmentoLibero(m, ax, az, bx, bz, raggio) {
 }
 
 /**
+ * Una zona è "fuori" (piazzale, parcheggio, campo aperto) o "dentro"
+ * (un ambiente chiuso, anche se magari il modello non ha un tetto)?
+ *
+ * `assegnaZoneMisurate` la chiama gia' da tempo (window.__veritasNavigazione
+ * .eFuori) per tenere l'ingresso e le zone di transito fuori dal piazzale:
+ * mancava solo che qualcuno la scrivesse davvero. Fino ad oggi la chiamata
+ * falliva silenziosamente (typeof nav.eFuori !== 'function') e ogni zona
+ * restava indistinta fra dentro e fuori — da qui ingressi piazzati a caso e
+ * zone ammassate senza logica.
+ *
+ * Come funziona: si guarda in NDIR direzioni sul piano orizzontale,
+ * camminando cella per cella sulla mappa di cammino (la stessa griglia che
+ * usa segmentoLibero). Una direzione "porta in campo aperto" se esce dai
+ * bordi della mappa senza mai incontrare una cella occupata (un muro); resta
+ * "bloccata" se incontra un muro prima di uscire. Non si guarda in alto: un
+ * tetto mancante nel modello non farebbe apparire "fuori" una sala al
+ * chiuso, perché l'apertura si misura in orizzontale, non in verticale — e
+ * un piazzale scoperto resta "fuori" anche se qualcuno gli disegnasse sopra
+ * una tettoia.
+ *
+ * @param {object} m    mappa di cammino (da creaMappa/creaMappaDaNuvola)
+ * @param {number} x    coordinata X del punto da giudicare
+ * @param {number} z    coordinata Z del punto da giudicare
+ * @param {object} opts { direzioni: quante ne tracciare (default 16),
+ *                         soglia: frazione minima aperta per dire "fuori" (default 0.5) }
+ * @returns {boolean|null} true = prevalentemente all'aperto, false =
+ *   prevalentemente al chiuso, null = punto di partenza fuori mappa
+ */
+export function eFuori(m, x, z, opts = {}) {
+  if (!m || !m.libera || !m.w || !m.h) return null;
+  const [cx0, cz0] = cellaDa(m, x, z);
+  if (cx0 < 0 || cz0 < 0 || cx0 >= m.w || cz0 >= m.h) return null;
+
+  const NDIR = opts.direzioni || 16;
+  const SOGLIA = opts.soglia != null ? opts.soglia : 0.5;
+  // Distanza di sicurezza: la diagonale della mappa raddoppiata, cosi' ogni
+  // raggio DEVE uscire dai bordi o incontrare un muro prima di finire i
+  // passi — non resta mai indeciso a meta' strada.
+  const maxDist = 2 * Math.hypot(m.w * m.cellSize, m.h * m.cellSize);
+  const passo = m.cellSize / 2;
+  const maxPassi = Math.ceil(maxDist / passo);
+
+  let aperte = 0;
+  for (let d = 0; d < NDIR; d++) {
+    const ang = (d / NDIR) * Math.PI * 2;
+    const dx = Math.cos(ang), dz = Math.sin(ang);
+    let bloccata = false, uscita = false;
+    for (let k = 1; k <= maxPassi; k++) {
+      const px = x + dx * passo * k, pz = z + dz * passo * k;
+      const [cx, cz] = cellaDa(m, px, pz);
+      if (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) { uscita = true; break; }
+      if (!m.libera[cz * m.w + cx]) { bloccata = true; break; }
+    }
+    if (uscita && !bloccata) aperte++;
+  }
+  return (aperte / NDIR) >= SOGLIA;
+}
+
+/**
  * La cella calpestabile più vicina a quella chiesta.
  *
  * Serve perché i baricentri delle zone non cadono per forza sul calpestabile:
@@ -15339,7 +15398,7 @@ export default {
 // ---------------------------------------------------------------
 window.__veritasNavigazione = {
   creaMappa, creaMappaDaNuvola, trovaPercorso, segmentoLibero,
-  calpestabile, agganciaCella, cellaDa, centroCella, tiraLaCorda,
+  calpestabile, agganciaCella, cellaDa, centroCella, tiraLaCorda, eFuori,
   DEFAULTS: NAVIGAZIONE_DEFAULTS,
 };
 console.log("[VERITAS Navigazione] mappa di cammino pronta — window.__veritasNavigazione");
