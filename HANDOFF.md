@@ -7,11 +7,10 @@
 
 ## 🔴 LE DUE REGOLE CHE VENGONO PRIMA DI TUTTO
 
-Sono nate da un problema reale, misurato: al 24/08/2026 questo progetto aveva
-**due rami e nove documenti di stato per 227 KB**, che si contraddicevano fra
-loro. Ogni chat nuova bruciava token per capire dove guardare, e più volte il
-lavoro è finito nel posto sbagliato. Il progetto si chiama VERITAS e aveva
-nove verità: è il difetto più costoso che abbia mai avuto.
+Nate da un problema misurato: al 24/08/2026 il progetto aveva **due rami e
+nove documenti di stato per 227 KB** che si contraddicevano. Ogni chat nuova
+bruciava token per capire dove guardare, e più volte il lavoro è finito nel
+posto sbagliato. Il progetto si chiama VERITAS e aveva nove verità.
 
 ### Regola A — UN SOLO DOCUMENTO
 
@@ -26,20 +25,18 @@ nove verità: è il difetto più costoso che abbia mai avuto.
 - Questo file non deve superare le ~15 KB. Se cresce, vuol dire che dentro c'è
   del diario: il diario si toglie. La cronologia sta in `git log`.
 
-⚠️ Il documento che stai leggendo ha sostituito, il 24/08/2026: `CLAUDE.md`
-(100 KB), `PROJECT_INFO.md` (45 KB), `ARCHITETTURA.md` (31 KB), `handoff.md`
-(26 KB), `AVVIO_NUOVA_CHAT.md`, `design_brief.md`, `CONTEXT.md`,
-`PERCEPTION_LOOP_STATUS.md`. Sono in `git log` se servono: **non ricrearli.**
+⚠️ Questo file ha sostituito, il 24/08/2026: `CLAUDE.md`, `PROJECT_INFO.md`,
+`ARCHITETTURA.md`, `handoff.md`, `AVVIO_NUOVA_CHAT.md`, `design_brief.md`,
+`CONTEXT.md`, `PERCEPTION_LOOP_STATUS.md`. Sono in `git log`: **non ricrearli.**
 
 ### Regola B — UN SOLO RAMO: `main`
 
 Non esistono altri rami. Non se ne aprono, nemmeno "solo per un attimo".
 
 Il motivo è meccanico, non organizzativo: **`main` è il ramo predefinito di
-GitHub.** Ogni `git clone`, ogni strumento, ogni connettore, ogni chat nuova
-atterra lì da sola. Finché la verità stava altrove, sbagliare era il
-comportamento *predefinito* — e nessun avvertimento scritto può vincere contro
-un'impostazione che agisce a ogni chiamata.
+GitHub**, dove atterrano da soli ogni `git clone`, ogni strumento, ogni chat
+nuova. Con la verità altrove, sbagliare era il comportamento *predefinito*, e
+nessun avvertimento scritto vince contro un'impostazione che agisce sempre.
 
 Su `main` sono agganciati **entrambi** i deploy:
 
@@ -48,9 +45,8 @@ Su `main` sono agganciati **entrambi** i deploy:
 | Render — `veritas-core-api` | ramo `main`, auto-deploy a ogni commit |
 | GitHub Pages — sito live | ramo `main`, cartella `/` |
 
-Storia, per non ripeterla: fino al 24/08 c'era anche `veritas-ai-os-preview`,
-che conteneva il lavoro vero mentre `main` era rimasta indietro di 188 file.
-È stata unificata dentro `main` e cancellata.
+Fino al 24/08 c'era anche `veritas-ai-os-preview`, che conteneva il lavoro
+vero mentre `main` era indietro di 188 file: unificata dentro `main` e cancellata.
 
 ---
 
@@ -89,6 +85,13 @@ per la simulazione agentica dello spazio. Priorità, in ordine: **chiarezza,
 semplicità, interazione AI-first, comprensione spaziale, simulazione, analisi.**
 L'aspetto visivo non è rifinitura — è parte di quello che si vende.
 
+**Il riconoscimento non si chiede: avviene.** Appena il modello è caricato,
+occhio e cervello si parlano da soli, l'AI stabilisce cos'ha davanti e assegna
+le zone; **solo dopo** l'utente corregge. Niente pulsante «analizza»: se lo
+scambio non parte subito, il modello non viene riconosciuto per quello che è, e
+una simulazione su zone sbagliate produce un report sbagliato — che è la stessa
+merce avariata dei KPI finti. Deciso da Raffaella il 24/08/2026.
+
 ---
 
 ## 🔑 IL PUNTO DI SVOLTA — la semantica si LEGGE, non si deduce
@@ -123,8 +126,7 @@ non deducono cos'è una stanza — gliela dichiara il progetto. Nessuno, in ness
 campo, deduce la semantica dalla geometria quando può leggerla.
 
 **ArchiCAD, verificato il 19/08:** `.pln` e `.pla` **non si leggono** (formati
-chiusi Graphisoft, nessuna libreria aperta, non retrocompatibili nemmeno fra
-versioni) — non perderci tempo. Ma ArchiCAD **esporta IFC nativamente** e le
+chiusi, nessuna libreria aperta) — non perderci tempo. Ma **esporta IFC** e le
 sue Zone diventano `IfcSpace`. ⚠️ Mette il **nome** in `IfcSpace.LongName` e il
 **numero** in `IfcSpace.Name`: chi legge `Name` si ritrova «101» invece di
 «Sala d'attesa».
@@ -134,7 +136,7 @@ sue Zone diventano `IfcSpace`. ⚠️ Mette il **nome** in `IfcSpace.LongName` e
 ## ⚠️ Le regole tecniche che non si violano
 
 1. **Il blocco 3 di `index.html` non si tocca mai.** È il bundle React/Three
-   minificato (872.507 byte, sha a 16 cifre `eedd9935ea908fd3`). Dopo *ogni*
+   minificato (872.494 byte, sha a 16 cifre `58d371701aa9a349`). Dopo *ogni*
    modifica al file va verificato — ricetta qui sotto.
 2. **Per leggere i blocchi `<script>` si usa `html.parser` di Python, mai le
    regex.** Il bundle contiene stringhe che sembrano tag e mandano in tilt le
@@ -164,20 +166,18 @@ Ramo unico **`main`**. Anteprima live:
 
 | cosa | dove |
 |---|---|
-| runtime completo | `index.html` (~1,42 MB, 20 blocchi `<script>`) |
+| runtime completo | `index.html` (~1,86 MB, 31 blocchi `<script>`) |
 | landing page demo | `landing.html` |
 | Core Python | `Assets/core/` — `engine.py`, `agent.py`, `behaviour.py`, `compliance.py`, `recommendations.py`, `topology_analyzer.py`, `report_builder.py`, `path_loader.py` |
 | API del Core | `api_server.py` (FastAPI, servito da Render) |
 | cervello visivo | `veritas_brain_server.py` (FastAPI + modello che vede) |
 | banco di prova | `banco/*.mjs` + `*.test.mjs` in radice |
 
-**Moduli in radice** (alcuni sono anche inlinati dentro `index.html`):
-`veritas_riconosce.js` (l'occhio, OWLv2), `veritas_vista.js` (mondo↔pixel),
-`veritas_occhi.js` (VLM sulle zone), `veritas_llm.js`, `veritas_corpo.js`
-(fisica Rapier), `veritas_navigazione.js`, `veritas_navmesh.js`,
-`veritas_cose.js`, `veritas_controprova.js`, `veritas_fila.js`,
-`veritas_normative.js`, `veritas_comprensione.js` (ciclo occhio-cervello),
-`veritas_anteprima.js` (pannello visivo).
+**Moduli in radice:** `ls veritas_*.js` (molti sono anche inlinati in
+`index.html`). I non ovvi: `veritas_riconosce.js` l'occhio (OWLv2),
+`veritas_vista.js` mondo↔pixel, `veritas_corpo.js` fisica Rapier,
+`veritas_comprensione.js` ciclo occhio-cervello, `veritas_anteprima.js`
+pannello visivo.
 
 **Servizi:** Render workspace `tea-d9r2r1iju40c73e4k2cg`, servizio
 `srv-d9r2tmss728c73ct1c80`, URL `https://veritas-core-api-7g2x.onrender.com`.
@@ -202,7 +202,7 @@ class SE(HTMLParser):
     def handle_data(self,d):
         if self.i: self.b.append(d)
 p=SE(); p.feed(open('index.html',encoding='utf-8').read())
-assert hashlib.sha256(p.s[3].encode()).hexdigest()[:16]=='eedd9935ea908fd3', 'BLOCCO 3 ALTERATO'
+assert hashlib.sha256(p.s[3].encode()).hexdigest()[:16]=='58d371701aa9a349', 'BLOCCO 3 ALTERATO'
 print('ok, blocchi:', len(p.s))
 ```
 
@@ -214,10 +214,10 @@ pip install numpy trimesh scikit-learn
 PYTHONPATH=Assets python3 -c "from core.engine import SimulationEngine; ..."
 ```
 
-**Banco headless:** le CDN sono spesso irraggiungibili —
+**Banco headless** (le CDN sono spesso irraggiungibili):
 `npm install three@0.171.0 three-mesh-bvh@0.7.8 @supabase/supabase-js @sparkjsdev/spark --legacy-peer-deps`,
-copia i build in `vendor/`, riscrivi l'importmap su percorsi locali, stub per
-Supabase, `python3 -m http.server`, pilota con Playwright.
+build in `vendor/`, importmap su percorsi locali, stub Supabase,
+`python3 -m http.server`, Playwright.
 ⚠️ `three.module.js` importa `three.core.js`: copia **tutta** la cartella `build/`.
 
 ⚠️ Dalla sandbox `curl` verso `onrender.com` dà 403: è il proxy, non il servizio.
@@ -228,8 +228,8 @@ Supabase, `python3 -m http.server`, pilota con Playwright.
 
 **Fatto e provato.** Il Core Python calcola davvero KPI, conformità e
 raccomandazioni. La percezione degli agenti è misurata, non stimata: isovista a
-32 raggi sulla mesh (Benedikt 1979), con due altezze occhio — in piedi 1,65 m e
-seduto 1,20 m. Un bancone a 1,30 m non ostruisce chi cammina e chiude
+32 raggi sulla mesh (Benedikt 1979), con due altezze occhio — 1,65 m in piedi e
+1,20 m seduto. Un bancone a 1,30 m non ostruisce chi cammina e chiude
 l'orizzonte a chi è in carrozzina: stesso punto, due esperienze opposte, ed è
 **misurato**. Senza mesh si ricade su una stima per archetipo che distingue le
 persone ma non i luoghi: le curve risultano piatte e il report **lo dichiara**
@@ -240,37 +240,38 @@ invece di indovinarli. La fisica Rapier è innestata (`veritas_corpo.js`, con
 tre file di prova) e il 24/08 sono stati sanificati i triangoli malformati
 prima della costruzione del collisore.
 
-**I KPI finti sono stati azzerati** il 24/08 (commit `9bb59b1`) — erano cablati
-in `hV()` dentro il bundle: flusso 0,156 p/s, 12 rallentamenti, transito
-131,4 s, saturazione 68%. Decisione presa il 17/08, eseguita il 24/08.
+**I KPI finti sono stati azzerati** il 24/08 (commit `9bb59b1`): erano cablati
+in `hV()` dentro il bundle — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
+quattro numeri ricompaiono a schermo, è tornato il bundle vecchio.
 
-**Costruito oggi, mai ancora acceso.** `veritas_comprensione.js` — il ciclo
-occhio-cervello dell'infografica del 24/08. L'occhio manda al cervello anche i
-volumi che **non** ha saputo nominare; il cervello risponde in JSON verificabile
-(`capito`, `fiducia`, `dubbi`) e può chiedere all'occhio di guardare ancora con
-parole nuove, per un massimo di 3 giri; se resta nel dubbio si ferma e scrive
-una domanda a Raffaella. `puoAgire()` è il cancello prima della simulazione, e
-richiede tutt'e tre: capito, fiducia ≥ 70%, almeno metà volumi nominati.
-Affiancato da `veritas_anteprima.js`, il pannello che mostra a schermo cosa
+**Costruito, mai ancora acceso.** `veritas_comprensione.js`, il ciclo
+occhio-cervello dell'infografica del 24/08: l'occhio manda al cervello anche i
+volumi che **non** ha saputo nominare, il cervello risponde in JSON (`capito`,
+`fiducia`, `dubbi`) e può far guardare ancora con parole nuove, max 3 giri; se
+resta nel dubbio si ferma e scrive una domanda. `puoAgire()` è il cancello
+prima della simulazione e richiede tutt'e tre: capito, fiducia ≥ 70%, almeno
+metà volumi nominati. Con `veritas_anteprima.js`, il pannello che mostra cosa
 vede davvero l'occhio.
 
 ---
 
 ## Fronti aperti, in ordine
 
-1. **Il cervello risponde in prosa, e serve JSON.** `veritas_brain_server.py`
-   su `/api/analyze-view` restituisce un testo discorsivo;
-   `veritas_comprensione.js` pretende una struttura. Finché non sono allineati,
-   `comprendi()` restituirà sempre `capito: false`. È il comportamento corretto
-   ma non mostra niente. **È il prossimo passo.**
-2. **Provare l'occhio davvero.** Il giro è costruito e collegato, ma la lettura
-   di una pianta vera non è mai stata provata: dalla sandbox non si raggiunge
-   nessun modello. Serve LM Studio acceso con un modello che vede (Qwen2-VL,
-   LLaVA o MiniCPM-V). ⚠️ Da verificare **guardando il pannello**: se i nomi
-   cadono tutti sul lato opposto dell'edificio, la pianta è specchiata
-   (`readRenderTargetPixels` consegna la riga 0 in fondo, una tela la vuole in
-   cima) — è un difetto che produce nomi plausibili e nessun errore, e nessun
-   report può mostrarlo.
+1. **Il ciclo non è agganciato alla pagina.** ⚠️ Verificato il 24/08: i due
+   lati esistono e parlano già la stessa lingua — `veritas_brain_server.py` ha
+   `/api/comprendi` che risponde in JSON (`/api/analyze-view` resta in prosa,
+   per un umano), e `veritas_riconosce.js` ha `occhioLocale()`, OWLv2 dentro il
+   browser, senza server esterni. Manca solo il filo: **nessun file chiama
+   `comprendi()`** e `index.html` non nomina `veritas_comprensione.js`,
+   `veritas_anteprima.js` né `/api/comprendi`. **È il prossimo passo**, e va
+   fatto secondo la regola qui sopra: parte da solo, senza pulsante.
+2. **Provare l'occhio davvero.** La lettura di una pianta vera non è mai stata
+   fatta: dalla sandbox non si raggiunge nessun modello. L'occhio gira nel
+   browser (OWLv2, niente server); è il **cervello** a volere un VLM — LM Studio
+   con Qwen2-VL, LLaVA o MiniCPM-V. ⚠️ Si verifica **guardando il pannello**: se
+   i nomi cadono tutti sul lato opposto dell'edificio la pianta è specchiata
+   (`readRenderTargetPixels` dà la riga 0 in fondo, una tela la vuole in cima) —
+   difetto che produce nomi plausibili e nessun errore, invisibile a ogni report.
 3. **Le porte modellate chiuse.** Un pannello pieno è, per il programma, un
    muro: gli agenti lo aggirano. È corretto, ma su un modello con tutte le
    porte disegnate chiuse può bloccare percorsi veri. Il programma lo dice in
@@ -299,3 +300,5 @@ cos'è vero**.
 | `vaio_module_v2.js`, `vaio_splat_module.js` sono file | non esistono, sono inlinati |
 | `/core/engine.py`, `/data/simulation_config.json` in radice | non esistono: il Core è in `Assets/core/` |
 | Render deploya da `main` con il vecchio frontend, `main` non si tocca | superato il 24/08: ramo unico `main`, allineato al lavoro vero |
+| `Veritas-V17-FIX-SOLO-BUG.html` è la vetrina dell'app | falso: era la fotografia **vecchia** — niente Rapier, IFC, navmesh né occhio, e i **KPI finti erano ancora dentro**. Cancellato il 24/08. La vetrina è `index.html`, che è anche ciò che GitHub Pages serve da solo |
+| il blocco 3 vale `eedd9935ea908fd3` | quello era il bundle di V17. L'azzeramento dei KPI ha cambiato il bundle di `index.html`: chi usava il vecchio codice trovava «non torna» e cambiava file |
