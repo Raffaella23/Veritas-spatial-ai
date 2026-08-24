@@ -23054,6 +23054,75 @@ async function libreria() {
  *                   gia' produce per la navmesh. Non si estrae la geometria una
  *                   seconda volta: e' la stessa lettura, usata da due motori.
  */
+/**
+ * Filtra i triangoli malformati prima che arrivino a Rapier.
+ *
+ * Una trimesh costruita da geometria reale non e' mai perfetta: vertici
+ * duplicati che collassano un triangolo ad area zero, coordinate NaN o
+ * infinite (capitano da normali degeneri o da un'esportazione difettosa),
+ * triangoli con due vertici coincidenti. Rapier non li rifiuta in fase di
+ * costruzione — il collisore si crea comunque, il conteggio triangoli torna
+ * pulito, tutto sembra a posto — ma la prima query reale (un raycast, un
+ * test di appartenenza) puo' incontrare quel triangolo e mandare in trap la
+ * struttura di accelerazione interna (BVH) con un errore WASM generico
+ * ("unreachable", "memory access out of bounds") che non dice nulla su dove
+ * o perche'.
+ *
+ * MISURATO il 24/08/2026: il trap su questo modello (186.074 triangoli)
+ * scattava sempre e solo alla prima interrogazione (`dentroPerParita` ->
+ * `world.intersectionsWithRay`), mai durante la costruzione — coerente con
+ * un piccolo numero di triangoli degeneri nascosti fra gli altri, non con un
+ * problema di scala o di conteggio.
+ *
+ * @param {Float32Array} positions  [x0,y0,z0, x1,y1,z1, ...]
+ * @param {Uint32Array}  indices    [i0,i1,i2, i3,i4,i5, ...] (terne di indici in positions)
+ * @returns {{indices: Uint32Array, scartati: number, totale: number}}
+ */
+function sanificaTriangoli(positions, indices) {
+  const totale = Math.floor(indices.length / 3);
+  const puliti = new Uint32Array(indices.length);
+  let scritti = 0, scartati = 0;
+  // Area minima accettata: sotto questa soglia il triangolo e' praticamente
+  // un segmento o un punto, non una superficie — la stessa soglia che userebbe
+  // chi cerca "triangoli ad area zero" a mano, non un numero arbitrario.
+  const AREA_MIN = 1e-10;
+
+  for (let t = 0; t < totale; t++) {
+    const i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
+    const ax = positions[i0 * 3], ay = positions[i0 * 3 + 1], az = positions[i0 * 3 + 2];
+    const bx = positions[i1 * 3], by = positions[i1 * 3 + 1], bz = positions[i1 * 3 + 2];
+    const cx = positions[i2 * 3], cy = positions[i2 * 3 + 1], cz = positions[i2 * 3 + 2];
+
+    if (!(Number.isFinite(ax) && Number.isFinite(ay) && Number.isFinite(az)
+      && Number.isFinite(bx) && Number.isFinite(by) && Number.isFinite(bz)
+      && Number.isFinite(cx) && Number.isFinite(cy) && Number.isFinite(cz))) {
+      scartati++;
+      continue;
+    }
+
+    // Area del triangolo = meta' della lunghezza del prodotto vettoriale dei
+    // due lati. Un'area vicina a zero significa vertici coincidenti o
+    // allineati: nessuna superficie reale, solo un problema in attesa di
+    // scoppiare alla prima query.
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    const area2 = Math.hypot(nx, ny, nz);
+    if (area2 < AREA_MIN) {
+      scartati++;
+      continue;
+    }
+
+    puliti[scritti++] = i0;
+    puliti[scritti++] = i1;
+    puliti[scritti++] = i2;
+  }
+
+  return { indices: puliti.subarray(0, scritti), scartati, totale };
+}
+
 function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   if (!RAPIER || !geometria || !geometria.indices || !geometria.indices.length) return null;
   const m = misure(opz);
@@ -23079,7 +23148,11 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   //    appoggiato a un solaio produce facce coincidenti, ed e' la regola, non
   //    l'eccezione. Su un modello a caso — che e' il caso che ci interessa —
   //    e' un difetto silenzioso, del genere peggiore.
-  const desc = RAPIER.ColliderDesc.trimesh(geometria.positions, geometria.indices);
+  const pulito = sanificaTriangoli(geometria.positions, geometria.indices);
+  if (pulito.scartati > 0) {
+    console.warn('[VERITAS corpo] sanificazione: ' + pulito.scartati + '/' + pulito.totale + ' triangoli scartati (degeneri o non finiti)');
+  }
+  const desc = RAPIER.ColliderDesc.trimesh(geometria.positions, pulito.indices);
   const collisoreEdificio = world.createCollider(desc, corpoEdificio);
 
   // Un giro a vuoto: il controller interroga le strutture di collisione, che
@@ -23120,7 +23193,7 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
     RAPIER, world, controller, misure: m,
     pelle: opz.pelle || PELLE,
     collisoreEdificio,
-    triangoli: geometria.indices.length / 3,
+    triangoli: pulito.indices.length / 3,
     ingombro: geometria.ingombro || null,
     ms: Math.round(ora() - t0),
   };
