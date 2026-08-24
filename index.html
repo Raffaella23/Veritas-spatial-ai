@@ -23403,7 +23403,13 @@ function filtraFrames(scena, frames, opz = {}) {
       let corpo = corpi.get(id);
       if (!corpo) {
         const voluto = [p[0], (p[1] || 0) + m.gradino, p[2]];
-        const dove = nascitaLibera(scena, voluto);
+        let dove;
+        try {
+          dove = nascitaLibera(scena, voluto);
+        } catch (e) {
+          logTrapEQuietaLancia('ricerca punto libero (nascitaLibera/dentroUnSolido)', f, id,
+            'punto voluto: ' + JSON.stringify(voluto), e);
+        }
         if (!dove) {
           impossibili.add(id);
           fuori[a] = ag;
