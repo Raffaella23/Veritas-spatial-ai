@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VERITAS - Spatial AI Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 0.95em;
+            opacity: 0.8;
+        }
+        
+        .content {
+            padding: 60px 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .section p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature {
+            background: #f5f7ff;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .cta-section {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 40px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            margin: 10px;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .info {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.95em;
+        }
+        
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 VERITAS</h1>
+            <p>Spatial Intelligence Agent</p>
+            <p class="subtitle">AI Vision + XR Analysis in Real-Time 3D Environments</p>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>What is VERITAS?</h2>
+                <p>An intelligent spatial agent that sees, understands, and analyzes 3D environments through the lens of architectural and XR design. VERITAS combines computer vision, AI reasoning, and spatial intelligence to provide real-time feedback on user experience quality.</p>
+            </div>
+            
+            <div class="section">
+                <h2>Key Features</h2>
+                <div class="features">
+                    <div class="feature">
+                        <strong>🔍 Vision</strong>
+                        Captures 3D scenes in real-time
+                    </div>
+                    <div class="feature">
+                        <strong>🧠 Intelligence</strong>
+                        GPT-4o AI analysis & reasoning
+                    </div>
+                    <div class="feature">
+                        <strong>📐 Spatial</strong>
+                        XR-focused architecture analysis
+                    </div>
+                    <div class="feature">
+                        <strong>⚡ Real-Time</strong>
+                        Instant feedback & recommendations
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>How It Works</h2>
+                <p><strong>1. Explore:</strong> Navigate 3D environment with WASD keys</p>
+                <p><strong>2. Capture:</strong> Press E to send frame to AI brain</p>
+                <p><strong>3. Analyze:</strong> AI evaluates space for UX, XR opportunities, accessibility</p>
+                <p><strong>4. Learn:</strong> Get real-time recommendations for spatial optimization</p>
+            </div>
+            
+            <div class="cta-section">
+                <h2>Ready to explore?</h2>
+                <p style="margin: 20px 0; color: #666;">Launch the interactive VERITAS demo and see spatial intelligence in action.</p>
+                <a href="./Veritas-V17-FIX-SOLO-BUG.html" class="btn btn-primary">🚀 Launch Demo</a>
+                <a href="https://github.com/Raffaella23/Veritas-spatial-ai" class="btn btn-secondary">📖 GitHub</a>
+            </div>
+            
+            <div class="info">
+                <strong>Demo Instructions:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>WASD:</strong> Move around the 3D environment</li>
+                    <li><strong>Mouse:</strong> Look around (click and drag)</li>
+                    <li><strong>E:</strong> Capture frame and send to AI analysis</li>
+                    <li><strong>Note:</strong> Requires OpenAI API key (set in browser console if needed)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
