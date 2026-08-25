@@ -318,8 +318,49 @@ const TENTATIVI = [
 
 function ritaglia(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
+// ⚠️ QUANTE PAROLE PER VOLTA. Misurato il 25/08: il ciclo chiedeva 158 parole
+//    in un colpo solo. A OWLv2 si puo': confronta ogni parola con l'immagine e
+//    non "si distrae". Un VLM invece DESCRIVE — con un elenco lunghissimo ne
+//    prende quattro a caso, o peggio, ne inventa per riempire. La lettura
+//    nascerebbe gia' sbagliata, e sembrerebbe un limite del modello mentre e'
+//    un errore di chi gliela chiede.
+//
+//    Quindi si spezza in mazzetti. Piu' chiamate, piu' lente, ma ognuna e' una
+//    domanda a cui si puo' davvero rispondere.
+const PAROLE_PER_VOLTA = 12;
+
+function mazzetti(lista, quante) {
+  const out = [];
+  for (let i = 0; i < lista.length; i += quante) out.push(lista.slice(i, i + quante));
+  return out;
+}
+
 function occhioDalVLM() {
   return async function rilevaConVLM(immagine, parole) {
+    const gruppi = mazzetti(parole, window.__veritasParolePerVolta || PAROLE_PER_VOLTA);
+    if (gruppi.length > 1) {
+      log("chiedo " + parole.length + " parole in " + gruppi.length +
+          " mazzetti da " + (window.__veritasParolePerVolta || PAROLE_PER_VOLTA) +
+          " — un elenco troppo lungo lo farebbe rispondere a caso");
+      const tutte = [];
+      for (let i = 0; i < gruppi.length; i++) {
+        try {
+          const parte = await unGiro(immagine, gruppi[i]);
+          tutte.push(...parte);
+        } catch (e) {
+          // Un mazzetto che fallisce non butta via gli altri: si dice e si va
+          // avanti. Meglio una lettura parziale dichiarata che nessuna lettura.
+          log("mazzetto " + (i + 1) + "/" + gruppi.length + " fallito: " +
+              ((e && e.message) || e));
+        }
+      }
+      log("in tutto ha trovato " + tutte.length + " cose su " + parole.length + " chieste");
+      return tutte;
+    }
+    return unGiro(immagine, parole);
+  };
+
+  async function unGiro(immagine, parole) {
     const L = window.__veritasLLM;
     if (!L || !L.cfg || !L.cfg.url) throw new Error("nessun modello locale acceso");
     // ⚠️ NON si rifiuta per il nome. La regola sui nomi e' un indizio, non una
@@ -393,9 +434,9 @@ function occhioDalVLM() {
     }
     if (fuori.length)
       log(fuori.length + " etichette inventate, scartate: " + fuori.slice(0, 5).join(", "));
-    log("il modello che vede ha trovato " + buone.length + " cose su " + parole.length + " chieste");
+    log("ha trovato " + buone.length + " cose su " + parole.length + " chieste");
     return buone;
-  };
+  }
 }
 
 async function accendiOcchio(O, opz = {}) {
