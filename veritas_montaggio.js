@@ -113,14 +113,30 @@ function immagineBase64(x) {
   } catch (e) { return null; }
 }
 
+// I modelli che VEDONO si riconoscono dal nome. Non e' elegante, ma non c'e'
+// modo di chiederlo: la rotta di OpenAI non dichiara se un modello ha gli
+// occhi, e mandare un'immagine a un modello di soli testi non da' "non vedo" —
+// da' un errore 400, oppure una risposta inventata, che e' peggio.
+//
+// Qwen2.5 7B Instruct NON vede. Qwen2-VL si'. Un carattere di differenza nel
+// nome, due comportamenti opposti.
+const NOMI_CHE_VEDONO = /(^|[-_.\s\/:])(vl|vision|llava|minicpm-?v|moondream|pixtral|internvl|gemma-?3|smolvlm|idefics)([-_.\s\/:]|$)/i;
+
+function modelloVede(nome) {
+  if (typeof window.__veritasCervelloVede === "boolean") return window.__veritasCervelloVede;
+  return NOMI_CHE_VEDONO.test(String(nome || ""));
+}
+
 // Strada 1 — un modello qualunque che parli la rotta di OpenAI.
 async function cervelloLocale(domanda, extra = {}) {
   const L = window.__veritasLLM;
   const url = String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions";
-  const figura = immagineBase64(extra.immagine);
+  const vede = modelloVede(L.cfg.model);
+  const figura = vede ? immagineBase64(extra.immagine) : null;
 
-  // Il testo va sempre; la figura solo se c'e'. Un modello di soli testi che
-  // riceve un'immagine risponde male invece di rispondere "non vedo".
+  // ⚠️ La figura va SOLO a chi ha gli occhi. A tutti gli altri si manda il
+  //    testo e basta: giudicheranno sui nomi che l'occhio ha raccontato, che e'
+  //    meno ma e' vero. Forzabile con window.__veritasCervelloVede = true/false.
   const contenuto = figura
     ? [{ type: "text", text: domanda },
        { type: "image_url", image_url: { url: figura } }]
@@ -307,7 +323,13 @@ window.__veritasOnModelLoaded = function () {
   return out;
 };
 
+const L0 = window.__veritasLLM;
 log("pronto — parte da solo su qualunque modello caricato (cervello: " +
-    (indirizzoCervello() || "nessuno: accendi LM Studio") + ")");
+    (indirizzoCervello() || "nessuno: accendi LM Studio") +
+    (L0 && L0.cfg && L0.cfg.model
+      ? ", " + L0.cfg.model + (modelloVede(L0.cfg.model)
+          ? " — vede la pianta"
+          : " — NON vede: giudica sui soli nomi")
+      : "") + ")");
 
 export default { comprendi: window.__veritasComprendi };
