@@ -244,10 +244,12 @@ prima della costruzione del collisore.
 in `hV()` dentro il bundle — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
 quattro numeri ricompaiono a schermo, è tornato il bundle vecchio.
 
-**Acceso il 25/08** (`veritas_montaggio.js`, agganciato in fondo a
-`index.html`): parte da solo 6,5 s dopo il caricamento del modello, dietro
-l'occhio. I nomi passano dal ponte che esiste gia', `__veritasApplicaOcchi`.
-`veritas_comprensione.js` e' il ciclo
+**Montato il 25/08** (`veritas_montaggio.js`, agganciato in fondo a
+`index.html`): parte da solo su qualunque modello caricato — anche trascinato —
+e i nomi passano dal ponte che esiste gia', `__veritasApplicaOcchi`. Il cervello
+e' LM Studio via `__veritasLLM`, nessun server da accendere. ⚠️ **Montato non
+vuol dire funzionante**: al 25/08 non ha mai prodotto un verdetto, perche'
+l'occhio non si apre (fronte 1). `veritas_comprensione.js` e' il ciclo
 occhio-cervello dell'infografica del 24/08: l'occhio manda al cervello anche i
 volumi che **non** ha saputo nominare, il cervello risponde in JSON (`capito`,
 `fiducia`, `dubbi`) e può far guardare ancora con parole nuove, max 3 giri; se
@@ -260,31 +262,42 @@ vede davvero l'occhio.
 
 ## Fronti aperti, in ordine
 
-1. **Il cervello non è mai stato raggiunto dalla pagina.** Il filo c'è dal
-   25/08, ma `/api/comprendi` non ha mai risposto a nessuno: dalla sandbox non
-   si esce, e non è detto che `veritas_brain_server.py` giri su Render (là c'è
-   `api_server.py`). Finché tace, l'esito è `capito: false` con il motivo
-   scritto — corretto, ma non mostra niente. **È il prossimo passo**: accendere
-   il cervello e guardare il pannello. Indirizzo regolabile con
-   `window.__veritasCervelloUrl`.
-2. **Provare l'occhio davvero.** La lettura di una pianta vera non è mai stata
-   fatta: dalla sandbox non si raggiunge nessun modello. L'occhio gira nel
-   browser (OWLv2, niente server); è il **cervello** a volere un VLM — LM Studio
-   con Qwen2-VL, LLaVA o MiniCPM-V. ⚠️ Si verifica **guardando il pannello**: se
+1. **L'occhio non si apre.** ⚠️ Misurato il 25/08 su modello vero, ed è il
+   blocco che ferma tutto: OWLv2 via transformers.js risponde `Can't create a
+   session … '/class_head/Cast' is not set`. Non è la rete: il file compresso
+   non si apre su quella scheda video. `veritas_montaggio.js` ora prova cinque
+   formati (webgpu q4f16/fp16/q8, wasm q8/fp32) dicendo quale fallisce. **Se
+   fallisce anche wasm/fp32, OWLv2 va abbandonato** — e la strada è già
+   pronta: **un VLM guarda E giudica**, e `veritas_occhi.js` glielo chiede già
+   (il suo `HTTP 400` del 25/08 è solo Qwen2.5 che non vede). Un solo modello
+   invece di due, e una dipendenza in meno.
+2. **Nessun modello che vede è mai stato provato.** Serve LM Studio con
+   **Qwen3-VL-4B** (~3,5 GB a Q4) o **8B** (~6 GB): scaricarlo è il singolo
+   gesto con più probabilità di produrre qualcosa a schermo, perché sblocca sia
+   il cervello sia la strada del fronte 1. Il nome del modello acceso viene
+   chiesto a `/models`: `cfg.model` vale `local-model`, che è un segnaposto.
+   ⚠️ Si verifica **guardando il pannello**: se
    i nomi cadono tutti sul lato opposto dell'edificio la pianta è specchiata
    (`readRenderTargetPixels` dà la riga 0 in fondo, una tela la vuole in cima) —
    difetto che produce nomi plausibili e nessun errore, invisibile a ogni report.
-3. **Le porte modellate chiuse.** Un pannello pieno è, per il programma, un
+3. **La fisica va in crash a ogni fotogramma.** ⚠️ Misurato il 25/08 su
+   `airport_foot_traffic.glb` (186.074 triangoli): `trap nel motore fisico —
+   fase: ricerca punto libero (nascitaLibera/dentroUnSolido) — fotogramma 1,
+   agente 0 — memory access out of bounds` / `unreachable`, a ogni ricalcolo.
+   Rapier non si applica mai e la simulazione prosegue senza corpo. Onesto —
+   non inventa numeri — ma la fisica non c'è. I raggi di `dentroPerParita`
+   sono il sospetto principale.
+4. **Le porte modellate chiuse.** Un pannello pieno è, per il programma, un
    muro: gli agenti lo aggirano. È corretto, ma su un modello con tutte le
    porte disegnate chiuse può bloccare percorsi veri. Il programma lo dice in
    console (`[VERITAS cammino] nessuna strada…`).
-4. **I pannelli KPI sotto i 1280 px** si sovrappongono ai comandi: sotto quella
+5. **I pannelli KPI sotto i 1280 px** si sovrappongono ai comandi: sotto quella
    larghezza il bundle mette i numeri in una riga in fondo che i selettori
    attuali non intercettano.
-5. **Doppio Three.js.** Il bundle porta la sua copia (0.160), l'importmap ne
+6. **Doppio Three.js.** Il bundle porta la sua copia (0.160), l'importmap ne
    carica un'altra (0.180). Aggirato, non risolto: la soluzione pulita è
    ricompilare il bundle. Da qui dipende anche il Gaussian Splat, fermo.
-6. **Provare con una scansione vera.** Su gaussiane non c'è geometria di muri
+7. **Provare con una scansione vera.** Su gaussiane non c'è geometria di muri
    da leggere: valgono solo i muri dedotti, con il limite dichiarato.
 
 ---
