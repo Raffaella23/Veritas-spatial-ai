@@ -83,6 +83,19 @@ export function mondoAPixel(inq, x, z) {
   return [px, py];
 }
 
+/**
+ * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
+ * Logica pura, provabile in node.
+ */
+export function raddrizza(pixel, larghezza, altezza) {
+  const fuori = new Uint8Array(pixel.length);
+  const riga = larghezza * 4;
+  for (let y = 0; y < altezza; y++) {
+    fuori.set(pixel.subarray((altezza - 1 - y) * riga, (altezza - y) * riga), y * riga);
+  }
+  return fuori;
+}
+
 /** Area a terra di un pixel, in m². Serve a convertire i conteggi in misure. */
 export function areaPixel(inq) {
   return inq.metriPerPixel * inq.metriPerPixel;
@@ -296,7 +309,8 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   radice.traverse((o) => { if (o.isMesh) numeroMesh++; });
   const ingombro = { min: [scatola.min.x, scatola.min.y, scatola.min.z],
                       max: [scatola.max.x, scatola.max.y, scatola.max.z] };
-  const n = opzioni.numeroScorci || numeroScorci(densitaMesh(numeroMesh, ingombro));
+  const densita = densitaMesh(numeroMesh, ingombro);
+  const n = opzioni.numeroScorci || numeroScorci(densita);
 
   const centro = scatola.getCenter(new THREE.Vector3());
   const diagonale = scatola.getSize(new THREE.Vector3()).length();
@@ -343,7 +357,16 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       renderer.render(scena, cam);
       renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
 
-      risultati.push({ pixel, larghezza, altezza, azimuth, elevazioneGradi });
+      // ⚠️ SI RADDRIZZA QUI, ALLA FONTE. `readRenderTargetPixels` restituisce la
+      //    riga 0 in fondo; chi trasforma questi pixel in immagine
+      //    (`piantaInTela`) li copia cosi' come sono. Senza questo giro lo
+      //    scorcio arriva al cervello CAPOVOLTO — e un modello che guarda un
+      //    edificio a testa in giu' non sbaglia in modo rumoroso: risponde una
+      //    cosa plausibile e sbagliata, che e' il difetto peggiore.
+      //    La pianta invece NON si tocca: li' la riga 0 in fondo e' l'origine
+      //    di `pixelAMondo`, e raddrizzarla specchierebbe tutte le posizioni.
+      risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
+                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
     }
     renderer.setRenderTarget(bersaglioPrec);
     try { bersaglio.dispose(); } catch (e) {}
@@ -362,4 +385,4 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   return risultati;
 }
 
-export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
+export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };

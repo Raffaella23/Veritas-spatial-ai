@@ -199,14 +199,21 @@ async function cervelloLocale(domanda, extra = {}) {
   // ha gia' dimostrato che quel modello vede, glielo si manda comunque.
   const provato = String(window.__veritasOcchioSorgente || "").startsWith("vlm:");
   const vede = modelloVede(modello) || provato;
-  const figura = vede ? immagineBase64(extra.immagine) : null;
+  // ⚠️ PIU' DI UN'IMMAGINE. Una pianta dall'alto non basta: dall'alto un banco,
+  //    una fila di sedute e un muretto sono lo stesso rettangolo grigio, perche'
+  //    la differenza sta nell'altezza. Gli scorci in prospettiva la mostrano, e
+  //    vanno mandati INSIEME alla pianta, nello stesso messaggio: e' guardare lo
+  //    stesso posto da piu' parti, non guardare posti diversi.
+  const daGuardare = (Array.isArray(extra.immagini) && extra.immagini.length)
+    ? extra.immagini : [extra.immagine];
+  const figure = vede ? daGuardare.map(immagineBase64).filter(Boolean) : [];
 
-  // ⚠️ La figura va SOLO a chi ha gli occhi. A tutti gli altri si manda il
+  // ⚠️ Le figure vanno SOLO a chi ha gli occhi. A tutti gli altri si manda il
   //    testo e basta: giudicheranno sui nomi che l'occhio ha raccontato, che e'
   //    meno ma e' vero. Forzabile con window.__veritasCervelloVede = true/false.
-  const contenuto = figura
+  const contenuto = figure.length
     ? [{ type: "text", text: domanda },
-       { type: "image_url", image_url: { url: figura } }]
+       ...figure.map((f) => ({ type: "image_url", image_url: { url: f } }))]
     : domanda;
 
   const r = await fetch(url, {
@@ -215,7 +222,9 @@ async function cervelloLocale(domanda, extra = {}) {
     body: JSON.stringify({
       model: modello,
       temperature: 0,   // stessa pianta, stesso verdetto: due giudizi diversi
-      max_tokens: 700,  // sulla stessa scena non sono utilizzabili
+      // Lo studio e l'assegnazione rispondono un JSON lungo (una voce per
+      // volume): con 700 gettoni il JSON si tronca a meta' e diventa illeggibile.
+      max_tokens: extra.passo ? 2500 : 700,
       messages: [{ role: "user", content: contenuto }],
     }),
   });
@@ -501,6 +510,23 @@ window.__veritasComprendi = async function (opz = {}) {
     const pianta = vista.piantaDelPavimento(THREE, rend, radice, opz.pianta || {});
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
 
+    // ⚠️ GLI SCORCI. La pianta dice DOVE stanno le cose; gli scorci dicono
+    //    COM'E' FATTO il posto, perche' mostrano l'altezza e mostrano cosa c'e'
+    //    attorno all'edificio — gli aerei, le banchine, le corsie — che sono
+    //    l'indizio piu' forte su cos'e'. Quanti farne lo decide la vista in base
+    //    a quante mesh per m2 ha il modello: pochi se e' semplice, di piu' se e'
+    //    complesso. Se la vista e' quella vecchia (senza scorci) non si rompe
+    //    niente: si prosegue con la sola pianta, come prima.
+    let scorci = [];
+    if (typeof vista.scorciTreQuarti === "function") {
+      try {
+        scorci = vista.scorciTreQuarti(THREE, rend, radice, opz.scorci || {}) || [];
+        if (scorci.length) log("guardo il modello da " + scorci.length + " punti di vista oltre alla pianta");
+      } catch (e) {
+        log("non sono riuscito a girare il modello: " + ((e && e.message) || e));
+      }
+    }
+
     const O = occhioDellaPagina();
     const rilevatore = opz.rileva || await accendiOcchio(O, opz);
     if (!rilevatore)
@@ -512,6 +538,7 @@ window.__veritasComprendi = async function (opz = {}) {
       posti: trovate.posti,
       pianta,                    // grezza: la vuole cosi' il pannello
       inquadratura: pianta,      // stessa cosa: porta dentro la proiezione
+      scorci,                    // le altre inquadrature dello stesso posto
       dominio: opz.dominio || window.__veritasProjectType || null,
       rileva: (immagine, parole) => rilevatore(telaDa(immagine), parole),
       cervello: opz.cervello || cervello,

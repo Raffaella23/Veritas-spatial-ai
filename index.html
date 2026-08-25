@@ -10544,6 +10544,15 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
 }
 
 
+function raddrizza(pixel, larghezza, altezza) {
+  const fuori = new Uint8Array(pixel.length);
+  const riga = larghezza * 4;
+  for (let y = 0; y < altezza; y++) {
+    fuori.set(pixel.subarray((altezza - 1 - y) * riga, (altezza - y) * riga), y * riga);
+  }
+  return fuori;
+}
+
 function densitaMesh(numeroMesh, ingombro) {
   const largoM = ingombro.max[0] - ingombro.min[0];
   const profM = ingombro.max[2] - ingombro.min[2];
@@ -10615,7 +10624,11 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       renderer.clear();
       renderer.render(scena, cam);
       renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
-      risultati.push({ pixel, larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
+      // ⚠️ Si raddrizza QUI: chi trasforma i pixel in immagine li copia cosi'
+      //    come sono, e senza questo giro lo scorcio arriva al cervello
+      //    capovolto — errore silenzioso, risposta plausibile e sbagliata.
+      risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
+                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
     }
     renderer.setRenderTarget(bersaglioPrec);
     try { bersaglio.dispose(); } catch (e) {}
@@ -10653,11 +10666,8 @@ window.__veritasProvaScorci = function (opz = {}) {
     c.style.cssText = 'height:180px;width:auto;background:#222';
     const ctx = c.getContext('2d');
     const img = ctx.createImageData(s.larghezza, s.altezza);
-    // readRenderTargetPixels da' la riga 0 in fondo, la tela la vuole in cima.
-    for (let y = 0; y < s.altezza; y++) {
-      const src = (s.altezza - 1 - y) * s.larghezza * 4;
-      img.data.set(s.pixel.subarray(src, src + s.larghezza * 4), y * s.larghezza * 4);
-    }
+    // Gia' raddrizzati alla fonte da scorciTreQuarti: qui si copiano e basta.
+    img.data.set(s.pixel);
     ctx.putImageData(img, 0, 0);
     box.appendChild(c);
   }
@@ -10668,7 +10678,7 @@ window.__veritasProvaScorci = function (opz = {}) {
   return scorci;
 };
 
-window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
+window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
 
 // LA VISTA HA LA PRECEDENZA.
 //

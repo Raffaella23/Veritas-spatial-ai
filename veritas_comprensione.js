@@ -167,25 +167,9 @@ export function promptCervello(riassunto) {
 //    che e' una cosa diversa e va detta.
 
 export function leggiVerdetto(testo) {
-  if (typeof testo !== "string" || !testo.trim()) {
-    return { valido: false, perche: "il cervello non ha risposto niente" };
-  }
-
-  // Il modello puo' incartare il JSON in un blocco markdown: si scarta l'involucro.
-  let grezzo = testo.trim();
-  const blocco = grezzo.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (blocco) grezzo = blocco[1].trim();
-  const apre = grezzo.indexOf("{"), chiude = grezzo.lastIndexOf("}");
-  if (apre === -1 || chiude <= apre) {
-    return { valido: false, perche: "nella risposta del cervello non c'e' un oggetto JSON" };
-  }
-
-  let v;
-  try {
-    v = JSON.parse(grezzo.slice(apre, chiude + 1));
-  } catch (e) {
-    return { valido: false, perche: "il JSON del cervello non si legge: " + (e && e.message) };
-  }
+  const g = estraiJson(testo);
+  if (!g.ok) return { valido: false, perche: g.perche };
+  const v = g.valore;
 
   if (typeof v.capito !== "boolean") {
     return { valido: false, perche: "il cervello non ha detto se ha capito (campo `capito` assente)" };
@@ -217,6 +201,365 @@ export function leggiVerdetto(testo) {
 }
 
 // ---------------------------------------------------------------------------
+// 4-bis. LO STUDIO — «che cosa sto guardando», prima di ogni altra cosa
+// ---------------------------------------------------------------------------
+//
+// ⚠️ MISURATO IL 25/08. Il giro a parole ha trovato 0 cose su 158 chieste. Non
+//    perche' il modello che vede sia scarso: perche' gli si chiedeva «trovi un
+//    banco? trovi una sedia?» dodici parole alla volta, su una pianta dall'alto
+//    dove un banco, una fila di sedute e un muretto sono lo stesso rettangolo
+//    grigio. Non gli e' MAI stato chiesto che posto fosse.
+//
+// Qui la domanda si rovescia, in tre gradini:
+//
+//   1. STUDIO        cosa ho davanti, e come me lo stanno mostrando
+//   2. FUNZIONAMENTO come funziona un posto cosi' — lo dice il cervello, non noi
+//   3. ASSEGNAZIONE  dove stanno, qui dentro, le zone di quel funzionamento
+//
+// ⚠️ PERCHE' IL GRADINO 2 NON E' UN ELENCO NOSTRO. La piattaforma e' agnostica:
+//    oggi un aeroporto, domani un ospedale, dopodomani un museo o il collaudo
+//    di un livello di videogioco. Scrivere qui dentro «ingresso, accettazione,
+//    controlli, attesa, imbarco» taglierebbe su misura su UN tipo di edificio,
+//    ed e' lo stesso errore delle soglie tarate su un modello solo. La sequenza
+//    la enuncia il cervello, che quei posti li conosce gia'.
+//
+// Il NOME delle zone resta libero e viene dalla tipologia riconosciuta. Il
+// RUOLO invece viene da questo elenco chiuso e corto: serve solo al Core Python
+// e alle soglie normative per sapere cosa verificare, e non e' quello che si
+// legge a schermo.
+export const RUOLI = ["ingresso", "transito", "attesa", "controllo", "servizio", "uscita"];
+
+// I volumi MISURATI, come li vede il cervello. La geometria e' certa: si manda
+// cosi' com'e' e non si discute. Il cervello mette solo i nomi.
+export function volumiPerCervello(posti) {
+  return (posti || []).map((p, i) => {
+    const v = {
+      id: i,
+      area_m2: Math.round(p.area),
+      centro: [+p.centro[0].toFixed(1), +p.centro[2].toFixed(1)],
+    };
+    if (p.formaPrevalente) v.forma = p.formaPrevalente;
+    if (p.oggetti) v.oggetti = p.oggetti;
+    if (p.altezza != null) v.altezza_m = +Number(p.altezza).toFixed(1);
+    return v;
+  });
+}
+
+export function promptStudio(quanteViste, quantiVolumi) {
+  return [
+    "Sei il cervello spaziale di VERITAS. Ti mostro lo stesso edificio da " + quanteViste +
+      " punti di vista diversi: una pianta dall'alto e alcuni scorci in prospettiva,",
+    "come si girerebbe un plastico fra le mani.",
+    "",
+    "PRIMA DI QUALSIASI ALTRA COSA devi stabilire due cose: CHE POSTO E', e COME",
+    "TE LO STANNO MOSTRANDO.",
+    "",
+    "Sulla rappresentazione: un modello 3D puo' essere completo, oppure uno",
+    "spaccato (tolto il soffitto o una parete per far vedere dentro), oppure una",
+    "sezione, oppure un solo piano. Se manca il soffitto o mancano le pareti",
+    "laterali NON e' un difetto e non e' un edificio incompleto: e' il modo in cui",
+    "il modello e' stato costruito per farsi guardare. Dillo e vai avanti.",
+    "",
+    "Quello che vedi attorno all'edificio conta: aerei, banchine, binari, corsie,",
+    "cortili. Sono indizi forti su cos'e' l'edificio e su da che parte arrivano e",
+    "se ne vanno le persone.",
+    "",
+    "Ci sono " + quantiVolumi + " volumi gia' misurati dentro questo spazio: al",
+    "prossimo passo dovrai dargli un nome, quindi adesso servi te stesso.",
+    "",
+    "Rispondi SOLO con un oggetto JSON, senza testo prima o dopo, senza ```:",
+    "{",
+    '  "tipo": "che tipo di edificio o ambiente e\', in poche parole",',
+    '  "rappresentazione": "modello completo" | "spaccato" | "sezione" | "un solo piano" | "non so",',
+    '  "cosa_manca": ["soffitto", "pareti laterali"],',
+    '  "indizi": ["cosa te lo fa dire, uno per voce"],',
+    '  "come_funziona": [',
+    '    { "zona": "nome della zona, nella lingua e nel lessico di questo tipo di edificio",',
+    '      "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
+    '      "a_cosa_serve": "una frase",',
+    '      "viene_dopo": "il nome della zona che la precede, oppure null" }',
+    "  ],",
+    '  "capito": true oppure false,',
+    '  "fiducia": numero fra 0 e 1,',
+    '  "chiedi_all_umano": "una domanda in italiano, oppure null"',
+    "}",
+    "",
+    "REGOLE, e sono vincolanti:",
+    "- `come_funziona` e' la SEQUENZA con cui le persone attraversano un posto di",
+    "  questo tipo, dal loro arrivo alla loro uscita. Non descrivere quello che",
+    "  vedi in queste immagini: descrivi come funziona un edificio del genere, che",
+    "  tu gia' sai. Serve da traccia per il passo dopo.",
+    "- Se non sei sicuro di che posto sia, capito=false. Non e' una sconfitta: e'",
+    "  il comportamento corretto. Meglio una domanda che una simulazione dentro un",
+    "  edificio che non e' quello.",
+    "- Non inventare zone che in un posto del genere non esisterebbero.",
+  ].join("\n");
+}
+
+export function leggiStudio(testo) {
+  const g = estraiJson(testo);
+  if (!g.ok) return { valido: false, perche: g.perche };
+  const v = g.valore;
+
+  if (typeof v.tipo !== "string" || !v.tipo.trim()) {
+    return { valido: false, perche: "il cervello non ha detto che posto e'" };
+  }
+
+  const sequenza = (Array.isArray(v.come_funziona) ? v.come_funziona : [])
+    .map((z) => {
+      if (!z || typeof z.zona !== "string" || !z.zona.trim()) return null;
+      return {
+        zona: z.zona.trim(),
+        ruolo: RUOLI.indexOf(z.ruolo) >= 0 ? z.ruolo : null,
+        aCosaServe: typeof z.a_cosa_serve === "string" ? z.a_cosa_serve : null,
+        vieneDopo: typeof z.viene_dopo === "string" ? z.viene_dopo : null,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    valido: true,
+    tipo: v.tipo.trim(),
+    rappresentazione: typeof v.rappresentazione === "string" ? v.rappresentazione : "non so",
+    cosaManca: Array.isArray(v.cosa_manca) ? v.cosa_manca.filter((x) => typeof x === "string") : [],
+    indizi: Array.isArray(v.indizi) ? v.indizi.filter((x) => typeof x === "string") : [],
+    sequenza,
+    capito: v.capito === true,
+    fiducia: typeof v.fiducia === "number" && v.fiducia >= 0 && v.fiducia <= 1 ? v.fiducia : 0,
+    domandaUmana: typeof v.chiedi_all_umano === "string" && v.chiedi_all_umano.trim()
+      ? v.chiedi_all_umano.trim() : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 4-ter. L'AUTO-ASSEGNAZIONE — i nomi sui volumi gia' misurati
+// ---------------------------------------------------------------------------
+//
+// ⚠️ NON si disegnano aree nuove. Si nominano i volumi che la geometria ha gia'
+//    misurato — quelli che nell'editor si stirano, si abbassano, si allargano e
+//    si moltiplicano. Un contorno inventato dal cervello non avrebbe niente di
+//    tutto questo dietro, e l'editor non potrebbe prenderlo in mano.
+//
+// Uno stesso nome puo' toccare a piu' volumi: tre sale d'attesa restano tre.
+
+export function promptAssegnazione(studio, volumi) {
+  return [
+    "Sei il cervello spaziale di VERITAS. Hai gia' stabilito che posto stai guardando:",
+    JSON.stringify({
+      tipo: studio.tipo,
+      rappresentazione: studio.rappresentazione,
+      cosa_manca: studio.cosaManca,
+      come_funziona: studio.sequenza,
+    }, null, 2),
+    "",
+    "Rivedi le stesse immagini — la pianta dall'alto e gli scorci in prospettiva.",
+    "",
+    "Questi sono i volumi MISURATI dentro lo spazio. Le posizioni e le aree sono",
+    "certe e non si discutono: `centro` e' [x, z] in metri, come sulla pianta.",
+    JSON.stringify(volumi, null, 2),
+    "",
+    "Assegna a ciascun volume una zona della sequenza qui sopra. Rispondi SOLO con",
+    "un oggetto JSON, senza testo prima o dopo, senza ```:",
+    "{",
+    '  "assegnazioni": [',
+    '    { "id": 0, "nome": "nome della zona", "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
+    '      "fiducia": numero fra 0 e 1, "perche": "una frase" }',
+    "  ],",
+    '  "senza_nome": [ { "id": 7, "domanda": "cosa chiederesti in italiano per capire cos\'e\'" } ],',
+    '  "capito": true oppure false,',
+    '  "fiducia": numero fra 0 e 1',
+    "}",
+    "",
+    "REGOLE, e sono vincolanti:",
+    "- Ragiona per POSIZIONE nella sequenza, non per forma. Dall'alto un banco,",
+    "  una fila di sedute e un muretto sono lo stesso rettangolo: quello che",
+    "  distingue una zona d'attesa non e' che ha delle sedie, e' che sta fra la",
+    "  zona che la precede e quella che la segue. Usa gli scorci per l'altezza e",
+    "  usa quello che c'e' attorno all'edificio per orientarti.",
+    "- Lo stesso nome puo' toccare a piu' volumi: se ci sono tre sale d'attesa,",
+    "  assegnale tutte e tre. Non accorparle.",
+    "- Un volume di cui non sei sicuro NON si nomina a caso: mettilo in",
+    "  `senza_nome` con la domanda che faresti. Chiedere e' previsto, indovinare no.",
+    "- Non inventare volumi: usa solo gli `id` dell'elenco.",
+  ].join("\n");
+}
+
+export function leggiAssegnazione(testo) {
+  const g = estraiJson(testo);
+  if (!g.ok) return { valido: false, perche: g.perche };
+  const v = g.valore;
+
+  const assegnazioni = (Array.isArray(v.assegnazioni) ? v.assegnazioni : [])
+    .map((a) => {
+      if (!a || typeof a.id !== "number" || typeof a.nome !== "string" || !a.nome.trim()) return null;
+      return {
+        id: a.id,
+        nome: a.nome.trim(),
+        ruolo: RUOLI.indexOf(a.ruolo) >= 0 ? a.ruolo : null,
+        fiducia: typeof a.fiducia === "number" && a.fiducia >= 0 && a.fiducia <= 1 ? a.fiducia : 0.5,
+        perche: typeof a.perche === "string" ? a.perche : null,
+      };
+    })
+    .filter(Boolean);
+
+  const senzaNome = (Array.isArray(v.senza_nome) ? v.senza_nome : [])
+    .map((s) => (s && typeof s.id === "number"
+      ? { id: s.id, domanda: typeof s.domanda === "string" ? s.domanda.trim() : null } : null))
+    .filter(Boolean);
+
+  if (!assegnazioni.length && !senzaNome.length) {
+    return { valido: false, perche: "il cervello non ha assegnato nessun volume" };
+  }
+
+  return {
+    valido: true,
+    assegnazioni,
+    senzaNome,
+    capito: v.capito === true,
+    fiducia: typeof v.fiducia === "number" && v.fiducia >= 0 && v.fiducia <= 1 ? v.fiducia : 0,
+  };
+}
+
+// L'involucro JSON, isolato una volta sola: lo usano tutti e tre i verdetti.
+function estraiJson(testo) {
+  if (typeof testo !== "string" || !testo.trim()) {
+    return { ok: false, perche: "il cervello non ha risposto niente" };
+  }
+  let grezzo = testo.trim();
+  const blocco = grezzo.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (blocco) grezzo = blocco[1].trim();
+  const apre = grezzo.indexOf("{"), chiude = grezzo.lastIndexOf("}");
+  if (apre === -1 || chiude <= apre) {
+    return { ok: false, perche: "nella risposta del cervello non c'e' un oggetto JSON" };
+  }
+  try {
+    return { ok: true, valore: JSON.parse(grezzo.slice(apre, chiude + 1)) };
+  } catch (e) {
+    return { ok: false, perche: "il JSON del cervello non si legge: " + (e && e.message) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4-quater. IL PERCORSO CHE GUARDA — studio, poi assegnazione, poi il cancello
+// ---------------------------------------------------------------------------
+//
+// Restituisce `null` se lo studio non si e' potuto fare: in quel caso chi
+// chiama prosegue con il giro a parole, che resta esattamente com'era.
+
+export async function comprendiGuardando(ctx) {
+  const immagini = [ctx.pianta, ...(ctx.scorci || [])].filter(Boolean);
+  const volumi = volumiPerCervello(ctx.posti);
+
+  // --- gradino 1 e 2: che posto e', e come funziona un posto cosi' ----------
+  let rispostaStudio;
+  try {
+    rispostaStudio = await ctx.cervello(promptStudio(immagini.length, volumi.length),
+      { immagine: ctx.pianta, immagini, passo: "studio" });
+  } catch (e) {
+    return null;   // il cervello non ha risposto: si torna alla strada vecchia
+  }
+  const studio = leggiStudio(rispostaStudio);
+  if (!studio.valido) return null;
+
+  if (typeof ctx.onGiro === "function") {
+    ctx.onGiro({ giro: 1, passo: "studio", cosaE: studio.tipo,
+                 fiducia: studio.fiducia, nominati: 0, senzaNome: volumi.length,
+                 capito: studio.capito, paroleChieste: [], dubbi: 0 });
+  }
+
+  const cosaE = studio.tipo +
+    (studio.rappresentazione && studio.rappresentazione !== "non so"
+      ? " (" + studio.rappresentazione +
+        (studio.cosaManca.length ? ", manca " + studio.cosaManca.join(" e ") : "") + ")"
+      : "");
+
+  // Se non ha capito che posto e', non si passa oltre: assegnare nomi partendo
+  // da una tipologia sbagliata li sbaglierebbe tutti, in modo credibile.
+  if (!studio.capito || studio.fiducia < FIDUCIA_PER_AGIRE) {
+    return {
+      ok: true, capito: false, agire: false,
+      cosaE, fiducia: studio.fiducia, studio,
+      posti: ctx.posti, giri: [], dubbi: [],
+      domandaUmana: studio.domandaUmana
+        || ("Non sono sicuro di che tipo di spazio sia questo. Me lo sai dire tu?"),
+      perche: "il cervello non ha stabilito con sicurezza che posto e'",
+      quotaSenzaNome: 1,
+    };
+  }
+
+  // --- gradino 3: i nomi sui volumi misurati -------------------------------
+  let rispostaAss;
+  try {
+    rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi),
+      { immagine: ctx.pianta, immagini, passo: "assegnazione" });
+  } catch (e) {
+    return null;
+  }
+  const ass = leggiAssegnazione(rispostaAss);
+  if (!ass.valido) return null;
+
+  // Si applicano i nomi ai volumi veri. Solo `nome`, `ruolo` e `fiducia`: la
+  // geometria non si tocca, e' l'unica cosa certa che c'e'.
+  const posti = ctx.posti;
+  let nominati = 0;
+  for (const a of ass.assegnazioni) {
+    const p = posti[a.id];
+    if (!p) continue;
+    p.nome = a.nome;
+    p.ruolo = a.ruolo;
+    p.fiducia = a.fiducia;
+    p.fonte = "assegnazione";
+    p.perche = a.perche;
+    nominati++;
+  }
+
+  const senzaNome = posti.length - nominati;
+  const quotaAnonima = posti.length ? senzaNome / posti.length : 1;
+
+  if (typeof ctx.onGiro === "function") {
+    ctx.onGiro({ giro: 2, passo: "assegnazione", cosaE: studio.tipo,
+                 fiducia: ass.fiducia, nominati, senzaNome,
+                 capito: ass.capito, paroleChieste: [], dubbi: ass.senzaNome.length });
+  }
+
+  const sicuro = ass.capito && ass.fiducia >= FIDUCIA_PER_AGIRE;
+  const coperto = quotaAnonima <= QUOTA_SENZA_NOME_MAX;
+
+  // Le domande sui volumi rimasti senza nome: vanno in chat, non nel silenzio.
+  const domande = ass.senzaNome.map((s) => s.domanda).filter(Boolean);
+  const domandaUmana = (sicuro && coperto)
+    ? (domande.length
+        ? "Ho assegnato " + nominati + " volumi su " + posti.length + ". Su questi ho un dubbio: "
+          + domande.slice(0, 3).join(" ")
+        : null)
+    : (domande.length
+        ? domande.slice(0, 3).join(" ")
+        : "Ho nominato solo " + nominati + " volumi su " + posti.length
+          + ". Mi sai dire cosa sono gli altri?");
+
+  return {
+    ok: true,
+    capito: sicuro && coperto,
+    agire: sicuro && coperto,
+    cosaE,
+    fiducia: ass.fiducia,
+    studio,
+    posti,
+    giri: [{ giro: 1, passo: "studio", nominati: 0, senzaNome: posti.length,
+             capito: studio.capito, fiducia: studio.fiducia, paroleChieste: [], dubbi: 0 },
+           { giro: 2, passo: "assegnazione", nominati, senzaNome,
+             capito: ass.capito, fiducia: ass.fiducia, paroleChieste: [],
+             dubbi: ass.senzaNome.length }],
+    dubbi: ass.senzaNome.map((s) => ({ cosa: "volume " + s.id, perche: s.domanda })),
+    domandaUmana,
+    perche: (sicuro && coperto) ? null
+      : (!sicuro ? "il cervello non e' sicuro dell'assegnazione"
+                 : senzaNome + " volumi su " + posti.length + " restano senza nome"),
+    quotaSenzaNome: +quotaAnonima.toFixed(2),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 5. L'ANELLO
 // ---------------------------------------------------------------------------
 //
@@ -237,6 +580,14 @@ export async function comprendi(ctx = {}) {
   if (!ctx.posti || !ctx.posti.length) {
     return finale(false, "non ci sono volumi misurati: prima si misura, poi si guarda", []);
   }
+  // ⚠️ CON GLI SCORCI SI PASSA DALLO STUDIO. Il giro a parole resta intatto
+  //    sotto, e serve ancora quando non ci sono scorci o quando il cervello non
+  //    risponde allo studio: nessuna strada che funzionava e' stata tolta.
+  if (ctx.scorci && ctx.scorci.length && typeof ctx.cervello === "function") {
+    const g = await comprendiGuardando(ctx);
+    if (g) return g;
+  }
+
   if (typeof ctx.rileva !== "function") {
     return finale(false, "l'occhio non e' disponibile", []);
   }
@@ -430,7 +781,9 @@ export function racconta(c) {
 }
 
 export default {
-  GIRI_MASSIMI, FIDUCIA_PER_AGIRE, QUOTA_SENZA_NOME_MAX,
+  GIRI_MASSIMI, FIDUCIA_PER_AGIRE, QUOTA_SENZA_NOME_MAX, RUOLI,
   riassuntoPerCervello, promptCervello, leggiVerdetto,
+  volumiPerCervello, promptStudio, leggiStudio,
+  promptAssegnazione, leggiAssegnazione, comprendiGuardando,
   comprendi, puoAgire, racconta,
 };
