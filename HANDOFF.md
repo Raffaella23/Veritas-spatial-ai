@@ -269,9 +269,18 @@ sistema su letture sbagliate.
 
 ⚠️ **Confermato da Raffaella il 25/08 guardando il pannello**, non più un
 sospetto. La pianta che occhio e cervello ricevono non è una vista dall'alto: è
-la stessa scena vista **da sotto, attraverso il pavimento** — per questo «non si
-capisce niente». Meccanismo: `readRenderTargetPixels` dà la **riga 0 in fondo**,
-e `piantaInTela` (in `veritas_riconosce.js`) la copia così com'è.
+la stessa scena vista **da sotto**.
+
+⚠️ E il modello è **solido, non wireframe**: da sotto si vede l'intradosso del
+pavimento, una superficie piena che copre tutto. Non si intravede niente di
+quello che sta sopra — non è una vista trasparente, è una scatola guardata dal
+fondo, col coperchio chiuso. Per questo «non si capisce niente»: non è che i
+nomi finiscono nel posto sbagliato, è che **non c'è proprio niente da
+riconoscere**. Chi legge questo fronte non lo tratti come un problema di
+orientamento: è la vista che manca del tutto.
+
+Meccanismo: `readRenderTargetPixels` dà la **riga 0 in fondo**, e `piantaInTela`
+(in `veritas_riconosce.js`) la copia così com'è.
 
 **Vale su ogni modello**: non dipende dal file, dipende da come si leggono i
 pixel. Ogni pianta prodotta finora era specchiata.
@@ -385,15 +394,15 @@ rilevatore e un VLM non danno riquadri confrontabili.
 
 ---
 
-## Errori documentali accertati — non ripercorrerli
+## Due cose che restano vere, e sono le uniche superstiti del vecchio elenco
 
-Erano scritti nei documenti ora cancellati, e hanno mandato fuori strada più
-di una sessione. Restano qui perché **sapere cos'era falso vale quanto sapere
-cos'è vero**.
+Il resto delle smentite documentali è stato tolto il 25/08: i documenti che le
+avevano generate non esistono più e nessuna sessione ricrea quei file. Queste
+due invece fanno ancora danno se non si sanno.
 
-| Cosa dicevano | Realtà verificata |
-|---|---|
-| l'analisi geometrica è «asincrona da fonte sconosciuta», le 5 zone vengono «dai nomi delle mesh» | Falso entrambi: è `analyzeMesh`, sincrono, che comprime le 7 zone misurate in 5 tappe fisse (`order2`). Il «ripiego sui nomi» descrive una cosa che non accade |
-| `Assets/core/zones.py`; `/core/engine.py` in radice; `vaio_module_v2.js` e `vaio_splat_module.js` come file | non esistono: il Core è in `Assets/core/`, e quei due js sono inlinati |
-| `Veritas-V17-FIX-SOLO-BUG.html` è la vetrina | falso: era la fotografia **vecchia** — niente Rapier, IFC, navmesh né occhio, e i **KPI finti ancora dentro**. Cancellato il 24/08. La vetrina è `index.html`, che è ciò che GitHub Pages serve da solo |
-| il blocco 3 vale `eedd9935ea908fd3` | era il bundle di V17. L'azzeramento dei KPI ha cambiato quello di `index.html`: chi usava il valore vecchio trovava «non torna» e cambiava file |
+- **Il blocco 3 vale `58d371701aa9a349`**, non `eedd9935ea908fd3`: quello era il
+  bundle di V17, e l'azzeramento dei KPI ha cambiato quello di `index.html`. Chi
+  usa il valore vecchio trova «non torna» e cambia file.
+- **Le 5 zone non vengono dai nomi delle mesh.** È `analyzeMesh`, sincrono, che
+  comprime le 7 zone misurate in 5 tappe fisse (`order2`). Il messaggio «ripiego
+  sui nomi» in console descrive una cosa che non accade.
