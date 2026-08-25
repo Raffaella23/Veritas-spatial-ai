@@ -1,0 +1,253 @@
+// ===========================================================================
+// VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
+// ===========================================================================
+//
+// A COSA SERVE
+//
+// `veritas_comprensione.js` esisteva dal 24/08 e non era mai stato acceso:
+// nessun file lo chiamava. C'erano il motore e il volante, non erano montati.
+// Questo file e' l'unico filo che li unisce, e non tocca niente d'altro.
+//
+// LA REGOLA CHE LO GOVERNA (Raffaella, 24/08/2026, in HANDOFF.md)
+//
+//   «Il riconoscimento non si chiede: avviene.»
+//
+// Quindi qui NON c'e' nessun pulsante. Appena il modello e' caricato l'anello
+// parte da solo; l'utente corregge dopo. Un modello capito a meta' non e' un
+// punto di partenza accettabile: la simulazione girerebbe su zone sbagliate e
+// il report — che si vende — sarebbe sbagliato.
+//
+// COSA C'ERA GIA', E CHE NON SI RIFA'
+//
+//   window.__veritasGuarda        l'occhio che guarda UNA volta. Resta.
+//   window.__veritasApplicaOcchi  il ponte che assegna i nomi alle tappe.
+//                                 Conosce il vocabolario dei `type`, la
+//                                 guardia «il nome del modello vince» e la
+//                                 rete di unicita'. Si passa da li'.
+//   window.__veritasCoseTrovate   i volumi MISURATI. Senza questi non si
+//                                 nomina niente: la geometria viene prima.
+//   window.__veritasVista         il disegnatore di piante dall'alto.
+//
+// COSA AGGIUNGE, e solo questo: il GIUDIZIO. L'occhio da solo non sa dire «non
+// ho capito» — nomina quello che riesce e tace sul resto. L'anello lo chiede al
+// cervello, che risponde in JSON verificabile e puo' far guardare ancora con
+// parole nuove (max 3 giri). Se resta nel dubbio si ferma e scrive una domanda.
+//
+// ⚠️ NON SI INVENTA UN VERDETTO. Se il cervello non risponde — spento, non
+//    raggiungibile, risposta illeggibile — l'esito e' `capito: false` con il
+//    motivo scritto. Un «ho capito» di comodo sarebbe la stessa merce dei KPI
+//    finti, e costerebbe uguale.
+//
+// ⚠️ NON BLOCCA NIENTE. `puoAgire()` scrive il suo verdetto in
+//    `window.__veritasPuoSimulare` e lo annuncia, ma non impedisce la
+//    simulazione: chiudere un cancello che prima era aperto e' un cambiamento
+//    di comportamento, e va deciso da Raffaella, non da questo file.
+//
+// DOVE SI GUARDA IL RISULTATO
+//   il pannello in basso a destra, che mostra la pianta VERA data in pasto
+//   all'occhio. ⚠️ Se i nomi cadono tutti sul lato opposto dell'edificio, la
+//   pianta e' specchiata: e' un difetto che produce nomi plausibili e nessun
+//   errore, e nessun report puo' mostrarlo.
+//
+// MANOPOLE (facoltative, si mettono prima che il modello sia caricato)
+//   window.__veritasCervelloUrl   indirizzo di /api/comprendi. Se non c'e', si
+//                                 usa __veritasApiBase. In locale, con
+//                                 veritas_brain_server.py acceso:
+//                                 "http://localhost:8000/api/comprendi"
+//   window.__veritasMontaggioAuto = false   per NON farlo partire da solo
+//   window.__veritasMontaggioRitardo        millisecondi d'attesa (default 6500)
+//
+//   node --check veritas_montaggio.js
+// ===========================================================================
+
+import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js";
+import { anteprima } from "./veritas_anteprima.js";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js";
+
+// L'occhio parte a 3 s dal caricamento (lo fa `__veritasGuarda`). L'anello
+// arriva dopo: gli servono le cose misurate, la scala sistemata e la navmesh.
+const RITARDO = 6500;
+
+function log(m)  { try { console.log("[VERITAS montaggio] " + m); } catch (e) {} }
+function dillo(m) {
+  try { if (typeof window.__veritasAnnounce === "function") window.__veritasAnnounce(m); }
+  catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// 1. Il cervello: una domanda, una risposta grezza
+// ---------------------------------------------------------------------------
+//
+// Restituisce il TESTO cosi' com'e'. Chi lo giudica e' `leggiVerdetto()` dentro
+// `veritas_comprensione.js`, ed e' giusto che stia da una parte sola.
+
+function indirizzoCervello() {
+  if (window.__veritasCervelloUrl) return window.__veritasCervelloUrl;
+  const base = window.__veritasApiBase;
+  return base ? String(base).replace(/\/+$/, "") + "/api/comprendi" : null;
+}
+
+async function cervello(domanda, extra = {}) {
+  const url = indirizzoCervello();
+  if (!url) throw new Error("non so a che indirizzo sta il cervello");
+
+  // L'immagine e' facoltativa: senza, il cervello giudica sui soli nomi che
+  // l'occhio gli ha raccontato. Con, vede anche cio' che l'occhio ha mancato.
+  let immagine = null;
+  try {
+    const tela = telaDa(extra.immagine);
+    if (tela) immagine = tela.toDataURL("image/png").split(",")[1];
+  } catch (e) { /* si prosegue senza figura: e' meglio di non chiedere */ }
+
+  const risposta = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ domanda, image_data: immagine, giro: extra.giro || 1 }),
+  });
+  if (!risposta.ok) {
+    let dettaglio = "";
+    try { dettaglio = (await risposta.json()).detail || ""; } catch (e) {}
+    throw new Error("il cervello ha risposto " + risposta.status + (dettaglio ? " — " + dettaglio : ""));
+  }
+  const dati = await risposta.json();
+  return dati && dati.verdetto ? dati.verdetto : "";
+}
+
+// ---------------------------------------------------------------------------
+// 2. Il raccordo delle due piante
+// ---------------------------------------------------------------------------
+//
+// ⚠️ Il pannello vuole la pianta GREZZA (ha i pixel dentro, e se la disegna da
+//    solo); il rilevatore vuole un'IMMAGINE. Sono due cose diverse e nessuna
+//    delle due va cambiata: la conversione sta qui, in mezzo.
+
+function telaDa(x) {
+  if (!x) return null;
+  if (x.pixel) return piantaInTela(x, document);   // pianta grezza -> tela
+  return x;                                        // gia' un'immagine
+}
+
+// ---------------------------------------------------------------------------
+// 3. L'anello
+// ---------------------------------------------------------------------------
+
+let inCorso = false;
+
+window.__veritasComprendi = async function (opz = {}) {
+  if (inCorso) return { ok: false, perche: "sto gia' cercando di capire" };
+  inCorso = true;
+  try {
+    const THREE  = window.THREE;
+    const vista  = window.__veritasVista;
+    const rend   = window.__veritasRenderer;
+    const radice = window.__veritasModelRoot;
+    const trovate = window.__veritasCoseTrovate;
+
+    if (!THREE || !vista || !rend || !radice)
+      return { ok: false, perche: "manca la scena o il disegnatore di piante" };
+    if (!trovate || !trovate.posti || !trovate.posti.length)
+      return { ok: false, perche: "non e' stato ancora misurato nessun volume" };
+
+    const pianta = vista.piantaDelPavimento(THREE, rend, radice, opz.pianta || {});
+    if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
+
+    const rilevatore = opz.rileva || await occhioLocale(opz);
+    if (!rilevatore)
+      return { ok: false, perche: stato().perche || "l'occhio non si e' acceso" };
+
+    const pannello = anteprima(document);
+
+    const ctx = pannello.collega({
+      posti: trovate.posti,
+      pianta,                    // grezza: la vuole cosi' il pannello
+      inquadratura: pianta,      // stessa cosa: porta dentro la proiezione
+      dominio: opz.dominio || window.__veritasProjectType || null,
+      rileva: (immagine, parole) => rilevatore(telaDa(immagine), parole),
+      cervello: opz.cervello || cervello,
+    });
+
+    const c = await comprendi(ctx);
+    pannello.esito(c);
+    window.__veritasComprensione = c;
+    window.__veritasPuoSimulare = puoAgire(c);
+
+    if (c.posti) applicaNomi(c.posti);
+
+    log(racconta(c));
+    dillo(racconta(c));
+    if (c.domandaUmana) dillo(c.domandaUmana);
+    return c;
+  } catch (e) {
+    const perche = (e && e.message) || String(e);
+    log("non ho potuto capire: " + perche);
+    window.__veritasComprensione = { ok: false, capito: false, perche };
+    window.__veritasPuoSimulare = false;
+    return window.__veritasComprensione;
+  } finally {
+    inCorso = false;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// 4. I nomi arrivano alle tappe — dal ponte che esiste gia'
+// ---------------------------------------------------------------------------
+//
+// ⚠️ Stesso identico percorso di `__veritasGuarda`. Scrivere qui un secondo
+//    meccanismo di assegnazione vorrebbe dire due meccanismi che divergono alla
+//    prima modifica: e' l'errore che questo progetto ha gia' pagato due volte.
+
+function applicaNomi(posti) {
+  if (typeof window.__veritasApplicaOcchi !== "function") return 0;
+  const nodi = window.__veritasGetNodes ? window.__veritasGetNodes() : [];
+  const assegnate = [];
+  nodi.forEach(function (n, i) {
+    if (!n.posto) return;
+    const p = posti.find((q) =>
+      Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
+      Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
+    if (!p || !p.nome || !p.funzione) return;
+    const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
+      ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
+    if (!t) return;
+    assegnate.push({
+      indice: i, funzione: p.funzione, tipo: t.tipo, fuori: t.fuori,
+      sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),
+      nome: p.nome,
+    });
+  });
+  if (!assegnate.length) return 0;
+  const n = window.__veritasApplicaOcchi({ assegnate }, nodi);
+  log(n + " tappe rinominate dopo la comprensione");
+  return n;
+}
+
+// ---------------------------------------------------------------------------
+// 5. La partenza: da sola, come dice la regola
+// ---------------------------------------------------------------------------
+//
+// Ci si accoda a chi c'era prima senza sostituirlo: se un giorno questo file
+// sparisce, tutto il resto continua a funzionare identico.
+
+const precedente = window.__veritasOnModelLoaded;
+window.__veritasOnModelLoaded = function () {
+  let out;
+  try { out = precedente ? precedente.apply(this, arguments) : undefined; }
+  catch (e) { console.error("[VERITAS montaggio] errore nel passo precedente:", e); }
+
+  if (window.__veritasMontaggioAuto === false) {
+    log("partenza automatica disattivata — window.__veritasComprendi()");
+    return out;
+  }
+  const attesa = window.__veritasMontaggioRitardo || RITARDO;
+  setTimeout(function () {
+    window.__veritasComprendi().catch(function (e) {
+      console.warn("[VERITAS montaggio] non ha capito:", (e && e.message) || e);
+    });
+  }, attesa);
+  return out;
+};
+
+log("pronto — parte da solo sul modello caricato (cervello: " +
+    (indirizzoCervello() || "non configurato") + ")");
+
+export default { comprendi: window.__veritasComprendi };
