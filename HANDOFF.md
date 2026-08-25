@@ -262,26 +262,36 @@ vede davvero l'occhio.
 
 ## Fronti aperti, in ordine
 
-1. **L'occhio non si apre.** ⚠️ Misurato il 25/08 su modello vero, ed è il
-   blocco che ferma tutto: OWLv2 via transformers.js risponde `Can't create a
-   session … '/class_head/Cast' is not set`. Non è la rete: il file compresso
-   non si apre su quella scheda video. `veritas_montaggio.js` ora prova cinque
-   formati (webgpu q4f16/fp16/q8, wasm q8/fp32) dicendo quale fallisce, e se
-   nessuno si apre **passa all'occhio di riserva**: lo stesso VLM che poi
-   giudica. Un modello invece di due. ⚠️ Non è la stessa cosa e non si finge
-   che lo sia — un rilevatore dà riquadri stretti, un VLM descrive:
-   `window.__veritasOcchioSorgente` dice sempre chi ha guardato
-   (`owlv2:<come>` o `vlm:<modello>`), e senza quella riga un numero nel report
-   non è tracciabile. **Mai provato su una pianta vera.**
-2. **Il modello che vede c'è** (25/08): `Qwen2.5-VL-7B-Instruct` su
-   `localhost:1234`, visione verificata a mano su un'immagine. Il nome si chiede
-   a `/models` — `cfg.model` vale `local-model`, che è un segnaposto — e non si
-   dà per cieco un modello per via del nome: si prova, e se non vede lo dice
-   lui. Resta da leggere una pianta vera.
-   ⚠️ Si verifica **guardando il pannello**: se
-   i nomi cadono tutti sul lato opposto dell'edificio la pianta è specchiata
+1. **L'occhio guarda da una parte sola, e quella parte non dice niente.**
+   ⚠️ 25/08, primo giro completo su un modello vero: l'anello ha girato da un
+   capo all'altro. Occhio di riserva (`vlm:qwen2.5-vl-7b-instruct`), **0 scatole
+   viste**, cervello `capito=no, fiducia 30%`, secondo giro con parole nuove,
+   poi si è fermato e ha scritto una domanda a Raffaella. **Il cancello ha
+   funzionato: non ha finto di capire.** Quello che manca è l'immagine. Una
+   pianta dall'alto è quasi tutta pavimento grigio: un banco, una fila di
+   sedute e un muretto sono tre rettangoli identici, perché la differenza sta
+   nell'altezza e dall'alto l'altezza non esiste. È l'ala d'aereo scambiata per
+   mezzanino, di nuovo — nessuna vista dall'alto li separa.
+   **Direzione decisa da Raffaella il 25/08: l'occhio deve poter girare il
+   modello fra le mani** — più inquadrature dello stesso posto, scorci oltre
+   alla pianta, finché non ha capito. È come legge un progetto un architetto:
+   mai da una planimetria sola. Modifica a `veritas_vista.js`, non al montaggio.
+   ⚠️ Da verificare **guardando il pannello**: se i nomi cadono tutti sul lato
+   opposto dell'edificio la pianta è specchiata
    (`readRenderTargetPixels` dà la riga 0 in fondo, una tela la vuole in cima) —
    difetto che produce nomi plausibili e nessun errore, invisibile a ogni report.
+
+2. **OWLv2 è morto su questa macchina, non perderci altro tempo.** Tutti e
+   cinque i formati (webgpu q4f16/fp16/q8, wasm q8/fp32) danno lo stesso errore:
+   `Can't create a session … Provider type for Cast node with name
+   '/class_head/Cast' is not set`. Non è la compressione, è il grafo del
+   modello. La strada è quella già in `veritas_montaggio.js`: **un VLM guarda E
+   giudica**. Il modello che vede c'è — `qwen2.5-vl-7b-instruct` su
+   `localhost:1234`, `/models` per il nome vero (`cfg.model` è un segnaposto).
+   ⚠️ Le parole si chiedono in **mazzetti da 12**: 158 in un colpo le risponde a
+   caso. E `__veritasOcchioSorgente` dichiara sempre chi ha guardato — un
+   rilevatore e un VLM non danno riquadri confrontabili.
+
 3. **La fisica va in crash a ogni fotogramma.** ⚠️ Misurato il 25/08 su
    `airport_foot_traffic.glb` (186.074 triangoli): `trap nel motore fisico —
    fase: ricerca punto libero (nascitaLibera/dentroUnSolido) — fotogramma 1,
