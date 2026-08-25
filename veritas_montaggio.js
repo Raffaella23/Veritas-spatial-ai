@@ -294,6 +294,102 @@ const TENTATIVI = [
   { device: "wasm",   dtype: "fp32" },   // nessuna compressione: l'ultima spiaggia
 ];
 
+// ---------------------------------------------------------------------------
+// 2-ter. L'OCCHIO DI RISERVA: lo stesso modello che giudica, guarda
+// ---------------------------------------------------------------------------
+//
+// Un VLM sa fare le due cose: dire dove sta una cosa e dire cos'e'. Se OWLv2
+// non si apre, invece di fermarsi si chiede la stessa cosa al modello che il
+// cervello sta gia' usando. Un modello invece di due, una dipendenza in meno.
+//
+// ⚠️ NON E' LA STESSA COSA, e non si finge che lo sia. OWLv2 e' un rilevatore:
+//    dà riquadri stretti e un punteggio confrontabile. Un VLM descrive, e i
+//    suoi riquadri sono piu' larghi e meno ripetibili. Chi legge il report deve
+//    saperlo: `window.__veritasOcchioSorgente` dice sempre chi ha guardato.
+//
+// Il contratto da rispettare e' quello di `riconosci()`:
+//    [{ label, score, box: {xmin, ymin, xmax, ymax} }]
+// `label` deve essere ESATTAMENTE una delle parole chieste, altrimenti
+// `riconosci()` la scarta come inventata — ed e' giusto cosi'.
+
+function ritaglia(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function occhioDalVLM() {
+  return async function rilevaConVLM(immagine, parole) {
+    const L = window.__veritasLLM;
+    if (!L || !L.cfg || !L.cfg.url) throw new Error("nessun modello locale acceso");
+    const modello = await nomeModello();
+    if (!modelloVede(modello))
+      throw new Error("il modello acceso (" + modello + ") non vede");
+
+    const tela = telaDa(immagine);
+    if (!tela) throw new Error("non ho un'immagine da guardare");
+    const W = tela.width, H = tela.height;
+
+    // Si chiedono coordinate in PIXEL dichiarando la misura dell'immagine:
+    // e' l'unico modo per non dover indovinare, dopo, se il modello ha
+    // risposto in millesimi, in percentuale o in pixel.
+    const domanda =
+      "Questa e' la pianta di uno spazio reale vista dall'alto, larga " + W +
+      " pixel e alta " + H + " pixel.\n\n" +
+      "Cerca SOLO queste cose: " + parole.join(", ") + ".\n\n" +
+      "Rispondi con un array JSON e nient'altro. Ogni elemento:\n" +
+      '{"label": "<una delle parole sopra, copiata esatta>", ' +
+      '"score": <quanto sei sicuro, da 0 a 1>, ' +
+      '"box": {"xmin": <px>, "ymin": <px>, "xmax": <px>, "ymax": <px>}}\n\n' +
+      "Regole: usa solo le parole dell'elenco, copiate lettera per lettera. " +
+      "Se una cosa non c'e', non inventarla: e' molto meglio un array corto e " +
+      "vero che uno lungo e inventato. Se non vedi niente, rispondi [].";
+
+    const r = await fetch(String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: modello, temperature: 0, max_tokens: 1500,
+        messages: [{ role: "user", content: [
+          { type: "text", text: domanda },
+          { type: "image_url", image_url: { url: tela.toDataURL("image/png") } },
+        ]}],
+      }),
+    });
+    if (!r.ok) throw new Error("il modello che vede ha risposto " + r.status);
+    const d = await r.json();
+    const testo = (d && d.choices && d.choices[0] && d.choices[0].message &&
+                   d.choices[0].message.content) || "";
+
+    // I modelli incartano volentieri il JSON nella prosa: si prende l'array.
+    let lista;
+    try {
+      const a = testo.indexOf("["), b = testo.lastIndexOf("]");
+      if (a < 0 || b <= a) throw new Error("nessun elenco nella risposta");
+      lista = JSON.parse(testo.slice(a, b + 1));
+    } catch (e) {
+      throw new Error("non ho saputo leggere la risposta: " + ((e && e.message) || e));
+    }
+    if (!Array.isArray(lista)) throw new Error("la risposta non e' un elenco");
+
+    const ammesse = new Set(parole);
+    const fuori = [];
+    const buone = [];
+    for (const g of lista) {
+      if (!g || !g.box) continue;
+      if (!ammesse.has(g.label)) { fuori.push(g.label); continue; }
+      const b = g.box;
+      const n = (v, tot) => ritaglia(Number(v) / tot, 0, 1);
+      const box = {
+        xmin: n(b.xmin, W), xmax: n(b.xmax, W),
+        ymin: n(b.ymin, H), ymax: n(b.ymax, H),
+      };
+      if (!(box.xmax > box.xmin) || !(box.ymax > box.ymin)) continue;
+      buone.push({ label: g.label, score: ritaglia(Number(g.score) || 0.5, 0, 1), box });
+    }
+    if (fuori.length)
+      log(fuori.length + " etichette inventate, scartate: " + fuori.slice(0, 5).join(", "));
+    log("il modello che vede ha trovato " + buone.length + " cose su " + parole.length + " chieste");
+    return buone;
+  };
+}
+
 async function accendiOcchio(O, opz = {}) {
   if (O.stato().fase === "pronto") return O.accendi(opz);
 
@@ -306,6 +402,7 @@ async function accendiOcchio(O, opz = {}) {
     try {
       const r = await O.accendi({ ...opz, tentativi: [tentativo] });
       if (r) {
+        window.__veritasOcchioSorgente = "owlv2:" + come;
         log("occhio pronto con " + come);
         return r;
       }
@@ -314,8 +411,22 @@ async function accendiOcchio(O, opz = {}) {
       log("con " + come + " non si apre: " + ((e && e.message) || e));
     }
   }
-  log("nessun formato si apre. Se fallisce anche wasm/fp32 il problema non e' la " +
-      "compressione: prova window.__veritasOcchioTentativi per cambiare la lista");
+  log("nessun formato di OWLv2 si apre — passo all'occhio di riserva");
+
+  // Riserva: guarda lo stesso modello che poi giudichera'.
+  try {
+    const modello = await nomeModello();
+    if (modelloVede(modello)) {
+      window.__veritasOcchioSorgente = "vlm:" + modello;
+      log("occhio di riserva: guarda " + modello + " (riquadri piu' larghi di " +
+          "OWLv2, e non confrontabili con le sue misure)");
+      return occhioDalVLM();
+    }
+    log("nessun occhio: OWLv2 non si apre e il modello acceso (" + modello +
+        ") non vede. Carica un modello che vede in LM Studio, es. Qwen3-VL.");
+  } catch (e) {
+    log("nemmeno l'occhio di riserva: " + ((e && e.message) || e));
+  }
   return null;
 }
 
