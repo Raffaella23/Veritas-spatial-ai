@@ -64,6 +64,32 @@ import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js";
 import { anteprima } from "./veritas_anteprima.js";
 import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js";
 
+// ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.
+//
+//    `index.html` porta dentro una copia di questo modulo, e quella copia ha il
+//    suo occhio, il suo stato e — soprattutto — il suo scaricamento di OWLv2,
+//    che pesa centinaia di MB. Importando il file si ottiene una SECONDA copia,
+//    con variabili tutte sue: chiamare il suo `occhioLocale()` vuol dire far
+//    scaricare il modello una seconda volta, e intanto `__veritasRiconosce.stato()`
+//    continua a rispondere "spento" perche' guarda l'altra copia.
+//
+//    Successo il 25/08, primo giro vero: il ciclo restava appeso e lo stato
+//    diceva spento senza motivo. Non era rotto, era un altro occhio.
+//
+//    Quindi si preferisce sempre quello gia' montato nella pagina. Le versioni
+//    importate restano come rete: se un domani questo file girasse fuori da
+//    `index.html` (nel banco di prova, in un'altra pagina), funziona lo stesso.
+
+function occhioDellaPagina() {
+  const R = typeof window !== "undefined" ? window.__veritasRiconosce : null;
+  return {
+    accendi: (R && R.occhioLocale) || occhioLocale,
+    stato: (R && R.stato) || stato,
+    inTela: (R && R.piantaInTela) || piantaInTela,
+    condiviso: !!(R && R.occhioLocale),
+  };
+}
+
 // L'occhio parte a 3 s dal caricamento (lo fa `__veritasGuarda`). L'anello
 // arriva dopo: gli servono le cose misurate, la scala sistemata e la navmesh.
 const RITARDO = 6500;
@@ -236,8 +262,8 @@ async function cervello(domanda, extra = {}) {
 
 function telaDa(x) {
   if (!x) return null;
-  if (x.pixel) return piantaInTela(x, document);   // pianta grezza -> tela
-  return x;                                        // gia' un'immagine
+  if (x.pixel) return occhioDellaPagina().inTela(x, document);  // grezza -> tela
+  return x;                                                     // gia' un'immagine
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +290,14 @@ window.__veritasComprendi = async function (opz = {}) {
     const pianta = vista.piantaDelPavimento(THREE, rend, radice, opz.pianta || {});
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
 
-    const rilevatore = opz.rileva || await occhioLocale(opz);
+    const O = occhioDellaPagina();
+    if (!opz.rileva)
+      log("accendo l'occhio" + (O.condiviso ? " gia' montato nella pagina" : " (copia del modulo)") +
+          " — la prima volta scarica il modello di visione, puo' volerci qualche minuto");
+    const rilevatore = opz.rileva || await O.accendi(opz);
     if (!rilevatore)
-      return { ok: false, perche: stato().perche || "l'occhio non si e' acceso" };
+      return { ok: false, perche: O.stato().perche || "l'occhio non si e' acceso" };
+    log("occhio pronto (" + (O.stato().device || "?") + ")");
 
     const pannello = anteprima(document);
 
