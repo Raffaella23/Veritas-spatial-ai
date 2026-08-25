@@ -10544,7 +10544,131 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
 }
 
 
-window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento };
+function densitaMesh(numeroMesh, ingombro) {
+  const largoM = ingombro.max[0] - ingombro.min[0];
+  const profM = ingombro.max[2] - ingombro.min[2];
+  const area = Math.max(1, largoM * profM);
+  return numeroMesh / area;
+}
+
+function numeroScorci(densita) {
+  const MIN = 4, MAX = 9;
+  const D_BASSA = 0.02, D_ALTA = 0.30;
+  const d = densita || 0;
+  const t = Math.max(0, Math.min(1, (d - D_BASSA) / (D_ALTA - D_BASSA)));
+  return Math.round(MIN + t * (MAX - MIN));
+}
+
+function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return [];
+  radice.updateMatrixWorld(true);
+  const scatola = new THREE.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) return [];
+
+  let numeroMesh = 0;
+  radice.traverse((o) => { if (o.isMesh) numeroMesh++; });
+  const ingombro = { min: [scatola.min.x, scatola.min.y, scatola.min.z],
+                      max: [scatola.max.x, scatola.max.y, scatola.max.z] };
+  const densita = densitaMesh(numeroMesh, ingombro);
+  const n = opzioni.numeroScorci || numeroScorci(densita);
+
+  const centro = scatola.getCenter(new THREE.Vector3());
+  const diagonale = scatola.getSize(new THREE.Vector3()).length();
+  const distanza = opzioni.distanza || diagonale * 0.8;
+  const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
+  const elevRad = elevazioneGradi * Math.PI / 180;
+  const larghezza = opzioni.larghezza || 768;
+  const altezza = opzioni.altezza || 768;
+
+  const scena = new THREE.Scene();
+  scena.background = null;
+  const rimetti = spegniLuci(THREE, radice);
+  const genitore = radice.parent;
+  const indice = genitore ? genitore.children.indexOf(radice) : -1;
+
+  const risultati = [];
+  try {
+    scena.add(radice);
+    const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace || undefined,
+    });
+    const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
+    const bersaglioPrec = renderer.getRenderTarget();
+
+    for (let i = 0; i < n; i++) {
+      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      cam.position.set(
+        centro.x + distanza * Math.cos(elevRad) * Math.cos(azimuth),
+        centro.y + distanza * Math.sin(elevRad),
+        centro.z + distanza * Math.cos(elevRad) * Math.sin(azimuth),
+      );
+      cam.up.set(0, 1, 0);
+      cam.lookAt(centro);
+      cam.updateProjectionMatrix();
+      cam.updateMatrixWorld(true);
+
+      const pixel = new Uint8Array(larghezza * altezza * 4);
+      renderer.setRenderTarget(bersaglio);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+      renderer.render(scena, cam);
+      renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
+      risultati.push({ pixel, larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
+    }
+    renderer.setRenderTarget(bersaglioPrec);
+    try { bersaglio.dispose(); } catch (e) {}
+  } finally {
+    if (genitore) {
+      if (indice >= 0) genitore.children.splice(indice, 0, radice);
+      else genitore.add(radice);
+      radice.parent = genitore;
+    } else {
+      scena.remove(radice);
+    }
+    rimetti();
+  }
+  return risultati;
+}
+
+// Comando di prova, da console: __veritasProvaScorci()
+// Disegna gli scorci in una striscia in fondo allo schermo, cosi' si GUARDA
+// cosa vedrebbe l'occhio. Si chiude cliccandola.
+window.__veritasProvaScorci = function (opz = {}) {
+  const THREE = window.THREE, rend = window.__veritasRenderer, radice = window.__veritasModelRoot;
+  if (!THREE || !rend || !radice) { console.warn('[VERITAS scorci] manca il modello caricato'); return null; }
+  const scorci = scorciTreQuarti(THREE, rend, radice, opz);
+  if (!scorci.length) { console.warn('[VERITAS scorci] nessuno scorcio'); return null; }
+  const vecchia = document.getElementById('veritas-scorci');
+  if (vecchia) vecchia.remove();
+  const box = document.createElement('div');
+  box.id = 'veritas-scorci';
+  box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;display:flex;gap:4px;overflow-x:auto;background:#111;padding:4px;cursor:pointer';
+  box.title = 'clicca per chiudere';
+  box.onclick = () => box.remove();
+  for (const s of scorci) {
+    const c = document.createElement('canvas');
+    c.width = s.larghezza; c.height = s.altezza;
+    c.style.cssText = 'height:180px;width:auto;background:#222';
+    const ctx = c.getContext('2d');
+    const img = ctx.createImageData(s.larghezza, s.altezza);
+    // readRenderTargetPixels da' la riga 0 in fondo, la tela la vuole in cima.
+    for (let y = 0; y < s.altezza; y++) {
+      const src = (s.altezza - 1 - y) * s.larghezza * 4;
+      img.data.set(s.pixel.subarray(src, src + s.larghezza * 4), y * s.larghezza * 4);
+    }
+    ctx.putImageData(img, 0, 0);
+    box.appendChild(c);
+  }
+  document.body.appendChild(box);
+  const d = scorci[0];
+  console.log('[VERITAS scorci] ' + scorci.length + ' scorci — ' + d.numeroMesh +
+              ' mesh, densita ' + d.densita.toFixed(3) + ' mesh/m2');
+  return scorci;
+};
+
+window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
 
 // LA VISTA HA LA PRECEDENZA.
 //
