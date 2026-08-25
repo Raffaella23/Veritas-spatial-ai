@@ -267,6 +267,59 @@ function telaDa(x) {
 }
 
 // ---------------------------------------------------------------------------
+// 2-bis. Accendere l'occhio: piu' di due strade
+// ---------------------------------------------------------------------------
+//
+// ⚠️ MISURATO IL 25/08, primo giro su un modello vero. L'occhio restava spento
+//    con: «Can't create a session ... type of node with name '/class_head/Cast'
+//    is not set». Non e' la rete e non e' la lentezza: il file compresso del
+//    modello non si APRE su quella combinazione di scheda video e formato.
+//
+//    Le due prove previste (webgpu/q4f16, wasm/q8) fallivano tutte e due e il
+//    motivo restava una riga sola, l'ultima. Da fuori sembrava "spento" senza
+//    causa — la peggiore diagnosi possibile, perche' non dice dove guardare.
+//
+//    Ora si prova una scala di formati, dal piu' veloce al piu' compatibile, e
+//    OGNI fallimento viene detto con il suo motivo. L'ultimo della lista, fp32
+//    su wasm, e' il piu' lento ma e' il formato originale: se non si apre
+//    nemmeno quello, il problema non e' la compressione.
+//
+// Sovrascrivibile con window.__veritasOcchioTentativi.
+
+const TENTATIVI = [
+  { device: "webgpu", dtype: "q4f16" },  // il piu' leggero, il piu' schizzinoso
+  { device: "webgpu", dtype: "fp16" },
+  { device: "webgpu", dtype: "q8" },
+  { device: "wasm",   dtype: "q8" },     // niente scheda video: piu' lento, piu' docile
+  { device: "wasm",   dtype: "fp32" },   // nessuna compressione: l'ultima spiaggia
+];
+
+async function accendiOcchio(O, opz = {}) {
+  if (O.stato().fase === "pronto") return O.accendi(opz);
+
+  const lista = window.__veritasOcchioTentativi || TENTATIVI;
+  log("accendo l'occhio" + (O.condiviso ? " gia' montato nella pagina" : " (copia del modulo)") +
+      " — la prima volta scarica il modello di visione, puo' volerci qualche minuto");
+
+  for (const tentativo of lista) {
+    const come = tentativo.device + "/" + tentativo.dtype;
+    try {
+      const r = await O.accendi({ ...opz, tentativi: [tentativo] });
+      if (r) {
+        log("occhio pronto con " + come);
+        return r;
+      }
+      log("con " + come + " non si apre: " + (O.stato().perche || "motivo non detto"));
+    } catch (e) {
+      log("con " + come + " non si apre: " + ((e && e.message) || e));
+    }
+  }
+  log("nessun formato si apre. Se fallisce anche wasm/fp32 il problema non e' la " +
+      "compressione: prova window.__veritasOcchioTentativi per cambiare la lista");
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // 3. L'anello
 // ---------------------------------------------------------------------------
 
@@ -291,13 +344,9 @@ window.__veritasComprendi = async function (opz = {}) {
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
 
     const O = occhioDellaPagina();
-    if (!opz.rileva)
-      log("accendo l'occhio" + (O.condiviso ? " gia' montato nella pagina" : " (copia del modulo)") +
-          " — la prima volta scarica il modello di visione, puo' volerci qualche minuto");
-    const rilevatore = opz.rileva || await O.accendi(opz);
+    const rilevatore = opz.rileva || await accendiOcchio(O, opz);
     if (!rilevatore)
       return { ok: false, perche: O.stato().perche || "l'occhio non si e' acceso" };
-    log("occhio pronto (" + (O.stato().device || "?") + ")");
 
     const pannello = anteprima(document);
 
