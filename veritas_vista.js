@@ -89,6 +89,44 @@ export function areaPixel(inq) {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Quanti scorci servono — cresce con la complessità del modello, non fisso
+// ---------------------------------------------------------------------------
+
+/**
+ * Densita' di mesh sulla pianta: quante mesh distinte per m2 di ingombro.
+ *
+ * Perche' questa e non altro: e' esattamente il caso che ha bloccato il primo
+ * giro (banco, sedute, muretto - tre oggetti diversi sulla stessa impronta a
+ * terra) e non richiede nulla che il resto del file non calcoli gia'
+ * (bounding box). Un container vuoto ha densita' bassa; un terminal pieno di
+ * arredi ravvicinati ce l'ha alta.
+ */
+export function densitaMesh(numeroMesh, ingombro) {
+  const largoM = ingombro.max[0] - ingombro.min[0];
+  const profM = ingombro.max[2] - ingombro.min[2];
+  const area = Math.max(1, largoM * profM);
+  return numeroMesh / area;
+}
+
+/**
+ * Da densita' a numero di scorci a tre quarti.
+ *
+ * Logica pura, testabile in node. I due capi non sono arbitrari: sotto 4 non
+ * si gira davvero il modello fra le mani (resta sempre un lato cieco); sopra
+ * 9 il costo verso il cervello cresce senza che l'occhio impari qualcosa di
+ * nuovo, perche' dopo il quarto-quinto lato le facce iniziano a ripetersi.
+ * Le due soglie di densita' sono una prima taratura, non una misura: vanno
+ * riviste guardando il pannello su modelli reali di complessita' diversa.
+ */
+export function numeroScorci(densita) {
+  const MIN = 4, MAX = 9;
+  const D_BASSA = 0.02, D_ALTA = 0.30;
+  const d = densita || 0;
+  const t = Math.max(0, Math.min(1, (d - D_BASSA) / (D_ALTA - D_BASSA)));
+  return Math.round(MIN + t * (MAX - MIN));
+}
+
 // La resa vera e propria — richiede three e un renderer
 // ---------------------------------------------------------------------------
 
@@ -233,4 +271,95 @@ export function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   return { pixel, ...inq, quotaPavimento: quotaPav };
 }
 
-export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento };
+/**
+ * Guarda il modello INTERO da piu' punti di vista in prospettiva, a tre
+ * quarti - come lo si girerebbe fra le mani. A differenza di
+ * piantaDelPavimento (una pianta dall'alto, ortografica, dove l'altezza non
+ * esiste) qui la telecamera vede l'altezza: l'unica cosa che separa un banco
+ * da un muretto.
+ *
+ * Sempre e solo sul modello intero, mai zummato su un singolo oggetto: su
+ * un'architettura complessa (aeroporto, museo) centrare la telecamera volume
+ * per volume moltiplica il costo con il numero di arredi. Il numero di
+ * scorci invece si adatta - poche fotografie per un modello semplice, di
+ * piu' per uno complesso - vedi numeroScorci().
+ *
+ * @returns {Array<{pixel:Uint8Array, larghezza, altezza, azimuth, elevazioneGradi}>}
+ */
+export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return [];
+  radice.updateMatrixWorld(true);
+  const scatola = new THREE.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) return [];
+
+  let numeroMesh = 0;
+  radice.traverse((o) => { if (o.isMesh) numeroMesh++; });
+  const ingombro = { min: [scatola.min.x, scatola.min.y, scatola.min.z],
+                      max: [scatola.max.x, scatola.max.y, scatola.max.z] };
+  const n = opzioni.numeroScorci || numeroScorci(densitaMesh(numeroMesh, ingombro));
+
+  const centro = scatola.getCenter(new THREE.Vector3());
+  const diagonale = scatola.getSize(new THREE.Vector3()).length();
+  const distanza = opzioni.distanza || diagonale * 0.8;
+  const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
+  const elevRad = elevazioneGradi * Math.PI / 180;
+
+  const larghezza = opzioni.larghezza || 768;
+  const altezza = opzioni.altezza || 768;
+
+  const scena = new THREE.Scene();
+  scena.background = null;
+  const rimetti = spegniLuci(THREE, radice);
+  const genitore = radice.parent;
+  const indice = genitore ? genitore.children.indexOf(radice) : -1;
+
+  const risultati = [];
+  try {
+    scena.add(radice);
+    const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace || undefined,
+    });
+    const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
+    const bersaglioPrec = renderer.getRenderTarget();
+
+    for (let i = 0; i < n; i++) {
+      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      cam.position.set(
+        centro.x + distanza * Math.cos(elevRad) * Math.cos(azimuth),
+        centro.y + distanza * Math.sin(elevRad),
+        centro.z + distanza * Math.cos(elevRad) * Math.sin(azimuth),
+      );
+      cam.up.set(0, 1, 0);
+      cam.lookAt(centro);
+      cam.updateProjectionMatrix();
+      cam.updateMatrixWorld(true);
+
+      const pixel = new Uint8Array(larghezza * altezza * 4);
+      renderer.setRenderTarget(bersaglio);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+      renderer.render(scena, cam);
+      renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
+
+      risultati.push({ pixel, larghezza, altezza, azimuth, elevazioneGradi });
+    }
+    renderer.setRenderTarget(bersaglioPrec);
+    try { bersaglio.dispose(); } catch (e) {}
+  } finally {
+    // Il modello TORNA dov'era, sempre - stessa regola di piantaDelPavimento.
+    if (genitore) {
+      if (indice >= 0) genitore.children.splice(indice, 0, radice);
+      else genitore.add(radice);
+      radice.parent = genitore;
+    } else {
+      scena.remove(radice);
+    }
+    rimetti();
+  }
+
+  return risultati;
+}
+
+export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
