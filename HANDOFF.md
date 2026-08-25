@@ -1,16 +1,15 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 24/08/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 25/08/2026.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
 
 ## 🔴 LE DUE REGOLE CHE VENGONO PRIMA DI TUTTO
 
-Nate da un problema misurato: al 24/08/2026 il progetto aveva **due rami e
-nove documenti di stato per 227 KB** che si contraddicevano. Ogni chat nuova
-bruciava token per capire dove guardare, e più volte il lavoro è finito nel
-posto sbagliato. Il progetto si chiama VERITAS e aveva nove verità.
+Nate da un problema misurato: al 24/08/2026 c'erano **due rami e nove
+documenti di stato per 227 KB** che si contraddicevano. Il progetto si chiama
+VERITAS e aveva nove verità.
 
 ### Regola A — UN SOLO DOCUMENTO
 
@@ -33,10 +32,10 @@ posto sbagliato. Il progetto si chiama VERITAS e aveva nove verità.
 
 Non esistono altri rami. Non se ne aprono, nemmeno "solo per un attimo".
 
-Il motivo è meccanico, non organizzativo: **`main` è il ramo predefinito di
-GitHub**, dove atterrano da soli ogni `git clone`, ogni strumento, ogni chat
-nuova. Con la verità altrove, sbagliare era il comportamento *predefinito*, e
-nessun avvertimento scritto vince contro un'impostazione che agisce sempre.
+Il motivo è meccanico: **`main` è il ramo predefinito di GitHub**, dove
+atterrano da soli ogni `git clone` e ogni chat nuova. Con la verità altrove,
+sbagliare era il comportamento *predefinito*, e nessun avvertimento scritto
+vince contro un'impostazione che agisce sempre.
 
 Su `main` sono agganciati **entrambi** i deploy:
 
@@ -44,9 +43,6 @@ Su `main` sono agganciati **entrambi** i deploy:
 |---|---|
 | Render — `veritas-core-api` | ramo `main`, auto-deploy a ogni commit |
 | GitHub Pages — sito live | ramo `main`, cartella `/` |
-
-Fino al 24/08 c'era anche `veritas-ai-os-preview`, che conteneva il lavoro
-vero mentre `main` era indietro di 188 file: unificata dentro `main` e cancellata.
 
 ---
 
@@ -99,15 +95,13 @@ merce avariata dei KPI finti. Deciso da Raffaella il 24/08/2026.
 > Detto da Raffaella il 19/08/2026, dopo dieci giorni che non sbloccavano
 > niente. È la cosa più importante di tutto il progetto.
 
-VERITAS riceveva un **GLB scaricato da Sketchfab**. Un GLB è un *export*: il
-formato in cui la semantica **è già stata buttata via**. Chi ha fatto quel
-modello i nomi e le funzioni ce li aveva; l'esportazione li ha appiattiti in
-2.416 mesh chiamate `Cube.083`. Si stava facendo archeologia su un file a cui
-la risposta era stata cancellata.
+Un GLB è un *export*: il formato in cui la semantica **è già stata buttata
+via**. Chi ha fatto il modello i nomi ce li aveva; l'esportazione li ha
+appiattiti in 2.416 mesh chiamate `Cube.083`.
 
-**La prova che non si poteva vincere, ed è geometrica.** L'ultimo difetto era
-«Ingresso / Parcheggio» sull'ala di un aereo, a quota 3,64 m. Misurato: quella
-navmesh ha isole a 3,6 m di 329, 138 e 71 m². Sono le ali.
+**La prova che non si poteva vincere è geometrica.** Un difetto ricorrente era
+«Ingresso / Parcheggio» sull'ala di un aereo, a quota 3,64 m: quella navmesh ha
+isole a 3,6 m di 329, 138 e 71 m². Sono le ali.
 
 > Un'ala d'aereo e un mezzanino sono **geometricamente identici**: superficie
 > orizzontale, larga qualche metro, a tre metri e mezzo da terra, senza niente
@@ -121,15 +115,10 @@ Chi aggiunge "una soglia in più" sta ricominciando il ciclo di dieci giorni.
 | gioco | progetto Unity | tag, collider, NavMesh, prefab — dichiarati dal level designer |
 | nessuno dei due | GLB nudo | niente: **qui e solo qui** servono gli occhi e la conferma umana |
 
-Conferma da un'altra strada: gli agenti di Meta che collaudano i videogiochi
-non deducono cos'è una stanza — gliela dichiara il progetto. Nessuno, in nessun
-campo, deduce la semantica dalla geometria quando può leggerla.
-
 **ArchiCAD, verificato il 19/08:** `.pln` e `.pla` **non si leggono** (formati
-chiusi, nessuna libreria aperta) — non perderci tempo. Ma **esporta IFC** e le
-sue Zone diventano `IfcSpace`. ⚠️ Mette il **nome** in `IfcSpace.LongName` e il
-**numero** in `IfcSpace.Name`: chi legge `Name` si ritrova «101» invece di
-«Sala d'attesa».
+chiusi) — non perderci tempo; ma **esporta IFC**, e le sue Zone diventano
+`IfcSpace`. ⚠️ Nome in `IfcSpace.LongName`, numero in `IfcSpace.Name`: chi legge
+`Name` trova «101» invece di «Sala d'attesa».
 
 ---
 
@@ -216,101 +205,183 @@ PYTHONPATH=Assets python3 -c "from core.engine import SimulationEngine; ..."
 
 **Banco headless** (le CDN sono spesso irraggiungibili):
 `npm install three@0.171.0 three-mesh-bvh@0.7.8 @supabase/supabase-js @sparkjsdev/spark --legacy-peer-deps`,
-build in `vendor/`, importmap su percorsi locali, stub Supabase,
-`python3 -m http.server`, Playwright.
-⚠️ `three.module.js` importa `three.core.js`: copia **tutta** la cartella `build/`.
+build in `vendor/`, importmap locale, stub Supabase, `python3 -m http.server`,
+Playwright. ⚠️ `three.module.js` importa `three.core.js`: copia **tutta** `build/`.
 
 ⚠️ Dalla sandbox `curl` verso `onrender.com` dà 403: è il proxy, non il servizio.
 
 ---
 
-## Dove siamo — 24/08/2026
+## Dove siamo — 25/08/2026
 
 **Fatto e provato.** Il Core Python calcola davvero KPI, conformità e
-raccomandazioni. La percezione degli agenti è misurata, non stimata: isovista a
-32 raggi sulla mesh (Benedikt 1979), con due altezze occhio — 1,65 m in piedi e
-1,20 m seduto. Un bancone a 1,30 m non ostruisce chi cammina e chiude
-l'orizzonte a chi è in carrozzina: stesso punto, due esperienze opposte, ed è
-**misurato**. Senza mesh si ricade su una stima per archetipo che distingue le
-persone ma non i luoghi: le curve risultano piatte e il report **lo dichiara**
-(`perception_source` vale `archetype_estimate` invece di `isovist`).
+raccomandazioni. La percezione degli agenti è **misurata**: isovista a 32 raggi
+sulla mesh (Benedikt 1979), con due altezze occhio — 1,65 m in piedi e 1,20 m
+seduto, così un bancone a 1,30 m non ostruisce chi cammina e chiude l'orizzonte
+a chi è in carrozzina. Senza mesh si ricade su una stima per archetipo e il
+report **lo dichiara** (`perception_source`).
 
 L'IFC entra e viene letto sul lettore vero. I muri si leggono dal modello
-invece di indovinarli. La fisica Rapier è innestata (`veritas_corpo.js`, con
-tre file di prova) e il 24/08 sono stati sanificati i triangoli malformati
-prima della costruzione del collisore.
-
-**I KPI finti sono stati azzerati** il 24/08 (commit `9bb59b1`): erano cablati
-in `hV()` dentro il bundle — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
+invece di indovinarli. La fisica Rapier è innestata (`veritas_corpo.js`) ma va
+in crash — fronte 5. **I KPI finti sono stati azzerati** il 24/08 (`9bb59b1`):
+erano cablati in `hV()` — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
 quattro numeri ricompaiono a schermo, è tornato il bundle vecchio.
 
-**Montato il 25/08** (`veritas_montaggio.js`, agganciato in fondo a
-`index.html`): parte da solo su qualunque modello caricato — anche trascinato —
-e i nomi passano dal ponte che esiste gia', `__veritasApplicaOcchi`. Il cervello
-e' LM Studio via `__veritasLLM`, nessun server da accendere. ⚠️ **Montato non
-vuol dire funzionante**: al 25/08 non ha mai prodotto un verdetto, perche'
-l'occhio non si apre (fronte 1). `veritas_comprensione.js` e' il ciclo
-occhio-cervello dell'infografica del 24/08: l'occhio manda al cervello anche i
-volumi che **non** ha saputo nominare, il cervello risponde in JSON (`capito`,
-`fiducia`, `dubbi`) e può far guardare ancora con parole nuove, max 3 giri; se
-resta nel dubbio si ferma e scrive una domanda. `puoAgire()` è il cancello
-prima della simulazione e richiede tutt'e tre: capito, fiducia ≥ 70%, almeno
-metà volumi nominati. Con `veritas_anteprima.js`, il pannello che mostra cosa
-vede davvero l'occhio.
+**Il ciclo occhio-cervello gira** (`veritas_montaggio.js`, parte da solo su
+qualunque modello caricato). Il cervello è LM Studio via `__veritasLLM`,
+nessun server da accendere; `puoAgire()` è il cancello prima della simulazione.
+
+**Rifatto il 25/08 come si guarda un progetto, non come si legge un file.**
+Il giro a parole trovava 0 cose su 158 chieste, e non per colpa del modello: gli
+si chiedeva «trovi un banco?» dodici parole alla volta su una pianta dall'alto,
+dove banco, sedute e muretto sono lo stesso rettangolo grigio. **Non gli era mai
+stato chiesto che posto fosse.** Ora la domanda è rovesciata (`071ca95`):
+
+1. **studio** — che edificio è, e *come* lo stanno mostrando: modello completo,
+   spaccato, sezione, un piano solo. Un modello senza soffitto non è un difetto
+   ed è compito del cervello dirlo.
+2. **funzionamento** — la sequenza con cui le persone attraversano un posto del
+   genere la enuncia il **cervello**, non noi. Scriverla nel codice taglierebbe
+   la piattaforma su un tipo di edificio solo: oggi aeroporto, domani ospedale,
+   dopodomani museo o collaudo di un livello di gioco.
+3. **assegnazione** — i nomi vanno sui volumi **già misurati** (quelli che
+   l'editor stira, allarga, moltiplica), mai su contorni nuovi. Nome libero
+   dalla tipologia riconosciuta; **ruolo** da un elenco chiuso (`RUOLI`) per il
+   Core e le soglie. Più volumi possono avere lo stesso nome: tre sale d'attesa
+   restano tre. Un volume incerto non si nomina — finisce in `senza_nome` con
+   la domanda, che va in chat. Deciso da Raffaella il 25/08.
+
+`veritas_vista.js` sa **girare il modello fra le mani**: `scorciTreQuarti()`
+rende N viste in prospettiva attorno al modello **intero** — mai zummate sui
+singoli arredi, che su un aeroporto moltiplicherebbero il costo per il numero di
+banchi. Quante: da 4 a 9, ricavate dalla densità di mesh per m². Da console:
+`__veritasProvaScorci()`.
 
 ---
 
-## Fronti aperti, in ordine
+## Fronti aperti — IN ORDINE DI PRIORITÀ
 
-1. **L'occhio guarda da una parte sola, e quella parte non dice niente.**
-   ⚠️ 25/08, primo giro completo su un modello vero: l'anello ha girato da un
-   capo all'altro. Occhio di riserva (`vlm:qwen2.5-vl-7b-instruct`), **0 scatole
-   viste**, cervello `capito=no, fiducia 30%`, secondo giro con parole nuove,
-   poi si è fermato e ha scritto una domanda a Raffaella. **Il cancello ha
-   funzionato: non ha finto di capire.** Quello che manca è l'immagine. Una
-   pianta dall'alto è quasi tutta pavimento grigio: un banco, una fila di
-   sedute e un muretto sono tre rettangoli identici, perché la differenza sta
-   nell'altezza e dall'alto l'altezza non esiste. È l'ala d'aereo scambiata per
-   mezzanino, di nuovo — nessuna vista dall'alto li separa.
-   **Direzione decisa da Raffaella il 25/08: l'occhio deve poter girare il
-   modello fra le mani** — più inquadrature dello stesso posto, scorci oltre
-   alla pianta, finché non ha capito. È come legge un progetto un architetto:
-   mai da una planimetria sola. Modifica a `veritas_vista.js`, non al montaggio.
-   ⚠️ Da verificare **guardando il pannello**: se i nomi cadono tutti sul lato
-   opposto dell'edificio la pianta è specchiata
-   (`readRenderTargetPixels` dà la riga 0 in fondo, una tela la vuole in cima) —
-   difetto che produce nomi plausibili e nessun errore, invisibile a ogni report.
+Si affrontano in quest'ordine e non in un altro: i primi due falsano tutto
+quello che viene dopo, e correggere il resto prima significherebbe tarare il
+sistema su letture sbagliate.
 
-2. **OWLv2 è morto su questa macchina, non perderci altro tempo.** Tutti e
-   cinque i formati (webgpu q4f16/fp16/q8, wasm q8/fp32) danno lo stesso errore:
-   `Can't create a session … Provider type for Cast node with name
-   '/class_head/Cast' is not set`. Non è la compressione, è il grafo del
-   modello. La strada è quella già in `veritas_montaggio.js`: **un VLM guarda E
-   giudica**. Il modello che vede c'è — `qwen2.5-vl-7b-instruct` su
-   `localhost:1234`, `/models` per il nome vero (`cfg.model` è un segnaposto).
-   ⚠️ Le parole si chiedono in **mazzetti da 12**: 158 in un colpo le risponde a
-   caso. E `__veritasOcchioSorgente` dichiara sempre chi ha guardato — un
-   rilevatore e un VLM non danno riquadri confrontabili.
+### 1. 🔴 LA PIANTA È SPECCHIATA — si vede il modello DA SOTTO
 
-3. **La fisica va in crash a ogni fotogramma.** ⚠️ Misurato il 25/08 su
-   `airport_foot_traffic.glb` (186.074 triangoli): `trap nel motore fisico —
-   fase: ricerca punto libero (nascitaLibera/dentroUnSolido) — fotogramma 1,
-   agente 0 — memory access out of bounds` / `unreachable`, a ogni ricalcolo.
-   Rapier non si applica mai e la simulazione prosegue senza corpo. Onesto —
-   non inventa numeri — ma la fisica non c'è. I raggi di `dentroPerParita`
-   sono il sospetto principale.
-4. **Le porte modellate chiuse.** Un pannello pieno è, per il programma, un
-   muro: gli agenti lo aggirano. È corretto, ma su un modello con tutte le
-   porte disegnate chiuse può bloccare percorsi veri. Il programma lo dice in
-   console (`[VERITAS cammino] nessuna strada…`).
-5. **I pannelli KPI sotto i 1280 px** si sovrappongono ai comandi: sotto quella
-   larghezza il bundle mette i numeri in una riga in fondo che i selettori
-   attuali non intercettano.
-6. **Doppio Three.js.** Il bundle porta la sua copia (0.160), l'importmap ne
-   carica un'altra (0.180). Aggirato, non risolto: la soluzione pulita è
-   ricompilare il bundle. Da qui dipende anche il Gaussian Splat, fermo.
-7. **Provare con una scansione vera.** Su gaussiane non c'è geometria di muri
-   da leggere: valgono solo i muri dedotti, con il limite dichiarato.
+⚠️ **Confermato da Raffaella il 25/08 guardando il pannello**, non più un
+sospetto. La pianta che occhio e cervello ricevono non è una vista dall'alto: è
+la stessa scena vista **da sotto, attraverso il pavimento** — per questo «non si
+capisce niente». Meccanismo: `readRenderTargetPixels` dà la **riga 0 in fondo**,
+e `piantaInTela` (in `veritas_riconosce.js`) la copia così com'è.
+
+**Vale su ogni modello**: non dipende dal file, dipende da come si leggono i
+pixel. Ogni pianta prodotta finora era specchiata.
+
+⚠️ **La correzione è DOPPIA e va fatta in coppia**, perché quei pixel hanno due
+consumatori con esigenze opposte:
+- le **misure** li usano per convertire pixel in metri, e lì la riga 0 in fondo
+  è l'origine di `pixelAMondo`: raddrizzare lì specchierebbe tutte le posizioni;
+- l'**occhio e il cervello** li usano come immagine, e a loro serve dritta.
+
+Quindi: si raddrizza al momento di **mostrarla**, e si rovescia indietro la
+coordinata verticale dei riquadri che il modello restituisce. Fatta a metà
+peggiora le cose, in silenzio. È un difetto che non dà errori: produce nomi
+plausibili sul lato sbagliato dell'edificio, e nessun report lo rivela.
+
+📌 Gli **scorci** sono già raddrizzati alla fonte dentro `scorciTreQuarti()`
+(25/08). La pianta è stata lasciata apposta com'era, proprio per questa doppia
+natura.
+
+### 2. 🔴 L'assegnazione si ferma a metà
+
+⚠️ Misurato il 25/08 sul modello vero. Il primo gradino **funziona**: il
+pannello dice `cervello: capito=sì, fiducia 95%`. Il secondo — l'assegnazione
+dei nomi ai 23 volumi — dà `capito=?`, cioè risposta non leggibile, e il
+programma ricade sul giro a parole vecchio (`chiedo 158 parole`), che si sa già
+che non porta niente. Il ripiego ha fatto il suo mestiere: **non si è rotto
+niente**, ma la strada nuova non arriva in fondo.
+
+Da guardare per prima cosa: **cosa risponde davvero il cervello a quel passo.**
+Ipotesi non verificate, da non trattare come diagnosi: risposta troncata
+(`max_tokens` è già a 2500 sui passi nuovi), JSON con 23 voci malformato, o
+scorci non prodotti. Non si corregge niente prima di aver letto la risposta
+grezza.
+
+### 3. 🟠 L'asse delle altezze non si presume: si misura
+
+⚠️ Segnalato da Raffaella il 25/08. Nel visualizzatore l'altezza è la **Y** e
+tutto il codice la usa così; glTF la impone, quindi di norma siamo allineati. Ma
+un modello con l'altezza sulla **Z** (Blender, conversioni a mano, scansioni)
+entra **coricato** e non dà errore: la pianta diventa un prospetto senza che
+nessuno lo dica.
+
+Il rimedio non è dichiarare l'asse a mano, si **ricava**: su un edificio
+l'impronta a terra è larga e l'altezza è piccola, e da quali due assi sono i più
+estesi si capisce com'è messo. Va fatto **prima** delle sezioni, altrimenti si
+taglia nel verso sbagliato.
+
+### 4. 🟠 Le quattro rappresentazioni — sezioni e piante di piano
+
+Deciso con Raffaella il 25/08, ed è il modo in cui un architetto spiega un
+progetto: **planimetrie, prospetti, sezioni.** Stato:
+
+| rappresentazione | stato |
+|---|---|
+| **pianta** | ✅ c'è — ed è già una sezione orizzontale: la telecamera sta appena sopra il pavimento, non in cielo (⚠️ ma specchiata, fronte 1) |
+| **prospetti** | ✅ `scorciTreQuarti()`, dal 25/08. Dicono *che edificio è* |
+| **sezioni** | ❌ mancano |
+| **piante di piano** | ❌ mancano |
+
+Perché servono: gli scorci girano **fuori** dall'ingombro. Su uno spaccato
+bastano; su un **modello chiuso** (tetto e solai) mostrerebbero sette facciate e
+zero interni. Serve tagliare. Come:
+- **non si sceglie a priori, si misura**: se sopra l'impronta a terra c'è
+  geometria che la copre, il modello è chiuso e i prospetti non bastano;
+- la sezione è la stessa operazione della pianta ruotata di 90°, più qualche
+  vista interna ad altezza d'occhio;
+- **è la sezione che scopre i piani**, e le quote dei solai le trova lei: una
+  altezza standard scritta a mano funziona su un modello e si rompe sul
+  successivo (errore del 18/08);
+- ogni immagine arriva al cervello **etichettata** («pianta del piano primo»,
+  «sezione trasversale»): senza etichetta, un edificio tagliato a metà diventa
+  mezzo edificio;
+- con più piani i volumi si assegnano **anche a un livello** — un'attesa al
+  terra e una al primo non sono la stessa cosa per esodo e affollamento. Campo
+  in più accanto a nome e ruolo, che l'editor eredita.
+
+### 5. 🟠 La fisica va in crash a ogni fotogramma
+
+⚠️ Misurato il 25/08 su `airport_foot_traffic.glb` (186.074 triangoli): `trap
+nel motore fisico — fase: ricerca punto libero (nascitaLibera/dentroUnSolido) —
+fotogramma 1, agente 0 — memory access out of bounds` / `unreachable`, a ogni
+ricalcolo. Rapier non si applica mai: la simulazione prosegue senza corpo —
+onesta, non inventa numeri, ma la fisica non c'è. Sospetto principale: i raggi
+di `dentroPerParita`.
+
+### 6. 🟡 OWLv2 è morto su questa macchina — non perderci altro tempo
+
+Tutti e cinque i formati (webgpu q4f16/fp16/q8, wasm q8/fp32) danno lo stesso
+errore: `Can't create a session … Provider type for Cast node with name
+'/class_head/Cast' is not set`. Non è la compressione, è il grafo. La strada è
+quella già presa: **un VLM guarda E giudica** — `qwen2.5-vl-7b-instruct` su
+`localhost:1234`, `/models` per il nome vero (`cfg.model` è un segnaposto).
+⚠️ Le parole si chiedono in **mazzetti da 12**: 158 in un colpo le risponde a
+caso. E `__veritasOcchioSorgente` dichiara sempre chi ha guardato — un
+rilevatore e un VLM non danno riquadri confrontabili.
+
+### 7. 🟡 Le altre, in coda
+
+- **Porte modellate chiuse**: un pannello pieno è, per il programma, un muro, e
+  gli agenti lo aggirano. Corretto, ma su un modello con tutte le porte chiuse
+  può bloccare percorsi veri. Lo dice in console (`[VERITAS cammino] nessuna
+  strada…`).
+- **Pannelli KPI sotto i 1280 px**: si sovrappongono ai comandi — sotto quella
+  larghezza il bundle mette i numeri in una riga in fondo che i selettori
+  attuali non intercettano.
+- **Doppio Three.js**: il bundle porta la sua copia (0.160), l'importmap ne
+  carica un'altra (0.180). Aggirato, non risolto; la soluzione pulita è
+  ricompilare il bundle. Da qui dipende anche il Gaussian Splat, fermo.
+- **Provare con una scansione vera**: su gaussiane non c'è geometria di muri da
+  leggere, valgono solo i muri dedotti, con il limite dichiarato.
 
 ---
 
@@ -322,10 +393,7 @@ cos'è vero**.
 
 | Cosa dicevano | Realtà verificata |
 |---|---|
-| l'analisi geometrica è lanciata «asincrona da fonte sconosciuta», le 5 zone vengono «dai nomi delle mesh» | Falso entrambi: è `analyzeMesh`, sincrono, che comprime le 7 zone misurate nelle sue 5 tappe fisse (`order2`). Il messaggio «ripiego sui nomi» descrive una cosa che non accade |
-| `Assets/core/zones.py` | non esiste |
-| `vaio_module_v2.js`, `vaio_splat_module.js` sono file | non esistono, sono inlinati |
-| `/core/engine.py`, `/data/simulation_config.json` in radice | non esistono: il Core è in `Assets/core/` |
-| Render deploya da `main` con il vecchio frontend, `main` non si tocca | superato il 24/08: ramo unico `main`, allineato al lavoro vero |
-| `Veritas-V17-FIX-SOLO-BUG.html` è la vetrina dell'app | falso: era la fotografia **vecchia** — niente Rapier, IFC, navmesh né occhio, e i **KPI finti erano ancora dentro**. Cancellato il 24/08. La vetrina è `index.html`, che è anche ciò che GitHub Pages serve da solo |
-| il blocco 3 vale `eedd9935ea908fd3` | quello era il bundle di V17. L'azzeramento dei KPI ha cambiato il bundle di `index.html`: chi usava il vecchio codice trovava «non torna» e cambiava file |
+| l'analisi geometrica è «asincrona da fonte sconosciuta», le 5 zone vengono «dai nomi delle mesh» | Falso entrambi: è `analyzeMesh`, sincrono, che comprime le 7 zone misurate in 5 tappe fisse (`order2`). Il «ripiego sui nomi» descrive una cosa che non accade |
+| `Assets/core/zones.py`; `/core/engine.py` in radice; `vaio_module_v2.js` e `vaio_splat_module.js` come file | non esistono: il Core è in `Assets/core/`, e quei due js sono inlinati |
+| `Veritas-V17-FIX-SOLO-BUG.html` è la vetrina | falso: era la fotografia **vecchia** — niente Rapier, IFC, navmesh né occhio, e i **KPI finti ancora dentro**. Cancellato il 24/08. La vetrina è `index.html`, che è ciò che GitHub Pages serve da solo |
+| il blocco 3 vale `eedd9935ea908fd3` | era il bundle di V17. L'azzeramento dei KPI ha cambiato quello di `index.html`: chi usava il valore vecchio trovava «non torna» e cambiava file |
