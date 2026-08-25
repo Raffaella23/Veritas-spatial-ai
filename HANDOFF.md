@@ -177,7 +177,7 @@ Ramo unico **`main`**. Anteprima live:
 `index.html`). I non ovvi: `veritas_riconosce.js` l'occhio (OWLv2),
 `veritas_vista.js` mondo↔pixel, `veritas_corpo.js` fisica Rapier,
 `veritas_comprensione.js` ciclo occhio-cervello, `veritas_anteprima.js`
-pannello visivo.
+pannello visivo, `veritas_montaggio.js` il filo che li accende.
 
 **Servizi:** Render workspace `tea-d9r2r1iju40c73e4k2cg`, servizio
 `srv-d9r2tmss728c73ct1c80`, URL `https://veritas-core-api-7g2x.onrender.com`.
@@ -244,7 +244,10 @@ prima della costruzione del collisore.
 in `hV()` dentro il bundle — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
 quattro numeri ricompaiono a schermo, è tornato il bundle vecchio.
 
-**Costruito, mai ancora acceso.** `veritas_comprensione.js`, il ciclo
+**Acceso il 25/08** (`veritas_montaggio.js`, agganciato in fondo a
+`index.html`): parte da solo 6,5 s dopo il caricamento del modello, dietro
+l'occhio. I nomi passano dal ponte che esiste gia', `__veritasApplicaOcchi`.
+`veritas_comprensione.js` e' il ciclo
 occhio-cervello dell'infografica del 24/08: l'occhio manda al cervello anche i
 volumi che **non** ha saputo nominare, il cervello risponde in JSON (`capito`,
 `fiducia`, `dubbi`) e può far guardare ancora con parole nuove, max 3 giri; se
@@ -257,14 +260,13 @@ vede davvero l'occhio.
 
 ## Fronti aperti, in ordine
 
-1. **Il ciclo non è agganciato alla pagina.** ⚠️ Verificato il 24/08: i due
-   lati esistono e parlano già la stessa lingua — `veritas_brain_server.py` ha
-   `/api/comprendi` che risponde in JSON (`/api/analyze-view` resta in prosa,
-   per un umano), e `veritas_riconosce.js` ha `occhioLocale()`, OWLv2 dentro il
-   browser, senza server esterni. Manca solo il filo: **nessun file chiama
-   `comprendi()`** e `index.html` non nomina `veritas_comprensione.js`,
-   `veritas_anteprima.js` né `/api/comprendi`. **È il prossimo passo**, e va
-   fatto secondo la regola qui sopra: parte da solo, senza pulsante.
+1. **Il cervello non è mai stato raggiunto dalla pagina.** Il filo c'è dal
+   25/08, ma `/api/comprendi` non ha mai risposto a nessuno: dalla sandbox non
+   si esce, e non è detto che `veritas_brain_server.py` giri su Render (là c'è
+   `api_server.py`). Finché tace, l'esito è `capito: false` con il motivo
+   scritto — corretto, ma non mostra niente. **È il prossimo passo**: accendere
+   il cervello e guardare il pannello. Indirizzo regolabile con
+   `window.__veritasCervelloUrl`.
 2. **Provare l'occhio davvero.** La lettura di una pianta vera non è mai stata
    fatta: dalla sandbox non si raggiunge nessun modello. L'occhio gira nel
    browser (OWLv2, niente server); è il **cervello** a volere un VLM — LM Studio
