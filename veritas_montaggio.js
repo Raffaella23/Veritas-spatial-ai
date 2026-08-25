@@ -127,11 +127,48 @@ function modelloVede(nome) {
   return NOMI_CHE_VEDONO.test(String(nome || ""));
 }
 
+// QUAL E' IL MODELLO ACCESO? Glielo si chiede.
+//
+// ⚠️ `cfg.model` vale spesso "local-model", che e' un segnaposto e non il nome
+//    di niente. Con il caricamento a richiesta acceso, LM Studio cerca un
+//    modello che si chiami cosi' e non lo trova. Peggio: il nome vero e'
+//    l'unico indizio che dice se il modello ha gli occhi, quindi un segnaposto
+//    fa passare per cieco un modello che vede.
+//
+// La rotta /models elenca quello che c'e' davvero. Se fra questi c'e' un
+// modello che vede, si preferisce quello: la pianta e' il motivo per cui si
+// guarda. Si chiede una volta sola e si tiene da parte.
+
+let modelloScoperto = null;
+
+async function nomeModello() {
+  const L = window.__veritasLLM;
+  const dichiarato = L && L.cfg && L.cfg.model;
+  if (dichiarato && dichiarato !== "local-model") return dichiarato;
+  if (modelloScoperto) return modelloScoperto;
+  try {
+    const base = String(L.cfg.url).replace(/\/+$/, "");
+    const r = await fetch(base + "/models");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    const nomi = (d && d.data ? d.data : []).map((m) => m.id).filter(Boolean);
+    if (!nomi.length) throw new Error("nessun modello caricato in LM Studio");
+    modelloScoperto = nomi.find(modelloVede) || nomi[0];
+    log("modello acceso: " + modelloScoperto +
+        (modelloVede(modelloScoperto) ? " — vede la pianta" : " — NON vede: giudica sui soli nomi"));
+    return modelloScoperto;
+  } catch (e) {
+    // Meglio provare col segnaposto che non provare: se sbaglia, lo dice.
+    return dichiarato || "local-model";
+  }
+}
+
 // Strada 1 — un modello qualunque che parli la rotta di OpenAI.
 async function cervelloLocale(domanda, extra = {}) {
   const L = window.__veritasLLM;
   const url = String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions";
-  const vede = modelloVede(L.cfg.model);
+  const modello = await nomeModello();
+  const vede = modelloVede(modello);
   const figura = vede ? immagineBase64(extra.immagine) : null;
 
   // ⚠️ La figura va SOLO a chi ha gli occhi. A tutti gli altri si manda il
@@ -146,7 +183,7 @@ async function cervelloLocale(domanda, extra = {}) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: L.cfg.model,
+      model: modello,
       temperature: 0,   // stessa pianta, stesso verdetto: due giudizi diversi
       max_tokens: 700,  // sulla stessa scena non sono utilizzabili
       messages: [{ role: "user", content: contenuto }],
@@ -323,13 +360,7 @@ window.__veritasOnModelLoaded = function () {
   return out;
 };
 
-const L0 = window.__veritasLLM;
 log("pronto — parte da solo su qualunque modello caricato (cervello: " +
-    (indirizzoCervello() || "nessuno: accendi LM Studio") +
-    (L0 && L0.cfg && L0.cfg.model
-      ? ", " + L0.cfg.model + (modelloVede(L0.cfg.model)
-          ? " — vede la pianta"
-          : " — NON vede: giudica sui soli nomi")
-      : "") + ")");
+    (indirizzoCervello() || "nessuno: accendi LM Studio") + ")");
 
 export default { comprendi: window.__veritasComprendi };
