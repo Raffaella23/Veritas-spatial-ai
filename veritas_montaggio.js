@@ -341,26 +341,58 @@ function applicaNomi(posti) {
 // Ci si accoda a chi c'era prima senza sostituirlo: se un giorno questo file
 // sparisce, tutto il resto continua a funzionare identico.
 
-const precedente = window.__veritasOnModelLoaded;
-window.__veritasOnModelLoaded = function () {
-  let out;
-  try { out = precedente ? precedente.apply(this, arguments) : undefined; }
-  catch (e) { console.error("[VERITAS montaggio] errore nel passo precedente:", e); }
+// ⚠️ NON CI SI FIDA DI UN SOLO SEGNALE.
+//
+//    `__veritasOnModelLoaded` viene chiamato dal caricamento automatico, ma
+//    NON da chi trascina un file nella finestra — ed e' proprio cosi' che
+//    lavora un cliente. Il 25/08 il ciclo non e' partito per questo: modello
+//    caricato, 23 volumi misurati, e nessuno che dicesse «ci siamo».
+//
+//    Quindi si guarda la cosa vera invece del messaggero: `__veritasModelRoot`.
+//    Quando cambia, e' un modello nuovo, comunque sia entrato. Il segnale
+//    resta agganciato lo stesso — due strade per la stessa porta, e chi arriva
+//    secondo trova gia' fatto.
+
+let ultimaRadice = null;
+let attesaInCorso = null;
+
+function modelloNuovo(radice) {
+  if (!radice || radice === ultimaRadice) return;
+  ultimaRadice = radice;
 
   if (window.__veritasMontaggioAuto === false) {
     log("partenza automatica disattivata — window.__veritasComprendi()");
-    return out;
+    return;
   }
+  // Se arrivano due segnali per lo stesso modello, il secondo non raddoppia
+  // il lavoro: rimanda soltanto l'inizio.
+  if (attesaInCorso) clearTimeout(attesaInCorso);
   const attesa = window.__veritasMontaggioRitardo || RITARDO;
-  setTimeout(function () {
+  log("modello nuovo: comincio a capirlo fra " + Math.round(attesa / 1000) + " s");
+  attesaInCorso = setTimeout(function () {
+    attesaInCorso = null;
     window.__veritasComprendi().catch(function (e) {
       console.warn("[VERITAS montaggio] non ha capito:", (e && e.message) || e);
     });
   }, attesa);
+}
+
+// Strada A — il segnale, quando c'e'.
+const precedente = window.__veritasOnModelLoaded;
+window.__veritasOnModelLoaded = function (radice) {
+  let out;
+  try { out = precedente ? precedente.apply(this, arguments) : undefined; }
+  catch (e) { console.error("[VERITAS montaggio] errore nel passo precedente:", e); }
+  modelloNuovo(radice || window.__veritasModelRoot);
   return out;
 };
 
-log("pronto — parte da solo su qualunque modello caricato (cervello: " +
-    (indirizzoCervello() || "nessuno: accendi LM Studio") + ")");
+// Strada B — la vedetta, per tutti gli altri modi di caricare.
+//
+// Un controllo al secondo non pesa niente e non dipende da come il file e'
+// entrato: trascinato, scelto da un pannello, caricato da un progetto salvato.
+setInterval(function () {
+  try { modelloNuovo(window.__veritasModelRoot); } catch (e) {}
+}, 1000);
 
 export default { comprendi: window.__veritasComprendi };
