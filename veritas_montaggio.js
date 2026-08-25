@@ -81,36 +81,96 @@ function dillo(m) {
 // Restituisce il TESTO cosi' com'e'. Chi lo giudica e' `leggiVerdetto()` dentro
 // `veritas_comprensione.js`, ed e' giusto che stia da una parte sola.
 
+// Due strade, e si sceglie da sola.
+//
+// ⚠️ LA PIATTAFORMA NON HA UN MODELLO SUO. Ogni cliente carica il proprio, e
+//    niente qui dentro puo' presumere quale sia: nessun nome di file, nessuna
+//    soglia tarata su un edificio in particolare. Vale anche per il cervello —
+//    e' un servizio, non un pezzo del modello.
+//
+//   1. LM STUDIO, se c'e'. Il ponte `__veritasLLM` e' gia' configurato nella
+//      pagina e la sua rotta e' quella standard di OpenAI, che LM Studio e
+//      Ollama parlano entrambi. Non serve accendere nessun server nuovo. Se il
+//      modello caricato vede (Qwen2-VL, LLaVA, MiniCPM-V) riceve anche la
+//      pianta; se e' di soli testi, giudica sui nomi e lo dice.
+//   2. `/api/comprendi`, se qualcuno lo indica in `__veritasCervelloUrl`.
+//
+// ⚠️ `__veritasApiBase` NON e' il cervello: e' il motore dei KPI su Render, e
+//    /api/comprendi la' non esiste. Non lo si usa come ripiego, altrimenti
+//    l'errore che torna e' un 404 che sembra un guasto del ciclo.
+
 function indirizzoCervello() {
   if (window.__veritasCervelloUrl) return window.__veritasCervelloUrl;
-  const base = window.__veritasApiBase;
-  return base ? String(base).replace(/\/+$/, "") + "/api/comprendi" : null;
+  const L = window.__veritasLLM;
+  if (L && L.cfg && L.cfg.url) return String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions";
+  return null;
+}
+
+function immagineBase64(x) {
+  try {
+    const tela = telaDa(x);
+    return tela ? tela.toDataURL("image/png") : null;
+  } catch (e) { return null; }
+}
+
+// Strada 1 — un modello qualunque che parli la rotta di OpenAI.
+async function cervelloLocale(domanda, extra = {}) {
+  const L = window.__veritasLLM;
+  const url = String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions";
+  const figura = immagineBase64(extra.immagine);
+
+  // Il testo va sempre; la figura solo se c'e'. Un modello di soli testi che
+  // riceve un'immagine risponde male invece di rispondere "non vedo".
+  const contenuto = figura
+    ? [{ type: "text", text: domanda },
+       { type: "image_url", image_url: { url: figura } }]
+    : domanda;
+
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: L.cfg.model,
+      temperature: 0,   // stessa pianta, stesso verdetto: due giudizi diversi
+      max_tokens: 700,  // sulla stessa scena non sono utilizzabili
+      messages: [{ role: "user", content: contenuto }],
+    }),
+  });
+  if (!r.ok) throw new Error("il modello locale ha risposto " + r.status +
+    " (LM Studio acceso su " + L.cfg.url + "?)");
+  const d = await r.json();
+  return (d && d.choices && d.choices[0] && d.choices[0].message &&
+          d.choices[0].message.content) || "";
+}
+
+// Strada 2 — veritas_brain_server.py, o qualunque cosa risponda a quel patto.
+async function cervelloRemoto(domanda, extra = {}) {
+  const url = window.__veritasCervelloUrl;
+  const figura = immagineBase64(extra.immagine);
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      domanda,
+      image_data: figura ? figura.split(",")[1] : null,
+      giro: extra.giro || 1,
+    }),
+  });
+  if (!r.ok) {
+    let dettaglio = "";
+    try { dettaglio = (await r.json()).detail || ""; } catch (e) {}
+    throw new Error("il cervello ha risposto " + r.status + (dettaglio ? " — " + dettaglio : ""));
+  }
+  const d = await r.json();
+  return d && d.verdetto ? d.verdetto : "";
 }
 
 async function cervello(domanda, extra = {}) {
-  const url = indirizzoCervello();
-  if (!url) throw new Error("non so a che indirizzo sta il cervello");
-
-  // L'immagine e' facoltativa: senza, il cervello giudica sui soli nomi che
-  // l'occhio gli ha raccontato. Con, vede anche cio' che l'occhio ha mancato.
-  let immagine = null;
-  try {
-    const tela = telaDa(extra.immagine);
-    if (tela) immagine = tela.toDataURL("image/png").split(",")[1];
-  } catch (e) { /* si prosegue senza figura: e' meglio di non chiedere */ }
-
-  const risposta = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ domanda, image_data: immagine, giro: extra.giro || 1 }),
-  });
-  if (!risposta.ok) {
-    let dettaglio = "";
-    try { dettaglio = (await risposta.json()).detail || ""; } catch (e) {}
-    throw new Error("il cervello ha risposto " + risposta.status + (dettaglio ? " — " + dettaglio : ""));
-  }
-  const dati = await risposta.json();
-  return dati && dati.verdetto ? dati.verdetto : "";
+  if (window.__veritasCervelloUrl) return cervelloRemoto(domanda, extra);
+  if (window.__veritasLLM && window.__veritasLLM.cfg && window.__veritasLLM.cfg.url)
+    return cervelloLocale(domanda, extra);
+  throw new Error("nessun cervello configurato: accendi LM Studio, oppure indica " +
+                  "window.__veritasCervelloUrl");
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +307,7 @@ window.__veritasOnModelLoaded = function () {
   return out;
 };
 
-log("pronto — parte da solo sul modello caricato (cervello: " +
-    (indirizzoCervello() || "non configurato") + ")");
+log("pronto — parte da solo su qualunque modello caricato (cervello: " +
+    (indirizzoCervello() || "nessuno: accendi LM Studio") + ")");
 
 export default { comprendi: window.__veritasComprendi };
