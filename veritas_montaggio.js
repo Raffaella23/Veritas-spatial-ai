@@ -194,7 +194,11 @@ async function cervelloLocale(domanda, extra = {}) {
   const L = window.__veritasLLM;
   const url = String(L.cfg.url).replace(/\/+$/, "") + "/chat/completions";
   const modello = await nomeModello();
-  const vede = modelloVede(modello);
+  // Qui invece la prudenza serve: un modello di soli testi che riceve
+  // un'immagine da' 400, e il giro si fermerebbe. Se pero' l'occhio di riserva
+  // ha gia' dimostrato che quel modello vede, glielo si manda comunque.
+  const provato = String(window.__veritasOcchioSorgente || "").startsWith("vlm:");
+  const vede = modelloVede(modello) || provato;
   const figura = vede ? immagineBase64(extra.immagine) : null;
 
   // ⚠️ La figura va SOLO a chi ha gli occhi. A tutti gli altri si manda il
@@ -318,9 +322,13 @@ function occhioDalVLM() {
   return async function rilevaConVLM(immagine, parole) {
     const L = window.__veritasLLM;
     if (!L || !L.cfg || !L.cfg.url) throw new Error("nessun modello locale acceso");
+    // ⚠️ NON si rifiuta per il nome. La regola sui nomi e' un indizio, non una
+    //    prova: chi confeziona i modelli li chiama come vuole, e dare per cieco
+    //    un modello che vede e' un errore piu' costoso del contrario — qui si
+    //    prova e, se non vede, e' lui a dirlo con un errore chiaro.
     const modello = await nomeModello();
     if (!modelloVede(modello))
-      throw new Error("il modello acceso (" + modello + ") non vede");
+      log("il nome \"" + modello + "\" non dice che vede: provo lo stesso");
 
     const tela = telaDa(immagine);
     if (!tela) throw new Error("non ho un'immagine da guardare");
@@ -416,16 +424,14 @@ async function accendiOcchio(O, opz = {}) {
   // Riserva: guarda lo stesso modello che poi giudichera'.
   try {
     const modello = await nomeModello();
-    if (modelloVede(modello)) {
-      window.__veritasOcchioSorgente = "vlm:" + modello;
-      log("occhio di riserva: guarda " + modello + " (riquadri piu' larghi di " +
-          "OWLv2, e non confrontabili con le sue misure)");
-      return occhioDalVLM();
-    }
-    log("nessun occhio: OWLv2 non si apre e il modello acceso (" + modello +
-        ") non vede. Carica un modello che vede in LM Studio, es. Qwen3-VL.");
+    window.__veritasOcchioSorgente = "vlm:" + modello;
+    log("occhio di riserva: guarda " + modello +
+        (modelloVede(modello) ? "" : " (il nome non dice che vede: si prova)") +
+        " — riquadri piu' larghi di OWLv2, non confrontabili con le sue misure");
+    return occhioDalVLM();
   } catch (e) {
-    log("nemmeno l'occhio di riserva: " + ((e && e.message) || e));
+    log("nemmeno l'occhio di riserva: " + ((e && e.message) || e) +
+        ". Serve un modello che vede acceso in LM Studio.");
   }
   return null;
 }
