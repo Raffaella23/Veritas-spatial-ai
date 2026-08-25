@@ -266,16 +266,18 @@ vede davvero l'occhio.
    blocco che ferma tutto: OWLv2 via transformers.js risponde `Can't create a
    session … '/class_head/Cast' is not set`. Non è la rete: il file compresso
    non si apre su quella scheda video. `veritas_montaggio.js` ora prova cinque
-   formati (webgpu q4f16/fp16/q8, wasm q8/fp32) dicendo quale fallisce. **Se
-   fallisce anche wasm/fp32, OWLv2 va abbandonato** — e la strada è già
-   pronta: **un VLM guarda E giudica**, e `veritas_occhi.js` glielo chiede già
-   (il suo `HTTP 400` del 25/08 è solo Qwen2.5 che non vede). Un solo modello
-   invece di due, e una dipendenza in meno.
-2. **Nessun modello che vede è mai stato provato.** Serve LM Studio con
-   **Qwen3-VL-4B** (~3,5 GB a Q4) o **8B** (~6 GB): scaricarlo è il singolo
-   gesto con più probabilità di produrre qualcosa a schermo, perché sblocca sia
-   il cervello sia la strada del fronte 1. Il nome del modello acceso viene
-   chiesto a `/models`: `cfg.model` vale `local-model`, che è un segnaposto.
+   formati (webgpu q4f16/fp16/q8, wasm q8/fp32) dicendo quale fallisce, e se
+   nessuno si apre **passa all'occhio di riserva**: lo stesso VLM che poi
+   giudica. Un modello invece di due. ⚠️ Non è la stessa cosa e non si finge
+   che lo sia — un rilevatore dà riquadri stretti, un VLM descrive:
+   `window.__veritasOcchioSorgente` dice sempre chi ha guardato
+   (`owlv2:<come>` o `vlm:<modello>`), e senza quella riga un numero nel report
+   non è tracciabile. **Mai provato su una pianta vera.**
+2. **Il modello che vede c'è** (25/08): `Qwen2.5-VL-7B-Instruct` su
+   `localhost:1234`, visione verificata a mano su un'immagine. Il nome si chiede
+   a `/models` — `cfg.model` vale `local-model`, che è un segnaposto — e non si
+   dà per cieco un modello per via del nome: si prova, e se non vede lo dice
+   lui. Resta da leggere una pianta vera.
    ⚠️ Si verifica **guardando il pannello**: se
    i nomi cadono tutti sul lato opposto dell'edificio la pianta è specchiata
    (`readRenderTargetPixels` dà la riga 0 in fondo, una tela la vuole in cima) —
