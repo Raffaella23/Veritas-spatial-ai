@@ -251,6 +251,15 @@ export const VOCABOLARIO = Object.freeze(
  * L'ordine mette davanti cio' che implica una funzione: se qualcuno mette un
  * tetto al numero di domande (`limite`), a cadere sono le meno informative.
  */
+/** Normalizza un elenco di parole in voci di vocabolario, senza aggiungerne. */
+export function vociDaParole(parole) {
+  return (parole || [])
+    .map((a) => (typeof a === "string"
+      ? { chiedi: a, termine: a, nome: a, funzione: null, domini: "*", fonte: "chiesta dal cervello" }
+      : a))
+    .filter((v) => v && typeof v.chiedi === "string" && v.chiedi.trim());
+}
+
 export function vocabolarioPer(dominio, aggiunte = [], opz = {}) {
   const d = (dominio || "").toLowerCase();
   const voci = VOCABOLARIO.filter((v) => v.domini === "*" || v.domini === d)
@@ -433,7 +442,14 @@ export async function riconosci(posti, opz = {}) {
     return { ok: false, perche: "manca la pianta vista dall'alto" };
   }
 
-  const voci = vocabolarioPer(opz.dominio, opz.parole);
+  // ⚠️ `soloParole` — si cerca SOLO quello che e' stato chiesto, senza il
+  //    vocabolario di base. Serve al circuito: quando e' il cervello a dire
+  //    all'occhio cosa cercare, l'elenco e' di poche voci mirate e aggiungerci
+  //    158 termini generici rifarebbe lo spazzolamento cieco che il 25/08 era
+  //    gia' stato dichiarato morto — moltiplicato per il numero di viste.
+  const voci = opz.soloParole
+    ? vociDaParole(opz.parole)
+    : vocabolarioPer(opz.dominio, opz.parole);
   const parole = voci.map((v) => v.chiedi);
 
   let grezze;
