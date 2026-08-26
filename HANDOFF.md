@@ -5,11 +5,57 @@
 
 ---
 
-## 🔴 LE DUE REGOLE CHE VENGONO PRIMA DI TUTTO
+## 🔴 LE REGOLE CHE VENGONO PRIMA DI TUTTO
 
 Nate da un problema misurato: al 24/08/2026 c'erano **due rami e nove
 documenti di stato per 227 KB** che si contraddicevano. Il progetto si chiama
 VERITAS e aveva nove verità.
+
+### Regola 0 — IL MECCANISMO PERCETTIVO. Non è negoziabile.
+
+**Questo è il cuore del prodotto. Non si reinterpreta, non si semplifica, non
+si sostituisce con qualcosa che «funziona lo stesso». Chi lo cambia sta
+costruendo un altro prodotto.**
+
+> Occhio e cervello sono **accesi insieme dall'inizio**. Hanno **le stesse
+> informazioni**: tutte le viste vanno a tutti e due. Il cervello analizza
+> tutte le prospettive e tutte le misure. I due **si scambiano quello che
+> trovano**, a giri, **finché non è sicuro di aver capito**. Se non è sicuro,
+> **chiede** — non inventa. È un **circuito**: insieme ricostruiscono
+> l'oggetto.
+
+Le cinque cose che lo rendono quello che è. Se una salta, non è più questo:
+
+1. **INSIEME.** Non due strade alternative, non «prima l'uno poi l'altro se il
+   primo fallisce». Un anello solo. *(Era rotta fino al 26/08: `comprendi()`
+   chiamava lo studio e ritornava; il giro occhio↔cervello partiva solo se lo
+   studio falliva.)*
+2. **STESSE IMMAGINI.** Tutto quello che vede il cervello lo vede anche
+   l'occhio, e viceversa. Un occhio che guarda una vista in meno cerca cose in
+   una figura da cui quelle cose sono state tagliate via. *(Era rotta: il
+   cervello aveva pianta + scorci, l'occhio solo la pianta.)*
+3. **SI GIRA IL MODELLO FRA LE MANI.** Piante, prospettive, sezioni: quante ne
+   servono lo dice la complessità del modello, non un numero scritto a mano.
+   Una vista sola non basta mai, perché un'ala d'aereo e un mezzanino sono
+   geometricamente identici.
+4. **A GIRI, FINO A ESSERE SICURO.** Il cervello dice all'occhio cosa cercare,
+   l'occhio ricerca su **tutte** le viste, si riassegna. Si esce quando è
+   sicuro, **non quando è finita**. *(Era rotta: un solo scambio.)*
+5. **SE NON SA, CHIEDE.** Un volume incerto finisce `senza_nome` con la
+   domanda, e la domanda va in chat. Nominare per riempire è la bugia peggiore:
+   un report costruito su zone sbagliate è merce avariata quanto un KPI finto.
+
+⚠️ **Il confine che tiene in piedi tutto:** sulla **pianta** (ortografica
+dall'alto) una rilevazione diventa una **posizione**, perché il pixel si
+converte in metri. Sugli **scorci** (prospettiva) **no**: lì un riquadro non
+ha un corrispondente a terra, e convertirlo lo stesso produce posizioni
+credibili e sbagliate. Dagli scorci si prende solo la **testimonianza** —
+*che cosa* ha visto e *in quale vista* — che va al cervello come indizio
+dichiarato fallibile, **mai come misura**.
+
+📌 Dove vive: `veritas_comprensione.js` — `comprendiGuardando()` è l'anello,
+`occhioSuTutteLeViste()` è la regola 2. Stato e prove: fronte 2.
+
 
 ### Regola A — UN SOLO DOCUMENTO
 
@@ -21,8 +67,10 @@ VERITAS e aveva nove verità.
   parte superata, non si accoda in fondo.
 - I dettagli tecnici di una singola modifica **stanno nel messaggio di
   commit**, che è il posto giusto e non costa niente a nessuno.
-- Questo file non deve superare le ~15 KB. Se cresce, vuol dire che dentro c'è
-  del diario: il diario si toglie. La cronologia sta in `git log`.
+- **Nessun tetto di dimensione.** Il file è lungo quanto serve: il criterio non
+  è la lunghezza, è che ogni riga serva ancora a chi legge domani. Quello che
+  si toglie è il *diario* (cosa è successo), non la *regola* e non il
+  *meccanismo*. La cronologia sta in `git log`.
 
 ⚠️ Questo file ha sostituito, il 24/08/2026: `CLAUDE.md`, `PROJECT_INFO.md`,
 `ARCHITETTURA.md`, `handoff.md`, `AVVIO_NUOVA_CHAT.md`, `design_brief.md`,
@@ -45,6 +93,41 @@ Su `main` sono agganciati **entrambi** i deploy:
 | GitHub Pages — sito live | ramo `main`, cartella `/` |
 
 ---
+
+### Regola C — FINE SESSIONE: si consegna, non si abbandona
+
+Ogni sessione si chiude con **due cose fatte, non promesse**:
+
+1. **Il prompt per la chat successiva**, scritto e consegnato in chat, pronto
+   da incollare. Dentro ci va: da dove si riparte, qual è il primo fronte
+   aperto, cosa è stato verificato e cosa no, e le trappole trovate quel
+   giorno. Senza, la chat nuova ricomincia a indovinare e si rispende in
+   scoperta quello che era già stato scoperto.
+2. **Questo file ottimizzato alla luce di quello che è cambiato**: lo stato
+   superato si **sostituisce**, non si accoda. Se una regola è diventata
+   codice, si scrive che è codice e si cita il commit — una regola scritta come
+   intenzione mentre il codice fa altro costringe Raffaella a fare lei da
+   documento, e la fa ripetere le stesse cose a ogni chat.
+
+### Regola D — IL BUDGET: **massimo 12% al giorno**
+
+Il piano ha un limite settimanale, ed è già stato esaurito a metà settimana in
+passato. Una sessione non deve superare il **12%** del budget: sotto quella
+soglia si arriva a domenica, sopra si perde la fine della settimana.
+
+Cosa lo consuma davvero, in ordine:
+
+- **rileggere file grossi** — `index.html` è 1,8 MB: si lavora in sandbox con
+  `grep`/`sed` e si tira in chat solo il pezzo che serve, mai il file;
+- **provare a vuoto** — si raggruppano le modifiche e si fa **una** corsa del
+  banco, non una per ritocco;
+- **rifare la diagnosi** già fatta — è a questo che serve il prompt della
+  Regola C.
+
+⚠️ Se continuare oggi compromette i giorni successivi, **fermarla e dirglielo**
+prima di cominciare il pezzo grosso, non dopo averlo speso.
+
+
 
 ## Come si parla con Raffaella
 
