@@ -65,7 +65,10 @@ import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio } f
 // Tre e' un compromesso misurato: il primo giro usa il vocabolario di base,
 // il secondo le parole che il cervello ha chiesto, il terzo e' l'ultima
 // occasione. Oltre, il cervello sta girando a vuoto e va fermato.
-export const GIRI_MASSIMI = 3;
+// ⚠️ DUE GIRI, non tre. Deciso da Raffaella il 26/08: «il loop non puo' essere
+//    eterno». Se dopo due scambi il cervello non e' sicuro, non lo sara' al
+//    terzo: si ferma e CHIEDE a lei, che quel modello lo conosce.
+export const GIRI_MASSIMI = 2;
 
 // Sotto questa fiducia dichiarata dal cervello, «ho capito» non basta.
 // Un modello che dice «ho capito, fiducia 0.3» sta dicendo «non ho capito».
@@ -245,14 +248,123 @@ export function volumiPerCervello(posti) {
   });
 }
 
-export function promptStudio(quanteViste, quantiVolumi, testimonianza) {
+// ---------------------------------------------------------------------------
+// 3-zero. LO SGUARDO — l'occhio parla per primo, e senza elenco
+// ---------------------------------------------------------------------------
+//
+// ⚠️ Regola di Raffaella, 26/08, ed e' il modo in cui funziona la percezione:
+//    «l'AI occhio guarda e dice questo potrebbe essere un aeroporto. Poi il
+//    cervello dice fammi vedere, e' un aeroporto veramente? Si', perche' ho
+//    trovato queste misure. Ora puo' assegnare le zone.»
+//
+//    Entrando in uno spazio nessuno ti consegna un elenco di parole prima di
+//    aprire gli occhi. Vedi una facciata, e il cervello dice «e' una scatola,
+//    dentro ci saranno solai e persone». Qui era il contrario: si entrava con
+//    in mano 158 parole SCRITTE A MANO NEL CODICE, uguali per un aeroporto e
+//    per un ospedale, e si chiedeva «c'e' questa? c'e' questa?». Cosi' un
+//    parcheggio non lo trovi mai, se la parola «parcheggio» non era nella
+//    lista — ed e' esattamente quello che succedeva.
+//
+// ⚠️ E c'e' il motivo per cui Qwen sta qui: SA RACCONTARE quello che vede.
+//    Usarlo per rispondere si'/no a 158 termini dodici alla volta e' fargli
+//    fare il mestiere di un rilevatore, che non e' il suo — infatti tornava
+//    perfino con JSON storto. Qui gli si chiede la cosa che sa fare.
+//
+// ⚠️ Non gli si dice MAI che tipo di edificio e', nemmeno di sfuggita: la
+//    parola la deve tirare fuori lui guardando. Dentro possono entrare un
+//    ospedale, una scuola, un museo, un parcheggio.
+
+export function promptSguardo(quanteViste, mettiAFuoco) {
+  return [
+    "Guarda queste " + quanteViste + " immagini: sono lo stesso posto visto da",
+    "punti di vista diversi — una pianta dall'alto e alcuni scorci in prospettiva,",
+    "come si girerebbe un plastico fra le mani.",
+    "",
+    "Non ti do nessun elenco e non ti chiedo di cercare niente in particolare.",
+    "Guarda e dimmi cosa vedi, con parole tue.",
+    ...(mettiAFuoco ? ["",
+      "In piu', guarda meglio questo, che al giro prima e' rimasto in dubbio:",
+      mettiAFuoco] : []),
+    "",
+    "Rispondi SOLO con un oggetto JSON, senza testo prima o dopo, senza ```:",
+    "{",
+    '  "potrebbe_essere": "che posto ti sembra, in poche parole",',
+    '  "quanto_ci_credi": numero fra 0 e 1,',
+    '  "cosa_vedo": ["ogni cosa riconoscibile, una per voce, con parole tue:",',
+    '                "arredi, mezzi, persone, attrezzature, superfici"],',
+    '  "attorno": ["cosa c\'e\' FUORI o ai bordi: mezzi fermi, piazzali, corsie,",',
+    '              "banchine, cortili, parcheggi, alberi"],',
+    '  "perche_lo_dico": ["gli indizi che ti hanno portato li\', uno per voce"],',
+    '  "cosa_non_capisco": ["le cose che vedi ma non sai nominare, oppure []"]',
+    "}",
+    "",
+    "REGOLE:",
+    "- Non dare per scontato che tipo di posto sia: puo' essere un aeroporto, un",
+    "  ospedale, una scuola, un museo, un parcheggio, una casa. Dillo tu.",
+    "- `attorno` conta quanto `cosa_vedo`: mezzi e piazzali attorno a un edificio",
+    "  dicono cos'e' quell'edificio piu' di quello che c'e' dentro.",
+    "- Se una cosa non sai come si chiama, descrivila in `cosa_non_capisco`",
+    "  invece di darle un nome a caso.",
+    "- Se manca il soffitto o mancano le pareti NON e' un edificio rotto: e' un",
+    "  modello fatto per farsi guardare dentro. Non e' una cosa da segnalare.",
+  ].join("\n");
+}
+
+/** Legge lo sguardo. Se non si lascia leggere, non e' un disastro: il cervello
+ *  guardera' le stesse immagini da solo, solo senza il vantaggio dell'occhio. */
+export function leggiSguardo(testo) {
+  const g = estraiJson(testo);
+  if (!g.ok) return { valido: false, perche: g.perche };
+  const v = g.valore;
+  const elenco = (x) => (Array.isArray(x) ? x.map(String).filter(Boolean) : []);
+  const ipotesi = typeof v.potrebbe_essere === "string" ? v.potrebbe_essere.trim() : "";
+  const cose = elenco(v.cosa_vedo), attorno = elenco(v.attorno);
+  if (!ipotesi && !cose.length && !attorno.length) {
+    return { valido: false, perche: "l'occhio non ha detto niente di leggibile" };
+  }
+  return {
+    valido: true,
+    ipotesi,
+    quantoCiCrede: typeof v.quanto_ci_crede === "number" ? v.quanto_ci_crede : 0.5,
+    cose, attorno,
+    perche: elenco(v.perche_lo_dico),
+    nonCapisco: elenco(v.cosa_non_capisco),
+  };
+}
+
+/** Lo sguardo messo in righe, come arriva al cervello. */
+export function sguardoInParole(s) {
+  if (!s || !s.valido) return null;
+  const r = [];
+  if (s.ipotesi) r.push("Gli sembra: " + s.ipotesi + " (ci crede " + Math.round(s.quantoCiCrede * 100) + "%)");
+  if (s.cose.length) r.push("Dentro vede: " + s.cose.join(", "));
+  if (s.attorno.length) r.push("Attorno vede: " + s.attorno.join(", "));
+  if (s.perche.length) r.push("Lo dice perche': " + s.perche.join("; "));
+  if (s.nonCapisco.length) r.push("Vede ma non sa nominare: " + s.nonCapisco.join(", "));
+  return r.join("\n");
+}
+
+export function promptStudio(quanteViste, quantiVolumi, sguardo, misure) {
   return [
     "Sei il cervello spaziale di VERITAS. Ti mostro lo stesso edificio da " + quanteViste +
       " punti di vista diversi: una pianta dall'alto e alcuni scorci in prospettiva,",
     "come si girerebbe un plastico fra le mani.",
     "",
-    "PRIMA DI QUALSIASI ALTRA COSA devi stabilire due cose: CHE POSTO E', e COME",
-    "TE LO STANNO MOSTRANDO.",
+    ...(sguardo ? ["",
+      "L'OCCHIO HA GIA' GUARDATO. Ecco cosa dice, con parole sue:",
+      sguardo,
+      "",
+      "IL TUO MESTIERE NON E' GUARDARE UN'ALTRA VOLTA: E' VERIFICARE.",
+      "L'occhio e' bravo a riconoscere le cose ma non misura niente, e puo'",
+      "prendere lucciole per lanterne. Tu hai le misure, che non mentono.",
+      "Chiediti: quello che dice regge davanti ai numeri? Un oggetto lungo 35 m",
+      "con due appendici laterali puo' essere un aereo; lungo 4 m e' un'auto;",
+      "lungo 1 m non e' ne' l'uno ne' l'altro. Se le misure confermano, dillo e",
+      "vai avanti. Se lo smentiscono, correggilo: le misure vincono sempre.",
+      "Se lo confermano solo in parte, tieni la parte che regge."] : []),
+    ...(misure ? ["", "LE MISURE DELLO SPAZIO (queste sono certe):", misure] : []),
+    "",
+    "Devi stabilire due cose: CHE POSTO E', e COME TE LO STANNO MOSTRANDO.",
     "",
     "Sulla rappresentazione: un modello 3D puo' essere completo, oppure uno",
     "spaccato (tolto il soffitto o una parete per far vedere dentro), oppure una",
@@ -284,15 +396,13 @@ export function promptStudio(quanteViste, quantiVolumi, testimonianza) {
     '  "chiedi_all_umano": "una domanda in italiano, oppure null"',
     "}",
     "",
-    ...(testimonianza ? ["",
-      "QUELLO CHE L'OCCHIO HA VISTO nelle stesse immagini. E' un rilevatore",
-      "automatico: e' una TESTIMONIANZA, non una misura, e puo' sbagliarsi o non",
-      "trovare niente. Se non trova niente non vuol dire che non ci sia niente:",
-      "vuol dire che non gliel'hanno chiesto con la parola giusta, ed e' una cosa",
-      "che puoi correggere tu al giro dopo.",
-      testimonianza] : []),
     "",
     "REGOLE, e sono vincolanti:",
+    "- Se l'occhio ha proposto un tipo di posto e le misure lo reggono, NON",
+    "  cambiarlo per cautela: confermalo. Il dubbio serve quando c'e' un motivo,",
+    "  non come abitudine.",
+    "- Metti in `indizi` cosa dell'occhio hai confermato e cosa hai scartato, e",
+    "  con quale misura. E' la parte che rende il verdetto controllabile.",
     "- `come_funziona` e' la SEQUENZA con cui le persone attraversano un posto di",
     "  questo tipo, dal loro arrivo alla loro uscita. Non descrivere quello che",
     "  vedi in queste immagini: descrivi come funziona un edificio del genere, che",
@@ -366,10 +476,12 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     "certe e non si discutono: `centro` e' [x, z] in metri, come sulla pianta.",
     JSON.stringify(volumi, null, 2),
     ...(testimonianza ? ["",
-      "E questo e' quello che l'occhio ha visto nelle immagini, vista per vista.",
+      "E questo e' quello che l'occhio ha visto nelle immagini, con parole sue.",
       "Serve ad ancorare i nomi a qualcosa di osservato invece che al solo",
-      "ragionamento. E' una testimonianza fallibile: se contraddice le misure,",
-      "vincono le misure.",
+      "ragionamento: se dice che vede file di sedute, il volume grande e sgombro",
+      "vicino ai vetri e' probabilmente una sala d'attesa, non un magazzino.",
+      "E' una testimonianza fallibile: se contraddice le misure, vincono le",
+      "misure.",
       testimonianza] : []),
     "",
     "Assegna a ciascun volume una zona della sequenza qui sopra. Rispondi SOLO con",
@@ -582,6 +694,26 @@ export function conservaRisposta(passo, testo, motivo) {
   } catch (e) {}
 }
 
+/** Le misure gia' certe dello spazio, in righe. Sono la controprova con cui il
+ *  cervello mette alla prova quello che l'occhio ha detto. */
+export function misureInParole(posti) {
+  if (!posti || !posti.length) return null;
+  const ordinati = posti.slice().sort((a, b) => (b.area || 0) - (a.area || 0));
+  const lato = (p) => {
+    const dx = Math.abs(p.max[0] - p.min[0]), dz = Math.abs(p.max[2] - p.min[2]);
+    return [Math.max(dx, dz), Math.min(dx, dz)];
+  };
+  const righe = ordinati.slice(0, 25).map((p, i) => {
+    const [lungo, corto] = lato(p);
+    return "  volume " + (p.id != null ? p.id : i) + ": " + lungo.toFixed(1) + " x "
+      + corto.toFixed(1) + " m, area " + Math.round(p.area || 0) + " m2, "
+      + (p.oggetti || 0) + " pezzi dentro";
+  });
+  const totale = posti.reduce((s, p) => s + (p.area || 0), 0);
+  return ["  " + posti.length + " volumi misurati, " + Math.round(totale) + " m2 in tutto"]
+    .concat(righe).join("\n");
+}
+
 export async function comprendiGuardando(ctx) {
   const immagini = [ctx.pianta, ...(ctx.scorci || [])].filter(Boolean);
   const volumi = volumiPerCervello(ctx.posti);
@@ -607,10 +739,37 @@ export async function comprendiGuardando(ctx) {
   //    ma gli si chiede SOLO quello che il cervello ha detto di cercare.
   //    Da 112 domande a una manciata.
 
-  // --- (1) CHE POSTO E' — la prima domanda in assoluto, una sola ------------
+  // --- (0) LO SGUARDO — l'occhio guarda per primo, libero, senza elenco -----
+  //
+  // ⚠️ L'ORDINE E' QUESTO E NON SI GIRA. L'occhio guarda e dice cosa gli
+  //    sembra; il cervello poi contesta con le misure; solo dopo si assegnano
+  //    le zone. Un cervello che parla per primo giudica a occhi chiusi, e ho
+  //    gia' sbagliato una volta a metterlo davanti — l'avevo fatto per
+  //    risparmiare domande, non perche' fosse giusto.
+  let sguardo = null;
+  try {
+    const r = await ctx.cervello(promptSguardo(immagini.length, null),
+      { immagine: ctx.pianta, immagini, passo: "sguardo" });
+    conservaRisposta("sguardo", r, null);
+    const s = leggiSguardo(r);
+    if (s.valido) sguardo = s;
+    else conservaRisposta("sguardo", r, s.perche || "risposta non leggibile");
+  } catch (e) {
+    conservaRisposta("sguardo", null, "l'occhio non ha risposto: " + ((e && e.message) || e));
+  }
+  if (sguardo && typeof ctx.onGiro === "function") {
+    ctx.onGiro({ giro: 0, passo: "sguardo", cosaE: sguardo.ipotesi,
+                 fiducia: sguardo.quantoCiCrede, nominati: 0,
+                 senzaNome: volumi.length, capito: false,
+                 paroleChieste: sguardo.cose.slice(0, 6), dubbi: sguardo.nonCapisco.length });
+  }
+
+  // --- (1) IL CERVELLO VERIFICA: e' davvero quello, secondo le misure? ------
+  const misure = misureInParole(posti);
   let rispostaStudio;
   try {
-    rispostaStudio = await ctx.cervello(promptStudio(immagini.length, volumi.length, null),
+    rispostaStudio = await ctx.cervello(
+      promptStudio(immagini.length, volumi.length, sguardoInParole(sguardo), misure),
       { immagine: ctx.pianta, immagini, passo: "studio" });
   } catch (e) {
     conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
@@ -657,7 +816,7 @@ export async function comprendiGuardando(ctx) {
   for (let n = 1; n <= giriMassimi; n++) {
     let rispostaAss;
     try {
-      rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza),
+      rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza || sguardoInParole(sguardo)),
         { immagine: ctx.pianta, immagini, passo: "assegnazione", giro: n });
     } catch (e) {
       conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
@@ -700,35 +859,39 @@ export async function comprendiGuardando(ctx) {
     // Il cancello: si esce quando e' sicuro, non quando e' finita.
     if (sicuro && coperto) break;
     if (n >= giriMassimi) break;
-    if (typeof ctx.rileva !== "function") break;
 
-    // --- (3) IL CERVELLO DICE ALL'OCCHIO COSA CERCARE ----------------------
-    let risposta;
+    // --- (3) SI TORNA A GUARDARE, non a spazzolare parole ------------------
+    //
+    // ⚠️ Il secondo giro non e' «cerca queste altre 12 parole»: e' «guarda
+    //    ancora, e stavolta guarda QUESTO». Il cervello dice cosa e' rimasto
+    //    in dubbio, l'occhio riapre gli occhi sulle stesse immagini con quella
+    //    domanda in testa. E' l'unico giro in piu' che si fa: al terzo non
+    //    sarebbe piu' sicuro di quanto non lo sia al secondo, e a quel punto
+    //    la persona che sa com'e' fatto quel modello e' Raffaella, non lui.
+    const inDubbio = ass.senzaNome.map((s) => s.domanda).filter(Boolean).slice(0, 5);
+    const mettiAFuoco = inDubbio.length
+      ? inDubbio.join(" ")
+      : senzaNome + " volumi su " + posti.length + " sono rimasti senza nome: guarda "
+        + "se ci sono arredi, mezzi o attrezzature che al primo sguardo ti sono sfuggiti.";
     try {
-      const riass = riassuntoPerCervello({ ok: true, posti, scartate: 0 },
-        { dominio: ctx.dominio, giro: n, parole: [...gia] });
-      risposta = await ctx.cervello(promptCervello(riass),
-        { immagine: ctx.pianta, immagini, passo: "parole", giro: n });
+      const r = await ctx.cervello(promptSguardo(immagini.length, mettiAFuoco),
+        { immagine: ctx.pianta, immagini, passo: "sguardo", giro: n + 1 });
+      conservaRisposta("sguardo", r, null);
+      const s2 = leggiSguardo(r);
+      if (!s2.valido) {
+        conservaRisposta("sguardo", r, s2.perche || "risposta non leggibile");
+        break;
+      }
+      // Si somma al primo sguardo: quello che aveva gia' visto non si perde.
+      s2.cose = [...new Set([...(sguardo ? sguardo.cose : []), ...s2.cose])];
+      s2.attorno = [...new Set([...(sguardo ? sguardo.attorno : []), ...s2.attorno])];
+      sguardo = s2;
+      testimonianza = sguardoInParole(s2);
+      giri[giri.length - 1].paroleChieste = s2.cose.slice(0, 6);
     } catch (e) {
-      conservaRisposta("parole", null, "il cervello non ha risposto: " + ((e && e.message) || e));
-      break;                             // si tiene quello che si ha, non si perde
-    }
-    conservaRisposta("parole", risposta, null);
-    const verdetto = leggiVerdetto(risposta);
-    if (!verdetto.valido) {
-      conservaRisposta("parole", risposta, verdetto.perche || "risposta non leggibile");
+      conservaRisposta("sguardo", null, "l'occhio non ha risposto: " + ((e && e.message) || e));
       break;
     }
-    const nuove = verdetto.parole.filter((p) => !gia.has(p.chiedi));
-    if (!nuove.length) break;            // non ha piu' niente da suggerire
-    for (const p of nuove) { gia.add(p.chiedi); paroleAccumulate.push(p); }
-    giri[giri.length - 1].paroleChieste = nuove.map((p) => p.chiedi);
-
-    // --- (4) L'OCCHIO CERCA, su tutte le viste, SOLO quelle parole ---------
-    try {
-      const occhiata = await occhioSuTutteLeViste(ctx, immagini, paroleAccumulate, true);
-      testimonianza = occhiata.testimonianza;
-    } catch (e) { /* occhio muto: si riassegna con quello che si ha */ }
   }
 
   if (!ass) return null;
