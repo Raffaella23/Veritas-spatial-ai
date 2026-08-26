@@ -265,40 +265,38 @@ Si affrontano in quest'ordine e non in un altro: i primi due falsano tutto
 quello che viene dopo, e correggere il resto prima significherebbe tarare il
 sistema su letture sbagliate.
 
-### 1. 🔴 LA PIANTA È SPECCHIATA — si vede il modello DA SOTTO
+### 1. ✅ LA PIANTA — RISOLTO il 26/08 (`19a4831`, `1be10aa`)
 
-⚠️ **Confermato da Raffaella il 25/08 guardando il pannello**, non più un
-sospetto. La pianta che occhio e cervello ricevono non è una vista dall'alto: è
-la stessa scena vista **da sotto**.
+Era rotta in **due** modi, nella stessa telecamera di `piantaDelPavimento`.
+Misurato proiettando i vertici con three in node, senza WebGL — non dedotto.
 
-⚠️ E il modello è **solido, non wireframe**: da sotto si vede l'intradosso del
-pavimento, una superficie piena che copre tutto. Non si intravede niente di
-quello che sta sopra — non è una vista trasparente, è una scatola guardata dal
-fondo, col coperchio chiuso. Per questo «non si capisce niente»: non è che i
-nomi finiscono nel posto sbagliato, è che **non c'è proprio niente da
-riconoscere**. Chi legge questo fronte non lo tratti come un problema di
-orientamento: è la vista che manca del tutto.
+1. **Inquadratura fuori dal modello.** I bordi alto/basso della camera
+   ortografica erano scritti in coordinate del **mondo** (`max.z`, `min.z`)
+   invece che della **telecamera**. Con `up = (0,0,-1)` l'alto dello schermo
+   guarda verso -Z, quindi la Z entra cambiata di segno: il riquadro cadeva
+   fra `-max.z` e `-min.z`. Corretto solo per un modello centrato
+   sull'origine; per ogni altro **la pianta usciva vuota**, senza un errore in
+   console. Misurato: modello su z fra 50 e 90 → riga -250, fuori del tutto.
+   È questo il «non c'è niente da riconoscere».
+2. **Specchiatura.** `readRenderTargetPixels` dà la riga 0 in fondo, e in
+   fondo allo schermo c'è la Z **massima**.
 
-Meccanismo: `readRenderTargetPixels` dà la **riga 0 in fondo**, e `piantaInTela`
-(in `veritas_riconosce.js`) la copia così com'è.
+⚠️ **La correzione NON è doppia**, e questo corregge quanto diceva prima
+questo stesso paragrafo. Tutti i consumatori di quei pixel leggono la riga 0
+come Z **minima**: `pixelAMondo`, `scatolaInMondo` (origine = `min.z`),
+`piantaInTela` (riga 0 in cima alla tela) e `leggiSegnaleticaDaPianta`
+(blocco 7). L'inversione della telecamera li aveva **già** ribaltati tutti
+insieme, quindi si raddrizza **una volta sola alla fonte** — come fa
+`scorciTreQuarti` — e non si rovescia niente a valle. Rovesciare anche i
+riquadri avrebbe ri-specchiato le misure: lo stesso difetto silenzioso, dal
+lato opposto.
 
-**Vale su ogni modello**: non dipende dal file, dipende da come si leggono i
-pixel. Ogni pianta prodotta finora era specchiata.
-
-⚠️ **La correzione è DOPPIA e va fatta in coppia**, perché quei pixel hanno due
-consumatori con esigenze opposte:
-- le **misure** li usano per convertire pixel in metri, e lì la riga 0 in fondo
-  è l'origine di `pixelAMondo`: raddrizzare lì specchierebbe tutte le posizioni;
-- l'**occhio e il cervello** li usano come immagine, e a loro serve dritta.
-
-Quindi: si raddrizza al momento di **mostrarla**, e si rovescia indietro la
-coordinata verticale dei riquadri che il modello restituisce. Fatta a metà
-peggiora le cose, in silenzio. È un difetto che non dà errori: produce nomi
-plausibili sul lato sbagliato dell'edificio, e nessun report lo rivela.
-
-📌 Gli **scorci** sono già raddrizzati alla fonte dentro `scorciTreQuarti()`
-(25/08). La pianta è stata lasciata apposta com'era, proprio per questa doppia
-natura.
+Prova del giro completo mondo → riga → `raddrizza` → `pixelAMondo` → mondo:
+chiude a 0,025 m con pixel da 0,05 m, su modello centrato, spostato a Z+ e a
+Z-. ⚠️ La copia che gira davvero è quella **inlinata nel blocco 8 di
+`index.html`** (l'unica ad assegnare `window.__veritasVista`); il file
+`veritas_vista.js` è il gemello importato solo per `mondoAPixel`. Vanno
+tenuti allineati: correggerne uno solo non cambia niente a schermo.
 
 ### 2. 🔴 L'assegnazione si ferma a metà
 
@@ -335,7 +333,7 @@ progetto: **planimetrie, prospetti, sezioni.** Stato:
 
 | rappresentazione | stato |
 |---|---|
-| **pianta** | ✅ c'è — ed è già una sezione orizzontale: la telecamera sta appena sopra il pavimento, non in cielo (⚠️ ma specchiata, fronte 1) |
+| **pianta** | ✅ c'è, e raddrizzata dal 26/08 — è già una sezione orizzontale: la telecamera sta appena sopra il pavimento, non in cielo |
 | **prospetti** | ✅ `scorciTreQuarti()`, dal 25/08. Dicono *che edificio è* |
 | **sezioni** | ❌ mancano |
 | **piante di piano** | ❌ mancano |
