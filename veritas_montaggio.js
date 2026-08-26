@@ -507,7 +507,8 @@ window.__veritasComprendi = async function (opz = {}) {
     if (!trovate || !trovate.posti || !trovate.posti.length)
       return { ok: false, perche: "non e' stato ancora misurato nessun volume" };
 
-    const pianta = vista.piantaDelPavimento(THREE, rend, radice, opz.pianta || {});
+    const pianta = vista.piantaDelPavimento(THREE, rend, radice,
+      Object.assign({ tutto: true }, opz.pianta || {}));
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
 
     // ⚠️ GLI SCORCI. La pianta dice DOVE stanno le cose; gli scorci dicono
