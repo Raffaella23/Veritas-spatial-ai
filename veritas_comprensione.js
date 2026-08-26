@@ -446,6 +446,39 @@ function estraiJson(testo) {
 // Restituisce `null` se lo studio non si e' potuto fare: in quel caso chi
 // chiama prosegue con il giro a parole, che resta esattamente com'era.
 
+// ---------------------------------------------------------------------------
+// 4-ter. LA RISPOSTA GREZZA NON SI BUTTA PIU'
+// ---------------------------------------------------------------------------
+//
+// ⚠️ Aggiunto il 26/08. Fino a qui, quando lo studio o l'assegnazione non si
+//    lasciavano leggere si faceva `return null` in SILENZIO e il programma
+//    ripiegava sul giro a parole. Il ripiego funzionava — non si rompeva
+//    niente — ma la risposta del cervello, cioe' l'unica cosa che dice
+//    PERCHE' si e' fermato, spariva senza lasciare traccia. Cosi' ogni
+//    diagnosi diventava un'ipotesi: troncata? JSON storto? scorci mancanti?
+//
+//    Questo NON corregge niente e NON cambia il comportamento: registra e
+//    basta. Si legge da console con `__veritasRisposteGrezze`.
+export function conservaRisposta(passo, testo, motivo) {
+  try {
+    if (typeof window === "undefined") return;
+    const m = window.__veritasRisposteGrezze || (window.__veritasRisposteGrezze = {});
+    const s = testo == null ? null : String(testo);
+    m[passo] = {
+      quando: new Date().toISOString(),
+      motivo: motivo || null,
+      lunghezza: s == null ? 0 : s.length,
+      testo: s,
+    };
+    if (motivo) {
+      console.warn("[VERITAS cervello] passo \u00ab" + passo + "\u00bb fermo: " + motivo
+        + " \u2014 risposta grezza di " + (s == null ? 0 : s.length)
+        + " caratteri in window.__veritasRisposteGrezze." + passo + ".testo");
+      if (s) console.warn("[VERITAS cervello] ultimi 400 caratteri: " + s.slice(-400));
+    }
+  } catch (e) {}
+}
+
 export async function comprendiGuardando(ctx) {
   const immagini = [ctx.pianta, ...(ctx.scorci || [])].filter(Boolean);
   const volumi = volumiPerCervello(ctx.posti);
@@ -456,10 +489,15 @@ export async function comprendiGuardando(ctx) {
     rispostaStudio = await ctx.cervello(promptStudio(immagini.length, volumi.length),
       { immagine: ctx.pianta, immagini, passo: "studio" });
   } catch (e) {
+    conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
     return null;   // il cervello non ha risposto: si torna alla strada vecchia
   }
+  conservaRisposta("studio", rispostaStudio, null);
   const studio = leggiStudio(rispostaStudio);
-  if (!studio.valido) return null;
+  if (!studio.valido) {
+    conservaRisposta("studio", rispostaStudio, studio.perche || "risposta non leggibile");
+    return null;
+  }
 
   if (typeof ctx.onGiro === "function") {
     ctx.onGiro({ giro: 1, passo: "studio", cosaE: studio.tipo,
@@ -493,10 +531,20 @@ export async function comprendiGuardando(ctx) {
     rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi),
       { immagine: ctx.pianta, immagini, passo: "assegnazione" });
   } catch (e) {
+    conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
     return null;
   }
+  conservaRisposta("assegnazione", rispostaAss, null);
   const ass = leggiAssegnazione(rispostaAss);
-  if (!ass.valido) return null;
+  if (!ass.valido) {
+    // ⚠️ Qui si ferma il fronte 2. `perche` distingue i casi che finora si
+    //    potevano solo indovinare: risposta troncata (JSON incompleto), JSON
+    //    assente, oppure elenco vuoto — cioe' il cervello ha risposto bene ma
+    //    non ha voluto nominare niente. Sono tre difetti diversi.
+    conservaRisposta("assegnazione", rispostaAss,
+      (ass.perche || "risposta non leggibile") + " (volumi chiesti: " + volumi.length + ")");
+    return null;
+  }
 
   // Si applicano i nomi ai volumi veri. Solo `nome`, `ruolo` e `fiducia`: la
   // geometria non si tocca, e' l'unica cosa certa che c'e'.
@@ -781,6 +829,7 @@ export function racconta(c) {
 }
 
 export default {
+  conservaRisposta,
   GIRI_MASSIMI, FIDUCIA_PER_AGIRE, QUOTA_SENZA_NOME_MAX, RUOLI,
   riassuntoPerCervello, promptCervello, leggiVerdetto,
   volumiPerCervello, promptStudio, leggiStudio,
