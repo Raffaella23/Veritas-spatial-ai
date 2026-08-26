@@ -89,6 +89,12 @@ export function anteprima(doc, opz = {}) {
     nomi: new Map(),       // indice del volume -> nome assegnato
     scatole: [],           // { xmin,ymin,xmax,ymax, label, score, giro }
     mostra: { pianta: true, punti: true, scatole: true, nomi: true },
+    // ⚠️ TUTTE le immagini che l'AI riceve, non solo la pianta. Deciso da
+    //    Raffaella il 26/08: il pannello si chiama «quello che vedo» e ne
+    //    mostrava una su N, quindi guardandolo non si poteva capire se un
+    //    difetto stesse nella pianta, negli scorci o nel cervello.
+    viste: [],
+    vista: 0,
   };
 
   const radice = doc.createElement("div");
@@ -134,13 +140,30 @@ export function anteprima(doc, opz = {}) {
     interruttori.appendChild(l);
   }
 
+  // --- il selettore delle viste --------------------------------------------
+  const barraViste = doc.createElement("div");
+  barraViste.style.cssText = "display:flex;align-items:center;gap:8px;"
+    + "padding:0 2px 8px;color:" + COLORI.tenue;
+  const etichettaViste = doc.createElement("span");
+  etichettaViste.textContent = "vista:";
+  const scelta = doc.createElement("select");
+  scelta.style.cssText = "flex:1;background:#0b0d12;color:" + COLORI.testo
+    + ";border:1px solid " + COLORI.bordo + ";border-radius:6px;padding:3px 6px;"
+    + "font:12px ui-monospace,SFMono-Regular,Menlo,monospace";
+  scelta.addEventListener("change", function () {
+    stato.vista = Number(scelta.value) || 0;
+    disegna();
+  });
+  barraViste.append(etichettaViste, scelta);
+
   const diario = doc.createElement("div");
   diario.style.cssText = "max-height:150px;overflow-y:auto;padding-top:6px;"
     + "border-top:1px solid " + COLORI.bordo + ";color:" + COLORI.tenue;
 
-  corpo.append(tela, interruttori, diario);
+  corpo.append(barraViste, tela, interruttori, diario);
   radice.append(testa, corpo);
   (doc.body || doc.documentElement).appendChild(radice);
+  aggiornaScelta();
 
   let piegato = false;
   bPiega.addEventListener("click", () => {
@@ -154,20 +177,33 @@ export function anteprima(doc, opz = {}) {
   function disegna() {
     const c = tela.getContext("2d");
     c.clearRect(0, 0, tela.width, tela.height);
-    if (!stato.pianta) {
+    const v = stato.viste[stato.vista] || null;
+    if (!v || !v.tela) {
       c.fillStyle = COLORI.tenue; c.font = "12px monospace";
       c.fillText("in attesa della prima occhiata…", 14, 26);
       return;
     }
 
-    // La pianta occupa la tela mantenendo le proporzioni: la scala vale poi
+    // L'immagine occupa la tela mantenendo le proporzioni: la scala vale poi
     // per tutto il resto, cosi' punti e scatole restano dove devono stare.
-    const s = Math.min(tela.width / stato.pianta.width, tela.height / stato.pianta.height);
-    const ox = (tela.width - stato.pianta.width * s) / 2;
-    const oy = (tela.height - stato.pianta.height * s) / 2;
+    const s = Math.min(tela.width / v.tela.width, tela.height / v.tela.height);
+    const ox = (tela.width - v.tela.width * s) / 2;
+    const oy = (tela.height - v.tela.height * s) / 2;
 
     if (stato.mostra.pianta) {
-      c.drawImage(stato.pianta, ox, oy, stato.pianta.width * s, stato.pianta.height * s);
+      c.drawImage(v.tela, ox, oy, v.tela.width * s, v.tela.height * s);
+    }
+
+    // ⚠️ Punti, scatole e nomi vivono nel sistema di coordinate DELLA PIANTA
+    //    (pixel -> metri, via `inquadratura`). Su uno scorcio in prospettiva
+    //    quelle coordinate non vogliono dire niente: disegnarceli sopra
+    //    metterebbe riquadri credibili nel posto sbagliato, cioe' proprio il
+    //    difetto che questo pannello esiste per far vedere. Quindi su uno
+    //    scorcio si mostra l'immagine nuda, e lo si scrive.
+    if (v.tipo !== "pianta") {
+      c.fillStyle = COLORI.tenue; c.font = "11px monospace";
+      c.fillText(v.etichetta + " \u2014 prospettiva: niente punti ne' scatole", 8, 14);
+      return;
     }
 
     // --- la nuvola di punti: i volumi MISURATI --------------------------
@@ -210,6 +246,25 @@ export function anteprima(doc, opz = {}) {
     }
   }
 
+  function aggiornaScelta() {
+    while (scelta.firstChild) scelta.removeChild(scelta.firstChild);
+    if (!stato.viste.length) {
+      const o = doc.createElement("option");
+      o.textContent = "nessuna immagine ancora";
+      scelta.appendChild(o);
+      scelta.disabled = true;
+      return;
+    }
+    scelta.disabled = false;
+    for (let i = 0; i < stato.viste.length; i++) {
+      const o = doc.createElement("option");
+      o.value = String(i);
+      o.textContent = (i + 1) + "/" + stato.viste.length + "  " + stato.viste[i].etichetta;
+      scelta.appendChild(o);
+    }
+    scelta.value = String(stato.vista);
+  }
+
   function riga(testo, colore) {
     const d = doc.createElement("div");
     d.textContent = testo;
@@ -230,12 +285,38 @@ export function anteprima(doc, opz = {}) {
     // ⚠️ Se `piantaInTela` capovolge le righe, l'anteprima lo capovolge
     //    uguale: e' il punto. Un'anteprima che raddrizza da sola nasconde
     //    esattamente il difetto che deve mostrare.
+    stato.viste = [];
     try {
       stato.pianta = piantaInTela(ctx.pianta, doc);
+      if (stato.pianta) {
+        stato.viste.push({ etichetta: "pianta dall'alto", tela: stato.pianta, tipo: "pianta" });
+      }
     } catch (e) {
       riga("non ho potuto disegnare la pianta: " + (e && e.message), COLORI.scatola);
     }
-    riga(stato.posti.length + " volumi misurati, in attesa dell'occhio");
+
+    // Gli scorci: le stesse immagini che partono verso il cervello, nello
+    // stesso ordine. Se qui non ne compare nessuno, il cervello sta
+    // giudicando l'edificio con la sola pianta — ed e' un'informazione.
+    const scorci = ctx.scorci || [];
+    for (let i = 0; i < scorci.length; i++) {
+      try {
+        const t = piantaInTela(scorci[i], doc);
+        if (!t) continue;
+        const gradi = typeof scorci[i].azimuth === "number"
+          ? Math.round(scorci[i].azimuth * 180 / Math.PI) : null;
+        stato.viste.push({
+          etichetta: "scorcio " + (i + 1) + (gradi == null ? "" : " \u2014 " + gradi + "\u00b0"),
+          tela: t, tipo: "scorcio",
+        });
+      } catch (e) { /* uno scorcio illeggibile non deve spegnere il pannello */ }
+    }
+
+    stato.vista = 0;
+    aggiornaScelta();
+    riga(stato.posti.length + " volumi misurati, " + stato.viste.length
+      + (stato.viste.length === 1 ? " immagine" : " immagini")
+      + " verso il cervello, in attesa dell'occhio");
     disegna();
 
     const rilevaVero = ctx.rileva, cervelloVero = ctx.cervello;
