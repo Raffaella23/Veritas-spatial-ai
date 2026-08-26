@@ -298,20 +298,42 @@ Z-. ⚠️ La copia che gira davvero è quella **inlinata nel blocco 8 di
 `veritas_vista.js` è il gemello importato solo per `mondoAPixel`. Vanno
 tenuti allineati: correggerne uno solo non cambia niente a schermo.
 
-### 2. 🔴 L'assegnazione si ferma a metà
+### 2. ✅ IL CIRCUITO OCCHIO↔CERVELLO — ricostruito il 26/08 (`3d296e0`)
 
-⚠️ Misurato il 25/08 sul modello vero. Il primo gradino **funziona**: il
-pannello dice `cervello: capito=sì, fiducia 95%`. Il secondo — l'assegnazione
-dei nomi ai 23 volumi — dà `capito=?`, cioè risposta non leggibile, e il
-programma ricade sul giro a parole vecchio (`chiedo 158 parole`), che si sa già
-che non porta niente. Il ripiego ha fatto il suo mestiere: **non si è rotto
-niente**, ma la strada nuova non arriva in fondo.
+**Questa è la regola, e non va più ridetta a voce a ogni chat: adesso è nel
+codice.** Occhio e cervello accesi insieme dall'inizio, **le stesse immagini
+per tutti e due**, si scambiano quello che trovano finché non è sicuro, e se
+non è sicuro **chiede** invece di inventare.
 
-Da guardare per prima cosa: **cosa risponde davvero il cervello a quel passo.**
-Ipotesi non verificate, da non trattare come diagnosi: risposta troncata
-(`max_tokens` è già a 2500 sui passi nuovi), JSON con 23 voci malformato, o
-scorci non prodotti. Non si corregge niente prima di aver letto la risposta
-grezza.
+Misurato il 26/08: il codice faceva tre cose diverse da questa.
+
+| era | è |
+|---|---|
+| `comprendi()` chiamava lo studio e **ritornava**; il giro occhio↔cervello partiva solo **se lo studio falliva** — due strade alternative, mai insieme | un anello solo |
+| il cervello riceveva pianta **+ scorci**, l'occhio **solo la pianta**: gli si chiedeva «trovi un banco?» sul pavimento mentre il banco stava in uno scorcio che non ha mai visto | `occhioSuTutteLeViste()` — l'occhio guarda esattamente le immagini che vanno al cervello |
+| studio → assegnazione → fine: **un solo scambio**, e se restavano volumi senza nome nessuno tornava a guardare | il cervello chiede altre parole, l'occhio le cerca su **tutte** le viste al giro dopo, si riassegna, fino a `GIRI_MASSIMI` |
+
+⚠️ **Sulla pianta** le rilevazioni diventano **posizioni** (proiezione
+ortografica → `scatolaInMondo`). **Sugli scorci no**: sono prospettive, un
+riquadro lì non ha un corrispondente a terra, e convertirlo lo stesso darebbe
+posizioni credibili e sbagliate — la stessa merce avariata dei KPI finti.
+Dagli scorci si prende solo la **testimonianza** (cosa ha visto, in quale
+vista), che arriva al cervello dentro i prompt come indizio fallibile, mai
+come misura.
+
+Provato su banco con occhio e cervello finti, senza spendere token: sequenza
+`studio → assegnazione#1 → parole#1 → assegnazione#2`, da 1 volume su 6
+nominato a 6 su 6 dopo il rimbalzo. **Da verificare sul modello vero.** Se si
+ferma ancora, la risposta grezza non si perde più: `__veritasRisposteGrezze`
+(`.studio`, `.assegnazione`, `.parole` — con `testo`, `lunghezza`, `motivo`).
+
+📌 Il pannello ha un **selettore** con tutte le immagini che partono verso il
+cervello (`143302d`): se non ci sono scorci nella tendina, il cervello sta
+giudicando con la sola pianta, ed è un'informazione.
+
+📌 La pianta per il cervello è il **modello intero dall'alto**, non la fetta a
+45 cm (`dabe4d1`): sugli spaccati la fetta tagliava via banchi, sedute e gate,
+che stanno tutti più in alto. Chi legge la segnaletica a terra tiene la fetta.
 
 ### 3. 🟠 L'asse delle altezze non si presume: si misura
 
