@@ -245,7 +245,7 @@ export function volumiPerCervello(posti) {
   });
 }
 
-export function promptStudio(quanteViste, quantiVolumi) {
+export function promptStudio(quanteViste, quantiVolumi, testimonianza) {
   return [
     "Sei il cervello spaziale di VERITAS. Ti mostro lo stesso edificio da " + quanteViste +
       " punti di vista diversi: una pianta dall'alto e alcuni scorci in prospettiva,",
@@ -283,6 +283,14 @@ export function promptStudio(quanteViste, quantiVolumi) {
     '  "fiducia": numero fra 0 e 1,',
     '  "chiedi_all_umano": "una domanda in italiano, oppure null"',
     "}",
+    "",
+    ...(testimonianza ? ["",
+      "QUELLO CHE L'OCCHIO HA VISTO nelle stesse immagini. E' un rilevatore",
+      "automatico: e' una TESTIMONIANZA, non una misura, e puo' sbagliarsi o non",
+      "trovare niente. Se non trova niente non vuol dire che non ci sia niente:",
+      "vuol dire che non gliel'hanno chiesto con la parola giusta, ed e' una cosa",
+      "che puoi correggere tu al giro dopo.",
+      testimonianza] : []),
     "",
     "REGOLE, e sono vincolanti:",
     "- `come_funziona` e' la SEQUENZA con cui le persone attraversano un posto di",
@@ -342,7 +350,7 @@ export function leggiStudio(testo) {
 //
 // Uno stesso nome puo' toccare a piu' volumi: tre sale d'attesa restano tre.
 
-export function promptAssegnazione(studio, volumi) {
+export function promptAssegnazione(studio, volumi, testimonianza) {
   return [
     "Sei il cervello spaziale di VERITAS. Hai gia' stabilito che posto stai guardando:",
     JSON.stringify({
@@ -357,6 +365,12 @@ export function promptAssegnazione(studio, volumi) {
     "Questi sono i volumi MISURATI dentro lo spazio. Le posizioni e le aree sono",
     "certe e non si discutono: `centro` e' [x, z] in metri, come sulla pianta.",
     JSON.stringify(volumi, null, 2),
+    ...(testimonianza ? ["",
+      "E questo e' quello che l'occhio ha visto nelle immagini, vista per vista.",
+      "Serve ad ancorare i nomi a qualcosa di osservato invece che al solo",
+      "ragionamento. E' una testimonianza fallibile: se contraddice le misure,",
+      "vincono le misure.",
+      testimonianza] : []),
     "",
     "Assegna a ciascun volume una zona della sequenza qui sopra. Rispondi SOLO con",
     "un oggetto JSON, senza testo prima o dopo, senza ```:",
@@ -440,6 +454,94 @@ function estraiJson(testo) {
 }
 
 // ---------------------------------------------------------------------------
+// 4-bis. L'OCCHIO GUARDA TUTTE LE VISTE, non solo la pianta
+// ---------------------------------------------------------------------------
+//
+// ⚠️ Deciso da Raffaella il 26/08, ed e' la regola del circuito: occhio e
+//    cervello devono avere LE STESSE informazioni. Prima non era cosi': il
+//    cervello riceveva pianta + scorci, l'occhio soltanto la pianta. Gli si
+//    chiedeva «trovi un banco?» guardando il pavimento, mentre il banco stava
+//    in uno scorcio che l'occhio non ha mai visto.
+//
+// ⚠️ SULLA PIANTA le rilevazioni diventano POSIZIONI: la proiezione e'
+//    ortografica dall'alto, quindi un riquadro si converte in metri con
+//    `scatolaInMondo` e si puo' abbinare a un volume misurato.
+//    SUGLI SCORCI no: sono prospettive, e un riquadro li' non ha un
+//    corrispondente a terra. Convertirlo lo stesso produrrebbe posizioni
+//    credibili e sbagliate — la stessa merce avariata dei KPI finti. Quindi
+//    dagli scorci si prende solo la TESTIMONIANZA (che cosa ha visto, e in
+//    quale vista), che va al cervello come indizio e non come misura.
+//
+// Il numero di viste non e' scelto qui: sono esattamente quelle che vanno al
+// cervello, e quante siano lo decide gia' la densita' di mesh del modello.
+
+export async function occhioSuTutteLeViste(ctx, immagini, parole) {
+  const fuori = { esitoPianta: null, testimonianza: null, viste: [] };
+  if (typeof ctx.rileva !== "function") return fuori;
+
+  // (a) la pianta: e' l'unica che da' posizioni, e passa dalla strada di sempre
+  if (ctx.pianta && ctx.inquadratura) {
+    try {
+      const e = await riconosci(ctx.posti, {
+        rileva: ctx.rileva, pianta: ctx.pianta, inquadratura: ctx.inquadratura,
+        dominio: ctx.dominio, parole: parole || [],
+      });
+      if (e && e.ok) fuori.esitoPianta = e;
+    } catch (e) { /* la pianta muta non deve fermare gli scorci */ }
+  }
+
+  // (b) gli scorci: solo testimonianza
+  const voci = vocabolarioPer(ctx.dominio, parole || []);
+  const chiedi = voci.map((v) => v.chiedi);
+  const scorci = ctx.scorci || [];
+  for (let i = 0; i < scorci.length; i++) {
+    let grezze = null;
+    try { grezze = await ctx.rileva(scorci[i], chiedi); } catch (e) { grezze = null; }
+    if (!Array.isArray(grezze)) continue;
+    const conta = new Map();
+    for (const g of grezze) {
+      if (!g || typeof g.score !== "number" || !g.label) continue;
+      if (g.score < FIDUCIA_MINIMA_TESTIMONE) continue;
+      conta.set(g.label, (conta.get(g.label) || 0) + 1);
+    }
+    const gradi = typeof scorci[i].azimuth === "number"
+      ? Math.round(scorci[i].azimuth * 180 / Math.PI) : null;
+    fuori.viste.push({
+      vista: "scorcio " + (i + 1) + (gradi == null ? "" : " a " + gradi + " gradi"),
+      cose: [...conta.entries()].map(([label, quante]) => ({ cosa: label, quante })),
+    });
+  }
+
+  fuori.testimonianza = riassuntoTestimonianza(fuori);
+  return fuori;
+}
+
+// Sotto questa fiducia una rilevazione su una prospettiva e' rumore: sulla
+// pianta un falso positivo viene comunque buttato da `abbina` se non sta sopra
+// un volume misurato, qui invece nessuno lo filtra e arriverebbe intero al
+// cervello.
+export const FIDUCIA_MINIMA_TESTIMONE = 0.2;
+
+function riassuntoTestimonianza(o) {
+  const righe = [];
+  if (o.esitoPianta) {
+    const c = new Map();
+    for (const p of o.esitoPianta.posti || []) {
+      if (p && p.nome) c.set(p.nome, (c.get(p.nome) || 0) + 1);
+    }
+    righe.push("pianta dall'alto: " + (c.size
+      ? [...c.entries()].map(([n, q]) => n + " x" + q).join(", ")
+      : "niente di riconosciuto"));
+  }
+  for (const v of o.viste) {
+    righe.push(v.vista + ": " + (v.cose.length
+      ? v.cose.map((x) => x.cosa + " x" + x.quante).join(", ")
+      : "niente di riconosciuto"));
+  }
+  return righe.length ? righe.join("\n") : null;
+}
+
+// ---------------------------------------------------------------------------
 // 4-quater. IL PERCORSO CHE GUARDA — studio, poi assegnazione, poi il cancello
 // ---------------------------------------------------------------------------
 //
@@ -482,96 +584,150 @@ export function conservaRisposta(passo, testo, motivo) {
 export async function comprendiGuardando(ctx) {
   const immagini = [ctx.pianta, ...(ctx.scorci || [])].filter(Boolean);
   const volumi = volumiPerCervello(ctx.posti);
-
-  // --- gradino 1 e 2: che posto e', e come funziona un posto cosi' ----------
-  let rispostaStudio;
-  try {
-    rispostaStudio = await ctx.cervello(promptStudio(immagini.length, volumi.length),
-      { immagine: ctx.pianta, immagini, passo: "studio" });
-  } catch (e) {
-    conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
-    return null;   // il cervello non ha risposto: si torna alla strada vecchia
-  }
-  conservaRisposta("studio", rispostaStudio, null);
-  const studio = leggiStudio(rispostaStudio);
-  if (!studio.valido) {
-    conservaRisposta("studio", rispostaStudio, studio.perche || "risposta non leggibile");
-    return null;
-  }
-
-  if (typeof ctx.onGiro === "function") {
-    ctx.onGiro({ giro: 1, passo: "studio", cosaE: studio.tipo,
-                 fiducia: studio.fiducia, nominati: 0, senzaNome: volumi.length,
-                 capito: studio.capito, paroleChieste: [], dubbi: 0 });
-  }
-
-  const cosaE = studio.tipo +
-    (studio.rappresentazione && studio.rappresentazione !== "non so"
-      ? " (" + studio.rappresentazione +
-        (studio.cosaManca.length ? ", manca " + studio.cosaManca.join(" e ") : "") + ")"
-      : "");
-
-  // Se non ha capito che posto e', non si passa oltre: assegnare nomi partendo
-  // da una tipologia sbagliata li sbaglierebbe tutti, in modo credibile.
-  if (!studio.capito || studio.fiducia < FIDUCIA_PER_AGIRE) {
-    return {
-      ok: true, capito: false, agire: false,
-      cosaE, fiducia: studio.fiducia, studio,
-      posti: ctx.posti, giri: [], dubbi: [],
-      domandaUmana: studio.domandaUmana
-        || ("Non sono sicuro di che tipo di spazio sia questo. Me lo sai dire tu?"),
-      perche: "il cervello non ha stabilito con sicurezza che posto e'",
-      quotaSenzaNome: 1,
-    };
-  }
-
-  // --- gradino 3: i nomi sui volumi misurati -------------------------------
-  let rispostaAss;
-  try {
-    rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi),
-      { immagine: ctx.pianta, immagini, passo: "assegnazione" });
-  } catch (e) {
-    conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
-    return null;
-  }
-  conservaRisposta("assegnazione", rispostaAss, null);
-  const ass = leggiAssegnazione(rispostaAss);
-  if (!ass.valido) {
-    // ⚠️ Qui si ferma il fronte 2. `perche` distingue i casi che finora si
-    //    potevano solo indovinare: risposta troncata (JSON incompleto), JSON
-    //    assente, oppure elenco vuoto — cioe' il cervello ha risposto bene ma
-    //    non ha voluto nominare niente. Sono tre difetti diversi.
-    conservaRisposta("assegnazione", rispostaAss,
-      (ass.perche || "risposta non leggibile") + " (volumi chiesti: " + volumi.length + ")");
-    return null;
-  }
-
-  // Si applicano i nomi ai volumi veri. Solo `nome`, `ruolo` e `fiducia`: la
-  // geometria non si tocca, e' l'unica cosa certa che c'e'.
+  const giriMassimi = ctx.giriMassimi || GIRI_MASSIMI;
   const posti = ctx.posti;
-  let nominati = 0;
-  for (const a of ass.assegnazioni) {
-    const p = posti[a.id];
-    if (!p) continue;
-    p.nome = a.nome;
-    p.ruolo = a.ruolo;
-    p.fiducia = a.fiducia;
-    p.fonte = "assegnazione";
-    p.perche = a.perche;
-    nominati++;
+
+  // Le parole che il cervello ha chiesto di cercare, che si accumulano di giro
+  // in giro. E' il canale che va DAL cervello ALL'occhio: senza, l'occhio
+  // cerca sempre le stesse cose e il rimbalzo non serve a niente.
+  const paroleAccumulate = [];
+  const gia = new Set(vocabolarioPer(ctx.dominio, []).map((v) => v.chiedi));
+
+  const giri = [];
+  let studio = null, cosaE = null;
+  let ass = null, nominati = 0, senzaNome = posti.length, quotaAnonima = 1;
+  let sicuro = false, coperto = false;
+
+  for (let n = 1; n <= giriMassimi; n++) {
+    // --- (a) L'OCCHIO GUARDA, tutte le viste --------------------------------
+    let occhiata = { esitoPianta: null, testimonianza: null, viste: [] };
+    try { occhiata = await occhioSuTutteLeViste(ctx, immagini, paroleAccumulate); }
+    catch (e) { /* l'occhio muto non ferma il cervello: si prosegue senza */ }
+
+    // --- (b) CHE POSTO E' — una volta sola, al primo giro --------------------
+    if (!studio) {
+      let rispostaStudio;
+      try {
+        rispostaStudio = await ctx.cervello(
+          promptStudio(immagini.length, volumi.length, occhiata.testimonianza),
+          { immagine: ctx.pianta, immagini, passo: "studio" });
+      } catch (e) {
+        conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
+        return null;
+      }
+      conservaRisposta("studio", rispostaStudio, null);
+      const s = leggiStudio(rispostaStudio);
+      if (!s.valido) {
+        conservaRisposta("studio", rispostaStudio, s.perche || "risposta non leggibile");
+        return null;
+      }
+      studio = s;
+      cosaE = studio.tipo +
+        (studio.rappresentazione && studio.rappresentazione !== "non so"
+          ? " (" + studio.rappresentazione +
+            (studio.cosaManca.length ? ", manca " + studio.cosaManca.join(" e ") : "") + ")"
+          : "");
+
+      giri.push({ giro: giri.length + 1, passo: "studio", cosaE: studio.tipo,
+                  fiducia: studio.fiducia, nominati: 0, senzaNome: volumi.length,
+                  capito: studio.capito, paroleChieste: [], dubbi: 0 });
+      if (typeof ctx.onGiro === "function") ctx.onGiro(giri[giri.length - 1]);
+
+      // Se non ha capito che posto e', non si passa oltre: assegnare nomi da una
+      // tipologia sbagliata li sbaglierebbe tutti, in modo credibile.
+      if (!studio.capito || studio.fiducia < FIDUCIA_PER_AGIRE) {
+        return {
+          ok: true, capito: false, agire: false,
+          cosaE, fiducia: studio.fiducia, studio,
+          posti, giri, dubbi: [],
+          domandaUmana: studio.domandaUmana
+            || ("Non sono sicuro di che tipo di spazio sia questo. Me lo sai dire tu?"),
+          perche: "il cervello non ha stabilito con sicurezza che posto e'",
+          quotaSenzaNome: 1,
+        };
+      }
+    }
+
+    // --- (c) I NOMI SUI VOLUMI MISURATI -------------------------------------
+    let rispostaAss;
+    try {
+      rispostaAss = await ctx.cervello(
+        promptAssegnazione(studio, volumi, occhiata.testimonianza),
+        { immagine: ctx.pianta, immagini, passo: "assegnazione", giro: n });
+    } catch (e) {
+      conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
+      return null;
+    }
+    conservaRisposta("assegnazione", rispostaAss, null);
+    const a = leggiAssegnazione(rispostaAss);
+    if (!a.valido) {
+      // ⚠️ Qui si ferma il fronte 2. `perche` distingue i casi che finora si
+      //    potevano solo indovinare: risposta troncata (JSON incompleto), JSON
+      //    assente, oppure elenco vuoto — cioe' il cervello ha risposto bene ma
+      //    non ha voluto nominare niente. Sono tre difetti diversi.
+      conservaRisposta("assegnazione", rispostaAss,
+        (a.perche || "risposta non leggibile") + " (volumi chiesti: " + volumi.length
+        + ", giro " + n + ")");
+      return null;
+    }
+    ass = a;
+
+    // Solo `nome`, `ruolo` e `fiducia`: la geometria non si tocca, e' l'unica
+    // cosa certa che c'e'.
+    nominati = 0;
+    for (const x of ass.assegnazioni) {
+      const p = posti[x.id];
+      if (!p) continue;
+      p.nome = x.nome; p.ruolo = x.ruolo; p.fiducia = x.fiducia;
+      p.fonte = "assegnazione"; p.perche = x.perche;
+      nominati++;
+    }
+    senzaNome = posti.length - nominati;
+    quotaAnonima = posti.length ? senzaNome / posti.length : 1;
+    sicuro = ass.capito && ass.fiducia >= FIDUCIA_PER_AGIRE;
+    coperto = quotaAnonima <= QUOTA_SENZA_NOME_MAX;
+
+    giri.push({ giro: giri.length + 1, passo: "assegnazione", cosaE: studio.tipo,
+                fiducia: ass.fiducia, nominati, senzaNome,
+                capito: ass.capito, paroleChieste: [], dubbi: ass.senzaNome.length });
+    if (typeof ctx.onGiro === "function") ctx.onGiro(giri[giri.length - 1]);
+
+    // --- (d) IL CANCELLO: si esce quando e' sicuro, non quando e' finita ----
+    if (sicuro && coperto) break;
+    if (n >= giriMassimi) break;
+
+    // --- (e) IL RIMBALZO: il cervello dice all'occhio cosa cercare ----------
+    //
+    // ⚠️ E' il pezzo che mancava. Prima si faceva studio -> assegnazione ->
+    //    fine: un solo scambio, e se restavano volumi senza nome nessuno
+    //    tornava a guardare. Qui il cervello chiede altre parole, l'occhio le
+    //    cerca su TUTTE le viste al giro dopo, e si riassegna con quello che ha
+    //    trovato. Non si riscrive niente: sono `promptCervello` e
+    //    `leggiVerdetto`, gli stessi che usa il giro a parole.
+    if (!occhiata.esitoPianta) break;   // senza esito non c'e' niente da raccontare
+    let risposta;
+    try {
+      const riass = riassuntoPerCervello(occhiata.esitoPianta,
+        { dominio: ctx.dominio, giro: n, parole: [...gia] });
+      risposta = await ctx.cervello(promptCervello(riass),
+        { immagine: ctx.pianta, immagini, passo: "parole", giro: n });
+    } catch (e) {
+      conservaRisposta("parole", null, "il cervello non ha risposto: " + ((e && e.message) || e));
+      break;                            // si tiene quello che si ha, non si perde
+    }
+    conservaRisposta("parole", risposta, null);
+    const verdetto = leggiVerdetto(risposta);
+    if (!verdetto.valido) {
+      conservaRisposta("parole", risposta, verdetto.perche || "risposta non leggibile");
+      break;
+    }
+    const nuove = verdetto.parole.filter((p) => !gia.has(p.chiedi));
+    if (!nuove.length) break;           // non ha piu' niente da suggerire: inutile rigirare
+    for (const p of nuove) { gia.add(p.chiedi); paroleAccumulate.push(p); }
+    giri[giri.length - 1].paroleChieste = nuove.map((p) => p.chiedi);
   }
 
-  const senzaNome = posti.length - nominati;
-  const quotaAnonima = posti.length ? senzaNome / posti.length : 1;
-
-  if (typeof ctx.onGiro === "function") {
-    ctx.onGiro({ giro: 2, passo: "assegnazione", cosaE: studio.tipo,
-                 fiducia: ass.fiducia, nominati, senzaNome,
-                 capito: ass.capito, paroleChieste: [], dubbi: ass.senzaNome.length });
-  }
-
-  const sicuro = ass.capito && ass.fiducia >= FIDUCIA_PER_AGIRE;
-  const coperto = quotaAnonima <= QUOTA_SENZA_NOME_MAX;
+  if (!ass) return null;
 
   // Le domande sui volumi rimasti senza nome: vanno in chat, non nel silenzio.
   const domande = ass.senzaNome.map((s) => s.domanda).filter(Boolean);
@@ -593,11 +749,7 @@ export async function comprendiGuardando(ctx) {
     fiducia: ass.fiducia,
     studio,
     posti,
-    giri: [{ giro: 1, passo: "studio", nominati: 0, senzaNome: posti.length,
-             capito: studio.capito, fiducia: studio.fiducia, paroleChieste: [], dubbi: 0 },
-           { giro: 2, passo: "assegnazione", nominati, senzaNome,
-             capito: ass.capito, fiducia: ass.fiducia, paroleChieste: [],
-             dubbi: ass.senzaNome.length }],
+    giri,
     dubbi: ass.senzaNome.map((s) => ({ cosa: "volume " + s.id, perche: s.domanda })),
     domandaUmana,
     perche: (sicuro && coperto) ? null
