@@ -208,7 +208,27 @@ export function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   // il quantile 98 delle quote, cosi' una coda di casi estremi non la fa
   // esplodere. Il tetto di 1,6 m impedisce di inghiottire banconi e soppalchi,
   // che coprirebbero il pavimento invece di mostrarlo.
+  // ⚠️ `tutto: true` — LA PIANTA DEL MODELLO INTERO, non la fetta.
+  //    Deciso da Raffaella il 26/08 guardando il pannello. La fetta a 45 cm
+  //    e' giusta su un modello CHIUSO (tetto e solai): senza, dall'alto si
+  //    vedrebbe solo la copertura. Ma sui modelli veri che entrano qui —
+  //    spaccati, senza muri ne' soffitti — la fetta butta via tutto quello
+  //    che c'e' da riconoscere e lascia il pavimento nudo con qualche
+  //    puntino: banchi, sedute, gate, nastri stanno TUTTI sopra i 45 cm.
+  //    E' esattamente il motivo per cui gli scorci a tre quarti funzionano e
+  //    la pianta no: gli scorci guardano il modello intero.
+  //    Qui non si sceglie a priori quale sia il modello giusto: si guarda
+  //    tutto, e cosa si sta vedendo — spaccato, sezione, modello chiuso — lo
+  //    dice il cervello, che e' il suo mestiere.
+  //    La proiezione resta ortografica dall'alto, quindi `pixelAMondo` e
+  //    `scatolaInMondo` continuano a valere identici: cambia solo quanta
+  //    altezza entra nell'inquadratura.
+  //    Chi legge la segnaletica a terra NON passa `tutto` e tiene la fetta:
+  //    con gli arredi dentro, il pavimento non si vedrebbe piu'.
   let spessore = opzioni.spessore;
+  if (opzioni.tutto && spessore == null) {
+    spessore = (scatola.max.y - quotaPav) + 0.10;
+  }
   if (spessore == null) {
     spessore = 0.45;
     const punti = opzioni.punti;
