@@ -10493,8 +10493,15 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   );
   if (!inq) return null;
 
+  // ⚠️ I bordi alto/basso vanno espressi nel sistema DELLA TELECAMERA, non in
+  //    quello del mondo. Con up = (0,0,-1) l'alto dello schermo guarda verso
+  //    -Z, quindi la Z del mondo entra QUI cambiata di segno. Scrivendoci
+  //    direttamente max.z e min.z l'inquadratura cadeva su z fra -max.z e
+  //    -min.z: giusta solo per un modello centrato sull'origine, e del tutto
+  //    FUORI dal modello per qualunque altro — pianta vuota, senza un errore
+  //    in console. Misurato il 26/08 proiettando i vertici con three.
   const cam = new THREE.OrthographicCamera(
-    scatola.min.x, scatola.max.x, scatola.max.z, scatola.min.z, 0.001, spessore + 0.05);
+    scatola.min.x, scatola.max.x, -scatola.min.z, -scatola.max.z, 0.001, spessore + 0.05);
   // Guarda in giu'. L'occhio sta appena sopra la fascia da leggere, cosi'
   // tutto quello che sta piu' in alto - soffitti, coperture, aerei - finisce
   // DIETRO la telecamera e non copre il pavimento.
@@ -10540,7 +10547,15 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
     try { bersaglio.dispose(); } catch (e) {}
   }
 
-  return { pixel, ...inq, quotaPavimento: quotaPav };
+  // ⚠️ SI RADDRIZZA QUI, ALLA FONTE — come gia' fa scorciTreQuarti.
+  //    `readRenderTargetPixels` consegna la riga 0 in fondo, e in fondo allo
+  //    schermo (con up = (0,0,-1)) c'e' la Z MASSIMA. Ma tutti e tre i
+  //    consumatori di questi pixel leggono la riga 0 come Z MINIMA:
+  //    `pixelAMondo` e `scatolaInMondo` (origine = min.z), `piantaInTela`
+  //    (riga 0 in cima alla tela) e `leggiSegnaleticaDaPianta`. Una sola
+  //    girata qui li rimette d'accordo tutti insieme; NON si rovescia niente
+  //    a valle, o si torna a specchiare. Misurato il 26/08.
+  return { pixel: raddrizza(pixel, inq.larghezza, inq.altezza), ...inq, quotaPavimento: quotaPav };
 }
 
 
