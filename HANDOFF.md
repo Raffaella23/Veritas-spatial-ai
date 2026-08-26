@@ -207,6 +207,15 @@ chiusi) — non perderci tempo; ma **esporta IFC**, e le sue Zone diventano
 
 ## ⚠️ Le regole tecniche che non si violano
 
+- **Il banco non si fabbrica i dati.** Il 26/08 `misureInParole` leggeva
+  `p.min`/`p.max`, campi che su un posto non esistono, e ammazzava
+  `comprendi()` per intero. Il banco non l'aveva preso perche' i volumi finti
+  erano stati costruiti CON quei campi: confermava la supposizione invece di
+  metterla alla prova. I dati di prova vanno presi dalla forma che i dati
+  hanno **davvero** nel codice — si guarda cosa legge una funzione che gia'
+  gira (qui `volumiPerCervello`), non come ce li si immagina.
+
+
 1. **Il blocco 3 di `index.html` non si tocca mai.** È il bundle React/Three
    minificato (872.494 byte, sha a 16 cifre `58d371701aa9a349`). Dopo *ogni*
    modifica al file va verificato — ricetta qui sotto.
@@ -295,7 +304,25 @@ Playwright. ⚠️ `three.module.js` importa `three.core.js`: copia **tutta** `b
 
 ---
 
-## Dove siamo — 25/08/2026
+## Dove siamo — 26/08/2026
+
+**Giornata di riscrittura del cuore percettivo. Tutto committato su `main`,
+NIENTE verificato sul modello vero: ogni corsa e' morta prima di arrivare
+all'assegnazione.**
+
+| cosa | commit | provato |
+|---|---|---|
+| pianta specchiata + inquadratura fuori bersaglio | `1be10aa` | ✅ misurato con three |
+| pianta = modello INTERO dall'alto, non la fetta a 45 cm | `dabe4d1` | ✅ a schermo |
+| selettore con tutte le viste nel pannello | `143302d` | ✅ a schermo (`6/8 scorcio 5 — 206°`) |
+| circuito occhio↔cervello (Regola 0) | `3d296e0` | ⚠️ solo banco |
+| l'occhio guarda per primo e SENZA elenco; il cervello verifica con le misure | `bbf6554` | ⚠️ solo banco |
+| `misureInParole` leggeva `p.min`/`p.max`, che non esistono → uccideva `comprendi()` | `c20d322` | ⚠️ mai ricorso dopo |
+
+⚠️ **L'ultima corsa non conta**: LM Studio non rispondeva
+(`modello locale non raggiungibile`) e nessun GLB era caricato. Il primo
+gesto di domani e' rifare la prova con il modello di visione acceso.
+
 
 **Fatto e provato.** Il Core Python calcola davvero KPI, conformità e
 raccomandazioni. La percezione degli agenti è **misurata**: isovista a 32 raggi
@@ -343,6 +370,37 @@ banchi. Quante: da 4 a 9, ricavate dalla densità di mesh per m². Da console:
 ---
 
 ## Fronti aperti — IN ORDINE DI PRIORITÀ
+
+### 0. 🔴 LO STAMPO AEROPORTUALE — i nomi delle zone non li deduce nessuno
+
+Osservato da Raffaella il 26/08, e c'e' nel log nero su bianco:
+
+```
+[VERITAS AUTO v5] ... uso quelle invece delle 5 tappe generiche del MODELLO AEROPORTUALE
+[VERITAS zone]    7 nodi da 7 zone MISURATE (5 CON NOME DAL MODELLO, 2 dedotte dal flusso)
+```
+
+Dentro il bundle c'e' uno **stampo di aeroporto scritto a mano**, con cinque
+tappe gia' battezzate — ingresso, accettazione, controllo — quelle che si
+vedono nella barra sotto la simulazione. **Quei nomi c'erano prima che
+qualcuno guardasse.** Con un ospedale dentro direbbe lo stesso «accettazione»
+e «controllo», e sembrerebbe pure sensato: e' merce avariata identica ai KPI
+finti, solo piu' difficile da vedere.
+
+⚠️ E sono **due sistemi di nomi in parallelo che non si conoscono**:
+
+| | chi assegna | cosa nomina | dove si vede |
+|---|---|---|---|
+| vecchio | lo stampo nel bundle | le **7 zone** | barra della simulazione, marker |
+| nuovo | il circuito occhio↔cervello | i **23 volumi** | pannello «quello che vedo» |
+
+Quindi anche a circuito perfetto, **a schermo si continuano a vedere i nomi
+vecchi**, perche' l'interfaccia guarda l'altro sistema. Finche' i due non si
+parlano, il lavoro sul circuito non si vede e non si puo' nemmeno giudicare.
+
+Non toccato il 26/08 di proposito: sta nel bundle grosso, tocca barra e
+marker, e andava fatto a mente fresca invece che a fine giornata.
+
 
 Si affrontano in quest'ordine e non in un altro: i primi due falsano tutto
 quello che viene dopo, e correggere il resto prima significherebbe tarare il
