@@ -698,19 +698,49 @@ export function conservaRisposta(passo, testo, motivo) {
  *  cervello mette alla prova quello che l'occhio ha detto. */
 export function misureInParole(posti) {
   if (!posti || !posti.length) return null;
-  const ordinati = posti.slice().sort((a, b) => (b.area || 0) - (a.area || 0));
-  const lato = (p) => {
-    const dx = Math.abs(p.max[0] - p.min[0]), dz = Math.abs(p.max[2] - p.min[2]);
-    return [Math.max(dx, dz), Math.min(dx, dz)];
-  };
-  const righe = ordinati.slice(0, 25).map((p, i) => {
-    const [lungo, corto] = lato(p);
-    return "  volume " + (p.id != null ? p.id : i) + ": " + lungo.toFixed(1) + " x "
-      + corto.toFixed(1) + " m, area " + Math.round(p.area || 0) + " m2, "
-      + (p.oggetti || 0) + " pezzi dentro";
-  });
-  const totale = posti.reduce((s, p) => s + (p.area || 0), 0);
-  return ["  " + posti.length + " volumi misurati, " + Math.round(totale) + " m2 in tutto"]
+
+  // ⚠️ SI LEGGONO SOLO I CAMPI CHE ESISTONO DAVVERO. Il 26/08 qui c'era
+  //    `p.max[0] - p.min[0]`: `min` e `max` su un posto NON ESISTONO, e il
+  //    risultato era «Cannot read properties of undefined (reading '0')» che
+  //    faceva morire tutto `comprendi()` prima ancora dello sguardo. I campi
+  //    veri sono quelli che usa `volumiPerCervello`: area, centro, oggetti,
+  //    altezza, formaPrevalente.
+  //
+  // ⚠️ E il banco non l'aveva preso perche' i volumi finti li avevo costruiti
+  //    IO, con dentro `min` e `max`: il banco confermava la mia supposizione
+  //    invece di metterla alla prova. Un banco che si fabbrica i dati non
+  //    verifica niente. Percio' qui ogni lettura e' difensiva: se un campo
+  //    manca, la riga si accorcia, non si spacca.
+  const num = (x) => (typeof x === "number" && isFinite(x) ? x : null);
+  const ordinati = posti.slice()
+    .sort((a, b) => (num(b && b.area) || 0) - (num(a && a.area) || 0));
+
+  const righe = [];
+  for (let i = 0; i < ordinati.length && righe.length < 25; i++) {
+    const p = ordinati[i];
+    if (!p) continue;
+    const pezzi = [];
+    const area = num(p.area);
+    if (area != null) {
+      pezzi.push("area " + Math.round(area) + " m2");
+      // Il lato equivalente serve al cervello per farsi un'idea della TAGLIA:
+      // e' dichiarato per quello che e', non spacciato per una misura presa.
+      pezzi.push("largo all'incirca " + Math.sqrt(area).toFixed(1) + " m");
+    }
+    const h = num(p.altezza);
+    if (h != null) pezzi.push("alto " + h.toFixed(1) + " m");
+    const og = num(p.oggetti);
+    if (og != null) pezzi.push(og + " pezzi dentro");
+    if (p.formaPrevalente) pezzi.push("forma " + String(p.formaPrevalente));
+    if (!pezzi.length) continue;
+    righe.push("  volume " + (num(p.id) != null ? p.id : i) + ": " + pezzi.join(", "));
+  }
+  if (!righe.length) return null;
+
+  const totale = posti.reduce((s, p) => s + (num(p && p.area) || 0), 0);
+  return ["  " + posti.length + " volumi misurati, " + Math.round(totale) + " m2 in tutto",
+          "  (il lato e' ricavato dall'area, quindi e' un ordine di grandezza,",
+          "   non una misura presa lungo un fianco)"]
     .concat(righe).join("\n");
 }
 
@@ -765,7 +795,14 @@ export async function comprendiGuardando(ctx) {
   }
 
   // --- (1) IL CERVELLO VERIFICA: e' davvero quello, secondo le misure? ------
-  const misure = misureInParole(posti);
+  let misure = null;
+  try { misure = misureInParole(posti); }
+  catch (e) {
+    // Le misure sono un aiuto, non una condizione: se si rompono il cervello
+    // ragiona senza, non muore. Ma lo si scrive, non lo si nasconde.
+    conservaRisposta("misure", null, "non ho saputo mettere in parole le misure: "
+      + ((e && e.message) || e));
+  }
   let rispostaStudio;
   try {
     rispostaStudio = await ctx.cervello(
