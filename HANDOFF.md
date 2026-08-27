@@ -302,13 +302,98 @@ Playwright. ⚠️ `three.module.js` importa `three.core.js`: copia **tutta** `b
 
 ⚠️ Dalla sandbox `curl` verso `onrender.com` dà 403: è il proxy, non il servizio.
 
+**Perché un passo del cervello si è fermato — sonda da console, non tocca
+niente.** Si incolla PRIMA di caricare il GLB: una ricarica di pagina la
+cancella. Stampa una riga per telefonata — `finish_reason`, gettoni in entrata
+e in uscita, caratteri. È così che il 27/08 si è distinto «troncata» da
+«malformata» senza indovinare: `length` = manca lo spazio, `stop` = sbaglia la
+sintassi. Due guasti diversi, due riparazioni opposte.
+
+```js
+(() => {
+  const originale = window.fetch;
+  window.__veritasChiusura = [];
+  window.fetch = async (...a) => {
+    const r = await originale(...a);
+    const url = String((a[0] && a[0].url) || a[0] || "");
+    if (!url.includes("/chat/completions")) return r;
+    let chiesti = null;
+    try { chiesti = JSON.parse(a[1].body).max_tokens; } catch (e) {}
+    r.clone().json().then((d) => {
+      const c = d && d.choices && d.choices[0];
+      const rec = { motivo_stop: c && c.finish_reason, gettoni_chiesti: chiesti,
+        gettoni_entrata: d.usage && d.usage.prompt_tokens,
+        gettoni_uscita: d.usage && d.usage.completion_tokens,
+        caratteri: ((c && c.message && c.message.content) || "").length };
+      window.__veritasChiusura.push(rec);
+      console.log("[SONDA]", window.__veritasChiusura.length, rec);
+    }).catch(() => {});
+    return r;
+  };
+  console.log("Sonda accesa.");
+})();
+```
+
+⚠️ Da mettere nel codice quando si toccherà `cervelloLocale`: `finish_reason` e
+`usage` vanno conservati accanto alla risposta grezza. Oggi si buttano via, ed è
+per questo che è servita una sonda per sapere una cosa che il codice aveva già
+in mano.
+
 ---
 
-## Dove siamo — 26/08/2026
+## Dove siamo — 27/08/2026
 
-**Giornata di riscrittura del cuore percettivo. Tutto committato su `main`,
-NIENTE verificato sul modello vero: ogni corsa e' morta prima di arrivare
-all'assegnazione.**
+**IL CIRCUITO GIRA SUL MODELLO VERO, TUTTO IL GIRO, PER LA PRIMA VOLTA.**
+Nessuna riga di codice cambiata oggi, nessun commit sul codice: il guasto che
+bloccava tutto era **una manopola di LM Studio**, non un difetto.
+
+### La misura che l'ha chiuso (27/08, `airport_foot_traffic.glb`)
+
+Il passo 2 moriva con «JSON troncato». La diagnosi scritta il 26/08 diceva «il
+modello ha finito i gettoni, si alza il tetto di uscita»: **era sbagliata**. Il
+tetto di uscita era gia' 2500 e la risposta si fermava a ~150 gettoni.
+
+Misurato con una sonda che intercetta `/chat/completions` e legge
+`finish_reason` + `usage` — dati che `cervelloLocale` buttava via:
+
+| | finestra 8.192 | finestra 16.384 |
+|---|---|---|
+| studio: entrata | 7.966 | 8.001 |
+| studio: uscita | 226 | 442 |
+| **entrata + uscita** | **8.192 = il muro** | 8.443 |
+| `finish_reason` | `length` (tagliata) | `stop` (finita da sola) |
+
+8.192 esatti: il modello scriveva fino all'ultimo gettone disponibile. Non era
+malformata — quindi **irrobustire il parser sarebbe stato riparare la cosa
+sbagliata**, e un parser che "ripara" un JSON troncato inventa i pezzi mancanti.
+
+⚠️ **REGOLA IMPARATA — la finestra di contesto e' un vincolo di prodotto, non
+un dettaglio di macchina.** `promptStudio` porta pianta + 7 scorci + il racconto
+dell'occhio + le misure: ~8.000 gettoni di sola domanda. Con una finestra da
+8.192 non resta spazio per rispondere, e il guasto **si presenta come un JSON
+rotto**, che manda a riparare tutt'altro. Chi riprende: **prima di diagnosticare
+un JSON illeggibile, guarda `finish_reason`.** `length` = troncata (spazio),
+`stop` = malformata (sintassi). Sono due guasti diversi con due riparazioni
+opposte.
+
+Serve **Context Length ≥ 16384** su `qwen2.5-vl-7b-instruct` in LM Studio, e il
+modello va **ricaricato** dopo averla cambiata. Sotto quella soglia il passo 2
+non passa, qualunque cosa si faccia al codice.
+
+### Esito del giro completo, 27/08
+
+| sonda | passo | entrata | uscita | caratteri | esito |
+|---|---|---|---|---|---|
+| 3 | studio | 8.001 | 442 | 1.275 | `stop` — `motivo: null` ✅ |
+| 4 | **assegnazione** | 8.408 | 489 | 1.311 | `stop` — `motivo: null`, `capito: true`, `fiducia 0.95` ✅ |
+| 5 | parole (rimbalzo all'occhio) | 6.473 | 146 | 397 | `stop` ✅ |
+
+La sonda 5 e' il **giro n°2 della Regola 0** sul modello vero: il cervello ha
+assegnato, poi e' tornato a chiedere all'occhio. Fino a ieri era provato solo
+sul banco con occhio e cervello finti.
+
+⚠️ Questo dice che **il circuito funziona**, NON che **nomina bene**. La qualita'
+dei nomi non e' stata giudicata, e a schermo non si vede comunque — fronte 0.
 
 | cosa | commit | provato |
 |---|---|---|
@@ -319,9 +404,6 @@ all'assegnazione.**
 | l'occhio guarda per primo e SENZA elenco; il cervello verifica con le misure | `bbf6554` | ⚠️ solo banco |
 | `misureInParole` leggeva `p.min`/`p.max`, che non esistono → uccideva `comprendi()` | `c20d322` | ⚠️ mai ricorso dopo |
 
-⚠️ **L'ultima corsa non conta**: LM Studio non rispondeva
-(`modello locale non raggiungibile`) e nessun GLB era caricato. Il primo
-gesto di domani e' rifare la prova con il modello di visione acceso.
 
 
 **Fatto e provato.** Il Core Python calcola davvero KPI, conformità e
@@ -398,8 +480,32 @@ Quindi anche a circuito perfetto, **a schermo si continuano a vedere i nomi
 vecchi**, perche' l'interfaccia guarda l'altro sistema. Finche' i due non si
 parlano, il lavoro sul circuito non si vede e non si puo' nemmeno giudicare.
 
-Non toccato il 26/08 di proposito: sta nel bundle grosso, tocca barra e
-marker, e andava fatto a mente fresca invece che a fine giornata.
+**MISURATO IL 27/08 — adesso si sa DOVE, e sono tre pezzi, non uno.**
+Domanda di Raffaella: «l'occhio vede le macchine, perche' non mi assegna
+parcheggio?». Il log dice che l'occhio le ha viste
+(`4 zone su 7: parcheggio, parcheggio, parcheggio, parcheggio`) e che ha pure
+rinominato (`4 zone rinominate da quello che ho visto`). Non arriva a schermo
+per tre motivi indipendenti, e vanno riparati tutti e tre:
+
+1. **Nome e tipo sono due campi diversi.** `__veritasApplicaOcchi`
+   (`index.html` ~2890) cambia **solo `n.label`**. Il `type` non lo tocca mai.
+   La barra sotto la simulazione legge il **`type`**, quindi il verdetto
+   dell'occhio esiste ma finisce in un campo che nessuno guarda.
+2. **«parcheggio» non esiste come tipo.** L'elenco e' scritto a mano, cinque
+   voci tutte da aeroporto (`index.html` 2155):
+   `const order2 = ["spawn","checkin","security","lounge","gate"]`.
+   Anche con un riconoscimento perfetto **non c'e' una casella dove metterlo**:
+   la barra puo' mostrare solo una di quelle cinque parole. Su un ospedale
+   direbbe lo stesso «accettazione» e «controllo».
+3. **Il parcheggio non e' nemmeno una zona.** Log: `dentro/fuori: 7 dentro,
+   0 all'aperto`. Il piazzale con le macchine sta fuori dall'area calpestabile
+   misurata, quindi non e' mai entrato nell'elenco delle 7 zone. Non c'e'
+   niente da nominare, per costruzione. Vedi `escluseFuori` (~3441).
+
+⚠️ **Non e' un ritocco.** Tocca `order2`, `TYPE_OPTIONS`, `applicaOcchi`, la
+barra e i marker: sta nel bundle grosso, va aperto con la giornata davanti.
+Non aperto il 26 ne' il 27 di proposito — il 27 il budget era finito, e una
+modifica interrotta sul bundle e' la situazione peggiore di tutte.
 
 
 Si affrontano in quest'ordine e non in un altro: i primi due falsano tutto
@@ -439,7 +545,8 @@ Z-. ⚠️ La copia che gira davvero è quella **inlinata nel blocco 8 di
 `veritas_vista.js` è il gemello importato solo per `mondoAPixel`. Vanno
 tenuti allineati: correggerne uno solo non cambia niente a schermo.
 
-### 2. ✅ IL CIRCUITO OCCHIO↔CERVELLO — ricostruito il 26/08 (`3d296e0`)
+### 2. ✅ IL CIRCUITO OCCHIO↔CERVELLO — ricostruito il 26/08 (`3d296e0`),
+###    VERIFICATO SUL MODELLO VERO IL 27/08
 
 **Questa è la regola, e non va più ridetta a voce a ogni chat: adesso è nel
 codice.** Occhio e cervello accesi insieme dall'inizio, **le stesse immagini
@@ -464,7 +571,10 @@ come misura.
 
 Provato su banco con occhio e cervello finti, senza spendere token: sequenza
 `studio → assegnazione#1 → parole#1 → assegnazione#2`, da 1 volume su 6
-nominato a 6 su 6 dopo il rimbalzo. **Da verificare sul modello vero.** Se si
+nominato a 6 su 6 dopo il rimbalzo. ✅ **Verificato sul modello vero il 27/08**
+— studio, assegnazione e rimbalzo all'occhio, tutti chiusi da soli, con
+`motivo: null` su entrambi i passi (i numeri sono in «Dove siamo»). Serve
+Context Length ≥ 16384 in LM Studio, vedi lì. Se si
 ferma ancora, la risposta grezza non si perde più: `__veritasRisposteGrezze`
 (`.studio`, `.assegnazione`, `.parole` — con `testo`, `lunghezza`, `motivo`).
 
