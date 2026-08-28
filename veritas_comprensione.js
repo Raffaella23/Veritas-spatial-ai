@@ -522,6 +522,9 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     "  assegnale tutte e tre. Non accorparle.",
     "- Un volume di cui non sei sicuro NON si nomina a caso: mettilo in",
     "  `senza_nome` con la domanda che faresti. Chiedere e' previsto, indovinare no.",
+    "- ⚠️ UNA DOMANDA ALLA VOLTA. Se hai piu' dubbi, metti per primo il volume",
+    "  che pesa di piu' sul percorso: si chiede quello, il resto al giro dopo.",
+    "  Tre domande insieme non ricevono tre risposte, ne ricevono zero.",
     "- ⚠️ In `domanda` ci va LA DOMANDA VERA, gia' scritta, rivolta a una persona",
     "  che conosce l'edificio: cita quel volume e quello che ci vedi sopra. Non",
     "  scrivere che cosa chiederesti: scrivilo direttamente. Una riga che comincia",
@@ -960,10 +963,10 @@ export async function comprendiGuardando(ctx) {
     const domandaUmana = (sicuro && coperto)
       ? (domande.length
           ? "Ho assegnato " + nominati + " volumi su " + posti.length + ". Su questi ho un dubbio: "
-            + domande.slice(0, 3).join(" ")
+            + domande[0]
           : null)
       : (domande.length
-          ? domande.slice(0, 3).join(" ")
+          ? domande[0]
           : "Ho nominato solo " + nominati + " volumi su " + posti.length
             + ". Mi sai dire cosa sono gli altri?");
     return {
@@ -1158,7 +1161,19 @@ function finale(ok, perche, giri, esito) {
 //     avviaSimulazione(c.posti);
 
 export function puoAgire(comprensione) {
-  return !!(comprensione && comprensione.ok && comprensione.capito && comprensione.agire);
+  const c = comprensione;
+  if (!c || !c.ok) return false;
+  if (c.capito && c.agire) return true;
+  // Deciso da Raffaella il 28/08: ASSEGNA E DICHIARA, non bloccare.
+  // Prima bastava un volume incerto perche' la simulazione non partisse mai: su
+  // un modello vero restano sempre volumi che nessuno sa cosa siano, e uno
+  // strumento che si blocca all'ultimo dubbio non parte mai e non si vende.
+  // Il confine che regge: non si INVENTA un nome per far partire il giro. I
+  // volumi incerti restano senza nome, il dubbio resta scritto e finisce nel
+  // referto, la simulazione cammina su quelli che un nome ce l'hanno. E' un
+  // report parziale che lo dichiara, non un report falso.
+  const nominati = (c.posti || []).filter((p) => p && p.nome).length;
+  return nominati >= 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -1196,9 +1211,12 @@ export function racconta(c) {
   }
 
   righe.push("");
+  const nominatiOra = (c.posti || []).filter((p) => p && p.nome).length;
   righe.push(c.agire
     ? "La simulazione puo' partire."
-    : "La simulazione NON parte finche' non ho capito: preferisco chiedere che indovinare.");
+    : (puoAgire(c)
+        ? "Parto con i " + nominatiOra + " volumi che ho riconosciuto. I dubbi qui sopra restano dichiarati: non li ho nominati a caso e finiscono nel referto."
+        : "Non ho riconosciuto abbastanza per far camminare qualcuno: servono almeno due volumi con un nome."));
   return righe.join("\n");
 }
 
