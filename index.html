@@ -110,8 +110,8 @@
       new_project_label: "Nuovo progetto", new_project_placeholder: "Nome progetto",
       type_airport: "Aeroporto", type_museum: "Museo", type_gaming: "Gaming",
       create_open_btn: "Crea e apri",
-      type_spawn: "Ingresso / Parcheggio", type_checkin: "Accettazione", type_security: "Controllo",
-      type_lounge: "Lounge", type_gate: "Imbarco / Gate",
+      type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
+      type_sosta: "Sosta", type_destinazione: "Destinazione",
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
       place_new_btn: "📍 Posiziona nuovo punto", place_move_prefix: "🎯 Clicca sul pavimento per spostare: ",
       hint_select: "Clicca l'etichetta di un punto per selezionarlo (si illumina anche sul modello), poi clicca sul pavimento per spostarlo lì.",
@@ -196,8 +196,8 @@
       new_project_label: "New project", new_project_placeholder: "Project name",
       type_airport: "Airport", type_museum: "Museum", type_gaming: "Gaming",
       create_open_btn: "Create and open",
-      type_spawn: "Entrance / Parking", type_checkin: "Check-in", type_security: "Security",
-      type_lounge: "Lounge", type_gate: "Boarding / Gate",
+      type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
+      type_sosta: "Sosta", type_destinazione: "Destination",
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
       place_new_btn: "📍 Place new point", place_move_prefix: "🎯 Click the floor to move: ",
       hint_select: "Click a point's label to select it (it also lights up on the model), then click the floor to move it there.",
@@ -273,7 +273,9 @@
     const entry = (I18N[LANG] && I18N[LANG][key]) ?? (I18N.it && I18N.it[key]) ?? key;
     return typeof entry === "function" ? entry(...args) : entry;
   }
-  const TYPE_OPTIONS_DEF = ["spawn", "checkin", "security", "lounge", "gate"];
+  // Regola 0-bis: categorie ARCHITETTONICHE, valide per qualunque edificio.
+  // Non sono tappe e non appartengono a una tipologia. I nomi non stanno qui.
+  const TYPE_OPTIONS_DEF = ["origine", "accoglienza", "filtro", "sosta", "destinazione", "distribuzione", "servizio", "esterno"];
   function getTypeOptions() {
     return TYPE_OPTIONS_DEF.map((v) => ({ value: v, label: t("type_" + v) }));
   }
@@ -1645,13 +1647,13 @@
     // agenti non farebbero in tempo a completare il percorso nella finestra
     // di simulazione
     const totalFrames = window.__veritasTotalFrames || 800, agentCount = window.__veritasAgentCount || 28;
-    const TYPE_ORDER = ["checkin", "security", "lounge"];
+    const TYPE_ORDER = ["accoglienza", "filtro", "sosta"];
     const trunk = [];
     for (const ty of TYPE_ORDER) { const n = nodes.find((nd) => nd.type === ty); if (n) trunk.push(n); }
-    // spawn multipli: se il progetto ha piu' punti di tipo "spawn" (piu' ingressi/varchi),
+    // spawn multipli: se il progetto ha piu' punti di tipo "origine" (piu' ingressi/varchi),
     // i gruppi di agenti vengono distribuiti su tutti, non solo sul primo trovato
-    const spawnNodes = nodes.filter((nd) => nd.type === "spawn");
-    const gates = nodes.filter((nd) => nd.type === "gate");
+    const spawnNodes = nodes.filter((nd) => nd.type === "origine");
+    const gates = nodes.filter((nd) => nd.type === "destinazione");
     // I passeggeri devono SEMPRE partire dall'ingresso/parcheggio.
     //
     // La condizione precedente era (spawnNodes.length + trunk.length) >= 1:
@@ -1669,7 +1671,7 @@
       let best = null, bestD = -1;
       const ref = gates.length ? gates[0].pos : nodes[nodes.length - 1].pos;
       for (const nd of nodes) {
-        if (nd.type === "gate") continue;
+        if (nd.type === "destinazione") continue;
         const d = Math.hypot(nd.pos[0] - ref[0], nd.pos[2] - ref[2]);
         if (d > bestD) { bestD = d; best = nd; }
       }
@@ -1895,7 +1897,7 @@
 
       const expanded = [{ pos: snapToFloor(rawNodes[0].pos) }];
       let securityAt = null, cum = 0;
-      if (rawNodes[0].type === "security") securityAt = 0;
+      if (rawNodes[0].type === "filtro") securityAt = 0;
       for (let s = 0; s < rawNodes.length - 1; s++) {
         const from = rawNodes[s].pos, to = rawNodes[s + 1].pos;
         const via = findRoute(from, to); // array di posizioni intermedie + destinazione finale
@@ -1908,7 +1910,7 @@
             prev = dp;
           }
         }
-        if (rawNodes[s + 1].type === "security") securityAt = cum;
+        if (rawNodes[s + 1].type === "filtro") securityAt = cum;
       }
       return { path: expanded, securityAt };
     }
@@ -2061,11 +2063,11 @@
 
 
   const KEYWORDS = {
-    spawn: ["ingresso", "entrance", "entry", "parcheggio", "parking", "arrival"],
-    checkin: ["checkin", "check-in", "accettazione", "reception", "counter", "banco", "desk"],
-    security: ["security", "controllo", "varco", "sicurezza", "scan", "metal", "check"],
-    lounge: ["lounge", "attesa", "waiting", "sala"],
-    gate: ["gate", "imbarco", "boarding"],
+    origine: ["ingresso", "entrance", "entry", "parcheggio", "parking", "arrival"],
+    accoglienza: ["accoglienza", "check-in", "accettazione", "reception", "counter", "banco", "desk"],
+    filtro: ["filtro", "controllo", "varco", "sicurezza", "scan", "metal", "check"],
+    sosta: ["sosta", "attesa", "waiting", "sala"],
+    destinazione: ["destinazione", "imbarco", "boarding"],
   };
 
   function mat4xVec4(e, v) {
@@ -2097,9 +2099,9 @@
       if (!obj.isMesh) return;
       const name = (obj.name || "").toLowerCase();
       // Escludiamo mesh di terreno/piazzale/pista dal riconoscimento per nome:
-      // una mesh chiamata ad es. "Gate_A1_Apron" contiene "gate" ma e' in
+      // una mesh chiamata ad es. "Gate_A1_Apron" contiene "destinazione" ma e' in
       // realta' un grande piazzale, non un punto puntuale — se la lasciamo
-      // passare, la zona "gate" finisce ancorata al centro di quella mesh
+      // passare, la zona "destinazione" finisce ancorata al centro di quella mesh
       // enorme invece che al vero marker del gate (il sintomo e' un blocco
       // verde gigante quando ci si avvicina con la camera "Gate A1 Close").
       const isGroundLike = typeof EXCLUDE_KEYWORDS !== "undefined" && EXCLUDE_KEYWORDS.some((kw) => name.includes(kw));
@@ -2140,7 +2142,7 @@
     const nodes = [];
     let idc = 0;
     if (foundCount >= 3) {
-      const order = ["spawn", "checkin", "security", "lounge", "gate"];
+      const order = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
       for (const type of order) {
         if (found[type]) {
           for (const f of found[type]) nodes.push({ id: `auto_${idc++}`, type, label: f.label, pos: f.pos });
@@ -2152,7 +2154,7 @@
     // geometrico reale (KMeans sui punti navigabili) invece di una semplice
     // suddivisione del bounding box
     const structural = runStructuralAnalysis(root);
-    const order2 = ["spawn", "checkin", "security", "lounge", "gate"];
+    const order2 = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
     if (structural && structural.flowOrder.length >= 2) {
       const path = structural.flowOrder;
       const stepIdx = (i) => Math.round((i / (order2.length - 1)) * (path.length - 1));
@@ -2160,34 +2162,34 @@
         // se abbiamo gia' trovato gate con un nome reale nella mesh, non
         // sostituirli con un punto generico stimato dal clustering: i gate
         // nominati sono un segnale piu' affidabile e vengono aggiunti dopo.
-        if (order2[i] === "gate" && namedGates.length) continue;
+        if (order2[i] === "destinazione" && namedGates.length) continue;
         const zone = path[Math.min(path.length - 1, stepIdx(i))];
         // altezza reale del punto preservata (non piu forzata a 0) — essenziale
         // per mesh con piu livelli, altrimenti i punti finiscono tutti a terra
         // anche quando la zona reale e a un piano superiore.
         nodes.push({ id: `auto_${idc++}`, type: order2[i], label: TYPE_OPTIONS.find((o) => o.value === order2[i]).label, pos: [zone.pos[0], zone.pos[1], zone.pos[2]], floorIdx: zone.floorIdx });
       }
-      for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos });
+      for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "destinazione", label: g.label, pos: g.pos });
       return nodes;
     }
     // fallback estremo: nessun punto navigabile rilevabile -> bounding box grezzo
     if (!isFinite(boxMin[0])) {
       if (!namedGates.length) return null;
-      return namedGates.map((g) => ({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos }));
+      return namedGates.map((g) => ({ id: `auto_${idc++}`, type: "destinazione", label: g.label, pos: g.pos }));
     }
     const spanX = boxMax[0] - boxMin[0], spanZ = boxMax[2] - boxMin[2];
     const longAxis = spanX >= spanZ ? "x" : "z";
     const midOther = longAxis === "x" ? (boxMin[2] + boxMax[2]) / 2 : (boxMin[0] + boxMax[0]) / 2;
     const fracs = [0.05, 0.28, 0.5, 0.72, 0.95];
     for (let i = 0; i < order2.length; i++) {
-      if (order2[i] === "gate" && namedGates.length) continue;
+      if (order2[i] === "destinazione" && namedGates.length) continue;
       const t = fracs[i];
       let x, z;
       if (longAxis === "x") { x = boxMin[0] + spanX * t; z = midOther; }
       else { z = boxMin[2] + spanZ * t; x = midOther; }
       nodes.push({ id: `auto_${idc++}`, type: order2[i], label: TYPE_OPTIONS.find((o) => o.value === order2[i]).label, pos: [x, 0, z] });
     }
-    for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "gate", label: g.label, pos: g.pos });
+    for (const g of namedGates) nodes.push({ id: `auto_${idc++}`, type: "destinazione", label: g.label, pos: g.pos });
     return nodes;
   }
 
@@ -3137,22 +3139,22 @@
   // generatore di traiettorie, l'altezza dei marker e il grafo delle missioni,
   // in una ventina di punti. Cambiarlo sarebbe un refactor, non una correzione.
   const LESSICO_ZONE = {
-    aeroporto: { spawn: "Ingresso", checkin: "Accettazione", security: "Controllo",
-                 lounge: "Lounge", gate: "Gate ", passaggio: "Passaggio ",
+    aeroporto: { origine: "Ingresso", accoglienza: "Accettazione", filtro: "Controllo",
+                 sosta: "Lounge", destinazione: "Gate ", passaggio: "Passaggio ",
                  // Le aree all'aperto: da qui arriva la gente, e finora non
                  // avevano un nome perche' non si sapeva nemmeno che fossero
                  // all'aperto.
                  arrivo: "Parcheggio", esterno: "Area esterna " },
-    museo:     { spawn: "Ingresso", checkin: "Biglietteria", security: "Controllo accessi",
-                 lounge: "Sala espositiva", gate: "Uscita ", passaggio: "Passaggio ",
+    museo:     { origine: "Ingresso", accoglienza: "Biglietteria", filtro: "Controllo accessi",
+                 sosta: "Sala espositiva", destinazione: "Uscita ", passaggio: "Passaggio ",
                  arrivo: "Piazzale d'ingresso", esterno: "Area esterna " },
-    gaming:    { spawn: "Spawn", checkin: "Hub", security: "Varco",
-                 lounge: "Arena", gate: "Obiettivo ", passaggio: "Corridoio ",
+    gaming:    { origine: "Spawn", accoglienza: "Hub", filtro: "Varco",
+                 sosta: "Arena", destinazione: "Obiettivo ", passaggio: "Corridoio ",
                  arrivo: "Punto di ritrovo", esterno: "Area esterna " },
     // Quando il tipo di progetto non e' dichiarato non si indovina: si usano
     // nomi che descrivono la FUNZIONE e valgono in qualunque edificio.
-    generico:  { spawn: "Ingresso", checkin: "Accoglienza", security: "Filtro",
-                 lounge: "Area di sosta", gate: "Destinazione ", passaggio: "Passaggio ",
+    generico:  { origine: "Ingresso", accoglienza: "Accoglienza", filtro: "Filtro",
+                 sosta: "Area di sosta", destinazione: "Destinazione ", passaggio: "Passaggio ",
                  arrivo: "Arrivo", esterno: "Area esterna " },
   };
 
@@ -3247,7 +3249,7 @@
     // La sequenza tipica di un edificio di transito. Serve solo come
     // ultima risorsa, quando non c'e' NESSUNA larghezza misurata: e'
     // un'ipotesi sull'edificio, non una misura, e va usata sapendolo.
-    const seq = ["spawn", "checkin", "security", "lounge", "gate"];
+    const seq = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
     const nodi = [];
     let contatoreGate = 0, nSosta = 0, nPassaggio = 0;
 
@@ -3372,44 +3374,44 @@
       if (dato) {
         type = dato.type; label = dato.label;
       } else {
-        if (i === iArrivo) type = "spawn";
+        if (i === iArrivo) type = "origine";
         // Con l'arrivo all'aperto, la prima zona interna e' dove ci si
         // presenta; senza, e' lei stessa l'ingresso.
-        else if (i === primo) type = usaDentroFuori ? "checkin" : "spawn";
-        else if (i === ultimo) type = "gate";
-        else if (i === iFiltro) type = "security";
-        else if (i === iAccoglienza) type = "checkin";
-        else if (i === iSosta) type = "lounge";
-        else if (conMisura.length) type = "lounge";
+        else if (i === primo) type = usaDentroFuori ? "accoglienza" : "origine";
+        else if (i === ultimo) type = "destinazione";
+        else if (i === iFiltro) type = "filtro";
+        else if (i === iAccoglienza) type = "accoglienza";
+        else if (i === iSosta) type = "sosta";
+        else if (conMisura.length) type = "sosta";
         // Senza nessuna larghezza misurata non si sa dove lo spazio si
         // stringe: si ricade sulla sequenza tipica, che resta un'ipotesi
         // sull'edificio e non una misura.
-        else type = seq[Math.min(i, seq.length - 2)] || "lounge";
+        else type = seq[Math.min(i, seq.length - 2)] || "sosta";
 
         if (i === iArrivo) {
-          label = voc.arrivo || voc.spawn;
-        } else if (type === "lounge") {
+          label = voc.arrivo || voc.origine;
+        } else if (type === "sosta") {
           // La sala principale ha un nome proprio; le altre sono numerate
           // lungo il FLUSSO, cioe' nell'ordine in cui si attraversano.
           // "Sala espositiva 1, 2, 3" si legge e si ritrova sullo schermo:
           // quattro stanze chiamate tutte uguale, no.
-          if (i === iSosta) label = voc.lounge + " principale";
-          else { nSosta++; label = voc.lounge + " " + nSosta; }
+          if (i === iSosta) label = voc.sosta + " principale";
+          else { nSosta++; label = voc.sosta + " " + nSosta; }
         } else {
-          label = type === "spawn" ? voc.spawn
-                : type === "checkin" ? voc.checkin
-                : type === "security" ? voc.security
-                : voc.gate + String.fromCharCode(65 + contatoreGate);
+          label = type === "origine" ? voc.origine
+                : type === "accoglienza" ? voc.accoglienza
+                : type === "filtro" ? voc.filtro
+                : voc.destinazione + String.fromCharCode(65 + contatoreGate);
         }
         // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
         // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
         // della sequenza e' il modo di far sostare gli agenti in un corridoio.
-        if (z.role === "corridoio" && type !== "spawn" && type !== "gate" && i !== iArrivo) {
-          if (type === "lounge" && i !== iSosta) nSosta--;
-          type = "lounge"; nPassaggio++; label = voc.passaggio + nPassaggio;
+        if (z.role === "corridoio" && type !== "origine" && type !== "destinazione" && i !== iArrivo) {
+          if (type === "sosta" && i !== iSosta) nSosta--;
+          type = "sosta"; nPassaggio++; label = voc.passaggio + nPassaggio;
         }
       }
-      if (type === "gate") contatoreGate++;
+      if (type === "destinazione") contatoreGate++;
       nodi.push({
         pos: [z.pos[0], z.pos[1], z.pos[2]],
         type, label,
@@ -3554,19 +3556,16 @@
         const sorted = [...zones].sort((a,b) => a.pos[0] - b.pos[0]);
         
         // Assegna tipi logici aeroporto
-        const typeSeq = ['spawn', 'checkin', 'security', 'lounge', 'gate', 'gate', 'gate', 'gate'];
+        const typeSeq = ['origine', 'accoglienza', 'filtro', 'sosta', 'destinazione', 'destinazione', 'destinazione', 'destinazione'];
         const newNodes = [];
         
         for (let i=0; i<Math.min(sorted.length, 8); i++) {
           const z = sorted[i];
-          const t = typeSeq[i] || 'gate';
-          let label = '';
-          if (t === 'spawn') label = 'Ingresso / Parcheggio';
-          else if (t === 'checkin') label = 'Accettazione';
-          else if (t === 'security') label = 'Controllo';
-          else if (t === 'lounge') label = 'Lounge';
-          else if (t === 'gate') label = 'Gate A' + (i-3);
-          else label = t.toUpperCase();
+          const t = typeSeq[i] || 'destinazione';
+          // Regola 0-bis: qui NON si nominano le zone. Questa e' la sequenza
+          // posizionale, l'ultima autorita': assegna solo il RUOLO. Il nome
+          // lo scrive il circuito occhio-cervello (__veritasApplicaOcchi).
+          let label = 'Zona ' + (i + 1);
           
           newNodes.push({
             pos: [z.pos[0], z.pos[1], z.pos[2]],
@@ -4095,7 +4094,7 @@
       // Questo ramo forzava `analyzeMesh` a ogni caricamento e ne prendeva i
       // nodi, sovrascrivendo le zone che il motore geometrico aveva MISURATO
       // poco prima. analyzeMesh trova le zone per NOME DELLA MESH: se chi ha
-      // modellato non ha chiamato "gate" un gate, quella zona non esisteva; e
+      // modellato non ha chiamato "destinazione" un gate, quella zona non esisteva; e
       // dove il nome c'era, il nodo finiva sul baricentro di quel singolo
       // oggetto invece che sullo spazio.
       //
@@ -4146,12 +4145,13 @@
         console.log('[VERITAS AUTO v5] analyzeMesh non ha ritornato nodi, uso lastZones');
         if (lastZones && lastZones.length >= 2) {
           const sorted = [...lastZones].sort((a,b) => a.pos[0] - b.pos[0]);
-          const typeSeq = ['spawn', 'checkin', 'security', 'lounge', 'gate', 'gate', 'gate'];
+          const typeSeq = ['origine', 'accoglienza', 'filtro', 'sosta', 'destinazione', 'destinazione', 'destinazione'];
           const newNodes = [];
           for (let i=0; i<Math.min(sorted.length, 7); i++) {
             const z = sorted[i];
-            const t = typeSeq[i] || 'gate';
-            let label = t==='spawn'?'Ingresso / Parcheggio': t==='checkin'?'Accettazione': t==='security'?'Controllo': t==='lounge'?'Lounge': 'Gate A'+(i-3);
+            const t = typeSeq[i] || 'destinazione';
+            // Regola 0-bis: solo il ruolo, il nome lo scrive il circuito.
+            let label = 'Zona ' + (i + 1);
             newNodes.push({ pos: [z.pos[0], z.pos[1], z.pos[2]], type: t, label: label, scale: 1.0, scaleZ: 1.0, id: 'auto_'+i });
           }
           currentNodes = newNodes;
@@ -4246,13 +4246,13 @@
       veritasDisposeChild(c);
     }
     currentNodes.forEach((n) => {
-      const isGate = n.type === "gate";
-      const h = isGate ? 3.5 : n.type === "security" ? 2.2 : 2;
+      const isGate = n.type === "destinazione";
+      const h = isGate ? 3.5 : n.type === "filtro" ? 2.2 : 2;
       const lato = isGate ? 4 : 3;
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(lato, h, lato),
         new THREE.MeshStandardMaterial({
-          color: n.type === "security" ? 2046559 : isGate ? 2771514 : 2764602,
+          color: n.type === "filtro" ? 2046559 : isGate ? 2771514 : 2764602,
           transparent: true, opacity: 0.65, roughness: 0.6 }));
       box.position.set(n.pos[0], h / 2, n.pos[2]);
       box.castShadow = true; box.receiveShadow = true;
@@ -4260,7 +4260,7 @@
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(1.2, 1.6, 24),
         new THREE.MeshBasicMaterial({
-          color: n.type === "security" ? 3900150 : 2278750,
+          color: n.type === "filtro" ? 3900150 : 2278750,
           side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(n.pos[0], 0.02, n.pos[2]);
@@ -4384,7 +4384,7 @@
     applyMarkerScale(index); // riapplica anche la quota Y corretta (base + altezza pillar)
   }
 
-  const TYPE_BASE_HEIGHT = { gate: 3.5, security: 2.2, checkin: 2, lounge: 2, spawn: 2 };
+  const TYPE_BASE_HEIGHT = { destinazione: 3.5, filtro: 2.2, accoglienza: 2, sosta: 2, origine: 2 };
 
   function applyMarkerScale(index) {
     const grp = window.__veritasHotspotGroup;
@@ -4458,7 +4458,7 @@
   }
 
   const CAMERA_OFFSETS = {
-    varco: [-8, 14, 10], controllo: [3, 5, -6], lounge: [-8, 12, 14],
+    varco: [-8, 14, 10], controllo: [3, 5, -6], sosta: [-8, 12, 14],
     imbarco: [-4, 10, -10], gateA: [-2, 5, -6], accettazione: [-2, 9, 8],
   };
 
@@ -4483,7 +4483,7 @@
     const gates = byType.gate || [];
     assign("imbarco", gates[0]);
     assign("gateA", gates[1] || gates[0]);
-    assign("lounge", (byType.lounge || [])[0]);
+    assign("sosta", (byType.lounge || [])[0]);
     assign("accettazione", (byType.checkin || [])[0]);
     // Global (vista dall'alto): non e agganciata a un nodo singolo, ma deve
     // comunque seguire la quota reale dell'edificio — altrimenti su una mesh
@@ -4715,11 +4715,11 @@
     // e gliene stavamo dando uno solo.
     //
     // Si costruisce quindi un profilo per ogni gate, come fa il generatore
-    // locale ramificando su spawn/gate: stesso tronco comune, ultimo tratto
+    // locale ramificando su spawn/destinazione: stesso tronco comune, ultimo tratto
     // diverso. Gli agenti vengono poi distribuiti fra i profili.
     const gateIds = order.filter((id) => {
       const m = out.nodes[id] && out.nodes[id].meta;
-      return m && m.type === "gate";
+      return m && m.type === "destinazione";
     });
 
     // Con piu' gate si ramifica sull'ultimo tratto.
@@ -4752,7 +4752,7 @@
       for (let v = 0; v < VARIANTI; v++) {
         const off = (v - (VARIANTI - 1) / 2) * 1.2; // 1.2m fra una fila e l'altra
         const id = "spawn_v" + v;
-        out.nodes[id] = { pos: [a[0] + nx * off, a[1], a[2] + nz * off], meta: { type: "spawn" } };
+        out.nodes[id] = { pos: [a[0] + nx * off, a[1], a[2] + nz * off], meta: { type: "origine" } };
         out.mission_profiles["ingresso_" + v] = [id].concat(coda);
       }
     }
@@ -5222,7 +5222,7 @@
       if (!fresh) fresh = generateTrajectory(currentNodes);
       if (!fresh || !fresh.frames || !fresh.frames.length) {
         console.warn("[VERITAS] Traiettoria generata vuota (0 frame) - nessun passeggero visibile.", { nodeCount: currentNodes.length, types: currentNodes.map((n) => n.type) });
-        veritasBridgeNotify("⚠ Traiettoria generata vuota — nessun passeggero visibile. Serve almeno una zona 'spawn' e una 'gate'.", "#fb923c");
+        veritasBridgeNotify("⚠ Traiettoria generata vuota — nessun passeggero visibile. Serve almeno una zona 'origine' e una 'destinazione'.", "#fb923c");
         return;
       }
       // Il piano e' pronto: adesso lo cammina un corpo. Da qui in poi le
@@ -5592,10 +5592,10 @@
 
     function renderList() {
       const list = panel.querySelector("#vp-list");
-      const spawnCount = currentNodes.filter((x) => x.type === "spawn").length;
+      const spawnCount = currentNodes.filter((x) => x.type === "origine").length;
       list.innerHTML = currentNodes
         .map((n, i) => {
-          const isDupSpawn = n.type === "spawn" && spawnCount > 1;
+          const isDupSpawn = n.type === "origine" && spawnCount > 1;
           const warnIcon = isDupSpawn ? `<span title="${t("warn_dup_spawn")}" style="margin-right:4px;">⚠️</span>` : "";
           return `<div class="vp-node" style="${i === selectedIndex ? "background:rgba(59,130,246,0.25);border:1px solid #3b82f6;" : ""}">
           <span class="lbl" data-i="${i}" style="cursor:pointer;flex:1;">${warnIcon}${n.label}</span>
@@ -12512,16 +12512,16 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
   // --- assegnazione zone -------------------------------------------------
   const ZONE_TYPE_RULES = [
-    [/\b(gate|imbarco|boarding)\b/, "gate"],
-    [/\b(security|controllo|varco|screening)\b/, "security"],
-    [/\b(checkin|check-in|check in|accettazione)\b/, "checkin"],
-    [/\b(lounge|attesa|waiting|sala)\b/, "lounge"],
-    [/\b(ingresso|entrance|entrata|parcheggio|parking|spawn)\b/, "spawn"],
+    [/\b(gate|imbarco|boarding)\b/, "destinazione"],
+    [/\b(security|controllo|varco|screening)\b/, "filtro"],
+    [/\b(checkin|check-in|check in|accettazione)\b/, "accoglienza"],
+    [/\b(lounge|attesa|waiting|sala)\b/, "sosta"],
+    [/\b(ingresso|entrance|entrata|parcheggio|parking|spawn)\b/, "origine"],
   ];
 
   function typeFromText(t) {
     for (const [re, type] of ZONE_TYPE_RULES) if (re.test(t)) return type;
-    return "lounge";
+    return "sosta";
   }
 
   // Appoggia la nuova zona sul baricentro rilevato piu' lontano da quelli gia'
@@ -13388,8 +13388,9 @@ async function extractSplatPoints(mesh, maxSamples, minOpacity) {
   return pts;
 }
 
-const TYPE_SEQ = ['spawn', 'checkin', 'security', 'lounge', 'gate', 'gate', 'gate'];
-const TYPE_LABELS_IT = { spawn: 'Ingresso / Parcheggio', checkin: 'Accettazione', security: 'Controllo', lounge: 'Lounge' };
+const TYPE_SEQ = ['origine', 'accoglienza', 'filtro', 'sosta', 'destinazione', 'destinazione', 'destinazione'];
+// Regola 0-bis: nessun nome di tipologia nel codice. Restano i RUOLI.
+const TYPE_LABELS_IT = { origine: 'Origine', accoglienza: 'Accoglienza', filtro: 'Filtro', sosta: 'Sosta' };
 
 function nodesFromStructural(structural) {
   if (!structural || !structural.flowOrder || structural.flowOrder.length < 2) return [];
@@ -13400,9 +13401,9 @@ function nodesFromStructural(structural) {
   for (let i = 0; i < n; i++) {
     const idx = Math.round((i / (n - 1)) * (path.length - 1));
     const zone = path[Math.min(path.length - 1, idx)];
-    const t = TYPE_SEQ[i] || 'gate';
+    const t = TYPE_SEQ[i] || 'destinazione';
     let label;
-    if (t === 'gate') { label = 'Gate A' + gateIdx; gateIdx++; }
+    if (t === 'destinazione') { label = 'Zona ' + (i + 1); gateIdx++; }
     else label = TYPE_LABELS_IT[t] || t;
     nodes.push({
       pos: [zone.pos[0], zone.pos[1], zone.pos[2]],
@@ -18662,29 +18663,29 @@ if (typeof window !== 'undefined') {
 // discende per tabella. Nessuna risposta del modello puo' introdurre un tipo
 // nuovo.
 const FUNZIONI = Object.freeze([
-  { chiave: 'parcheggio', tipo: 'spawn', fuori: true,
+  { chiave: 'parcheggio', tipo: 'origine', fuori: true,
     descrizione: 'parcheggio auto, stalli, piazzale di sosta dei veicoli' },
-  { chiave: 'piazzale', tipo: 'spawn', fuori: true,
+  { chiave: 'piazzale', tipo: 'origine', fuori: true,
     descrizione: "spazio aperto esterno: piazza, sagrato, marciapiede, piazzale d'ingresso" },
   { chiave: 'pista', tipo: 'escluso', fuori: true,
     descrizione: 'area di manovra dei mezzi: pista, via di rullaggio, banchina di carico. NON ci cammina il pubblico' },
-  { chiave: 'ingresso', tipo: 'spawn', fuori: false,
+  { chiave: 'ingresso', tipo: 'origine', fuori: false,
     descrizione: "atrio, hall, foyer, il primo spazio interno appena entrati" },
-  { chiave: 'accoglienza', tipo: 'checkin', fuori: false,
+  { chiave: 'accoglienza', tipo: 'accoglienza', fuori: false,
     descrizione: 'banchi, sportelli, casse, biglietteria, reception, accettazione' },
-  { chiave: 'controlli', tipo: 'security', fuori: false,
+  { chiave: 'controlli', tipo: 'filtro', fuori: false,
     descrizione: 'varchi di sicurezza, tornelli, metal detector, punto di filtro obbligato' },
-  { chiave: 'attesa', tipo: 'lounge', fuori: false,
+  { chiave: 'attesa', tipo: 'sosta', fuori: false,
     descrizione: 'sedute, sala d attesa, area di sosta del pubblico' },
-  { chiave: 'esposizione', tipo: 'lounge', fuori: false,
+  { chiave: 'esposizione', tipo: 'sosta', fuori: false,
     descrizione: 'sala espositiva, mostra, area con opere o vetrine' },
-  { chiave: 'commerciale', tipo: 'lounge', fuori: false,
+  { chiave: 'commerciale', tipo: 'sosta', fuori: false,
     descrizione: 'negozi, bar, ristorazione, duty free' },
   { chiave: 'corridoio', tipo: 'passaggio', fuori: false,
     descrizione: 'passaggio stretto e allungato che serve solo a spostarsi' },
-  { chiave: 'destinazione', tipo: 'gate', fuori: false,
+  { chiave: 'destinazione', tipo: 'destinazione', fuori: false,
     descrizione: "il punto di arrivo del percorso: gate d'imbarco, uscita finale, sala principale di destinazione" },
-  { chiave: 'servizi', tipo: 'lounge', fuori: false,
+  { chiave: 'servizi', tipo: 'sosta', fuori: false,
     descrizione: 'bagni, depositi, locali tecnici, spazi di servizio' },
 ]);
 
@@ -22052,11 +22053,11 @@ const VOCABOLARIO_SPAZI = {
   piazzale:     ["piazzale", "sagrato", "cortile", "forecourt", "courtyard", "vorplatz", "hof"],
   ingresso:     ["ingresso", "entrata", "atrio", "androne", "hall", "entrance", "entry", "lobby", "foyer",
                  "eingang", "vorraum", "windfang", "diele"],
-  accoglienza:  ["accettazione", "accoglienza", "reception", "biglietteria", "check-in", "checkin",
+  accoglienza:  ["accettazione", "accoglienza", "reception", "biglietteria", "check-in", "accoglienza",
                  "ticket", "empfang", "anmeldung", "kasse"],
-  controlli:    ["controllo", "sicurezza", "security", "varco", "filtro", "screening", "kontrolle",
+  controlli:    ["controllo", "sicurezza", "filtro", "varco", "filtro", "screening", "kontrolle",
                  "sicherheit"],
-  attesa:       ["attesa", "waiting", "lounge", "soggiorno", "wohnen", "wohnzimmer", "aufenthalt",
+  attesa:       ["attesa", "waiting", "sosta", "soggiorno", "wohnen", "wohnzimmer", "aufenthalt",
                  "warteraum", "sala d'attesa", "living"],
   esposizione:  ["esposizione", "espositiva", "mostra", "galleria", "gallery", "exhibition", "museo",
                  "galerie", "ausstellung", "aula", "classroom", "sala"],
@@ -22069,7 +22070,7 @@ const VOCABOLARIO_SPAZI = {
   cucina:       ["cucina", "kitchen", "kueche", "küche"],
   corridoio:    ["corridoio", "disimpegno", "passaggio", "ballatoio", "corridor", "hallway", "passage",
                  "flur", "gang", "treppenhaus", "scala", "stairs", "stairwell"],
-  destinazione: ["gate", "imbarco", "boarding", "uscita", "exit", "partenze", "departure", "ausgang",
+  destinazione: ["destinazione", "imbarco", "boarding", "uscita", "exit", "partenze", "departure", "ausgang",
                  "notausgang"],
   servizi:      ["wc", "bagno", "servizi", "toilette", "toilet", "restroom", "spogliatoio", "bad",
                  "sanitaer", "sanitär", "umkleide", "waschraum"],
@@ -22090,27 +22091,27 @@ const VOCABOLARIO_SPAZI = {
 // marker e il grafo delle missioni in una ventina di punti. Si cambia
 // l'etichetta, mai il tipo.
 const TIPO_DA_FUNZIONE = {
-  parcheggio:   { tipo: "spawn",  fuori: true },
-  piazzale:     { tipo: "spawn",  fuori: true },
-  ingresso:     { tipo: "spawn",  fuori: false },
-  accoglienza:  { tipo: "checkin", fuori: false },
-  controlli:    { tipo: "security", fuori: false },
-  attesa:       { tipo: "lounge", fuori: false },
-  esposizione:  { tipo: "lounge", fuori: false },
-  commerciale:  { tipo: "lounge", fuori: false },
-  corridoio:    { tipo: "lounge", fuori: false },
-  destinazione: { tipo: "gate",   fuori: false },
+  parcheggio:   { tipo: "origine",  fuori: true },
+  piazzale:     { tipo: "origine",  fuori: true },
+  ingresso:     { tipo: "origine",  fuori: false },
+  accoglienza:  { tipo: "accoglienza", fuori: false },
+  controlli:    { tipo: "filtro", fuori: false },
+  attesa:       { tipo: "sosta", fuori: false },
+  esposizione:  { tipo: "sosta", fuori: false },
+  commerciale:  { tipo: "sosta", fuori: false },
+  corridoio:    { tipo: "sosta", fuori: false },
+  destinazione: { tipo: "destinazione",   fuori: false },
   // I servizi e i locali tecnici sono ambienti veri e restano nel referto,
   // ma non sono tappe di un percorso: nessuno attraversa un edificio per
   // passare da un locale caldaia.
-  servizi:      { tipo: "lounge", fuori: false, escluso: true },
-  tecnico:      { tipo: "lounge", fuori: false, escluso: true },
-  camera:       { tipo: "lounge", fuori: false },
+  servizi:      { tipo: "sosta", fuori: false, escluso: true },
+  tecnico:      { tipo: "sosta", fuori: false, escluso: true },
+  camera:       { tipo: "sosta", fuori: false },
   // Un ufficio e una cucina sono stanze dove sta della gente: restano nel
   // percorso. Escluderle e' quello che faceva la versione di un'ora fa, e su
   // una casa vera toglieva due stanze su sette.
-  ufficio:      { tipo: "lounge", fuori: false },
-  cucina:       { tipo: "lounge", fuori: false },
+  ufficio:      { tipo: "sosta", fuori: false },
+  cucina:       { tipo: "sosta", fuori: false },
 };
 
 /**
@@ -22466,12 +22467,12 @@ function zoneDaSpazi(spazi, opzioni) {
 
     const funzione = funzioneDaNome(s.nome);
     const mappa = funzione ? TIPO_DA_FUNZIONE[funzione] : null;
-    let tipo = mappa ? mappa.tipo : "lounge";
+    let tipo = mappa ? mappa.tipo : "sosta";
 
     // Chi ha una porta che da' sull'esterno E' un ingresso, qualunque cosa
     // dica il nome: e' una dichiarazione piu' forte di una parola, perche'
     // viene dal grafo dei bordi e non dal vocabolario.
-    if (conIngresso.has(s.id) && tipo !== "gate") tipo = "spawn";
+    if (conIngresso.has(s.id) && tipo !== "destinazione") tipo = "origine";
 
     nodi.push({
       pos: [s.centro[0], s.centro[1], s.centro[2]],
