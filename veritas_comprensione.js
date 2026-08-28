@@ -460,6 +460,15 @@ export function leggiStudio(testo) {
 //
 // Uno stesso nome puo' toccare a piu' volumi: tre sale d'attesa restano tre.
 
+// Quello che l'umano ha gia' risposto alle domande dei giri precedenti.
+// Regola 0 punto 5: «se non sa, chiede». Chiedere serve a qualcosa solo se poi
+// ascolta: senza questo, la domanda esce, la risposta cade nel vuoto e i volumi
+// restano senza nome per sempre.
+export function risposteUmane() {
+  const a = (typeof globalThis !== "undefined" && globalThis.__veritasRisposteUmane) || [];
+  return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x.trim()) : [];
+}
+
 export function promptAssegnazione(studio, volumi, testimonianza) {
   return [
     "Sei il cervello spaziale di VERITAS. Hai gia' stabilito che posto stai guardando:",
@@ -495,6 +504,13 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     '  "capito": true oppure false,',
     '  "fiducia": numero fra 0 e 1',
     "}",
+    ...(risposteUmane().length ? [
+      "",
+      "QUELLO CHE TI HA GIA' DETTO CHI CONOSCE IL PROGETTO. Vale piu' di",
+      "qualunque tua deduzione: non lo contraddire, usalo per nominare i volumi",
+      "che avevi lasciato senza nome.",
+      ...risposteUmane().map((r) => "- " + r),
+    ] : []),
     "",
     "REGOLE, e sono vincolanti:",
     "- Ragiona per POSIZIONE nella sequenza, non per forma. Dall'alto un banco,",
