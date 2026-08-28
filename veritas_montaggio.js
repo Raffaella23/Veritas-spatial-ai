@@ -695,7 +695,12 @@ window.__veritasRispondi = async function (testo) {
 };
 
 window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
-window.__veritasCommandExtensions.push(function (raw, t, log) {
+// ⚠️ unshift, non push. Misurato il 28/08: un'altra estensione (il traduttore
+// che prova a rendere una frase libera in comando) e' registrata prima, prende
+// la frase, risponde «non ho capito cosa vuoi che faccia» e chiude. Con push
+// questa non veniva mai provata e la risposta si perdeva lo stesso. In attesa
+// di una risposta, la risposta ha la precedenza su tutto.
+window.__veritasCommandExtensions.unshift(function (raw, t, log) {
   if (!window.__veritasInAttesa) return false;
   const frase = String(raw || "").trim();
   if (!frase) return false;
