@@ -749,12 +749,20 @@ window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
 // la frase, risponde «non ho capito cosa vuoi che faccia» e chiude. Con push
 // questa non veniva mai provata e la risposta si perdeva lo stesso. In attesa
 // di una risposta, la risposta ha la precedenza su tutto.
+// ⚠️ Un ORDINE non e' una risposta. Misurato a schermo il 28/08: dopo aver
+// detto «la simulazione puo' partire», a «fai partire la simulazione» rispondeva
+// «Ricevuto, rifaccio un giro» e ripartiva a guardare. Mentre aspetta una
+// risposta questa strada si mangia tutto quello che scrivi, comandi compresi.
+// Questi verbi tornano al dispatcher, che sa gia' eseguirli.
+const E_UN_ORDINE = /^(fai partire|far partire|parti\b|avvia|lancia|simula|esegui|mostra|fammi vedere|apri|chiudi|spegni|pulisci|togli|nascondi|report|referto|analizza|calcola|scala |ferma|stop)/i;
+
 window.__veritasCommandExtensions.unshift(function (raw, t, log) {
   const inAttesa = !!window.__veritasInAttesa;
   const durante = !!window.__veritasGiroInCorso;
   if (!inAttesa && !durante) return false;
   const frase = String(raw || "").trim();
   if (!frase) return false;
+  if (E_UN_ORDINE.test(frase)) return false;
 
   // Arrivata mentre guardavo: si tiene da parte e si rilancia un giro solo
   // quando questo ha finito. Rilanciarlo adesso lo farebbe rimbalzare sulla
