@@ -1,6 +1,6 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 25/08/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 28/08/2026.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
@@ -56,6 +56,40 @@ dichiarato fallibile, **mai come misura**.
 📌 Dove vive: `veritas_comprensione.js` — `comprendiGuardando()` è l'anello,
 `occhioSuTutteLeViste()` è la regola 2. Stato e prove: fronte 2.
 
+
+### Regola 0-bis — NEL CODICE NON ENTRA IL VOCABOLARIO DI NESSUNA TIPOLOGIA
+
+Detta da Raffaella il 25/08 e di nuovo il 28/08, perche' non era mai stata
+trascritta **come regola**. E' il punto, non un dettaglio: finche' resta a voce
+va ridetta ogni giorno, e ogni giorno costa crediti.
+
+Il codice dichiara **due sole cose**:
+
+1. **come avviene la lettura** — il circuito occhio-cervello della Regola 0;
+2. **quali categorie esistono** — e sono le categorie **dell'architettura**,
+   valide per qualunque edificio (accesso, distribuzione, sosta, servizio,
+   collegamento verticale, esterno...). Servono al Core per le soglie, non si
+   mostrano all'utente.
+
+**I nomi non stanno nel codice.** Li da' il riconoscimento, modello per
+modello, in base a quello che si vede: «parcheggio» perche' ci sono le
+macchine, «sala d'attesa» perche' ci sono le sedute. Un nome scritto nel codice
+e' un nome deciso **prima** di guardare.
+
+⚠️ **Non vale sostituire le parole d'aeroporto con cinque parole neutre.** Un
+elenco chiuso di *tappe* e' gia' un'ipotesi sul tipo di edificio, qualunque
+parola ci si metta. Le categorie architettoniche non sono tappe: sono il tipo
+di ruolo che uno spazio ha, e valgono ovunque.
+
+⚠️ **E il modello non e' per forza un edificio chiuso.** Puo' essere una
+sezione, uno spaccato, un pezzo — il modello di prova e' un pezzo d'aeroporto,
+non l'aeroporto. Che cosa si ha davanti lo stabilisce il passo 1 del cervello
+(«studio»), e le categorie seguono da li'. Deciso da Raffaella il 28/08.
+
+⚠️ **Prova, dieci secondi, da fare prima di dire che e' a posto:**
+`grep -n "checkin\|security\|lounge\|spawn\|Accettazione\|Controllo" index.html`
+Se quelle parole compaiono come **dati** — elenchi, etichette, sequenze — il
+difetto c'e' ancora. Possono comparire solo come esempi dentro i commenti.
 
 ### Regola A — UN SOLO DOCUMENTO
 
@@ -453,64 +487,59 @@ banchi. Quante: da 4 a 9, ricavate dalla densità di mesh per m². Da console:
 
 ## Fronti aperti — IN ORDINE DI PRIORITÀ
 
-### 0. 🔴 LO STAMPO AEROPORTUALE — i nomi delle zone non li deduce nessuno
+### 0. 🔴 IL VOCABOLARIO D'AEROPORTO STA NEL CODICE — in QUATTRO posti
 
-Osservato da Raffaella il 26/08, e c'e' nel log nero su bianco:
+**MISURATO IL 28/08 leggendo `index.html` su `main`. La diagnosi precedente
+mandava al posto sbagliato e va buttata:** diceva «`__veritasApplicaOcchi`
+(~2890) cambia solo `n.label`, mai `n.type`». **Falso:** la riga 2876 fa
+`n.type = a.tipo`. Quel pezzo funziona. Chi seguiva quella nota riparava una
+cosa sana e lasciava in piedi il difetto.
 
+**Il colpevole di quello che si vede a schermo e' `applyAutoAssignment` (~3500):**
+
+```js
+const typeSeq = ['spawn','checkin','security','lounge','gate','gate','gate','gate'];
+// zone ordinate per X, poi:  spawn -> 'Ingresso / Parcheggio'
+//                            checkin -> 'Accettazione'
+//                            security -> 'Controllo'
 ```
-[VERITAS AUTO v5] ... uso quelle invece delle 5 tappe generiche del MODELLO AEROPORTUALE
-[VERITAS zone]    7 nodi da 7 zone MISURATE (5 CON NOME DAL MODELLO, 2 dedotte dal flusso)
-```
 
-Dentro il bundle c'e' uno **stampo di aeroporto scritto a mano**, con cinque
-tappe gia' battezzate — ingresso, accettazione, controllo — quelle che si
-vedono nella barra sotto la simulazione. **Quei nomi c'erano prima che
-qualcuno guardasse.** Con un ospedale dentro direbbe lo stesso «accettazione»
-e «controllo», e sembrerebbe pure sensato: e' merce avariata identica ai KPI
-finti, solo piu' difficile da vedere.
+Le zone **misurate** vengono messe in fila da sinistra a destra e ricevono i
+cinque nomi d'aeroporto **per posizione**. Nessun riconoscimento entra: la
+prima zona a sinistra si chiama «Ingresso / Parcheggio» perche' e' la prima a
+sinistra. Su un ospedale direbbe le stesse parole.
 
-⚠️ E sono **due sistemi di nomi in parallelo che non si conoscono**:
+⚠️ **Il codice si contraddice da solo, venti righe sopra**, dove e' scritto
+l'ordine di autorita' giusto: `bim > nome del modello > occhi > misure >
+sequenza posizionale`. La sequenza posizionale e' **l'ultima** della lista, ed
+e' quella che comanda la barra.
 
-| | chi assegna | cosa nomina | dove si vede |
-|---|---|---|---|
-| vecchio | lo stampo nel bundle | le **7 zone** | barra della simulazione, marker |
-| nuovo | il circuito occhio↔cervello | i **23 volumi** | pannello «quello che vedo» |
+| | dove | cosa fa |
+|---|---|---|
+| ✅ sano | `applicaOcchi` 2876 | scrive gia' `type` **e** `label` — non toccare |
+| 🔴 | `typeSeq` ~3500 in `applyAutoAssignment` | dipinge la barra, cinque nomi per posizione |
+| 🟠 | `order` 2143 / `order2` 2155 | stesse cinque parole, percorsi di riserva |
+| 🟠 | `TYPE_OPTIONS_DEF` 276 | stesse cinque parole, tendina dell'editor |
 
-Quindi anche a circuito perfetto, **a schermo si continuano a vedere i nomi
-vecchi**, perche' l'interfaccia guarda l'altro sistema. Finche' i due non si
-parlano, il lavoro sul circuito non si vede e non si puo' nemmeno giudicare.
+Quattro copie della stessa lista. Toglierne una sola non cambia niente: al
+primo modello che passa da un altro ramo del codice tornano.
 
-**MISURATO IL 27/08 — adesso si sa DOVE, e sono tre pezzi, non uno.**
-Domanda di Raffaella: «l'occhio vede le macchine, perche' non mi assegna
-parcheggio?». Il log dice che l'occhio le ha viste
-(`4 zone su 7: parcheggio, parcheggio, parcheggio, parcheggio`) e che ha pure
-rinominato (`4 zone rinominate da quello che ho visto`). Non arriva a schermo
-per tre motivi indipendenti, e vanno riparati tutti e tre:
+**La riparazione, in una riga:** le categorie diventano quelle architettoniche
+(Regola 0-bis), i nomi arrivano dal circuito, e la sequenza posizionale torna
+al posto che il codice stesso le assegna — ultima, e solo quando non c'e'
+nient'altro.
 
-1. **Nome e tipo sono due campi diversi.** `__veritasApplicaOcchi`
-   (`index.html` ~2890) cambia **solo `n.label`**. Il `type` non lo tocca mai.
-   La barra sotto la simulazione legge il **`type`**, quindi il verdetto
-   dell'occhio esiste ma finisce in un campo che nessuno guarda.
-2. **«parcheggio» non esiste come tipo.** L'elenco e' scritto a mano, cinque
-   voci tutte da aeroporto (`index.html` 2155):
-   `const order2 = ["spawn","checkin","security","lounge","gate"]`.
-   Anche con un riconoscimento perfetto **non c'e' una casella dove metterlo**:
-   la barra puo' mostrare solo una di quelle cinque parole. Su un ospedale
-   direbbe lo stesso «accettazione» e «controllo».
-3. **Il parcheggio non e' nemmeno una zona.** Log: `dentro/fuori: 7 dentro,
-   0 all'aperto`. Il piazzale con le macchine sta fuori dall'area calpestabile
-   misurata, quindi non e' mai entrato nell'elenco delle 7 zone. Non c'e'
-   niente da nominare, per costruzione. Vedi `escluseFuori` (~3441).
+**Le aree all'aperto — deciso da Raffaella il 28/08.** «All'aperto» non e' una
+ragione per escludere. Se il cervello ha riconosciuto un aeroporto, i
+passeggeri arrivano dal parcheggio — e il parcheggio si vede perche' ci sono le
+macchine — oppure dagli aerei. **Decide il flusso riconosciuto, non la quota.**
+La regola che c'e' adesso nel codice (`escluseFuori` ~3441: «cio' su cui il
+pubblico non cammina non e' una tappa») butta via proprio l'inizio del flusso,
+ed e' uno stampo d'aeroporto travestito da prudenza. E' il pezzo piu' grosso
+dei tre e non e' stato aperto: va fatto con la giornata davanti.
 
-⚠️ **Non e' un ritocco.** Tocca `order2`, `TYPE_OPTIONS`, `applicaOcchi`, la
-barra e i marker: sta nel bundle grosso, va aperto con la giornata davanti.
-Non aperto il 26 ne' il 27 di proposito — il 27 il budget era finito, e una
-modifica interrotta sul bundle e' la situazione peggiore di tutte.
-
-
-Si affrontano in quest'ordine e non in un altro: i primi due falsano tutto
-quello che viene dopo, e correggere il resto prima significherebbe tarare il
-sistema su letture sbagliate.
+⚠️ Sta nel bundle grosso e tocca barra e marker. Non si comincia con meno del
+5% di budget: una modifica interrotta li' dentro e' la situazione peggiore.
 
 ### 1. ✅ LA PIANTA — RISOLTO il 26/08 (`19a4831`, `1be10aa`)
 
