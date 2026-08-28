@@ -538,6 +538,28 @@ pubblico non cammina non e' una tappa») butta via proprio l'inizio del flusso,
 ed e' uno stampo d'aeroporto travestito da prudenza. E' il pezzo piu' grosso
 dei tre e non e' stato aperto: va fatto con la giornata davanti.
 
+**⚠️ MISURATO IL 28/08, ed e' la ragione per cui la riparazione NON e' una
+sostituzione di parole:** `spawn` e `gate` non sono etichette, **sono il
+motore**. Gli agenti nascono dove `type === "spawn"` (1653) e vanno dove
+`type === "gate"` (1654, 4722, 4755, piu' 1672 nel percorso). Cambiare il
+vocabolario senza rimappare quei punti da' schermo pulito, nomi giusti e
+**zero persone in simulazione**: peggio di adesso.
+
+**Le liste d'aeroporto nel codice sono SETTE, non quattro:**
+276 (`TYPE_OPTIONS_DEF`), 2068, 2143, 2155, 3250, 3375-3412, 3557 e 4149
+(`typeSeq`, due copie).
+
+**La forma della riparazione — decisa il 28/08, si esegue, non si ridiscute:**
+
+| campo | oggi | dopo |
+|---|---|---|
+| `label` | nome d'aeroporto scritto nel codice | il nome che dice il circuito (gia' funziona, `applicaOcchi` 2876) |
+| `type` | `spawn/checkin/security/lounge/gate` | **ruolo architettonico**: `origine`, `distribuzione`, `sosta`, `servizio`, `destinazione`, `esterno` |
+| motore | legge le parole d'aeroporto in 8 punti | legge i ruoli — rimappatura in un colpo solo |
+
+Ordine di esecuzione: **prima** i ruoli e gli 8 punti del motore (senza, non
+parte piu' niente), **poi** le sette liste, **poi** il grep della Regola 0-bis.
+
 ⚠️ Sta nel bundle grosso e tocca barra e marker. Non si comincia con meno del
 5% di budget: una modifica interrotta li' dentro e' la situazione peggiore.
 
