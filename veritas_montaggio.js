@@ -1,3 +1,4 @@
+import "./veritas_manuale.js";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================
@@ -783,6 +784,13 @@ function fotografiaDelSapere() {
     referto: prendi(() => window.__veritasReferto) || null,
     passaggio_piu_stretto_m: prendi(() => window.__veritasBottleneckMax),
     dati_di_progetto: prendi(() => window.__veritasDatiProgetto) || null,
+    // Il sapere tecnico: misure del corpo e della circolazione, ognuna con la
+    // sua fonte. Serve a rispondere «quanto deve essere largo» senza inventare.
+    misure_tecniche: prendi(() => window.__veritasManuale) || null,
+    soglie_normative: prendi(() => window.__veritasNormative && window.__veritasNormative.soglie) || null,
+    // Quello che NON e' stato misurato, detto esplicitamente: la risposta
+    // onesta a «quante finestre ci sono» sta qui, non in una stima.
+    non_misurato: prendi(() => window.__veritasNonMisurato) || null,
   };
 }
 
