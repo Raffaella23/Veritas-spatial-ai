@@ -3365,10 +3365,16 @@
     if (usaDentroFuori) iAccoglienza = -1;
 
     ordinate.forEach((z, i) => {
-      // Le aree all'aperto che non sono l'arrivo restano misurate ma non
-      // diventano tappe: sono piste e piazzali di servizio, non posti dove
-      // cammina un passeggero.
-      if (escluseFuori.has(i)) return;
+      // ⚠️ Regola 0-bis / decisione del 28/08: «all'aperto» NON e' una ragione
+      // per escludere. Se il cervello ha riconosciuto un aeroporto, i
+      // passeggeri arrivano dal parcheggio o scendono dagli aerei: quelle sono
+      // tappe vere, e buttarle via taglia l'inizio del flusso.
+      // Decide il RICONOSCIMENTO, non la quota: un'area all'aperto che qualcuno
+      // ha gia' nominato (IFC, nome del modello, occhio-cervello) resta una
+      // tappa. Restano fuori solo le aree all'aperto che nessuno ha nominato —
+      // piste e piazzali di servizio — perche' li' non si sa cosa siano e
+      // farci camminare la gente sarebbe un'invenzione.
+      if (escluseFuori.has(i) && !etichette.get(i)) return;
       const dato = etichette.get(i);
       let type, label;
       if (dato) {
