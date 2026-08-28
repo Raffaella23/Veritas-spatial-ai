@@ -555,6 +555,14 @@ window.__veritasComprendi = async function (opz = {}) {
     log(racconta(c));
     dillo(racconta(c));
     if (c.domandaUmana) dillo(c.domandaUmana);
+    // Regola 0 punto 5, seconda meta': adesso ascolta. Se e' rimasto qualcosa
+    // senza nome, la prossima frase scritta in chat che non sia un comando
+    // conosciuto e' la risposta, e fa ripartire un giro con dentro quello che
+    // ha detto lei.
+    const restaDaCapire = !!(c.domandaUmana || (typeof c.senzaNome === "number"
+      ? c.senzaNome > 0 : (c.senzaNome && c.senzaNome.length)));
+    window.__veritasInAttesa = restaDaCapire;
+    if (restaDaCapire) dillo("Rispondimi qui: quello che scrivi torna dentro al ragionamento e rifaccio un giro.");
     return c;
   } catch (e) {
     const perche = (e && e.message) || String(e);
@@ -662,3 +670,42 @@ setInterval(function () {
 }, 1000);
 
 export default { comprendi: window.__veritasComprendi };
+
+
+// ---------------------------------------------------------------------------
+// 5. Il rientro della risposta — il ponte che mancava
+// ---------------------------------------------------------------------------
+//
+// La domanda usciva e basta: `chiedi_all_umano` e `senza_nome` esistevano, la
+// domanda arrivava in chat, ma nessuno raccoglieva la risposta. Il circuito
+// sapeva chiedere e non sapeva ricevere, quindi i volumi senza nome restavano
+// senza nome e la simulazione non partiva mai.
+//
+// Si passa dal registro di estensione che esiste gia'
+// (`__veritasCommandExtensions`): le estensioni vengono provate DOPO tutti i
+// comandi conosciuti, quindi una frase libera arriva qui solo se non era un
+// comando — che e' esattamente il caso di una risposta.
+window.__veritasRispondi = async function (testo) {
+  const frase = String(testo || "").trim();
+  if (!frase) return null;
+  const elenco = window.__veritasRisposteUmane || (window.__veritasRisposteUmane = []);
+  elenco.push(frase);
+  window.__veritasInAttesa = false;
+  return window.__veritasComprendi({});
+};
+
+window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
+window.__veritasCommandExtensions.push(function (raw, t, log) {
+  if (!window.__veritasInAttesa) return false;
+  const frase = String(raw || "").trim();
+  if (!frase) return false;
+  if (typeof log === "function") {
+    log("assistant", "Ricevuto. Rifaccio un giro con quello che mi hai detto.");
+  }
+  window.__veritasRispondi(frase).catch((e) => {
+    console.warn("[VERITAS risposta] il giro non e' ripartito:", (e && e.message) || e);
+  });
+  return true;
+});
+
+console.log("[VERITAS risposta] ponte attivo — quello che scrivi rientra nel ragionamento");
