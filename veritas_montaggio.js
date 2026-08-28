@@ -635,12 +635,42 @@ window.__veritasComprendi = async function (opz = {}) {
 function applicaNomi(posti) {
   if (typeof window.__veritasApplicaOcchi !== "function") return 0;
   const nodi = window.__veritasGetNodes ? window.__veritasGetNodes() : [];
+  // ⚠️ IL TRAVASO CHE NON AVVENIVA MAI. Misurato il 28/08 con Raffaella davanti
+  // allo schermo: il circuito diceva «23 volumi su 23 assegnati», lei
+  // confermava, e le tappe non cambiavano di una virgola.
+  //
+  // Il motivo era qui: si pretendeva che la tappa avesse un campo `posto` e che
+  // le coordinate coincidessero alla NONA CIFRA DECIMALE. Le 7 tappe pero'
+  // nascono da un'altra strada (`applyAutoAssignment`) e quel campo non ce
+  // l'hanno mai: la lista restava vuota, non rinominava niente, e non lo diceva
+  // a nessuno. Un difetto silenzioso, che e' il tipo peggiore.
+  //
+  // Ora due strade: se il campo c'e' si usa quello (esatto, non si tocca);
+  // altrimenti si accoppia per VICINANZA a terra, che e' l'unica cosa che le due
+  // liste hanno davvero in comune. La soglia e' dichiarata, non nascosta: oltre
+  // i 5 m non e' piu' la stessa cosa e non si accoppia.
+  const SOGLIA_ACCOPPIAMENTO_M = 5;
+  const distanzaXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
   const assegnate = [];
+  let perCampo = 0, perVicinanza = 0, troppoLontane = 0;
   nodi.forEach(function (n, i) {
-    if (!n.posto) return;
-    const p = posti.find((q) =>
-      Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
-      Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
+    let p = null;
+    if (n.posto && n.posto.centro) {
+      p = posti.find((q) =>
+        Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
+        Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
+      if (p) perCampo++;
+    }
+    if (!p && n.pos) {
+      let migliore = null, minima = Infinity;
+      for (const q of posti) {
+        if (!q || !q.centro || !q.nome || !q.funzione) continue;
+        const d = distanzaXZ(q.centro, n.pos);
+        if (d < minima) { minima = d; migliore = q; }
+      }
+      if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M) { p = migliore; perVicinanza++; }
+      else if (migliore) troppoLontane++;
+    }
     if (!p || !p.nome || !p.funzione) return;
     const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
       ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
@@ -651,9 +681,16 @@ function applicaNomi(posti) {
       nome: p.nome,
     });
   });
-  if (!assegnate.length) return 0;
+  if (!assegnate.length) {
+    log("nessuna tappa accoppiata ai volumi capiti: " + nodi.length + " tappe, "
+      + posti.length + " volumi"
+      + (troppoLontane ? ", " + troppoLontane + " oltre i " + SOGLIA_ACCOPPIAMENTO_M + " m" : "")
+      + ". Le tappe restano come stanno.");
+    return 0;
+  }
   const n = window.__veritasApplicaOcchi({ assegnate }, nodi);
-  log(n + " tappe rinominate dopo la comprensione");
+  log(n + " tappe su " + nodi.length + " rinominate dopo la comprensione"
+    + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza)");
   return n;
 }
 
