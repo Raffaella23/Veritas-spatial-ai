@@ -232,8 +232,42 @@ async function cervelloLocale(domanda, extra = {}) {
   if (!r.ok) throw new Error("il modello locale ha risposto " + r.status +
     " (LM Studio acceso su " + L.cfg.url + "?)");
   const d = await r.json();
-  return (d && d.choices && d.choices[0] && d.choices[0].message &&
-          d.choices[0].message.content) || "";
+  const scelta = d && d.choices && d.choices[0];
+  const testo = (scelta && scelta.message && scelta.message.content) || "";
+
+  // ⚠️ NON SI BUTTANO VIA `finish_reason` E `usage`.
+  //
+  // Il 27/08 e' servita una sonda incollata a mano in console per sapere una
+  // cosa che questa funzione aveva gia' in mano: se la risposta si era fermata
+  // perche' TRONCATA (`length`, manca spazio nella finestra) o perche'
+  // MALFORMATA (`stop`, sbaglia la sintassi). Sono due guasti diversi con due
+  // riparazioni opposte, e senza questo dato si ripara quello sbagliato: la
+  // diagnosi del 26/08 diceva «alza il tetto di uscita» ed era falsa, il tetto
+  // era gia' 2500 e il muro era la finestra di contesto a 8.192.
+  //
+  // Ora resta qui, e la sonda non serve piu'.
+  try {
+    const rec = {
+      passo: extra.passo || "—",
+      motivo_stop: scelta && scelta.finish_reason,
+      gettoni_chiesti: extra.passo ? 2500 : 700,
+      gettoni_entrata: d && d.usage && d.usage.prompt_tokens,
+      gettoni_uscita: d && d.usage && d.usage.completion_tokens,
+      caratteri: testo.length,
+      quando: new Date().toISOString(),
+    };
+    const storia = window.__veritasChiusura || (window.__veritasChiusura = []);
+    storia.push(rec);
+    if (storia.length > 200) storia.splice(0, storia.length - 200);
+    const allarme = rec.motivo_stop === "length";
+    console[allarme ? "warn" : "log"](
+      "[VERITAS cervello] " + storia.length + " " + rec.passo
+      + " — " + rec.motivo_stop + (allarme ? "  ⚠️ TRONCATA: manca spazio nella finestra, non e' un JSON rotto" : "")
+      + " | entrata " + rec.gettoni_entrata + " · uscita " + rec.gettoni_uscita
+      + " · " + rec.caratteri + " caratteri");
+  } catch (e) { /* la diagnostica non fa mai cadere il giro */ }
+
+  return testo;
 }
 
 // Strada 2 — veritas_brain_server.py, o qualunque cosa risponda a quel patto.
