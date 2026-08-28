@@ -500,7 +500,7 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     '    { "id": 0, "nome": "nome della zona", "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
     '      "fiducia": numero fra 0 e 1, "perche": "una frase" }',
     "  ],",
-    '  "senza_nome": [ { "id": 7, "domanda": "cosa chiederesti in italiano per capire cos\'e\'" } ],',
+    '  "senza_nome": [ { "id": 7, "domanda": "Il volume 7 e\' un rettangolo largo con delle sedute in fila: che spazio e\'?" } ],',
     '  "capito": true oppure false,',
     '  "fiducia": numero fra 0 e 1',
     "}",
@@ -522,6 +522,10 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     "  assegnale tutte e tre. Non accorparle.",
     "- Un volume di cui non sei sicuro NON si nomina a caso: mettilo in",
     "  `senza_nome` con la domanda che faresti. Chiedere e' previsto, indovinare no.",
+    "- ⚠️ In `domanda` ci va LA DOMANDA VERA, gia' scritta, rivolta a una persona",
+    "  che conosce l'edificio: cita quel volume e quello che ci vedi sopra. Non",
+    "  scrivere che cosa chiederesti: scrivilo direttamente. Una riga che comincia",
+    "  con \"cosa chiederesti\" e' sbagliata e non si puo' mostrare a nessuno.",
     "- Non inventare volumi: usa solo gli `id` dell'elenco.",
   ].join("\n");
 }
