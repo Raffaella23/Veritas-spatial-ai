@@ -495,6 +495,11 @@ let inCorso = false;
 window.__veritasComprendi = async function (opz = {}) {
   if (inCorso) return { ok: false, perche: "sto gia' cercando di capire" };
   inCorso = true;
+  // Mentre si guarda, una frase scritta in chat e' ancora una risposta: va
+  // raccolta, non buttata. Misurato il 28/08: il secondo messaggio arrivava a
+  // giro gia' partito, lo stato d'attesa era spento e il traduttore rispondeva
+  // «non ho capito».
+  window.__veritasGiroInCorso = true;
   try {
     const THREE  = window.THREE;
     const vista  = window.__veritasVista;
@@ -572,6 +577,15 @@ window.__veritasComprendi = async function (opz = {}) {
     return window.__veritasComprensione;
   } finally {
     inCorso = false;
+    window.__veritasGiroInCorso = false;
+    // Se e' arrivata una risposta mentre guardavo, il giro appena finito non
+    // l'aveva dentro: se ne fa uno solo in piu', mai a catena.
+    if (window.__veritasRispostaArrivataDurante) {
+      window.__veritasRispostaArrivataDurante = false;
+      if (!(window.__veritasComprensione && window.__veritasComprensione.capito)) {
+        setTimeout(() => { try { window.__veritasComprendi({}); } catch (e) {} }, 0);
+      }
+    }
   }
 };
 
@@ -701,9 +715,25 @@ window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
 // questa non veniva mai provata e la risposta si perdeva lo stesso. In attesa
 // di una risposta, la risposta ha la precedenza su tutto.
 window.__veritasCommandExtensions.unshift(function (raw, t, log) {
-  if (!window.__veritasInAttesa) return false;
+  const inAttesa = !!window.__veritasInAttesa;
+  const durante = !!window.__veritasGiroInCorso;
+  if (!inAttesa && !durante) return false;
   const frase = String(raw || "").trim();
   if (!frase) return false;
+
+  // Arrivata mentre guardavo: si tiene da parte e si rilancia un giro solo
+  // quando questo ha finito. Rilanciarlo adesso lo farebbe rimbalzare sulla
+  // guardia `inCorso` e la frase si perderebbe in silenzio.
+  if (durante) {
+    const elenco = window.__veritasRisposteUmane || (window.__veritasRisposteUmane = []);
+    elenco.push(frase);
+    window.__veritasRispostaArrivataDurante = true;
+    if (typeof log === "function") {
+      log("assistant", "Ricevuto. Sto ancora guardando: appena finisco questo giro ne faccio uno con quello che mi hai detto.");
+    }
+    return true;
+  }
+
   if (typeof log === "function") {
     log("assistant", "Ricevuto. Rifaccio un giro con quello che mi hai detto.");
   }
