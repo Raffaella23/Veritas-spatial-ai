@@ -336,232 +336,128 @@ Playwright. ⚠️ `three.module.js` importa `three.core.js`: copia **tutta** `b
 
 ⚠️ Dalla sandbox `curl` verso `onrender.com` dà 403: è il proxy, non il servizio.
 
-**Perché un passo del cervello si è fermato — sonda da console, non tocca
-niente.** Si incolla PRIMA di caricare il GLB: una ricarica di pagina la
-cancella. Stampa una riga per telefonata — `finish_reason`, gettoni in entrata
-e in uscita, caratteri. È così che il 27/08 si è distinto «troncata» da
-«malformata» senza indovinare: `length` = manca lo spazio, `stop` = sbaglia la
-sintassi. Due guasti diversi, due riparazioni opposte.
+**Perché un passo del cervello si è fermato — NON SERVE PIÙ INCOLLARE NIENTE.**
+Dal 28/08 (`2ac2641`) `cervelloLocale` conserva `finish_reason` e `usage`: ogni
+telefonata lascia da sola una riga
 
-```js
-(() => {
-  const originale = window.fetch;
-  window.__veritasChiusura = [];
-  window.fetch = async (...a) => {
-    const r = await originale(...a);
-    const url = String((a[0] && a[0].url) || a[0] || "");
-    if (!url.includes("/chat/completions")) return r;
-    let chiesti = null;
-    try { chiesti = JSON.parse(a[1].body).max_tokens; } catch (e) {}
-    r.clone().json().then((d) => {
-      const c = d && d.choices && d.choices[0];
-      const rec = { motivo_stop: c && c.finish_reason, gettoni_chiesti: chiesti,
-        gettoni_entrata: d.usage && d.usage.prompt_tokens,
-        gettoni_uscita: d.usage && d.usage.completion_tokens,
-        caratteri: ((c && c.message && c.message.content) || "").length };
-      window.__veritasChiusura.push(rec);
-      console.log("[SONDA]", window.__veritasChiusura.length, rec);
-    }).catch(() => {});
-    return r;
-  };
-  console.log("Sonda accesa.");
-})();
-```
+    [VERITAS cervello] 3 assegnazione — stop | entrata 8001 · uscita 442 · 1275 caratteri
 
-⚠️ Da mettere nel codice quando si toccherà `cervelloLocale`: `finish_reason` e
-`usage` vanno conservati accanto alla risposta grezza. Oggi si buttano via, ed è
-per questo che è servita una sonda per sapere una cosa che il codice aveva già
-in mano.
+e la storia sta in `window.__veritasChiusura` (ultime 200). Se il motivo è
+`length` la riga diventa un avviso che dice esplicitamente **«TRONCATA: manca
+spazio nella finestra, non è un JSON rotto»**.
+
+⚠️ **La lezione resta, ed è quella che il 26/08 è costata una giornata:** prima
+di diagnosticare un JSON illeggibile si guarda il motivo di chiusura. `length` =
+troncata, manca spazio → si allarga la finestra. `stop` = malformata, sbaglia la
+sintassi → si guarda il parser. Due guasti opposti: chi salta questo passo
+ripara quello sbagliato.
 
 ---
 
-## Dove siamo — 27/08/2026
+## Dove siamo — 28/08/2026
 
-**IL CIRCUITO GIRA SUL MODELLO VERO, TUTTO IL GIRO, PER LA PRIMA VOLTA.**
-Nessuna riga di codice cambiata oggi, nessun commit sul codice: il guasto che
-bloccava tutto era **una manopola di LM Studio**, non un difetto.
+**HA CAPITO UN AEROPORTO, DA SOLO, E L'HA DETTO A SCHERMO.**
+`aeroporto (modello completo). Fiducia 95%, dopo 2 giri. giro 1: 0 nominati, 23
+senza nome; giro 2: 23 nominati, 0 senza nome` — con un dubbio dichiarato sul
+volume 7 e la domanda in chat. Quattro giorni fa scriveva «Ingresso /
+Parcheggio» sull'ala di un aereo.
 
-### La misura che l'ha chiuso (27/08, `airport_foot_traffic.glb`)
+Il 27/08 il circuito girava ma non si vedeva. Il 28/08 si vede, e parla.
 
-Il passo 2 moriva con «JSON troncato». La diagnosi scritta il 26/08 diceva «il
-modello ha finito i gettoni, si alza il tetto di uscita»: **era sbagliata**. Il
-tetto di uscita era gia' 2500 e la risposta si fermava a ~150 gettoni.
-
-Misurato con una sonda che intercetta `/chat/completions` e legge
-`finish_reason` + `usage` — dati che `cervelloLocale` buttava via:
-
-| | finestra 8.192 | finestra 16.384 |
-|---|---|---|
-| studio: entrata | 7.966 | 8.001 |
-| studio: uscita | 226 | 442 |
-| **entrata + uscita** | **8.192 = il muro** | 8.443 |
-| `finish_reason` | `length` (tagliata) | `stop` (finita da sola) |
-
-8.192 esatti: il modello scriveva fino all'ultimo gettone disponibile. Non era
-malformata — quindi **irrobustire il parser sarebbe stato riparare la cosa
-sbagliata**, e un parser che "ripara" un JSON troncato inventa i pezzi mancanti.
-
-⚠️ **REGOLA IMPARATA — la finestra di contesto e' un vincolo di prodotto, non
-un dettaglio di macchina.** `promptStudio` porta pianta + 7 scorci + il racconto
-dell'occhio + le misure: ~8.000 gettoni di sola domanda. Con una finestra da
-8.192 non resta spazio per rispondere, e il guasto **si presenta come un JSON
-rotto**, che manda a riparare tutt'altro. Chi riprende: **prima di diagnosticare
-un JSON illeggibile, guarda `finish_reason`.** `length` = troncata (spazio),
-`stop` = malformata (sintassi). Sono due guasti diversi con due riparazioni
-opposte.
-
-Serve **Context Length ≥ 16384** su `qwen2.5-vl-7b-instruct` in LM Studio, e il
-modello va **ricaricato** dopo averla cambiata. Sotto quella soglia il passo 2
-non passa, qualunque cosa si faccia al codice.
-
-### Esito del giro completo, 27/08
-
-| sonda | passo | entrata | uscita | caratteri | esito |
-|---|---|---|---|---|---|
-| 3 | studio | 8.001 | 442 | 1.275 | `stop` — `motivo: null` ✅ |
-| 4 | **assegnazione** | 8.408 | 489 | 1.311 | `stop` — `motivo: null`, `capito: true`, `fiducia 0.95` ✅ |
-| 5 | parole (rimbalzo all'occhio) | 6.473 | 146 | 397 | `stop` ✅ |
-
-La sonda 5 e' il **giro n°2 della Regola 0** sul modello vero: il cervello ha
-assegnato, poi e' tornato a chiedere all'occhio. Fino a ieri era provato solo
-sul banco con occhio e cervello finti.
-
-⚠️ Questo dice che **il circuito funziona**, NON che **nomina bene**. La qualita'
-dei nomi non e' stata giudicata, e a schermo non si vede comunque — fronte 0.
+### Fatto il 28/08 — dodici commit su `main`
 
 | cosa | commit | provato |
 |---|---|---|
-| pianta specchiata + inquadratura fuori bersaglio | `1be10aa` | ✅ misurato con three |
-| pianta = modello INTERO dall'alto, non la fetta a 45 cm | `dabe4d1` | ✅ a schermo |
-| selettore con tutte le viste nel pannello | `143302d` | ✅ a schermo (`6/8 scorcio 5 — 206°`) |
-| circuito occhio↔cervello (Regola 0) | `3d296e0` | ⚠️ solo banco |
-| l'occhio guarda per primo e SENZA elenco; il cervello verifica con le misure | `bbf6554` | ⚠️ solo banco |
-| `misureInParole` leggeva `p.min`/`p.max`, che non esistono → uccideva `comprendi()` | `c20d322` | ⚠️ mai ricorso dopo |
+| Regola 0-bis scritta nel documento | `5704ecb`, `ba8f3f3` | — |
+| i tipi diventano ruoli architettonici, nessuna parola d'aeroporto nel codice | `cb0fc0e` | ✅ a schermo |
+| «all'aperto» non esclude più: decide il flusso riconosciuto | `b612058` | ⚠️ mai scattato (7 dentro, 0 fuori) |
+| il circuito ASCOLTA: la risposta umana rientra nel ragionamento | `fdfb31c`, `f790d64` | ✅ a schermo |
+| la risposta passa davanti al traduttore; la domanda è una domanda vera | `3dc0215`, `12fc01d` | ✅ a schermo |
+| niente si perde: una risposta scritta a giro in corso viene raccolta | `e6bdd1e` | ✅ a schermo |
+| **la chat**: risponde alle domande, solo su ciò che ha misurato | `00617dd` | ⚠️ mai provata |
+| il sapere tecnico in un posto solo (`veritas_manuale.js`) | `1b6df24`, `0bc96f8` | ⚠️ mai provato |
+| assegna e dichiara i dubbi, non si blocca più | `084dd95` | ✅ a schermo |
+| la sonda entra nel codice | `2ac2641` | ⚠️ mai provata |
+| un ordine non è una risposta | `db842fc` | ⚠️ mai provato |
+| **il travaso volumi capiti → tappe** | `27d2003` | ⚠️ **MAI PROVATO — la prima cosa da verificare** |
 
+### Il travaso, che è la prima cosa da provare
 
+Sintomo osservato: il circuito diceva «23 volumi su 23 assegnati», Raffaella
+confermava, **e le tappe che comandano il movimento non cambiavano di una
+virgola.**
 
-**Fatto e provato.** Il Core Python calcola davvero KPI, conformità e
-raccomandazioni. La percezione degli agenti è **misurata**: isovista a 32 raggi
-sulla mesh (Benedikt 1979), con due altezze occhio — 1,65 m in piedi e 1,20 m
-seduto, così un bancone a 1,30 m non ostruisce chi cammina e chiude l'orizzonte
-a chi è in carrozzina. Senza mesh si ricade su una stima per archetipo e il
-report **lo dichiara** (`perception_source`).
+Causa, misurata in `applicaNomi` (`veritas_montaggio.js`): per accoppiare un
+volume a una tappa pretendeva che la tappa avesse il campo `posto` e che le
+coordinate coincidessero **alla nona cifra decimale**. Le tappe però nascono da
+`applyAutoAssignment` e quel campo non ce l'hanno mai: la lista restava vuota,
+non rinominava niente, **e non lo diceva a nessuno.** Difetto silenzioso, il
+tipo peggiore.
 
-L'IFC entra e viene letto sul lettore vero. I muri si leggono dal modello
-invece di indovinarli. La fisica Rapier è innestata (`veritas_corpo.js`) ma va
-in crash — fronte 5. **I KPI finti sono stati azzerati** il 24/08 (`9bb59b1`):
-erano cablati in `hV()` — 0,156 p/s, 12 rallentamenti, 131,4 s, 68%. Se quei
-quattro numeri ricompaiono a schermo, è tornato il bundle vecchio.
+Ora si accoppia per vicinanza a terra, soglia dichiarata 5 m, e il silenzio è
+finito. La riga da cercare in console:
 
-**Il ciclo occhio-cervello gira** (`veritas_montaggio.js`, parte da solo su
-qualunque modello caricato). Il cervello è LM Studio via `__veritasLLM`,
-nessun server da accendere; `puoAgire()` è il cancello prima della simulazione.
+    [VERITAS montaggio] 6 tappe su 7 rinominate dopo la comprensione
+                        (0 per corrispondenza esatta, 6 per vicinanza)
 
-**Rifatto il 25/08 come si guarda un progetto, non come si legge un file.**
-Il giro a parole trovava 0 cose su 158 chieste, e non per colpa del modello: gli
-si chiedeva «trovi un banco?» dodici parole alla volta su una pianta dall'alto,
-dove banco, sedute e muretto sono lo stesso rettangolo grigio. **Non gli era mai
-stato chiesto che posto fosse.** Ora la domanda è rovesciata (`071ca95`):
+Se invece dice «nessuna tappa accoppiata», dentro ci sono quante tappe, quanti
+volumi e quante erano oltre soglia: si legge quello, non si indovina.
 
-1. **studio** — che edificio è, e *come* lo stanno mostrando: modello completo,
-   spaccato, sezione, un piano solo. Un modello senza soffitto non è un difetto
-   ed è compito del cervello dirlo.
-2. **funzionamento** — la sequenza con cui le persone attraversano un posto del
-   genere la enuncia il **cervello**, non noi. Scriverla nel codice taglierebbe
-   la piattaforma su un tipo di edificio solo: oggi aeroporto, domani ospedale,
-   dopodomani museo o collaudo di un livello di gioco.
-3. **assegnazione** — i nomi vanno sui volumi **già misurati** (quelli che
-   l'editor stira, allarga, moltiplica), mai su contorni nuovi. Nome libero
-   dalla tipologia riconosciuta; **ruolo** da un elenco chiuso (`RUOLI`) per il
-   Core e le soglie. Più volumi possono avere lo stesso nome: tre sale d'attesa
-   restano tre. Un volume incerto non si nomina — finisce in `senza_nome` con
-   la domanda, che va in chat. Deciso da Raffaella il 25/08.
+### Il patto della chat — non è una comodità, è il prodotto
 
-`veritas_vista.js` sa **girare il modello fra le mani**: `scorciTreQuarti()`
-rende N viste in prospettiva attorno al modello **intero** — mai zummate sui
-singoli arredi, che su un aeroporto moltiplicherebbero il costo per il numero di
-banchi. Quante: da 4 a 9, ricavate dalla densità di mesh per m². Da console:
-`__veritasProvaScorci()`.
+Chi compra questo strumento lo compra per **chiedergli** le cose. La chat
+risponde **solo dalla fotografia di quello che il sistema ha misurato**: se il
+dato non c'è dice «non l'ho misurato» e cosa servirebbe, non stima mai, e
+distingue la MISURA (`largo 0,90 m`) dal GIUDIZIO su una soglia (`a norma`, e
+rispetto a quale regola). `NON_MISURATO` in `veritas_manuale.js` dichiara cosa
+il sistema non sa: finestre, altezze utili, arredi come pezzi, materiali.
 
----
+Le tre strade non si pestano i piedi: se sta chiedendo qualcosa, quello che
+scrivi è una **risposta**; se sta ancora guardando viene messo da parte; i verbi
+d'ordine («fai partire», «mostra», «report») tornano al dispatcher; il resto, se
+è scritto come domanda, è una **domanda**.
+
+⚠️ **Il manuale dell'architetto non si copia nel prodotto.** Neufert e le
+raccolte editoriali sono opere protette: chi vende un prodotto con dentro le
+loro tabelle ha un problema legale. Si citano le fonti primarie — Fruin per il
+corpo in movimento, i decreti per le prescrizioni — che davanti a un cliente
+reggono di più. Se serve più vocabolario: **Uniclass 2015 tabella SL**,
+gratuita, ISO 12006-2, già in CSV su GitHub (`buildig/uniclass-2015`), ed è la
+stessa con cui si classificano gli oggetti IFC.
+
 
 ## Fronti aperti — IN ORDINE DI PRIORITÀ
 
-### 0. 🔴 IL VOCABOLARIO D'AEROPORTO STA NEL CODICE — in QUATTRO posti
+### 0. 🔴 LE TAPPE NASCONO PRIMA CHE QUALCUNO GUARDI
 
-**MISURATO IL 28/08 leggendo `index.html` su `main`. La diagnosi precedente
-mandava al posto sbagliato e va buttata:** diceva «`__veritasApplicaOcchi`
-(~2890) cambia solo `n.label`, mai `n.type`». **Falso:** la riga 2876 fa
-`n.type = a.tipo`. Quel pezzo funziona. Chi seguiva quella nota riparava una
-cosa sana e lasciava in piedi il difetto.
+**Cosa è già stato tolto il 28/08 (`cb0fc0e`):** le sette liste di parole
+d'aeroporto. I tipi ora sono ruoli architettonici (`origine`, `accoglienza`,
+`filtro`, `sosta`, `destinazione`), validi su qualunque edificio, e i nomi li dà
+il circuito. Prova della Regola 0-bis, dieci secondi:
 
-**Il colpevole di quello che si vede a schermo e' `applyAutoAssignment` (~3500):**
+    grep -n "checkin\|security\|lounge\|spawn\|Accettazione\|Controllo" index.html
 
-```js
-const typeSeq = ['spawn','checkin','security','lounge','gate','gate','gate','gate'];
-// zone ordinate per X, poi:  spawn -> 'Ingresso / Parcheggio'
-//                            checkin -> 'Accettazione'
-//                            security -> 'Controllo'
-```
+Se quelle parole compaiono come **dati** il difetto è tornato. Nei commenti va
+bene.
 
-Le zone **misurate** vengono messe in fila da sinistra a destra e ricevono i
-cinque nomi d'aeroporto **per posizione**. Nessun riconoscimento entra: la
-prima zona a sinistra si chiama «Ingresso / Parcheggio» perche' e' la prima a
-sinistra. Su un ospedale direbbe le stesse parole.
-
-⚠️ **Il codice si contraddice da solo, venti righe sopra**, dove e' scritto
-l'ordine di autorita' giusto: `bim > nome del modello > occhi > misure >
-sequenza posizionale`. La sequenza posizionale e' **l'ultima** della lista, ed
-e' quella che comanda la barra.
-
-| | dove | cosa fa |
-|---|---|---|
-| ✅ sano | `applicaOcchi` 2876 | scrive gia' `type` **e** `label` — non toccare |
-| 🔴 | `typeSeq` ~3500 in `applyAutoAssignment` | dipinge la barra, cinque nomi per posizione |
-| 🟠 | `order` 2143 / `order2` 2155 | stesse cinque parole, percorsi di riserva |
-| 🟠 | `TYPE_OPTIONS_DEF` 276 | stesse cinque parole, tendina dell'editor |
-
-Quattro copie della stessa lista. Toglierne una sola non cambia niente: al
-primo modello che passa da un altro ramo del codice tornano.
-
-**La riparazione, in una riga:** le categorie diventano quelle architettoniche
-(Regola 0-bis), i nomi arrivano dal circuito, e la sequenza posizionale torna
-al posto che il codice stesso le assegna — ultima, e solo quando non c'e'
+**Cosa resta, ed è il fronte:** `applyAutoAssignment` (~3500 di `index.html`)
+piazza ancora le tappe **ordinandole per la X** e assegnando il ruolo per
+posizione, **prima** che occhio e cervello abbiano parlato. Non è un
+riconoscimento, è un riempimento. Domanda di Raffaella, 28/08: «quando apri il
+modello ti mette già 6 zone su 7, in base a che cosa?» — in base all'asse X, e a
 nient'altro.
 
-**Le aree all'aperto — deciso da Raffaella il 28/08.** «All'aperto» non e' una
-ragione per escludere. Se il cervello ha riconosciuto un aeroporto, i
-passeggeri arrivano dal parcheggio — e il parcheggio si vede perche' ci sono le
-macchine — oppure dagli aerei. **Decide il flusso riconosciuto, non la quota.**
-La regola che c'e' adesso nel codice (`escluseFuori` ~3441: «cio' su cui il
-pubblico non cammina non e' una tappa») butta via proprio l'inizio del flusso,
-ed e' uno stampo d'aeroporto travestito da prudenza. E' il pezzo piu' grosso
-dei tre e non e' stato aperto: va fatto con la giornata davanti.
+La riparazione, in una riga: **le tappe devono nascere dal riconoscimento, non
+precederlo.** La sequenza posizionale torna dov'è scritto che stia — ultima
+delle autorità (`bim > nome del modello > occhi > misure > sequenza
+posizionale`), e solo quando non c'è nient'altro.
 
-**⚠️ MISURATO IL 28/08, ed e' la ragione per cui la riparazione NON e' una
-sostituzione di parole:** `spawn` e `gate` non sono etichette, **sono il
-motore**. Gli agenti nascono dove `type === "spawn"` (1653) e vanno dove
-`type === "gate"` (1654, 4722, 4755, piu' 1672 nel percorso). Cambiare il
-vocabolario senza rimappare quei punti da' schermo pulito, nomi giusti e
-**zero persone in simulazione**: peggio di adesso.
+⚠️ Sta nel bundle grosso e tocca barra e marker. Non si comincia con meno del 5%
+di budget: una modifica interrotta lì dentro è la situazione peggiore.
 
-**Le liste d'aeroporto nel codice sono SETTE, non quattro:**
-276 (`TYPE_OPTIONS_DEF`), 2068, 2143, 2155, 3250, 3375-3412, 3557 e 4149
-(`typeSeq`, due copie).
-
-**La forma della riparazione — decisa il 28/08, si esegue, non si ridiscute:**
-
-| campo | oggi | dopo |
-|---|---|---|
-| `label` | nome d'aeroporto scritto nel codice | il nome che dice il circuito (gia' funziona, `applicaOcchi` 2876) |
-| `type` | `spawn/checkin/security/lounge/gate` | **ruolo architettonico**: `origine`, `distribuzione`, `sosta`, `servizio`, `destinazione`, `esterno` |
-| motore | legge le parole d'aeroporto in 8 punti | legge i ruoli — rimappatura in un colpo solo |
-
-Ordine di esecuzione: **prima** i ruoli e gli 8 punti del motore (senza, non
-parte piu' niente), **poi** le sette liste, **poi** il grep della Regola 0-bis.
-
-⚠️ Sta nel bundle grosso e tocca barra e marker. Non si comincia con meno del
-5% di budget: una modifica interrotta li' dentro e' la situazione peggiore.
+⚠️ **Prima di aprirlo, provare il travaso (`27d2003`).** Se quello funziona i
+nomi veri arrivano già alle tappe, e questo fronte cambia di forma: resterebbe
+solo da togliere il riempimento iniziale, non da ricostruire l'assegnazione.
 
 ### 1. ✅ LA PIANTA — RISOLTO il 26/08 (`19a4831`, `1be10aa`)
 
