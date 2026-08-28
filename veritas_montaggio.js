@@ -744,3 +744,107 @@ window.__veritasCommandExtensions.unshift(function (raw, t, log) {
 });
 
 console.log("[VERITAS risposta] ponte attivo — quello che scrivi rientra nel ragionamento");
+
+
+// ---------------------------------------------------------------------------
+// 6. LA CHAT — rispondere alle domande, ma solo su quello che si e' misurato
+// ---------------------------------------------------------------------------
+//
+// Perche' esiste: chi compra questo strumento lo compra per CHIEDERGLI le cose
+// — «quante finestre ci sono», «i varchi sono a norma», «quanto e' larga
+// l'uscita piu' stretta». Un sistema che parla solo quando non capisce non e'
+// vendibile. Deciso da Raffaella il 28/08.
+//
+// ⚠️ IL VINCOLO CHE LO RENDE VENDIBILE INVECE CHE PERICOLOSO: risponde SOLO da
+// quello che il sistema ha misurato davvero. Se il dato non c'e', dice che non
+// c'e' e dice cosa servirebbe per averlo. Un numero inventato dentro una
+// risposta e' la stessa merce avariata dei KPI finti, ed e' peggio, perche' qui
+// il cliente lo sta chiedendo apposta.
+//
+// ⚠️ E distingue MISURA da GIUDIZIO. «L'uscita e' larga 0,90 m» e' un rilievo;
+// «l'uscita e' a norma» e' l'esito di una soglia, con una giurisdizione dietro.
+// Spacciare il secondo per il primo e' quello che fa causare i guai a chi firma.
+function fotografiaDelSapere() {
+  const prendi = (f) => { try { return f(); } catch (e) { return null; } };
+  const zone = prendi(() => window.__veritasAutoZones) || [];
+  const nodi = prendi(() => window.currentNodes) || [];
+  const c = prendi(() => window.__veritasComprensione) || null;
+  return {
+    modello_caricato: !!(zone.length || nodi.length),
+    comprensione: c ? {
+      capito: c.capito, fiducia: c.fiducia,
+      volumi_nominati: c.nominati, volumi_senza_nome: c.senzaNome,
+    } : null,
+    zone_misurate: zone.slice(0, 40).map((z, i) => ({
+      i, area_m2: z.areaM2, ruolo: z.role, all_aperto: z.fuori,
+    })),
+    tappe: nodi.slice(0, 40).map((n) => ({ nome: n.label, ruolo: n.type })),
+    cose_trovate: prendi(() => window.__veritasCoseTrovate) || null,
+    referto: prendi(() => window.__veritasReferto) || null,
+    passaggio_piu_stretto_m: prendi(() => window.__veritasBottleneckMax),
+    dati_di_progetto: prendi(() => window.__veritasDatiProgetto) || null,
+  };
+}
+
+const PATTO_RISPOSTA = [
+  "Sei VERITAS. Rispondi a chi analizza uno spazio per lavoro: un architetto,",
+  "un gestore, chi deve firmare. Italiano normale, poche righe, niente elenchi",
+  "se non servono.",
+  "",
+  "⚠️ REGOLE, e vengono prima della cortesia:",
+  "- Rispondi SOLO con quello che sta nella FOTOGRAFIA qui sotto. Non e' quello",
+  "  che sai del mondo: e' quello che questo sistema ha misurato su QUESTO",
+  "  modello.",
+  "- Se il dato non c'e', dillo chiaramente — «non l'ho misurato» — e aggiungi",
+  "  in una riga cosa servirebbe per averlo. Non stimare, non arrotondare, non",
+  "  dedurre da quello che di solito c'e' in un edificio del genere.",
+  "- Non inventare MAI un numero. Un numero che non e' nella fotografia non si",
+  "  scrive, nemmeno come ordine di grandezza.",
+  "- Distingui quello che e' MISURATO da quello che e' un GIUDIZIO su una",
+  "  soglia. «Largo 0,90 m» e' una misura. «A norma» e' un giudizio: dillo, e di'",
+  "  rispetto a quale regola, se la fotografia lo riporta. Se non lo riporta,",
+  "  non dare il giudizio.",
+  "- Se la domanda non riguarda questo modello, dillo in una riga.",
+].join("\n");
+
+window.__veritasDomanda = async function (frase) {
+  const testo = String(frase || "").trim();
+  if (!testo) return null;
+  const foto = fotografiaDelSapere();
+  if (!foto.modello_caricato) {
+    return "Non ho ancora nessun modello caricato: appoggia un file 3D e poi chiedimi quello che vuoi.";
+  }
+  const domanda = [
+    PATTO_RISPOSTA, "",
+    "FOTOGRAFIA DI QUELLO CHE HO MISURATO:",
+    JSON.stringify(foto),
+    "",
+    "DOMANDA: " + testo,
+  ].join("\n");
+  return (await cervello(domanda, {})) || "";
+};
+
+// Va davanti al traduttore, che altrimenti prende la frase e risponde «non ho
+// capito cosa vuoi che faccia». Non tocca i comandi: si occupa solo di quello
+// che e' scritto come una domanda.
+const PARE_UNA_DOMANDA = /\?\s*$|^(quant|qual|quali|dove|come mai|perch|cosa |che cosa|mi sai dire|dimmi|sai dirmi|c'e' |ci sono )/i;
+
+window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
+window.__veritasCommandExtensions.unshift(function (raw, t, log) {
+  // Se sta aspettando una risposta o sta guardando, quella strada ha la
+  // precedenza: li' la frase e' una risposta, non una domanda.
+  if (window.__veritasInAttesa || window.__veritasGiroInCorso) return false;
+  const frase = String(raw || "").trim();
+  if (!frase || !PARE_UNA_DOMANDA.test(frase)) return false;
+  if (typeof log === "function") log("assistant", "Guardo quello che ho misurato...");
+  window.__veritasDomanda(frase).then((r) => {
+    if (typeof log === "function") log("assistant", r || "Non sono riuscito a rispondere.");
+  }).catch((e) => {
+    if (typeof log === "function") {
+      log("assistant", "Non sono riuscito a rispondere: " + ((e && e.message) || e));
+    }
+  });
+  return true;
+});
+
+console.log("[VERITAS chat] pronta — chiedi in italiano; rispondo solo su quello che ho misurato");
