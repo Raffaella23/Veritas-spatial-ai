@@ -691,7 +691,27 @@ function applicaNomi(posti) {
   // altrimenti si accoppia per VICINANZA a terra, che e' l'unica cosa che le due
   // liste hanno davvero in comune. La soglia e' dichiarata, non nascosta: oltre
   // i 5 m non e' piu' la stessa cosa e non si accoppia.
-  const SOGLIA_ACCOPPIAMENTO_M = 5;
+  // ⚠️ LA SOGLIA CHE NON POTEVA FUNZIONARE. Era 5 m fissi, su un edificio lungo
+  //    147: come cercare la propria auto in un parcheggio accettando solo se e'
+  //    a cinque passi. Il 29/08 il cervello capiva 6 volumi e il travaso diceva
+  //    «nessuna tappa accoppiata», perche' i volumi capiti stavano a decine di
+  //    metri dalle tappe — che nascono da un riempimento posizionale, non dalla
+  //    geometria vera.
+  //
+  //    Ora la soglia si misura sul modello: un decimo di quanto sono sparsi i
+  //    volumi, con un minimo di 5 m e un tetto di 40. Su questo aeroporto vale
+  //    circa 15 m; su una stanza resta 5. Nessun numero inventato che vada
+  //    bene per un caso solo.
+  const sparsi = (function () {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const q of posti) {
+      if (!q || !q.centro) continue;
+      x0 = Math.min(x0, q.centro[0]); x1 = Math.max(x1, q.centro[0]);
+      z0 = Math.min(z0, q.centro[2]); z1 = Math.max(z1, q.centro[2]);
+    }
+    return isFinite(x0) ? Math.hypot(x1 - x0, z1 - z0) : 0;
+  })();
+  const SOGLIA_ACCOPPIAMENTO_M = Math.max(5, Math.min(40, sparsi / 10));
   const distanzaXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
   const assegnate = [];
   let perCampo = 0, perVicinanza = 0, troppoLontane = 0, senzaNome = 0, fuoriElenco = 0;
@@ -700,6 +720,7 @@ function applicaNomi(posti) {
   // distingue fra «li scarto tutti» e «la soglia e' troppo stretta»: due guasti
   // diversi con la stessa faccia.
   let volumiUtili = 0, minimaVista = Infinity, candidati = 0;
+  const presi = new Set();
   nodi.forEach(function (n, i) {
     let p = null;
     if (n.posto && n.posto.centro) {
@@ -723,8 +744,12 @@ function applicaNomi(posti) {
         if (d < minima) { minima = d; migliore = q; }
       }
       if (migliore && minima < minimaVista) minimaVista = minima;
-      if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M) { p = migliore; perVicinanza++; }
-      else if (migliore) troppoLontane++;
+      // Un volume non si assegna a due tappe: sarebbe lo stesso posto in due
+      // punti diversi. La prima che lo prende se lo tiene; le altre cercano
+      // altrove al giro successivo, e se non trovano restano come stanno.
+      if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M && !presi.has(migliore)) {
+        p = migliore; presi.add(migliore); perVicinanza++;
+      } else if (migliore) troppoLontane++;
     }
     // ⚠️ CAPITO A META' VALE PIU' DI NIENTE — chiesto da Raffaella il 29/08,
     //    dopo una giornata in cui il cervello capiva e la barra non cambiava.
@@ -765,7 +790,7 @@ function applicaNomi(posti) {
     + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza"
     + (fuoriElenco ? ", " + fuoriElenco + " con una funzione fuori elenco: tenuto il nome" : "")
     + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
-    + ")");
+    + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m)");
   return n;
 }
 
