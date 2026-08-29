@@ -2868,18 +2868,35 @@
       // architettonica (ArchPlanVQA); una dichiarazione IFC e' quello che
       // l'edificio E'.
       if (n.origine === "bim") { scartati.push(n.label + " (dichiarato dal progetto)"); continue; }
+      // ⚠️ MISURATO IL 29/08. Da questa stessa porta passano DUE occhi: il
+      // circuito occhio-cervello, che guarda pianta E scorci (Regola 0 punto 2),
+      // e l'occhio piu' vecchio, che guarda la SOLA pianta. Il secondo arrivava
+      // dopo e riscriveva sopra il primo: nella corsa del 29/08 ha messo
+      // «parcheggio» su quattro zone diverse, su una vista sola.
+      // Chi ha guardato di piu' non si scavalca.
+      if (n.origine === "comprensione" && esito.fonte !== "comprensione") {
+        scartati.push(n.label + " (gia' capito guardando tutte le viste)"); continue;
+      }
       // Cio' su cui il pubblico non cammina non e' una tappa: si lascia dov'e'
       // ma non entra nel percorso.
       if (a.tipo === "escluso") { n.escluso = true; scartati.push(n.label + " (non calpestabile dal pubblico)"); continue; }
 
+      // ⚠️ REGOLA 0-BIS, e questo era il buco. Se chi ha guardato porta un NOME
+      // — letto sul modello, «sala d'attesa» perche' ci sono le sedute — quello
+      // vince. Le tabelle qui sotto sono parole scelte PRIMA di guardare
+      // (`aeroporto: Ingresso / Accettazione / Controllo`) e restano solo come
+      // ultima riserva, per chi un nome non ce l'ha. Fino al 29/08 vincevano
+      // sempre loro: il circuito poteva capire benissimo e a schermo compariva
+      // comunque il vocabolario d'aeroporto.
       const tab = ETICHETTA_OCCHI[a.funzione];
-      const nuova = (tab && (tab[dominio] || tab.generico)) || voc[a.tipo] || n.label;
+      const letto = a.nome && String(a.nome).trim();
+      const nuova = letto || (tab && (tab[dominio] || tab.generico)) || voc[a.tipo] || n.label;
       if (n.type !== a.tipo || n.label !== nuova) cambiati++;
       n.type = a.tipo;
       n.label = nuova;
       n.funzione = a.funzione;
       n.fuori = a.fuori;
-      n.origine = "occhi";
+      n.origine = esito.fonte === "comprensione" ? "comprensione" : "occhi";
     }
     if (!cambiati) return 0;
 
