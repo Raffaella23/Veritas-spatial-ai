@@ -10602,11 +10602,59 @@ function densitaMesh(numeroMesh, ingombro) {
 }
 
 function numeroScorci(densita) {
-  const MIN = 4, MAX = 9;
-  const D_BASSA = 0.02, D_ALTA = 0.30;
-  const d = densita || 0;
-  const t = Math.max(0, Math.min(1, (d - D_BASSA) / (D_ALTA - D_BASSA)));
-  return Math.round(MIN + t * (MAX - MIN));
+  // ⚠️ 29/08: QUATTRO, fissi. Con la pianta fanno cinque immagini, chiesto da
+  //    Raffaella. Prima erano da 4 a 9 secondo la densita' di mesh, e su questo
+  //    modello uscivano 7 (piu' la pianta: 8 in una telefonata sola).
+  //
+  //    Il conto che conta non e' quante immagini mandiamo, ma quanti pixel
+  //    utili arrivano su ogni cosa da riconoscere. Un modello che vede NON
+  //    ingrandisce: riceve la figura ferma e la guarda com'e'. Quello che sta
+  //    piccolo nel riquadro, per lui non esiste. Meglio quattro inquadrature
+  //    piene che nove mezze vuote — e quattro giri di 90 gradi coprono comunque
+  //    tutti i lati.
+  return 4;
+}
+
+// Quanto lontano deve stare la telecamera perche' il modello RIEMPIA il
+// riquadro, da questa direzione.
+//
+// ⚠️ 29/08. Prima la distanza era fissa — `diagonale * 0.8` — uguale per tutte
+//    le viste e cieca alla forma. Su un modello lungo e piatto (147 x 82 x 15 m)
+//    metà riquadro restava vuoto, e la roba da riconoscere finiva in pochi
+//    pixel. Qui si proiettano gli otto spigoli dell'ingombro sugli assi della
+//    telecamera e si chiede la distanza minima che li fa entrare tutti: cambia
+//    a ogni angolo, com'e' giusto, perche' di taglio il modello e' stretto e di
+//    fronte e' largo.
+//
+//    `margine` lascia un filo di respiro ai bordi; `mz` (la meta' della
+//    profondita') si somma perche' la distanza si misura dal CENTRO e lo
+//    spigolo piu' vicino non deve finire dietro la lente.
+//
+//    Se qualcosa va storto torna null e chi chiama usa la distanza di prima:
+//    una vista un po' larga e' meglio di nessuna vista.
+function distanzaCheRiempie(THREE, scatola, centro, dir, fovGradi, aspetto, margine) {
+  try {
+    const avanti = dir.clone().normalize();              // dal centro verso la camera
+    let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
+    if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);   // camera a picco
+    destra.normalize();
+    const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
+    const p = new THREE.Vector3();
+    let mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < 8; i++) {
+      p.set(i & 1 ? scatola.max.x : scatola.min.x,
+            i & 2 ? scatola.max.y : scatola.min.y,
+            i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
+      mx = Math.max(mx, Math.abs(p.dot(destra)));
+      my = Math.max(my, Math.abs(p.dot(su)));
+      mz = Math.max(mz, Math.abs(p.dot(avanti)));
+    }
+    const tV = Math.tan((fovGradi * Math.PI / 180) / 2);
+    const tH = tV * (aspetto || 1);
+    if (!(tV > 0) || !(tH > 0)) return null;
+    const d = Math.max(my / tV, mx / tH) * (margine || 1.06) + mz;
+    return isFinite(d) && d > 0 ? d : null;
+  } catch (e) { return null; }
 }
 
 function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
@@ -10649,13 +10697,25 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
 
     for (let i = 0; i < n; i++) {
       const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      const dir = new THREE.Vector3(
+        Math.cos(elevRad) * Math.cos(azimuth),
+        Math.sin(elevRad),
+        Math.cos(elevRad) * Math.sin(azimuth),
+      );
+      // La distanza si ricalcola a ogni angolo: il modello riempie il riquadro
+      // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
+      // quella fissa di prima.
+      const dist = (opzioni.distanza ? distanza
+                   : distanzaCheRiempie(THREE, scatola, centro, dir, cam.fov,
+                                        cam.aspect, opzioni.margine)) || distanza;
       cam.position.set(
-        centro.x + distanza * Math.cos(elevRad) * Math.cos(azimuth),
-        centro.y + distanza * Math.sin(elevRad),
-        centro.z + distanza * Math.cos(elevRad) * Math.sin(azimuth),
+        centro.x + dist * dir.x,
+        centro.y + dist * dir.y,
+        centro.z + dist * dir.z,
       );
       cam.up.set(0, 1, 0);
       cam.lookAt(centro);
+      cam.far = dist * 2 + diagonale;   // niente si taglia via dietro
       cam.updateProjectionMatrix();
       cam.updateMatrixWorld(true);
 
