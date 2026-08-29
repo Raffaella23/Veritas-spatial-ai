@@ -1,6 +1,6 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 29/08/2026, sera.** Questo è **l'unico documento di stato del
+> **Aggiornato il 30/08/2026.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
@@ -398,7 +398,8 @@ il posto sbagliato, come già successo il 26/08.
 
 | cosa | prima | ora | commit |
 |---|---|---|---|
-| numero di viste | 7 scorci + pianta = 8 | **4 + pianta = 5** | `4d68f87` |
+| numero di viste | 7 scorci + pianta = 8 | **12 porzioni, 4 per giro + pianta** | `4d68f87`, `7d26f5b` |
+| cosa inquadra uno scorcio | il modello intero | **una porzione**, e le porzioni coprono tutto | `7d26f5b` |
 | pianta | 2048 px, illeggibile per il modello | **1024 px** | `2daac13` |
 | forma del riquadro | sempre quadrato 768×768 | **la sagoma del modello** | `cd4a9b5` |
 | distanza telecamera | fissa, `diagonale × 0.8` | **calcolata spigolo per spigolo** | `4d68f87`, `b6a6894` |
@@ -439,48 +440,100 @@ qualunque accoppiamento è una toppa.
 
 ## Cosa fare, in questo ordine
 
-1. **Provare la corsa completa** (nulla di quanto sopra è stato visto girare
-   insieme). Righe da cercare, in ordine: `[VERITAS scorci] … misure vere` →
-   `figura rimpicciolita da … a …` → `[VERITAS cervello] … stop` →
-   `[VERITAS montaggio] N tappe su 7 rinominate dopo la comprensione` con la
-   soglia dichiarata. Poi **guardare i nomi sulla barra**: devono essere quelli
-   capiti, non `INGRESSO · ACCETTAZIONE · CONTROLLO`.
-2. **I due occhi.** Dentro `index.html` (~19236, ~2904) vive un occhio più
-   vecchio che guarda **la sola pianta** e ha scritto «parcheggio» su quattro
-   zone diverse. Ora non riscrive più sopra il circuito (`5784fd2`), ma se il
-   circuito non assegna nulla le zone restano senza nome: **peggio di prima**.
-   Va fatto confluire, non solo zittito.
-3. **Il superpotere all'occhio** (chiesto da Raffaella): oggi il cervello riceve
-   pianta + 4 scorci, l'**occhio soltanto la pianta**. Dagli scorci si prende
-   solo la testimonianza, non i riquadri, perché in prospettiva un riquadro non
-   ha una posizione a terra (vedi commenti in `veritas_comprensione.js` ~597).
-   Dare all'occhio le stesse cinque immagini è Regola 0 punto 2 applicata fino
-   in fondo.
-4. **Il fronte 0**: togliere il riempimento posizionale in
-   `applyAutoAssignment` (~3562 di `index.html`, **dentro il bundle**, serve
-   budget pieno).
-5. **La segnaletica semantica.** Il lettore esiste e misura colore, direzione e
-   area (`[VERITAS segnaletica] … tinta 46deg direzionale direzione 90deg`).
-   Manca il passaggio da *fisica del segno* a *significato*: quella famiglia di
-   colore è «uscita di emergenza» o «percorso ai gate»? In ospedale la linea
-   gialla per il pronto soccorso **è** l'informazione, e dice l'intenzione del
-   progettista, che dalla geometria non si ricava mai.
-   ⚠️ **Le frecce rosa/arancioni/verdi visibili sulla pianta NON sono
-   segnaletica dell'edificio: le disegna VERITAS stesso.** Darle in pasto al
-   cervello vorrebbe dire guardarsi allo specchio e credere di aver scoperto
-   qualcosa.
+1. 🔴 **PROVARE LA CORSA COMPLETA. Non è ancora stato fatto.** Al 30/08 niente
+   di quanto sotto è mai stato visto girare insieme, ed è il motivo per cui
+   ogni sessione ricomincia a indovinare. Righe da cercare, in ordine:
+   `[VERITAS scorci] … misure vere` → `[VERITAS scorci] porzioni: griglia …
+   cm per punto` → `[VERITAS scorci] giro N: porzioni …` → `[VERITAS editor]
+   modello nuovo: le zone restano nascoste` → `[VERITAS cervello] … stop` →
+   `[VERITAS editor] zone rivelate` → `[VERITAS montaggio] N tappe su 7
+   rinominate`. **Il log va preso intero, dal caricamento del modello in poi:**
+   il 30/08 è arrivato solo il pezzo dell'avvio, che si ferma prima e non
+   contiene nessuna di queste righe.
+
+2. 🔴 **LE ZONE ESCONO AL MOMENTO GIUSTO MA NEL POSTO SBAGLIATO.** `f48c732`
+   sistema **quando** compaiono; **dove** compaiono è ancora il fronte 0. È la
+   prossima riparazione e ora si sa che costa poco (vedi fronte 0).
+
+3. 🟠 **La chat deve capire l'italiano, non solo i comandi.** Il 30/08
+   «assegna le zone e fai partire la simulazione» ha creato una zona chiamata
+   **«Le Zone E Fai Partire La Simulazione»**. Detto da Raffaella, ed è
+   prodotto, non rifinitura: *«il cliente dovrà chiedere dettagli sul
+   modello»* — quanti banchi, quante sedute servono. Serve una lettura
+   puntuale, non una riga di comando.
+
+4. 🟠 **Il superpotere all'occhio.** Dagli scorci si prende solo la
+   testimonianza, mai i riquadri (in prospettiva un riquadro non ha una
+   posizione a terra — commenti in `veritas_comprensione.js` ~597). Con la
+   rotazione a mazzetti l'occhio riceve già le stesse immagini del cervello,
+   giro per giro: resta da verificarlo a schermo.
+
+5. 🟡 **La segnaletica semantica.** Il lettore misura colore, direzione e area
+   (`[VERITAS segnaletica] … tinta 46deg direzionale direzione 90deg`). Manca
+   il passaggio da *fisica del segno* a *significato*.
+   ⚠️ **Le frecce rosa/arancioni/verdi sulla pianta NON sono segnaletica
+   dell'edificio: le disegna VERITAS.** Darle in pasto al cervello è
+   guardarsi allo specchio.
+
+### ✅ Fatto il 30/08 — tre commit su `main`
+
+| cosa | commit | provato |
+|---|---|---|
+| le zone non escono prima che qualcuno abbia guardato; l'editor si apre da solo | `f48c732` | ⚠️ mai provato |
+| gli scorci inquadrano una porzione, non tutto l'edificio | `7d26f5b` | ⚠️ mai provato |
+| le viste ravvicinate a mazzetti, un mazzetto per giro | `fe75509` | ⚠️ mai provato |
+
+**L'editor delle zone: esisteva già, ed era spento di proposito.** Domanda di
+Raffaella il 30/08 — *«l'editor delle zone… comincio a chiedermi, è una suite
+di comandi in cui il cliente può sistemare come crede quello che VERITAS
+propone? Non ho mai visto questo passaggio.»* Non l'aveva mai visto perché
+nessuno lo apriva: il pannello `veritas-picker-panel` nasce nascosto e
+`hideCadPanelByDefault()` (~12519) lo richiude anche se qualcuno prova ad
+aprirlo. L'unica via era il pulsante `✎ Editor zone` in barra.
+
+La sequenza che ora è codice (`f48c732`, blocco 31, in fondo al file):
+
+    modello aperto           ->  nessuna zona a schermo
+    il circuito capisce      ->  le zone compaiono
+    l'editor si apre da solo ->  «controllale: spostale, cambia dimensioni e altezze»
+    il cliente corregge      ->  si applica, e solo dopo si va al report
+
+Rete di sicurezza: dopo due minuti senza conclusione le zone escono lo stesso,
+con un messaggio che **dichiara di non aver capito**. Non si lascia mai lo
+schermo vuoto senza dirne il motivo. E se il livello «Zone» viene acceso a
+mano, la decisione è dell'utente e il blocco smette di nascondere.
+
+**Il conto degli scorci, che è il motivo del secondo commit.** 147 metri di
+edificio dentro 768 puntini fanno **20 cm per puntino**: una sedia sta in tre
+puntini, una persona in due. Non si vedevano male — non c'erano. Con 12
+porzioni da 36,8 × 27,3 m si scende a **4,8 cm per puntino**: la sedia diventa
+9 puntini, una macchina una sessantina. Le porzioni coprono **tutto**, tubi
+d'imbarco e parcheggio compresi: non è il ritaglio sbagliato del 29/08.
+
+⚠️ **Regolabile e guardabile senza spendere un giro:**
+`__veritasProvaScorci({latoMassimo: 30})` disegna in fondo allo schermo esattamente
+quello che vedrebbe l'occhio.
+
+### ⚠️ Non spiegato, e va spiegato prima di aggiungere altro
+
+- **Il 28/08 nominava 23 volumi su 23. Il 29/08 ne nomina 4 su 23.** È un
+  peggioramento vero, non rumore, e nessuno sa ancora perché.
+- **Due numeri diversi per la stessa cosa nello stesso messaggio:** «4
+  nominati» e due righe sotto «parto con i 6 volumi che ho riconosciuto».
+- **La stessa domanda per due volumi diversi:** volume 7 e volume 8 descritti
+  entrambi come «un rettangolo largo con delle sedute in fila», quando poco
+  prima il volume 8 era «un rettangolo lungo vicino ai vetri».
+- **Motore fisico:** `table index is out of bounds` (30/08), dopo
+  `unreachable` e `memory access out of bounds` del 25/08. Gli agenti
+  ripiegano sul percorso pianificato.
 
 ### Difetti minori visti il 29/08, non ancora aperti
 
-- La chat prende una frase come nome di zona: «assegna quelli che hai capito» →
-  ha creato una zona chiamata **«Quelli Che Hai Capito»**. Capisce
-  `assegna <nome>` e non una richiesta in italiano normale.
 - Alla dichiarazione di ingressi e uscite risponde *«appena finisco questo giro
   ne faccio uno con quello che mi hai detto»* e poi ricomincia a dire che non
   trova uscite. Promessa non mantenuta.
-- Motore fisico: `unreachable`, poi `memory access out of bounds`. Gli agenti
-  ripiegano sul percorso pianificato.
-- `index.html` ha **32** blocchi `<script>`, non 31 come scritto altrove.
+- `index.html` ha **33** blocchi `<script>` dal 30/08 (era 32; il 31 è nuovo).
+  Il blocco 3 resta il 3: nessun indice si è spostato.
 
 ---
 
@@ -495,6 +548,11 @@ dei blocchi con `html.parser`, `sha256` del blocco 3 verificato
 cache-buster.** Per leggere lo stato vero si passa dall'API: `GITHUB_GET_A_TREE`
 → `GITHUB_GET_A_BLOB`. Una patch applicata su una copia vecchia fallisce in
 silenzio o, peggio, sovrascrive.
+
+⚠️ **Non si fa `grep` su `index.html` senza tagliare l'uscita.** I blocchi 2 e
+3 hanno righe minificate da centinaia di migliaia di caratteri: una sola riga
+che corrisponde riempie la chat e brucia budget in un colpo. Si usa `sed -n
+'A,Bp'`, oppure `grep -n … | cut -c1-160`. Successo il 30/08, costo reale.
 
 ⚠️ **Due chat sullo stesso ramo si calpestano.** Il 29/08 alle 08:13 un'altra
 chat ha riportato `main` a `084dd95` (28/08 ore 10:11), portando via quattro
@@ -602,8 +660,14 @@ precederlo.** La sequenza posizionale torna dov'è scritto che stia — ultima
 delle autorità (`bim > nome del modello > occhi > misure > sequenza
 posizionale`), e solo quando non c'è nient'altro.
 
-⚠️ Sta nel bundle grosso e tocca barra e marker. Non si comincia con meno del 5%
-di budget: una modifica interrotta lì dentro è la situazione peggiore.
+⚠️ **CORREZIONE 30/08 — NON sta nel bundle grosso.** Questo documento diceva
+il contrario e ci ha tenuti lontani per giorni da una riparazione che costa
+molto meno del previsto. `applyAutoAssignment` è alla **riga 3492 di
+`index.html`, blocco 2**, che è codice leggibile e commentato (312 KB), non il
+bundle minificato. Il blocco 3 non c'entra e non va toccato lo stesso.
+Struttura della funzione: prova `assegnaZoneMisurate` (misure + tipo di
+progetto) e, **se quella fallisce**, ripiega sull'ordinamento per X con una
+sequenza di ruoli fissa. È il ripiego il difetto, non tutta la funzione.
 
 ⚠️ **Prima di aprirlo, provare il travaso (`27d2003`).** Se quello funziona i
 nomi veri arrivano già alle tappe, e questo fronte cambia di forma: resterebbe
