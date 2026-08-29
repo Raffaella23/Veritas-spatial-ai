@@ -694,7 +694,7 @@ function applicaNomi(posti) {
   const SOGLIA_ACCOPPIAMENTO_M = 5;
   const distanzaXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
   const assegnate = [];
-  let perCampo = 0, perVicinanza = 0, troppoLontane = 0;
+  let perCampo = 0, perVicinanza = 0, troppoLontane = 0, senzaNome = 0, fuoriElenco = 0;
   nodi.forEach(function (n, i) {
     let p = null;
     if (n.posto && n.posto.centro) {
@@ -713,12 +713,25 @@ function applicaNomi(posti) {
       if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M) { p = migliore; perVicinanza++; }
       else if (migliore) troppoLontane++;
     }
-    if (!p || !p.nome || !p.funzione) return;
+    // ⚠️ CAPITO A META' VALE PIU' DI NIENTE — chiesto da Raffaella il 29/08,
+    //    dopo una giornata in cui il cervello capiva e la barra non cambiava.
+    //
+    //    Qui c'erano due filtri muti, in fila:
+    //      1. senza `funzione` si scartava, anche con un nome ottimo;
+    //      2. se `tipoDiFunzione` non riconosceva la parola si scartava, e
+    //         quella e' una tabella di parole decise prima di guardare: il
+    //         cervello poteva rispondere «parcheggio esterno» e sparire.
+    //    Bastava che UNA zona su sette non passasse per non vederla mai piu'.
+    //
+    //    Ora basta il nome. Il tipo, se non si riconosce, resta quello che la
+    //    zona aveva: si scrive cio' che si e' capito e non si tocca il resto.
+    if (!p || !p.nome) { senzaNome++; return; }
     const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
       ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
-    if (!t) return;
+    if (!t) fuoriElenco++;
     assegnate.push({
-      indice: i, funzione: p.funzione, tipo: t.tipo, fuori: t.fuori,
+      indice: i, funzione: p.funzione || null,
+      tipo: t ? t.tipo : null, fuori: t ? t.fuori : undefined,
       sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),
       nome: p.nome,
     });
@@ -730,9 +743,14 @@ function applicaNomi(posti) {
       + ". Le tappe restano come stanno.");
     return 0;
   }
-  const n = window.__veritasApplicaOcchi({ assegnate }, nodi);
+  // `fonte` dice CHI ha guardato: serve alla porta per non farsi riscrivere
+  // sopra dall'occhio della sola pianta, e per far vincere il nome letto.
+  const n = window.__veritasApplicaOcchi({ assegnate, fonte: "comprensione" }, nodi);
   log(n + " tappe su " + nodi.length + " rinominate dopo la comprensione"
-    + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza)");
+    + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza"
+    + (fuoriElenco ? ", " + fuoriElenco + " con una funzione fuori elenco: tenuto il nome" : "")
+    + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
+    + ")");
   return n;
 }
 
