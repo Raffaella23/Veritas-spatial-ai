@@ -695,6 +695,11 @@ function applicaNomi(posti) {
   const distanzaXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
   const assegnate = [];
   let perCampo = 0, perVicinanza = 0, troppoLontane = 0, senzaNome = 0, fuoriElenco = 0;
+  // Diagnostica che mancava: quanti volumi erano candidati e quanto era vicino
+  // il piu' vicino. Senza questi due numeri «nessuna tappa accoppiata» non
+  // distingue fra «li scarto tutti» e «la soglia e' troppo stretta»: due guasti
+  // diversi con la stessa faccia.
+  let volumiUtili = 0, minimaVista = Infinity, candidati = 0;
   nodi.forEach(function (n, i) {
     let p = null;
     if (n.posto && n.posto.centro) {
@@ -706,10 +711,18 @@ function applicaNomi(posti) {
     if (!p && n.pos) {
       let migliore = null, minima = Infinity;
       for (const q of posti) {
-        if (!q || !q.centro || !q.nome || !q.funzione) continue;
+        // IL TERZO FILTRO MUTO, trovato il 29/08 sera. Qui si pretendeva ancora
+        // `q.funzione`: i volumi nominati dal cervello ma con una parola fuori
+        // elenco venivano scartati PRIMA del confronto, quindi non risultavano
+        // nemmeno «troppo lontani». Il log diceva «nessuna tappa accoppiata:
+        // 7 tappe, 23 volumi» e non aggiungeva altro: e' stato quel silenzio a
+        // smascherarlo. Basta il nome, perche' e' il nome che si travasa.
+        if (!q || !q.centro || !q.nome) continue;
+        candidati++;
         const d = distanzaXZ(q.centro, n.pos);
         if (d < minima) { minima = d; migliore = q; }
       }
+      if (migliore && minima < minimaVista) minimaVista = minima;
       if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M) { p = migliore; perVicinanza++; }
       else if (migliore) troppoLontane++;
     }
@@ -740,6 +753,8 @@ function applicaNomi(posti) {
     log("nessuna tappa accoppiata ai volumi capiti: " + nodi.length + " tappe, "
       + posti.length + " volumi"
       + (troppoLontane ? ", " + troppoLontane + " oltre i " + SOGLIA_ACCOPPIAMENTO_M + " m" : "")
+      + (isFinite(minimaVista) ? ", il piu' vicino a " + minimaVista.toFixed(1) + " m"
+                              : ", nessun volume con un nome utilizzabile")
       + ". Le tappe restano come stanno.");
     return 0;
   }
