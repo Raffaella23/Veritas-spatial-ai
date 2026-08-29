@@ -10773,6 +10773,44 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const larghezza = opzioni.larghezza || 768;
   const altezza = opzioni.altezza || 768;
 
+  // --- LE PORZIONI -------------------------------------------------------
+  // ⚠️ Fino al 29/08 ogni scorcio inquadrava il MODELLO INTERO, e il conto non
+  //    tornava: 147 metri di edificio dentro 768 puntini fanno 20 cm per
+  //    puntino. Una sedia sta in tre puntini, una persona in due. Non e' che
+  //    si vedono male — non ci sono, e nessun modello che guarda potra' mai
+  //    riconoscerle. Chiesto da Raffaella il 30/08: «devono essere zoomate,
+  //    altrimenti non capira' mai».
+  //
+  //    Ora ogni vista inquadra una PORZIONE, e le porzioni messe insieme
+  //    coprono TUTTO. Questo e' il punto che distingue questa correzione dal
+  //    tentativo sbagliato del 29/08 (`ingombroDelGrosso`, tolto in cd4a9b5):
+  //    li' si ritagliava via il contorno, e con il contorno se ne andavano i
+  //    due tubi d'imbarco — che sono ingressi veri — e il parcheggio, che e'
+  //    una delle cose da riconoscere. Qui non si butta niente: si guarda la
+  //    stessa roba, un pezzo per volta.
+  //
+  //    Il resto del modello resta nella scena e si vede sullo sfondo: una
+  //    porzione inquadrata dentro il suo contesto non viene scambiata per un
+  //    edificio intero.
+  //
+  //    Quante porzioni NON e' un numero scritto a mano (Regola 0 punto 3): si
+  //    ricava dal lato massimo leggibile. Su 147x82 m con latoMassimo 40 la
+  //    griglia viene 4x3 = 12 porzioni da 36,8x27,3 m, cioe' 4,8 cm per
+  //    puntino invece di 19: una sedia passa da 3 puntini a 9, una macchina a
+  //    una sessantina.
+  const dimX = scatola.max.x - scatola.min.x;
+  const dimZ = scatola.max.z - scatola.min.z;
+  const latoMassimo = opzioni.latoMassimo != null ? opzioni.latoMassimo : 40;
+  const porzioniMax = opzioni.porzioniMassime || opzioni.numeroScorci || 12;
+  let colonne = Math.max(1, Math.ceil(dimX / latoMassimo));
+  let righe = Math.max(1, Math.ceil(dimZ / latoMassimo));
+  // Si toglie sempre dal lato piu' affollato, cosi' le porzioni restano il
+  // piu' possibile quadrate invece di diventare strisce.
+  while (colonne * righe > porzioniMax && (colonne > 1 || righe > 1)) {
+    if (colonne >= righe && colonne > 1) colonne--; else if (righe > 1) righe--; else colonne--;
+  }
+  const totalePorzioni = Math.max(1, colonne * righe);
+
   const scena = new THREE.Scene();
   scena.background = null;
   const rimetti = spegniLuci(THREE, radice);
@@ -10785,33 +10823,44 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
     const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
     const bersaglioPrec = renderer.getRenderTarget();
 
-    for (let i = 0; i < n; i++) {
-      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+    for (let i = 0; i < totalePorzioni; i++) {
+      const azimuth = (i / totalePorzioni) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
       const dir = new THREE.Vector3(
         Math.cos(elevRad) * Math.cos(azimuth),
         Math.sin(elevRad),
         Math.cos(elevRad) * Math.sin(azimuth),
       );
+      // La porzione di questo giro. L'altezza resta INTERA: si taglia in
+      // pianta, mai in alzato, altrimenti sparirebbero i soffitti, i
+      // mezzanini e le insegne appese, che sono meta' dell'indizio.
+      const col = i % colonne, rig = Math.floor(i / colonne);
+      const x0 = scatola.min.x + dimX * (col / colonne);
+      const x1 = scatola.min.x + dimX * ((col + 1) / colonne);
+      const z0 = scatola.min.z + dimZ * (rig / righe);
+      const z1 = scatola.min.z + dimZ * ((rig + 1) / righe);
+      const sotto = new THREE.Box3(new THREE.Vector3(x0, scatola.min.y, z0),
+                                   new THREE.Vector3(x1, scatola.max.y, z1));
+      const cSotto = sotto.getCenter(new THREE.Vector3());
       // La distanza si ricalcola a ogni angolo: il modello riempie il riquadro
       // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
       // quella fissa di prima.
       // La forma del riquadro cambia a ogni angolo, perche' cambia la sagoma:
       // di fronte il modello e' lungo e basso, di taglio piu' raccolto.
-      const est = estensioneInCamera(THREE, scatola, centro, dir);
+      const est = estensioneInCamera(THREE, sotto, cSotto, dir);
       const forma = opzioni.quadrato ? { larghezza, altezza }
                   : formaDelRiquadro(est.mx, est.my, Math.max(larghezza, altezza));
       const W = forma.larghezza, H = forma.altezza;
       cam.aspect = W / H;
       const dist = (opzioni.distanza ? distanza
-                   : distanzaCheRiempie(THREE, scatola, centro, dir, cam.fov,
+                   : distanzaCheRiempie(THREE, sotto, cSotto, dir, cam.fov,
                                         cam.aspect, opzioni.margine)) || distanza;
       cam.position.set(
-        centro.x + dist * dir.x,
-        centro.y + dist * dir.y,
-        centro.z + dist * dir.z,
+        cSotto.x + dist * dir.x,
+        cSotto.y + dist * dir.y,
+        cSotto.z + dist * dir.z,
       );
       cam.up.set(0, 1, 0);
-      cam.lookAt(centro);
+      cam.lookAt(cSotto);
       cam.far = dist * 2 + diagonale;   // niente si taglia via dietro
       cam.updateProjectionMatrix();
       cam.updateMatrixWorld(true);
@@ -10831,8 +10880,16 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       // ⚠️ Si raddrizza QUI: chi trasforma i pixel in immagine li copia cosi'
       //    come sono, e senza questo giro lo scorcio arriva al cervello
       //    capovolto — errore silenzioso, risposta plausibile e sbagliata.
+      // La porzione viaggia INSIEME all'immagine: chi la riceve deve sapere che
+      // sta guardando un pezzo, non l'edificio. Un edificio tagliato a meta'
+      // senza etichetta diventa mezzo edificio (HANDOFF, fronte 4).
+      const latoM = Math.max(x1 - x0, z1 - z0);
       risultati.push({ pixel: raddrizza(pixel, W, H),
-                       larghezza: W, altezza: H, azimuth, elevazioneGradi, densita, numeroMesh });
+                       larghezza: W, altezza: H, azimuth, elevazioneGradi, densita, numeroMesh,
+                       porzione: { indice: i + 1, totale: totalePorzioni,
+                                   colonna: col + 1, colonne, riga: rig + 1, righe,
+                                   larghezzaM: x1 - x0, profonditaM: z1 - z0,
+                                   cmPerPunto: latoM * 100 / Math.max(W, H) } });
     }
     // Le misure vere di CIO' CHE PARTE, non di cio' che il pannello mostra: il
     // pannello incornicia l'anteprima in un riquadro fisso, quindi il nero che
@@ -10843,6 +10900,14 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       console.log("[VERITAS scorci] " + risultati.length + " viste, misure vere: "
         + risultati.map((v) => Math.round(v.azimuth * 180 / Math.PI) + "\u00b0: "
                              + v.larghezza + "x" + v.altezza).join("  \u00b7  "));
+      // La riga che dice se l'occhio puo' vedere qualcosa. Il numero che conta
+      // e' i CENTIMETRI PER PUNTO: sopra i 10 cm una sedia non esiste.
+      const p0 = risultati.length ? risultati[0].porzione : null;
+      if (p0) console.log("[VERITAS scorci] porzioni: griglia " + p0.colonne + "x" + p0.righe
+        + " = " + p0.totale + " viste, ognuna copre " + p0.larghezzaM.toFixed(1) + "x"
+        + p0.profonditaM.toFixed(1) + " m \u2014 " + p0.cmPerPunto.toFixed(1)
+        + " cm per punto (modello intero: " + dimX.toFixed(1) + "x" + dimZ.toFixed(1)
+        + " m, " + (Math.max(dimX, dimZ) * 100 / Math.max(larghezza, altezza)).toFixed(1) + " cm)");
     } catch (e) {}
     renderer.setRenderTarget(bersaglioPrec);
   } finally {
