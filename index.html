@@ -10834,6 +10834,16 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       risultati.push({ pixel: raddrizza(pixel, W, H),
                        larghezza: W, altezza: H, azimuth, elevazioneGradi, densita, numeroMesh });
     }
+    // Le misure vere di CIO' CHE PARTE, non di cio' che il pannello mostra: il
+    // pannello incornicia l'anteprima in un riquadro fisso, quindi il nero che
+    // si vede li' non dice niente sull'immagine spedita. Segnalato da Raffaella
+    // il 29/08 — «gli scorci non sono cambiati» — e senza questa riga nessuno
+    // dei due poteva stabilirlo guardando.
+    try {
+      console.log("[VERITAS scorci] " + risultati.length + " viste, misure vere: "
+        + risultati.map((v) => Math.round(v.azimuth * 180 / Math.PI) + "\u00b0: "
+                             + v.larghezza + "x" + v.altezza).join("  \u00b7  "));
+    } catch (e) {}
     renderer.setRenderTarget(bersaglioPrec);
   } finally {
     if (genitore) {
