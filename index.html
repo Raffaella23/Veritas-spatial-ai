@@ -2868,18 +2868,44 @@
       // architettonica (ArchPlanVQA); una dichiarazione IFC e' quello che
       // l'edificio E'.
       if (n.origine === "bim") { scartati.push(n.label + " (dichiarato dal progetto)"); continue; }
+      // Da questa porta passano DUE occhi: il circuito occhio-cervello, che
+      // guarda pianta E scorci (Regola 0 punto 2), e uno piu' vecchio inlinato
+      // qui, che guarda la sola pianta. Il 29/08 il secondo arrivava dopo e
+      // riscriveva sopra il primo: ha messo «parcheggio» su quattro zone diverse.
+      if (n.origine === "comprensione" && esito.fonte !== "comprensione") {
+        scartati.push(n.label + " (gia' capito guardando tutte le viste)"); continue;
+      }
       // Cio' su cui il pubblico non cammina non e' una tappa: si lascia dov'e'
       // ma non entra nel percorso.
       if (a.tipo === "escluso") { n.escluso = true; scartati.push(n.label + " (non calpestabile dal pubblico)"); continue; }
+      // ⚠️ CAPITO A META' VALE PIU' DI NIENTE. Se il tipo non e' fra quelli
+      //    conosciuti la zona non si butta: si tiene il tipo che aveva e si
+      //    scrive comunque il nome capito. Prima una funzione fuori elenco
+      //    faceva sparire la zona in silenzio, e la barra restava con i nomi
+      //    del riempimento iniziale anche quando il cervello aveva capito.
+      const tipoBuono = a.tipo || n.type;
 
+      // ⚠️ REGOLA 0-BIS, ed era il buco piu' grosso di tutti. Se chi ha guardato
+      //    porta un NOME — letto sul modello, «sala d'attesa» perche' ci sono le
+      //    sedute — quello vince. Le tabelle qui sotto sono parole scelte PRIMA
+      //    di guardare (`aeroporto: Ingresso / Accettazione / Controllo`) e
+      //    restano solo come ultima riserva, per chi un nome non ce l'ha.
+      //
+      //    Fino al 29/08 vincevano sempre loro: il cervello poteva capire
+      //    perfettamente e a schermo compariva comunque il vocabolario
+      //    d'aeroporto. La Regola 0-bis era rispettata nella lettura e violata
+      //    nell'ultimo centimetro.
       const tab = ETICHETTA_OCCHI[a.funzione];
-      const nuova = (tab && (tab[dominio] || tab.generico)) || voc[a.tipo] || n.label;
-      if (n.type !== a.tipo || n.label !== nuova) cambiati++;
-      n.type = a.tipo;
+      const letto = a.nome && String(a.nome).trim();
+      const nuova = letto || (tab && (tab[dominio] || tab.generico)) || voc[a.tipo] || n.label;
+      if (n.type !== tipoBuono || n.label !== nuova) cambiati++;
+      n.type = tipoBuono;
       n.label = nuova;
       n.funzione = a.funzione;
       n.fuori = a.fuori;
-      n.origine = "occhi";
+      // Chi ha guardato TUTTE le viste non deve essere riscritto da chi ne ha
+      // vista una sola. La fonte e' dichiarata da chi chiama, non dedotta.
+      n.origine = esito.fonte === "comprensione" ? "comprensione" : "occhi";
     }
     if (!cambiati) return 0;
 
