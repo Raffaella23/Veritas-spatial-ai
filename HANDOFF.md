@@ -292,7 +292,9 @@ Ramo unico **`main`**. Anteprima live:
 `index.html`). I non ovvi: `veritas_riconosce.js` l'occhio (OWLv2),
 `veritas_vista.js` mondo↔pixel, `veritas_corpo.js` fisica Rapier,
 `veritas_comprensione.js` ciclo occhio-cervello, `veritas_anteprima.js`
-pannello visivo, `veritas_montaggio.js` il filo che li accende.
+pannello visivo, `veritas_montaggio.js` il filo che li accende, `veritas_coda.js`
+mette in fila indiana le telefonate al modello locale (avvolge `fetch`, non
+tocca `index.html`).
 
 **Servizi:** Render workspace `tea-d9r2r1iju40c73e4k2cg`, servizio
 `srv-d9r2tmss728c73ct1c80`, URL `https://veritas-core-api-7g2x.onrender.com`.
@@ -346,15 +348,65 @@ e la storia sta in `window.__veritasChiusura` (ultime 200). Se il motivo è
 `length` la riga diventa un avviso che dice esplicitamente **«TRONCATA: manca
 spazio nella finestra, non è un JSON rotto»**.
 
-⚠️ **La lezione resta, ed è quella che il 26/08 è costata una giornata:** prima
-di diagnosticare un JSON illeggibile si guarda il motivo di chiusura. `length` =
-troncata, manca spazio → si allarga la finestra. `stop` = malformata, sbaglia la
-sintassi → si guarda il parser. Due guasti opposti: chi salta questo passo
-ripara quello sbagliato.
+⚠️ **Le TRE forme di guasto. Chi non le distingue ripara quella sbagliata** —
+è quello che il 26/08 è costato una giornata.
+
+| cosa leggi | chi ha sbagliato | dove si guarda |
+|---|---|---|
+| `length` / **TRONCATA** | manca spazio nella finestra | si allarga la finestra |
+| `stop` con testo illeggibile | il modello sbaglia la sintassi | si guarda il parser |
+| **`Failed to fetch` / 0 caratteri** | **abbiamo riattaccato noi** | **si guarda LM Studio, non il codice** |
+
+La terza è stata misurata il 29/08 e prima non esisteva nel documento. Si
+riconosce dal log **del server**, non del browser:
+
+    slot get_availabl: selected slot by LRU
+    srv stop: cancel task, id_task = 189
+
+LM Studio ha sportelli limitati e chiude la telefonata più vecchia per far
+posto alla nuova. Curata con `veritas_coda.js` (`4dedfbd`), ma se ricompare si
+guarda lì e non nel parser.
 
 ---
 
-## Dove siamo — 28/08/2026
+## Dove siamo — 29/08/2026
+
+**Il 29/08 non si è provato niente di nuovo: la comprensione non arrivava in
+fondo, e il motivo non era dove lo cercavamo.**
+
+Corsa sul modello vero, `airport_foot_traffic.glb`. Il circuito partiva, poi
+`[VERITAS cervello] passo «sguardo» fermo … Failed to fetch — 0 caratteri`, e
+14 mazzetti su 14 falliti. Diagnosi dai log **di LM Studio**, non del browser:
+sportelli saturi, telefonate cancellate per far posto (vedi la tabella delle
+tre forme di guasto, sopra). Telefonavano insieme l'occhio inlinato in
+`index.html` e il circuito dei moduli.
+
+Riparato lo stesso giorno, **senza toccare il bundle**:
+
+| cosa | commit |
+|---|---|
+| telefonate in fila indiana + attesa 300 s al posto di 90 | `4dedfbd` (`veritas_coda.js`) |
+| figure verso il modello che vede fermate a 1024 px di lato | `e5de99a` |
+
+⚠️ **Da provare per primo alla prossima corsa. Nessuno dei due ha ancora
+girato.** La riga da cercare è `[VERITAS coda] telefonate … messe in fila`, poi
+`figura rimpicciolita da … a …`, e infine il travaso.
+
+**Confermato il 29/08 da Raffaella, guardando lo schermo:** la correzione
+automatica di scala **7,3x è giusta**. Il modello vale davvero 147 × 82 m per
+15,4 m di altezza, e i 6340 m² calpestabili valgono. Non ci si torna sopra.
+
+⚠️ **Trovato il 29/08, non ancora sistemato: ci sono DUE occhi che rinominano.**
+Oltre al circuito, dentro `index.html` (righe ~19048 e ~2904) vive un occhio
+più vecchio che guarda **solo la pianta** e scrive nomi da solo. Nella corsa ha
+prodotto `4 zone su 7: parcheggio, parcheggio, parcheggio, parcheggio` — quattro
+zone diverse, lo stesso nome quattro volte. Guardare una vista sola è
+esattamente ciò che la Regola 0 punto 2 vieta. Va spento o fatto confluire:
+finché resta, ci sono due voci che rinominano le stesse zone e vince l'ultima.
+
+---
+
+## Dove eravamo — 28/08/2026
 
 **HA CAPITO UN AEROPORTO, DA SOLO, E L'HA DETTO A SCHERMO.**
 `aeroporto (modello completo). Fiducia 95%, dopo 2 giri. giro 1: 0 nominati, 23
@@ -458,6 +510,11 @@ di budget: una modifica interrotta lì dentro è la situazione peggiore.
 ⚠️ **Prima di aprirlo, provare il travaso (`27d2003`).** Se quello funziona i
 nomi veri arrivano già alle tappe, e questo fronte cambia di forma: resterebbe
 solo da togliere il riempimento iniziale, non da ricostruire l'assegnazione.
+
+⚠️ **E prima ancora, la comprensione deve arrivare in fondo** — il 29/08 non ci
+arrivava, e il travaso non ha nemmeno parlato: la sua riga non compare né in un
+senso né nell'altro. Ordine obbligato: coda e figure (`4dedfbd`, `e5de99a`) →
+travaso → questo fronte.
 
 ### 1. ✅ LA PIANTA — RISOLTO il 26/08 (`19a4831`, `1be10aa`)
 
