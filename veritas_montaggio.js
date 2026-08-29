@@ -308,10 +308,52 @@ async function cervello(domanda, extra = {}) {
 //    solo); il rilevatore vuole un'IMMAGINE. Sono due cose diverse e nessuna
 //    delle due va cambiata: la conversione sta qui, in mezzo.
 
+// Il lato piu' lungo di un'immagine che parte verso il modello che vede.
+//
+// ⚠️ MISURATO IL 29/08/2026, nei log di LM Studio. La pianta non ha una
+//    dimensione fissa: nasce dall'ingombro del modello. Dopo la correzione
+//    automatica di scala (7,3x su airport_foot_traffic.glb, confermata a occhio
+//    da Raffaella) usciva larga 2048 px, mentre i sette scorci erano a 768 e non
+//    hanno mai dato problemi. Nel log del server si leggeva
+//    «Prompt processing progress: 7,4%» seguito da «Client disconnected» e da
+//    una risposta con "content": "" — il modello stava ancora LEGGENDO la
+//    figura. E' la pianta, da sola, a mettere in ginocchio la telefonata.
+//
+// ⚠️ PERCHE' NON FALSA LE MISURE. I riquadri che tornano vengono divisi per la
+//    larghezza e l'altezza DELLA TELA MANDATA (in `unGiro`: `n(b.xmin, W)` con
+//    `W = tela.width`), quindi diventano frazioni fra 0 e 1, che non dipendono
+//    dalla risoluzione. La conversione in metri resta a `scatolaInMondo`, che
+//    legge l'inquadratura del mondo e qui non si tocca.
+//
+//    Per lo stesso motivo si rimpicciolisce QUI, in un posto solo: chi chiede
+//    la larghezza la chiede alla tela, e la trova gia' giusta.
+const LATO_MASSIMO = 1024;
+
+function rimpicciolisci(tela) {
+  try {
+    if (!tela || !tela.width || !tela.height) return tela;
+    const max = window.__veritasLatoMassimo || LATO_MASSIMO;
+    const lato = Math.max(tela.width, tela.height);
+    if (lato <= max) return tela;
+    const f = max / lato;
+    const w = Math.max(1, Math.round(tela.width * f));
+    const h = Math.max(1, Math.round(tela.height * f));
+    const piccola = document.createElement("canvas");
+    piccola.width = w; piccola.height = h;
+    const ctx = piccola.getContext("2d");
+    if (!ctx) return tela;
+    ctx.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(tela, 0, 0, w, h);
+    log("figura rimpicciolita da " + tela.width + "x" + tela.height + " a " + w + "x" + h);
+    return piccola;
+  } catch (e) { return tela; }
+}
+
 function telaDa(x) {
   if (!x) return null;
-  if (x.pixel) return occhioDellaPagina().inTela(x, document);  // grezza -> tela
-  return x;                                                     // gia' un'immagine
+  if (x.pixel) return rimpicciolisci(occhioDellaPagina().inTela(x, document));  // grezza -> tela
+  return rimpicciolisci(x);                                     // gia' un'immagine
 }
 
 // ---------------------------------------------------------------------------
