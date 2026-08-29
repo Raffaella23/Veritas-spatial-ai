@@ -70,6 +70,13 @@ import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio } f
 //    terzo: si ferma e CHIEDE a lei, che quel modello lo conosce.
 export const GIRI_MASSIMI = 2;
 
+// Quante viste ravvicinate stanno in UNA telefonata. Non e' una preferenza: e'
+// la finestra del modello locale. Entrata massima misurata su questo PC il
+// 29/08: 6358 token su 16384, e il contesto non si puo' alzare. Le porzioni
+// pero' sono una dozzina (vedi scorciTreQuarti), quindi si mandano a mazzetti,
+// un mazzetto per giro, con la pianta INTERA sempre presente in ognuno.
+export const VISTE_PER_GIRO = 4;
+
 // Sotto questa fiducia dichiarata dal cervello, «ho capito» non basta.
 // Un modello che dice «ho capito, fiducia 0.3» sta dicendo «non ho capito».
 export const FIDUCIA_PER_AGIRE = 0.7;
@@ -277,8 +284,11 @@ export function volumiPerCervello(posti) {
 export function promptSguardo(quanteViste, mettiAFuoco) {
   return [
     "Guarda queste " + quanteViste + " immagini: sono lo stesso posto visto da",
-    "punti di vista diversi — una pianta dall'alto e alcuni scorci in prospettiva,",
-    "come si girerebbe un plastico fra le mani.",
+    "punti di vista diversi. La pianta dall'alto mostra TUTTO l'edificio. Gli",
+    "scorci sono ingrandimenti ravvicinati, ognuno su una PORZIONE diversa dello",
+    "stesso edificio: non sono edifici diversi, e quello che vedi in uno scorcio",
+    "e' un pezzo di cio' che si vede nella pianta. Non concludere che l'edificio",
+    "e' piccolo perche' in uno scorcio ne vedi poco.",
     "",
     "Non ti do nessun elenco e non ti chiedo di cercare niente in particolare.",
     "Guarda e dimmi cosa vedi, con parole tue.",
@@ -347,7 +357,8 @@ export function sguardoInParole(s) {
 export function promptStudio(quanteViste, quantiVolumi, sguardo, misure) {
   return [
     "Sei il cervello spaziale di VERITAS. Ti mostro lo stesso edificio da " + quanteViste +
-      " punti di vista diversi: una pianta dall'alto e alcuni scorci in prospettiva,",
+      " punti di vista diversi: una pianta dall'alto con TUTTO l'edificio, e alcuni",
+      " scorci ravvicinati, ognuno su una porzione diversa dello stesso edificio,",
     "come si girerebbe un plastico fra le mani.",
     "",
     ...(sguardo ? ["",
@@ -479,7 +490,9 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
       come_funziona: studio.sequenza,
     }, null, 2),
     "",
-    "Rivedi le stesse immagini — la pianta dall'alto e gli scorci in prospettiva.",
+    "Rivedi le immagini — la pianta dall'alto con tutto l'edificio, e gli scorci",
+    "ravvicinati, ognuno su una porzione diversa (possono essere porzioni nuove",
+    "rispetto al giro prima: e' cosi' che si finisce di guardare tutto).",
     "",
     "Questi sono i volumi MISURATI dentro lo spazio. Le posizioni e le aree sono",
     "certe e non si discutono: `centro` e' [x, z] in metri, come sulla pianta.",
@@ -768,7 +781,41 @@ export function misureInParole(posti) {
 }
 
 export async function comprendiGuardando(ctx) {
-  const immagini = [ctx.pianta, ...(ctx.scorci || [])].filter(Boolean);
+  // ⚠️ LE VISTE VANNO A GIRI, NON TUTTE IN UNA VOLTA.
+  //    Perche' l'occhio veda davvero qualcosa, ogni scorcio inquadra una
+  //    porzione del modello invece dell'edificio intero (scorciTreQuarti): su
+  //    147 metri servono una dozzina di porzioni per scendere da 19 a 5
+  //    centimetri per punto. Dodici immagini in una sola telefonata non entrano
+  //    nella finestra. Quindi ogni giro ne porta VISTE_PER_GIRO, diverse dal
+  //    giro prima, e dopo tre giri il modello e' stato guardato tutto, da
+  //    vicino, senza aver tagliato via niente — ne' i tubi d'imbarco ne' il
+  //    parcheggio.
+  //
+  //    ⚠️ REGOLA 0 PUNTO 2 — LE STESSE IMMAGINI PER TUTTI E DUE. `viste()`
+  //    riscrive `ctx.scorci` con il mazzetto del giro: cosi' `occhioSuTutteLeViste`
+  //    guarda ESATTAMENTE quello che e' andato al cervello, e non una vista in
+  //    meno. Se questo si scollega, si torna al difetto del 26/08: il cervello
+  //    con gli scorci e l'occhio con la sola pianta.
+  const scorciTutti = (ctx.scorci || []).filter(Boolean);
+  const perGiro = Math.max(1, ctx.vistePerGiro || VISTE_PER_GIRO);
+  const mazzetti = Math.max(1, Math.ceil(scorciTutti.length / perGiro));
+  function viste(k) {
+    if (scorciTutti.length <= perGiro) {
+      ctx.scorci = scorciTutti;
+    } else {
+      const p = ((((k % mazzetti) + mazzetti) % mazzetti) * perGiro) % scorciTutti.length;
+      const s = [];
+      for (let i = 0; i < perGiro; i++) s.push(scorciTutti[(p + i) % scorciTutti.length]);
+      ctx.scorci = s;
+      try {
+        console.log("[VERITAS scorci] giro " + (k + 1) + ": porzioni "
+          + ctx.scorci.map((v) => (v && v.porzione ? v.porzione.indice : "?")).join(", ")
+          + " di " + scorciTutti.length + " (piu' la pianta intera)");
+      } catch (e) {}
+    }
+    return [ctx.pianta, ...ctx.scorci].filter(Boolean);
+  }
+  const immagini = viste(0);
   const volumi = volumiPerCervello(ctx.posti);
   const giriMassimi = ctx.giriMassimi || GIRI_MASSIMI;
   const posti = ctx.posti;
@@ -828,9 +875,10 @@ export async function comprendiGuardando(ctx) {
   }
   let rispostaStudio;
   try {
+    const viStudio = viste(1);
     rispostaStudio = await ctx.cervello(
-      promptStudio(immagini.length, volumi.length, sguardoInParole(sguardo), misure),
-      { immagine: ctx.pianta, immagini, passo: "studio" });
+      promptStudio(viStudio.length, volumi.length, sguardoInParole(sguardo), misure),
+      { immagine: ctx.pianta, immagini: viStudio, passo: "studio" });
   } catch (e) {
     conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
     return null;
@@ -877,7 +925,7 @@ export async function comprendiGuardando(ctx) {
     let rispostaAss;
     try {
       rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza || sguardoInParole(sguardo)),
-        { immagine: ctx.pianta, immagini, passo: "assegnazione", giro: n });
+        { immagine: ctx.pianta, immagini: viste(1 + n), passo: "assegnazione", giro: n });
     } catch (e) {
       conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
       return ass ? finaleGuardando() : null;
@@ -934,8 +982,9 @@ export async function comprendiGuardando(ctx) {
       : senzaNome + " volumi su " + posti.length + " sono rimasti senza nome: guarda "
         + "se ci sono arredi, mezzi o attrezzature che al primo sguardo ti sono sfuggiti.";
     try {
-      const r = await ctx.cervello(promptSguardo(immagini.length, mettiAFuoco),
-        { immagine: ctx.pianta, immagini, passo: "sguardo", giro: n + 1 });
+      const viGiro = viste(2 + n);
+      const r = await ctx.cervello(promptSguardo(viGiro.length, mettiAFuoco),
+        { immagine: ctx.pianta, immagini: viGiro, passo: "sguardo", giro: n + 1 });
       conservaRisposta("sguardo", r, null);
       const s2 = leggiSguardo(r);
       if (!s2.valido) {
