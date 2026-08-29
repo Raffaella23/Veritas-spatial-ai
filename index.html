@@ -10685,11 +10685,43 @@ function formaDelRiquadro(mx, my, latoLungo) {
 
 function distanzaCheRiempie(THREE, scatola, centro, dir, fovGradi, aspetto, margine) {
   try {
-    const { mx, my, mz } = estensioneInCamera(THREE, scatola, centro, dir);
     const tV = Math.tan((fovGradi * Math.PI / 180) / 2);
     const tH = tV * (aspetto || 1);
     if (!(tV > 0) || !(tH > 0)) return null;
-    const d = Math.max(my / tV, mx / tH) * (margine || 1.06) + mz;
+
+    // ⚠️ 29/08, secondo giro. Prima era
+    //        d = max(my/tV, mx/tH) + mz
+    //    cioe' la meta' della profondita' sommata per prudenza, perche' lo
+    //    spigolo piu' vicino non finisse dietro la lente. Su un modello lungo
+    //    147 m visto di PUNTA quel termine vale ~73 m e spinge la telecamera
+    //    settanta metri piu' indietro del necessario: dall'alto l'inquadratura
+    //    era piena, di lato il terminal restava un francobollo. Segnalato da
+    //    Raffaella guardando lo scorcio 3 a 180 gradi.
+    //
+    //    Qui il conto e' esatto, spigolo per spigolo. Uno spigolo a distanza
+    //    `pz` dal centro verso la telecamera, spostato di `px` di lato, entra
+    //    nel campo se  (d - pz) * tH >= |px|,  cioe'  d >= pz + |px| / tH.
+    //    La distanza buona e' la piu' grande di queste otto (per otto spigoli,
+    //    orizzontale e verticale): la piu' piccola che li fa entrare tutti.
+    //    Niente prudenza sommata, niente spigoli tagliati.
+    const avanti = dir.clone().normalize();
+    let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
+    if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);
+    destra.normalize();
+    const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
+    const p = new THREE.Vector3();
+    let d = 0, mzMax = 0;
+    for (let i = 0; i < 8; i++) {
+      p.set(i & 1 ? scatola.max.x : scatola.min.x,
+            i & 2 ? scatola.max.y : scatola.min.y,
+            i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
+      const px = p.dot(destra), py = p.dot(su), pz = p.dot(avanti);
+      d = Math.max(d, pz + Math.abs(px) / tH, pz + Math.abs(py) / tV);
+      mzMax = Math.max(mzMax, pz);
+    }
+    d *= (margine || 1.06);
+    // La lente non deve mai finire dentro il modello.
+    d = Math.max(d, mzMax * 1.05 + 0.5);
     return isFinite(d) && d > 0 ? d : null;
   } catch (e) { return null; }
 }
