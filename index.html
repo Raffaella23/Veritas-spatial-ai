@@ -24330,9 +24330,26 @@ if (typeof window !== 'undefined') {
     var orig = window.__veritasApplicaOcchi;
     if (typeof orig !== "function") return;
     avvolto = true;
-    window.__veritasApplicaOcchi = function () {
+    window.__veritasApplicaOcchi = function (esito) {
       var n = orig.apply(this, arguments);
-      try { if (n > 0) rivela(n, true); } catch (e) {}
+      try {
+        // ⚠️ SOLO IL CIRCUITO PUO' APRIRE L'EDITOR. Misurato il 30/08 alla
+        //    prima corsa vera: qui passa ANCHE l'occhio vecchio, quello che
+        //    guarda la sola pianta, e passa PRIMA — aveva scritto «parcheggio»
+        //    su quattro zone diverse, e con quelle quattro ha fatto comparire
+        //    le zone e aperto l'editor mentre il circuito non aveva ancora
+        //    nemmeno reso le sue immagini. Risultato a schermo: le solite zone
+        //    messe a caso, con nomi sbagliati, presentate come se fossero il
+        //    risultato. Esattamente il difetto che questo blocco doveva
+        //    togliere.
+        //
+        //    `fonte: "comprensione"` la mette gia' applicaNomi in
+        //    veritas_montaggio.js (~788). E' l'unica firma di cui fidarsi.
+        //
+        //    Quando arriva quella, si rivela SEMPRE — anche con zero nomi:
+        //    il circuito ha finito, e dirlo e' meglio che restare in attesa.
+        if (esito && esito.fonte === "comprensione") rivela(n, n > 0);
+      } catch (e) {}
       return n;
     };
     console.log("[VERITAS editor] in ascolto: le zone escono quando il circuito ha capito");
@@ -24346,7 +24363,11 @@ if (typeof window !== 'undefined') {
       radicePrec = radice;
       rivelate = false;
       utenteDecide = false;
-      scadenza = radice ? Date.now() + 120000 : 0;
+      // Cinque minuti, non due: il circuito completo (OWLv2 che fallisce i
+      // cinque formati, il ripiego sul VLM, cinque telefonate) ci mette di
+      // piu'. Una rete che scatta prima della fine e' la rete che rovina la
+      // corsa, non che la salva.
+      scadenza = radice ? Date.now() + 300000 : 0;
       if (radice) console.log("[VERITAS editor] modello nuovo: le zone restano nascoste finche non e stato guardato");
     }
 
