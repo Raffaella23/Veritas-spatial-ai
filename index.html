@@ -24189,6 +24189,121 @@ if (typeof window !== 'undefined') {
 }
 </script>
 
+<!-- VERITAS - LE ZONE NON ESCONO PRIMA CHE QUALCUNO ABBIA GUARDATO.
+     Chiesto da Raffaella il 30/08. Fino a oggi, appena il modello si apriva,
+     comparivano dei volumi grigi piazzati per posizione da `applyAutoAssignment`
+     (riga ~3492): una proposta fatta PRIMA di aver guardato, che il cliente
+     vede per prima e prende per il risultato. Il pannello di modifica delle
+     zone esiste da sempre (`veritas-picker-panel`, pulsante «Editor zone») ma
+     nasce nascosto e nessuno lo apre mai: il passaggio «ecco cosa ho capito,
+     controllalo» non esisteva.
+
+     Qui si mette in fila quello che deve succedere:
+       modello aperto  ->  niente zone a schermo
+       il circuito occhio-cervello capisce
+       le zone compaiono, e l editor si apre da solo chiedendo di controllarle
+       il cliente corregge (posizione, dimensioni, altezze: c erano gia)
+
+     Non tocca nessuna funzione esistente: si mette INTORNO al ponte che c e
+     gia (`__veritasApplicaOcchi`, riga ~2846), che e il punto esatto in cui i
+     nomi capiti arrivano alle zone e che gia restituisce quante ne ha
+     cambiate. Se questo blocco sparisce, tutto torna a funzionare come prima.
+
+     Rete di sicurezza: se dopo due minuti dal caricamento il circuito non ha
+     concluso niente, le zone escono lo stesso con un messaggio che DICHIARA
+     di non aver capito. Non si lascia mai lo schermo vuoto senza dire perche.
+-->
+<script>
+(function () {
+  "use strict";
+
+  var rivelate = false;      // il circuito ha parlato: le zone sono a schermo
+  var utenteDecide = false;  // se accende/spegne il livello a mano, non litigo
+  var radicePrec = null;
+  var scadenza = 0;
+  var avvolto = false;
+
+  function gruppo() { return window.__veritasHotspotGroup || null; }
+  function pannello() { return document.getElementById("veritas-picker-panel"); }
+
+  function dillo(testo) {
+    try {
+      if (typeof window.__veritasChatLog === "function") window.__veritasChatLog("system", testo);
+    } catch (e) {}
+  }
+
+  function apriEditor() {
+    var p = pannello(), b = document.getElementById("vaio-cadtoggle");
+    if (!p || !b) return false;
+    // Si passa dal pulsante e non dalla classe: cosi lo stato interno della
+    // barra resta d accordo con quello che si vede, e il secondo clic chiude.
+    if (p.classList.contains("vaio-hidden")) b.click();
+    return true;
+  }
+
+  function rivela(quante, capito) {
+    if (rivelate) return;
+    rivelate = true;
+    var g = gruppo();
+    if (g) g.visible = true;
+    if (!apriEditor()) setTimeout(apriEditor, 800);
+    if (capito) {
+      dillo("Ho riconosciuto " + quante + (quante === 1 ? " zona" : " zone")
+        + " e le ho messe dove le ho capite. Adesso controllale: nel pannello che si e appena aperto puoi spostarle, cambiare le dimensioni e le altezze. Quando ti tornano, si va avanti.");
+    } else {
+      dillo("Non ho riconosciuto abbastanza per proporti le zone. Ti mostro quello che ho misurato, senza dargli un nome: nel pannello che si e appena aperto puoi sistemarlo a mano.");
+    }
+    console.log("[VERITAS editor] zone rivelate ("
+      + (capito ? quante + " capite" : "nessuna capita") + "), editor aperto");
+  }
+
+  // Comando di prova, da console: __veritasRivelaZone()
+  window.__veritasRivelaZone = function () { rivela(0, false); };
+
+  function avvolgiOcchi() {
+    if (avvolto) return;
+    var orig = window.__veritasApplicaOcchi;
+    if (typeof orig !== "function") return;
+    avvolto = true;
+    window.__veritasApplicaOcchi = function () {
+      var n = orig.apply(this, arguments);
+      try { if (n > 0) rivela(n, true); } catch (e) {}
+      return n;
+    };
+    console.log("[VERITAS editor] in ascolto: le zone escono quando il circuito ha capito");
+  }
+
+  setInterval(function () {
+    avvolgiOcchi();
+
+    var radice = window.__veritasModelRoot || null;
+    if (radice !== radicePrec) {
+      radicePrec = radice;
+      rivelate = false;
+      utenteDecide = false;
+      scadenza = radice ? Date.now() + 120000 : 0;
+      if (radice) console.log("[VERITAS editor] modello nuovo: le zone restano nascoste finche non e stato guardato");
+    }
+
+    var g = gruppo();
+    if (!g) return;
+    if (rivelate || utenteDecide) return;
+    if (g.visible) g.visible = false;
+    if (scadenza && Date.now() > scadenza) rivela(0, false);
+  }, 400);
+
+  // Se il livello "Zone" viene acceso a mano, la decisione e sua e smetto di
+  // nascondere: un comando dell utente non si annulla in silenzio.
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    while (t && t !== document) {
+      if (t.id === "vaio-layer-zones") { utenteDecide = true; return; }
+      t = t.parentNode;
+    }
+  }, true);
+})();
+</script>
+
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
