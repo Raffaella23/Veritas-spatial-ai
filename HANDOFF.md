@@ -281,7 +281,7 @@ Ramo unico **`main`**. Anteprima live:
 
 | cosa | dove |
 |---|---|
-| runtime completo | `index.html` (~1,86 MB, 31 blocchi `<script>`) |
+| runtime completo | `index.html` (~1,86 MB, **32** blocchi `<script>`) |
 | landing page demo | `landing.html` |
 | Core Python | `Assets/core/` — `engine.py`, `agent.py`, `behaviour.py`, `compliance.py`, `recommendations.py`, `topology_analyzer.py`, `report_builder.py`, `path_loader.py` |
 | API del Core | `api_server.py` (FastAPI, servito da Render) |
@@ -387,6 +387,7 @@ Riparato lo stesso giorno, **senza toccare il bundle**:
 |---|---|
 | telefonate in fila indiana + attesa 300 s al posto di 90 | `4dedfbd` (`veritas_coda.js`) |
 | figure verso il modello che vede fermate a 1024 px di lato | `e5de99a` |
+| **il nome letto vince sulla parola da tabella**; i due occhi non si riscrivono | `eb2e8ee`, `25b9aaa` |
 
 ⚠️ **Da provare per primo alla prossima corsa. Nessuno dei due ha ancora
 girato.** La riga da cercare è `[VERITAS coda] telefonate … messe in fila`, poi
@@ -396,13 +397,26 @@ girato.** La riga da cercare è `[VERITAS coda] telefonate … messe in fila`, p
 automatica di scala **7,3x è giusta**. Il modello vale davvero 147 × 82 m per
 15,4 m di altezza, e i 6340 m² calpestabili valgono. Non ci si torna sopra.
 
-⚠️ **Trovato il 29/08, non ancora sistemato: ci sono DUE occhi che rinominano.**
-Oltre al circuito, dentro `index.html` (righe ~19048 e ~2904) vive un occhio
-più vecchio che guarda **solo la pianta** e scrive nomi da solo. Nella corsa ha
-prodotto `4 zone su 7: parcheggio, parcheggio, parcheggio, parcheggio` — quattro
-zone diverse, lo stesso nome quattro volte. Guardare una vista sola è
-esattamente ciò che la Regola 0 punto 2 vieta. Va spento o fatto confluire:
-finché resta, ci sono due voci che rinominano le stesse zone e vince l'ultima.
+### 🔑 Il buco della Regola 0-bis che nessuno aveva visto — chiuso il 29/08
+
+Trovato guardando `__veritasApplicaOcchi`, che è **la porta da cui passano tutti
+e due gli occhi**: il circuito (pianta E scorci) e uno più vecchio inlinato in
+`index.html` (~19048, ~2904) che guarda **la sola pianta**. Due difetti, sovrapposti:
+
+1. **La porta buttava via il nome letto.** Riceveva `nome` dal circuito e non lo
+   guardava mai: ricostruiva l'etichetta da `ETICHETTA_OCCHI` / `LESSICO_ZONE`,
+   che per l'aeroporto contengono `Ingresso`, `Accettazione`, `Controllo`.
+   **Il circuito poteva capire perfettamente e a schermo compariva comunque il
+   vocabolario d'aeroporto** — la Regola 0-bis rispettata nella lettura e violata
+   nell'ultimo centimetro. Ora il nome **letto** vince; le tabelle sono l'ultima
+   riserva per chi un nome non ce l'ha.
+2. **Chi vedeva meno riscriveva sopra chi vedeva di più.** L'occhio della sola
+   pianta arrivava dopo e sovrascriveva: nella corsa ha messo `parcheggio` su
+   quattro zone diverse. La scala di autorità ora conosce `comprensione`, sopra
+   `occhi`, e la fonte è **dichiarata** da chi chiama (`esito.fonte`), non dedotta.
+
+⚠️ **Se ricompaiono nomi da elenco a schermo, si guarda qui**, non nel circuito:
+la comprensione può essere giusta e perdersi in fondo alla catena.
 
 ---
 
@@ -515,6 +529,11 @@ solo da togliere il riempimento iniziale, non da ricostruire l'assegnazione.
 arrivava, e il travaso non ha nemmeno parlato: la sua riga non compare né in un
 senso né nell'altro. Ordine obbligato: coda e figure (`4dedfbd`, `e5de99a`) →
 travaso → questo fronte.
+
+⚠️ E quando ci si arriva: `applyAutoAssignment` **non è l'unico** posto dove
+vivono parole scelte prima di guardare. `ETICHETTA_OCCHI` e `LESSICO_ZONE`
+(~3142 di `index.html`) sono elenchi per tipologia — aeroporto, museo, gaming.
+Dal 29/08 non vincono più sul nome letto, ma esistono ancora come dati.
 
 ### 1. ✅ LA PIANTA — RISOLTO il 26/08 (`19a4831`, `1be10aa`)
 
