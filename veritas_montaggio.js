@@ -1,5 +1,4 @@
 import "./veritas_manuale.js";
-import "./veritas_coda.js";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================
@@ -233,42 +232,8 @@ async function cervelloLocale(domanda, extra = {}) {
   if (!r.ok) throw new Error("il modello locale ha risposto " + r.status +
     " (LM Studio acceso su " + L.cfg.url + "?)");
   const d = await r.json();
-  const scelta = d && d.choices && d.choices[0];
-  const testo = (scelta && scelta.message && scelta.message.content) || "";
-
-  // ⚠️ NON SI BUTTANO VIA `finish_reason` E `usage`.
-  //
-  // Il 27/08 e' servita una sonda incollata a mano in console per sapere una
-  // cosa che questa funzione aveva gia' in mano: se la risposta si era fermata
-  // perche' TRONCATA (`length`, manca spazio nella finestra) o perche'
-  // MALFORMATA (`stop`, sbaglia la sintassi). Sono due guasti diversi con due
-  // riparazioni opposte, e senza questo dato si ripara quello sbagliato: la
-  // diagnosi del 26/08 diceva «alza il tetto di uscita» ed era falsa, il tetto
-  // era gia' 2500 e il muro era la finestra di contesto a 8.192.
-  //
-  // Ora resta qui, e la sonda non serve piu'.
-  try {
-    const rec = {
-      passo: extra.passo || "—",
-      motivo_stop: scelta && scelta.finish_reason,
-      gettoni_chiesti: extra.passo ? 2500 : 700,
-      gettoni_entrata: d && d.usage && d.usage.prompt_tokens,
-      gettoni_uscita: d && d.usage && d.usage.completion_tokens,
-      caratteri: testo.length,
-      quando: new Date().toISOString(),
-    };
-    const storia = window.__veritasChiusura || (window.__veritasChiusura = []);
-    storia.push(rec);
-    if (storia.length > 200) storia.splice(0, storia.length - 200);
-    const allarme = rec.motivo_stop === "length";
-    console[allarme ? "warn" : "log"](
-      "[VERITAS cervello] " + storia.length + " " + rec.passo
-      + " — " + rec.motivo_stop + (allarme ? "  ⚠️ TRONCATA: manca spazio nella finestra, non e' un JSON rotto" : "")
-      + " | entrata " + rec.gettoni_entrata + " · uscita " + rec.gettoni_uscita
-      + " · " + rec.caratteri + " caratteri");
-  } catch (e) { /* la diagnostica non fa mai cadere il giro */ }
-
-  return testo;
+  return (d && d.choices && d.choices[0] && d.choices[0].message &&
+          d.choices[0].message.content) || "";
 }
 
 // Strada 2 — veritas_brain_server.py, o qualunque cosa risponda a quel patto.
@@ -309,55 +274,10 @@ async function cervello(domanda, extra = {}) {
 //    solo); il rilevatore vuole un'IMMAGINE. Sono due cose diverse e nessuna
 //    delle due va cambiata: la conversione sta qui, in mezzo.
 
-// Il lato piu' lungo di un'immagine che parte verso il modello che vede.
-//
-// ⚠️ MISURATO IL 29/08/2026. La pianta non ha una dimensione fissa: nasce
-//    dall'ingombro del modello. Dopo la correzione automatica di scala (7,3x su
-//    airport_foot_traffic.glb, confermata a occhio da Raffaella) il modello
-//    misura 147 x 82 m e la pianta usciva larga circa 2048 pixel. Nel log di
-//    LM Studio si vedeva «Prompt processing progress: 7,4%»: il modello stava
-//    ancora LEGGENDO la figura, non aveva nemmeno cominciato a pensare.
-//
-//    Gli scorci erano gia' a 768 e non hanno mai dato problemi: e' la prova
-//    che il limite e' la dimensione, non il numero di immagini.
-//
-// ⚠️ PERCHE' RIMPICCIOLIRE NON FALSA LE MISURE. I riquadri che tornano vengono
-//    divisi per la larghezza e l'altezza DELLA TELA CHE E' STATA MANDATA (in
-//    `unGiro`: `n(b.xmin, W)` con `W = tela.width`), quindi diventano frazioni
-//    fra 0 e 1. Una frazione non dipende dalla risoluzione. La conversione in
-//    metri avviene dopo, con `scatolaInMondo`, e legge l'inquadratura del
-//    mondo — che qui non si tocca. Il confine della Regola 0 resta dov'e'.
-//
-//    Per lo stesso motivo si rimpicciolisce QUI, in un posto solo: chi chiede
-//    la larghezza la chiede alla tela, e la trova gia' giusta.
-const LATO_MASSIMO = 1024;
-
-function rimpicciolisci(tela, latoMax) {
-  try {
-    if (!tela || !tela.width || !tela.height) return tela;
-    const max = latoMax || window.__veritasLatoMassimo || LATO_MASSIMO;
-    const lato = Math.max(tela.width, tela.height);
-    if (lato <= max) return tela;
-    const f = max / lato;
-    const w = Math.max(1, Math.round(tela.width * f));
-    const h = Math.max(1, Math.round(tela.height * f));
-    const piccola = document.createElement("canvas");
-    piccola.width = w; piccola.height = h;
-    const ctx = piccola.getContext("2d");
-    if (!ctx) return tela;
-    ctx.imageSmoothingEnabled = true;
-    if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(tela, 0, 0, w, h);
-    log("figura rimpicciolita da " + tela.width + "x" + tela.height +
-        " a " + w + "x" + h + " — sopra il migliaio di pixel il modello si perde a leggerla");
-    return piccola;
-  } catch (e) { return tela; }
-}
-
 function telaDa(x) {
   if (!x) return null;
-  if (x.pixel) return rimpicciolisci(occhioDellaPagina().inTela(x, document));  // grezza -> tela
-  return rimpicciolisci(x);                                     // gia' un'immagine
+  if (x.pixel) return occhioDellaPagina().inTela(x, document);  // grezza -> tela
+  return x;                                                     // gia' un'immagine
 }
 
 // ---------------------------------------------------------------------------
@@ -681,42 +601,12 @@ window.__veritasComprendi = async function (opz = {}) {
 function applicaNomi(posti) {
   if (typeof window.__veritasApplicaOcchi !== "function") return 0;
   const nodi = window.__veritasGetNodes ? window.__veritasGetNodes() : [];
-  // ⚠️ IL TRAVASO CHE NON AVVENIVA MAI. Misurato il 28/08 con Raffaella davanti
-  // allo schermo: il circuito diceva «23 volumi su 23 assegnati», lei
-  // confermava, e le tappe non cambiavano di una virgola.
-  //
-  // Il motivo era qui: si pretendeva che la tappa avesse un campo `posto` e che
-  // le coordinate coincidessero alla NONA CIFRA DECIMALE. Le 7 tappe pero'
-  // nascono da un'altra strada (`applyAutoAssignment`) e quel campo non ce
-  // l'hanno mai: la lista restava vuota, non rinominava niente, e non lo diceva
-  // a nessuno. Un difetto silenzioso, che e' il tipo peggiore.
-  //
-  // Ora due strade: se il campo c'e' si usa quello (esatto, non si tocca);
-  // altrimenti si accoppia per VICINANZA a terra, che e' l'unica cosa che le due
-  // liste hanno davvero in comune. La soglia e' dichiarata, non nascosta: oltre
-  // i 5 m non e' piu' la stessa cosa e non si accoppia.
-  const SOGLIA_ACCOPPIAMENTO_M = 5;
-  const distanzaXZ = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
   const assegnate = [];
-  let perCampo = 0, perVicinanza = 0, troppoLontane = 0;
   nodi.forEach(function (n, i) {
-    let p = null;
-    if (n.posto && n.posto.centro) {
-      p = posti.find((q) =>
-        Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
-        Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
-      if (p) perCampo++;
-    }
-    if (!p && n.pos) {
-      let migliore = null, minima = Infinity;
-      for (const q of posti) {
-        if (!q || !q.centro || !q.nome || !q.funzione) continue;
-        const d = distanzaXZ(q.centro, n.pos);
-        if (d < minima) { minima = d; migliore = q; }
-      }
-      if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M) { p = migliore; perVicinanza++; }
-      else if (migliore) troppoLontane++;
-    }
+    if (!n.posto) return;
+    const p = posti.find((q) =>
+      Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
+      Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
     if (!p || !p.nome || !p.funzione) return;
     const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
       ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
@@ -727,19 +617,9 @@ function applicaNomi(posti) {
       nome: p.nome,
     });
   });
-  if (!assegnate.length) {
-    log("nessuna tappa accoppiata ai volumi capiti: " + nodi.length + " tappe, "
-      + posti.length + " volumi"
-      + (troppoLontane ? ", " + troppoLontane + " oltre i " + SOGLIA_ACCOPPIAMENTO_M + " m" : "")
-      + ". Le tappe restano come stanno.");
-    return 0;
-  }
-  // `fonte` dice CHI ha guardato. Serve a due cose, tutte e due misurate il
-  // 29/08: l'occhio piu' vecchio (sola pianta) non riscrive sopra il circuito
-  // (tutte le viste), e il NOME letto qui vince sulla parola da tabella.
-  const n = window.__veritasApplicaOcchi({ assegnate, fonte: "comprensione" }, nodi);
-  log(n + " tappe su " + nodi.length + " rinominate dopo la comprensione"
-    + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza)");
+  if (!assegnate.length) return 0;
+  const n = window.__veritasApplicaOcchi({ assegnate }, nodi);
+  log(n + " tappe rinominate dopo la comprensione");
   return n;
 }
 
@@ -835,20 +715,12 @@ window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
 // la frase, risponde «non ho capito cosa vuoi che faccia» e chiude. Con push
 // questa non veniva mai provata e la risposta si perdeva lo stesso. In attesa
 // di una risposta, la risposta ha la precedenza su tutto.
-// ⚠️ Un ORDINE non e' una risposta. Misurato a schermo il 28/08: dopo aver
-// detto «la simulazione puo' partire», a «fai partire la simulazione» rispondeva
-// «Ricevuto, rifaccio un giro» e ripartiva a guardare. Mentre aspetta una
-// risposta questa strada si mangia tutto quello che scrivi, comandi compresi.
-// Questi verbi tornano al dispatcher, che sa gia' eseguirli.
-const E_UN_ORDINE = /^(fai partire|far partire|parti\b|avvia|lancia|simula|esegui|mostra|fammi vedere|apri|chiudi|spegni|pulisci|togli|nascondi|report|referto|analizza|calcola|scala |ferma|stop)/i;
-
 window.__veritasCommandExtensions.unshift(function (raw, t, log) {
   const inAttesa = !!window.__veritasInAttesa;
   const durante = !!window.__veritasGiroInCorso;
   if (!inAttesa && !durante) return false;
   const frase = String(raw || "").trim();
   if (!frase) return false;
-  if (E_UN_ORDINE.test(frase)) return false;
 
   // Arrivata mentre guardavo: si tiene da parte e si rilancia un giro solo
   // quando questo ha finito. Rilanciarlo adesso lo farebbe rimbalzare sulla
