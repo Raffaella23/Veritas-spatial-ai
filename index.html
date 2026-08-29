@@ -10632,82 +10632,66 @@ function numeroScorci(densita) {
 //
 //    Se qualcosa va storto torna null e chi chiama usa la distanza di prima:
 //    una vista un po' larga e' meglio di nessuna vista.
+// Quanto e' LARGO, ALTO e PROFONDO il modello visto da questa direzione.
+// Serve a due cose insieme: dare all'immagine la forma giusta e piazzare la
+// telecamera. Prima era murato dentro `distanzaCheRiempie`.
+function estensioneInCamera(THREE, scatola, centro, dir) {
+  const avanti = dir.clone().normalize();              // dal centro verso la camera
+  let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
+  if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);   // camera a picco
+  destra.normalize();
+  const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
+  const p = new THREE.Vector3();
+  let mx = 0, my = 0, mz = 0;
+  for (let i = 0; i < 8; i++) {
+    p.set(i & 1 ? scatola.max.x : scatola.min.x,
+          i & 2 ? scatola.max.y : scatola.min.y,
+          i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
+    mx = Math.max(mx, Math.abs(p.dot(destra)));
+    my = Math.max(my, Math.abs(p.dot(su)));
+    mz = Math.max(mz, Math.abs(p.dot(avanti)));
+  }
+  return { mx, my, mz };
+}
+
+// La FORMA del riquadro, presa dal modello invece che decisa a priori.
+//
+// ⚠️ 29/08, e nasce da un'obiezione di Raffaella che era giusta. Nello scorcio
+//    l'aeroporto stava in una striscia orizzontale con meta' riquadro nero
+//    sopra e sotto. Non era lontano: il riquadro era QUADRATO (768x768) e il
+//    modello e' lungo e basso (147 x 82 x 15 m). Il nero non era spazio intorno
+//    all'oggetto, era la forma sbagliata dell'immagine.
+//
+//    Il tentativo precedente — ritagliare l'ingombro e inquadrare solo il
+//    costruito — curava il sintomo buttando via il soggetto: i due tubi
+//    d'imbarco sono ingressi veri e il parcheggio e' una delle cose da
+//    riconoscere. Tolto, e non va rimesso.
+//
+//    Qui l'immagine prende la proporzione del modello visto da li': larga e
+//    bassa di fronte, piu' raccolta di taglio. I pixel finiscono sul soggetto e
+//    NIENTE resta fuori.
+//
+//    Il lato lungo resta 1024 (LATO_MASSIMO in veritas_montaggio.js), quindi
+//    un'immagine larga e bassa pesa MENO di una quadrata: meno riquadro vuoto
+//    da far leggere al modello, che e' anche meno tempo e meno memoria.
+function formaDelRiquadro(mx, my, latoLungo) {
+  const L = latoLungo || 1024;
+  let r = (my > 1e-6) ? (mx / my) : 1;
+  r = Math.max(0.5, Math.min(2.6, r));                 // niente strisce estreme
+  const larghezza = r >= 1 ? L : Math.round(L * r);
+  const altezza   = r >= 1 ? Math.round(L / r) : L;
+  return { larghezza: Math.max(64, larghezza), altezza: Math.max(64, altezza), rapporto: r };
+}
+
 function distanzaCheRiempie(THREE, scatola, centro, dir, fovGradi, aspetto, margine) {
   try {
-    const avanti = dir.clone().normalize();              // dal centro verso la camera
-    let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
-    if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);   // camera a picco
-    destra.normalize();
-    const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
-    const p = new THREE.Vector3();
-    let mx = 0, my = 0, mz = 0;
-    for (let i = 0; i < 8; i++) {
-      p.set(i & 1 ? scatola.max.x : scatola.min.x,
-            i & 2 ? scatola.max.y : scatola.min.y,
-            i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
-      mx = Math.max(mx, Math.abs(p.dot(destra)));
-      my = Math.max(my, Math.abs(p.dot(su)));
-      mz = Math.max(mz, Math.abs(p.dot(avanti)));
-    }
+    const { mx, my, mz } = estensioneInCamera(THREE, scatola, centro, dir);
     const tV = Math.tan((fovGradi * Math.PI / 180) / 2);
     const tH = tV * (aspetto || 1);
     if (!(tV > 0) || !(tH > 0)) return null;
     const d = Math.max(my / tV, mx / tH) * (margine || 1.06) + mz;
     return isFinite(d) && d > 0 ? d : null;
   } catch (e) { return null; }
-}
-
-// L'ingombro di CIO' CHE CONTA, buttando via quello che sta ai margini.
-//
-// ⚠️ 29/08, dopo che Raffaella ha visto lo scorcio: l'aeroporto era un
-//    francobollo in mezzo al riquadro anche con l'auto-zoom acceso. Il motivo
-//    non e' lo zoom: e' che riempiva il riquadro con TUTTO l'ingombro — i due
-//    aerei, le ali che sporgono, il piazzale — e il terminal, che e' la cosa da
-//    riconoscere, restava minuscolo. Come fotografare una casa includendo tutto
-//    il giardino: la casa esce piccola anche se la foto e' piena.
-//
-//    Qui si guarda DOVE STANNO le mesh, non fin dove arrivano. Si prende il
-//    centro di ognuna e si tagliano le code: il grosso del costruito decide
-//    l'inquadratura, i pochi pezzi lontanissimi non la comandano piu'. L'altezza
-//    resta intera, perche' tagliarla vorrebbe dire decapitare l'edificio.
-//
-//    Non si perde niente: quello che resta fuori e' comunque nell'immagine, solo
-//    ai bordi. Se le mesh sono poche o il conto non riesce, torna l'ingombro
-//    intero — una vista larga e' meglio di nessuna vista.
-function ingombroDelGrosso(THREE, radice, piena, coda) {
-  try {
-    const xs = [], zs = [];
-    const c = new THREE.Vector3();
-    radice.traverse((o) => {
-      if (!o.isMesh || !o.geometry) return;
-      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-      const bs = o.geometry.boundingSphere;
-      if (!bs) return;
-      c.copy(bs.center).applyMatrix4(o.matrixWorld);
-      if (isFinite(c.x) && isFinite(c.z)) { xs.push(c.x); zs.push(c.z); }
-    });
-    if (xs.length < 20) return piena;
-    const t = coda == null ? 0.05 : coda;          // 5% per lato
-    const q = (a, p) => { a.sort((u, v) => u - v);
-      return a[Math.min(a.length - 1, Math.max(0, Math.round((a.length - 1) * p)))]; };
-    let x0 = q(xs.slice(), t), x1 = q(xs.slice(), 1 - t);
-    let z0 = q(zs.slice(), t), z1 = q(zs.slice(), 1 - t);
-    if (!(x1 > x0) || !(z1 > z0)) return piena;
-    const mx = (x1 - x0) * 0.12, mz = (z1 - z0) * 0.12;   // un filo di respiro
-    const utile = new THREE.Box3(
-      new THREE.Vector3(Math.max(piena.min.x, x0 - mx), piena.min.y, Math.max(piena.min.z, z0 - mz)),
-      new THREE.Vector3(Math.min(piena.max.x, x1 + mx), piena.max.y, Math.min(piena.max.z, z1 + mz)));
-    if (utile.isEmpty()) return piena;
-    const sp = piena.getSize(new THREE.Vector3()), su = utile.getSize(new THREE.Vector3());
-    const guadagno = (sp.x * sp.z) / Math.max(1e-6, su.x * su.z);
-    if (guadagno > 1.15) {
-      console.log("[VERITAS scorci] inquadro il costruito e non i margini: "
-        + Math.round(sp.x) + "x" + Math.round(sp.z) + " m -> "
-        + Math.round(su.x) + "x" + Math.round(su.z) + " m, "
-        + guadagno.toFixed(1) + " volte piu' grande nel riquadro");
-    }
-    return utile;
-  } catch (e) { return piena; }
 }
 
 function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
@@ -10723,11 +10707,7 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const densita = densitaMesh(numeroMesh, ingombro);
   const n = opzioni.numeroScorci || numeroScorci(densita);
 
-  // Si inquadra il costruito, non i margini. `scatola` resta l'ingombro intero
-  // e serve ancora per il piano di taglio lontano.
-  const utile = opzioni.ingombroIntero ? scatola
-              : ingombroDelGrosso(THREE, radice, scatola, opzioni.coda);
-  const centro = utile.getCenter(new THREE.Vector3());
+  const centro = scatola.getCenter(new THREE.Vector3());
   const diagonale = scatola.getSize(new THREE.Vector3()).length();
   const distanza = opzioni.distanza || diagonale * 0.8;
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
@@ -10744,11 +10724,6 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const risultati = [];
   try {
     scena.add(radice);
-    const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
-      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
-      format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
-      colorSpace: THREE.SRGBColorSpace || undefined,
-    });
     const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
     const bersaglioPrec = renderer.getRenderTarget();
 
@@ -10762,8 +10737,15 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       // La distanza si ricalcola a ogni angolo: il modello riempie il riquadro
       // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
       // quella fissa di prima.
+      // La forma del riquadro cambia a ogni angolo, perche' cambia la sagoma:
+      // di fronte il modello e' lungo e basso, di taglio piu' raccolto.
+      const est = estensioneInCamera(THREE, scatola, centro, dir);
+      const forma = opzioni.quadrato ? { larghezza, altezza }
+                  : formaDelRiquadro(est.mx, est.my, Math.max(larghezza, altezza));
+      const W = forma.larghezza, H = forma.altezza;
+      cam.aspect = W / H;
       const dist = (opzioni.distanza ? distanza
-                   : distanzaCheRiempie(THREE, utile, centro, dir, cam.fov,
+                   : distanzaCheRiempie(THREE, scatola, centro, dir, cam.fov,
                                         cam.aspect, opzioni.margine)) || distanza;
       cam.position.set(
         centro.x + dist * dir.x,
@@ -10776,20 +10758,25 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       cam.updateProjectionMatrix();
       cam.updateMatrixWorld(true);
 
-      const pixel = new Uint8Array(larghezza * altezza * 4);
+      const bersaglio = new THREE.WebGLRenderTarget(W, H, {
+        minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+        colorSpace: THREE.SRGBColorSpace || undefined,
+      });
+      const pixel = new Uint8Array(W * H * 4);
       renderer.setRenderTarget(bersaglio);
       renderer.setClearColor(0x000000, 0);
       renderer.clear();
       renderer.render(scena, cam);
-      renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
+      renderer.readRenderTargetPixels(bersaglio, 0, 0, W, H, pixel);
+      try { bersaglio.dispose(); } catch (e) {}
       // ⚠️ Si raddrizza QUI: chi trasforma i pixel in immagine li copia cosi'
       //    come sono, e senza questo giro lo scorcio arriva al cervello
       //    capovolto — errore silenzioso, risposta plausibile e sbagliata.
-      risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
-                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
+      risultati.push({ pixel: raddrizza(pixel, W, H),
+                       larghezza: W, altezza: H, azimuth, elevazioneGradi, densita, numeroMesh });
     }
     renderer.setRenderTarget(bersaglioPrec);
-    try { bersaglio.dispose(); } catch (e) {}
   } finally {
     if (genitore) {
       if (indice >= 0) genitore.children.splice(indice, 0, radice);
