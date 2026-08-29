@@ -10657,6 +10657,59 @@ function distanzaCheRiempie(THREE, scatola, centro, dir, fovGradi, aspetto, marg
   } catch (e) { return null; }
 }
 
+// L'ingombro di CIO' CHE CONTA, buttando via quello che sta ai margini.
+//
+// ⚠️ 29/08, dopo che Raffaella ha visto lo scorcio: l'aeroporto era un
+//    francobollo in mezzo al riquadro anche con l'auto-zoom acceso. Il motivo
+//    non e' lo zoom: e' che riempiva il riquadro con TUTTO l'ingombro — i due
+//    aerei, le ali che sporgono, il piazzale — e il terminal, che e' la cosa da
+//    riconoscere, restava minuscolo. Come fotografare una casa includendo tutto
+//    il giardino: la casa esce piccola anche se la foto e' piena.
+//
+//    Qui si guarda DOVE STANNO le mesh, non fin dove arrivano. Si prende il
+//    centro di ognuna e si tagliano le code: il grosso del costruito decide
+//    l'inquadratura, i pochi pezzi lontanissimi non la comandano piu'. L'altezza
+//    resta intera, perche' tagliarla vorrebbe dire decapitare l'edificio.
+//
+//    Non si perde niente: quello che resta fuori e' comunque nell'immagine, solo
+//    ai bordi. Se le mesh sono poche o il conto non riesce, torna l'ingombro
+//    intero — una vista larga e' meglio di nessuna vista.
+function ingombroDelGrosso(THREE, radice, piena, coda) {
+  try {
+    const xs = [], zs = [];
+    const c = new THREE.Vector3();
+    radice.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const bs = o.geometry.boundingSphere;
+      if (!bs) return;
+      c.copy(bs.center).applyMatrix4(o.matrixWorld);
+      if (isFinite(c.x) && isFinite(c.z)) { xs.push(c.x); zs.push(c.z); }
+    });
+    if (xs.length < 20) return piena;
+    const t = coda == null ? 0.05 : coda;          // 5% per lato
+    const q = (a, p) => { a.sort((u, v) => u - v);
+      return a[Math.min(a.length - 1, Math.max(0, Math.round((a.length - 1) * p)))]; };
+    let x0 = q(xs.slice(), t), x1 = q(xs.slice(), 1 - t);
+    let z0 = q(zs.slice(), t), z1 = q(zs.slice(), 1 - t);
+    if (!(x1 > x0) || !(z1 > z0)) return piena;
+    const mx = (x1 - x0) * 0.12, mz = (z1 - z0) * 0.12;   // un filo di respiro
+    const utile = new THREE.Box3(
+      new THREE.Vector3(Math.max(piena.min.x, x0 - mx), piena.min.y, Math.max(piena.min.z, z0 - mz)),
+      new THREE.Vector3(Math.min(piena.max.x, x1 + mx), piena.max.y, Math.min(piena.max.z, z1 + mz)));
+    if (utile.isEmpty()) return piena;
+    const sp = piena.getSize(new THREE.Vector3()), su = utile.getSize(new THREE.Vector3());
+    const guadagno = (sp.x * sp.z) / Math.max(1e-6, su.x * su.z);
+    if (guadagno > 1.15) {
+      console.log("[VERITAS scorci] inquadro il costruito e non i margini: "
+        + Math.round(sp.x) + "x" + Math.round(sp.z) + " m -> "
+        + Math.round(su.x) + "x" + Math.round(su.z) + " m, "
+        + guadagno.toFixed(1) + " volte piu' grande nel riquadro");
+    }
+    return utile;
+  } catch (e) { return piena; }
+}
+
 function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   if (!THREE || !renderer || !radice) return [];
   radice.updateMatrixWorld(true);
@@ -10670,7 +10723,11 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const densita = densitaMesh(numeroMesh, ingombro);
   const n = opzioni.numeroScorci || numeroScorci(densita);
 
-  const centro = scatola.getCenter(new THREE.Vector3());
+  // Si inquadra il costruito, non i margini. `scatola` resta l'ingombro intero
+  // e serve ancora per il piano di taglio lontano.
+  const utile = opzioni.ingombroIntero ? scatola
+              : ingombroDelGrosso(THREE, radice, scatola, opzioni.coda);
+  const centro = utile.getCenter(new THREE.Vector3());
   const diagonale = scatola.getSize(new THREE.Vector3()).length();
   const distanza = opzioni.distanza || diagonale * 0.8;
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
@@ -10706,7 +10763,7 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
       // quella fissa di prima.
       const dist = (opzioni.distanza ? distanza
-                   : distanzaCheRiempie(THREE, scatola, centro, dir, cam.fov,
+                   : distanzaCheRiempie(THREE, utile, centro, dir, cam.fov,
                                         cam.aspect, opzioni.margine)) || distanza;
       cam.position.set(
         centro.x + dist * dir.x,
