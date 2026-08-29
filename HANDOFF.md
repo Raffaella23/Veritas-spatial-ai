@@ -163,6 +163,34 @@ prima di cominciare il pezzo grosso, non dopo averlo speso.
 
 
 
+### Regola E — COME SI PARLA CON RAFFAELLA. Detta da lei il 29/08.
+
+**Lei non lavora per Claude. Claude lavora per lei.** Non le si danno compiti.
+
+- **Quello che lei dà è il log di F12. Nient'altro.** Non le si chiede di
+  aprire pannelli, cercare righe, scrivere comandi in console, contare zone o
+  fare verifiche. Se serve una prova, la si ricava dal log che ha mandato.
+- **Risposte corte.** Fiumi di parole da leggere a ogni giro non vanno bene.
+  Tabelle e elenchi lunghi: solo se richiesti.
+- **Una domanda per volta**, semplice, di logica, sul funzionamento dell'app.
+  Non sui dettagli minuti: quelli la fanno perdere il filo, e deciderli è
+  lavoro di Claude.
+- **Niente parole tecniche.** Nomi di funzioni, campi, sigle: fuori. Si dice
+  cosa si vedeva prima e cosa si vede adesso.
+
+⚠️ Va ridetto ogni volta finché non è scritto qui, e ogni volta costa crediti.
+È lo stesso motivo per cui esiste la Regola 0-bis.
+
+### Regola F — SU `main` CI VA SOLO CIÒ CHE HA GIRATO DAVANTI A LEI
+
+Misurato il 29/08, ed è costata una mattina. Il 28/08 dodici commit sono
+finiti su `main` con tre marcati «mai provato» (`2ac2641`, `db842fc`,
+`27d2003`). Uno di quei tre ha rotto il riconoscimento, che il 28/08 le
+scriveva i nomi sulla pianta da solo. Il 29/08 si è tornati a `084dd95`.
+
+Dirlo nel documento non basta: se una cosa non è stata provata, **resta
+fuori**. E si rimette **una per volta**, provandola prima della successiva.
+
 ## Come si parla con Raffaella
 
 **Niente tecnicismi.** È architetto e sviluppatrice XR, non programmatrice di
