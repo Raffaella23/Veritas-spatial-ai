@@ -1,6 +1,6 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 28/08/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 29/08/2026, sera.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
@@ -354,7 +354,157 @@ ripara quello sbagliato.
 
 ---
 
-## Dove siamo — 28/08/2026
+## Dove siamo — 29/08/2026, sera
+
+**Il 28/08 il circuito capiva. Il 29/08 abbiamo scoperto perché quello che
+capiva non arrivava mai a schermo: fra il cervello e la barra delle tappe
+c'erano QUATTRO porte chiuse, tutte silenziose.** Nessuna dava errore. Tutte
+scartavano. È il motivo per cui Raffaella confermava le zone e non cambiava
+nulla — un'intera giornata sua persa a inseguire un difetto che non lasciava
+tracce.
+
+### ⚠️ Le quattro porte, in ordine dal cervello allo schermo
+
+| # | dove | cosa pretendeva | commit |
+|---|---|---|---|
+| 1 | `applicaNomi`, ciclo del confronto | il volume doveva avere una `funzione` **conosciuta**, altrimenti scartato PRIMA di misurare le distanze | `ee9f4cc` |
+| 2 | `applicaNomi`, dopo l'accoppiamento | stessa pretesa, di nuovo | `91f98ff` |
+| 3 | `applicaNomi`, soglia | 5 metri fissi, su un edificio lungo 147 | `37722dd` |
+| 4 | `__veritasApplicaOcchi` | buttava via il **nome letto** e rimetteva una parola di tabella | `5784fd2` |
+
+Tutte e quattro sono la stessa malattia: **chiedere una parola già conosciuta a
+chi sta guardando per la prima volta.** Se il cervello dice «parcheggio
+esterno» e quella parola non è nell'elenco, sparisce. Bastava che una zona su
+sette non passasse per non vederla mai.
+
+⚠️ **Se ricompaiono nomi da elenco a schermo, si guarda in questi quattro
+punti**, non nel circuito: la comprensione può essere perfetta e perdersi
+nell'ultimo centimetro.
+
+### La terza forma di guasto, che il documento non prevedeva
+
+| cosa leggi | chi ha sbagliato | dove si guarda |
+|---|---|---|
+| `length` / **TRONCATA** | manca spazio nella finestra | si allarga la finestra |
+| `stop` con testo illeggibile | il modello sbaglia la sintassi | si guarda il parser |
+| **`Failed to fetch` / 0 caratteri** | **abbiamo riattaccato noi** | **si guarda LM Studio, non il codice** |
+
+La terza si riconosce dal log **del server**, non del browser: `selected slot by
+LRU` e `srv stop: cancel task`. LM Studio ha sportelli limitati e chiude la
+telefonata più vecchia per far posto. Chi la confonde con un JSON rotto ripara
+il posto sbagliato, come già successo il 26/08.
+
+### Le immagini verso il modello che vede
+
+| cosa | prima | ora | commit |
+|---|---|---|---|
+| numero di viste | 7 scorci + pianta = 8 | **4 + pianta = 5** | `4d68f87` |
+| pianta | 2048 px, illeggibile per il modello | **1024 px** | `2daac13` |
+| forma del riquadro | sempre quadrato 768×768 | **la sagoma del modello** | `cd4a9b5` |
+| distanza telecamera | fissa, `diagonale × 0.8` | **calcolata spigolo per spigolo** | `4d68f87`, `b6a6894` |
+| misure dichiarate nel log | no | sì, `[VERITAS scorci] … misure vere` | `3b66634` |
+
+⚠️ **Il pannello di anteprima incornicia l'immagine in un riquadro fisso.** Il
+nero che si vede lì è della cornice, non di ciò che parte. Non si giudica
+l'inquadratura a occhio dal pannello: si legge la riga `[VERITAS scorci] …
+misure vere`. Se sono tutte `768x768`, sulla pagina non è arrivato niente e si
+guarda cache o deploy, non il codice.
+
+⚠️ **Tentativo sbagliato, non ripeterlo.** `ingombroDelGrosso` (`6b130d2`,
+tolto in `cd4a9b5`) ritagliava l'ingombro per inquadrare solo il costruito.
+Curava il sintomo buttando via il soggetto: i **due tubi d'imbarco sono
+ingressi veri** e il **parcheggio è una delle cose da riconoscere**. Il
+problema non era mai stato *quanto* si inquadra, ma la *forma* del riquadro.
+
+### Confermato da Raffaella guardando lo schermo
+
+- **La scala 7,3× è giusta.** Il modello vale davvero 147 × 82 m per 15,4 m di
+  altezza, e i 6340 m² calpestabili valgono. **Non ci si torna sopra.**
+- **La pianta si legge benissimo**: aerei, terminal, corridoi, percorsi
+  colorati. L'ipotesi «l'immagine è illeggibile» era sbagliata.
+- Il contesto di LM Studio **non va alzato e il suo PC non può**: entrata
+  massima misurata 6358 token su 16384. I tre passi chiudono con `stop`.
+
+### ⚠️ La causa a monte, che resta aperta
+
+Il travaso può solo **rincorrere** le tappe, perché le tappe nascono da un
+**riempimento posizionale** in `applyAutoAssignment` e non da ciò che si è
+capito. Il 29/08 il cervello ha nominato 6 volumi su 23 e nessuno di quelli
+stava vicino a una tappa. Finché le tappe si generano prima di guardare,
+qualunque accoppiamento è una toppa.
+
+**Il fronte 0 è la riparazione vera, non un'ottimizzazione.**
+
+---
+
+## Cosa fare, in questo ordine
+
+1. **Provare la corsa completa** (nulla di quanto sopra è stato visto girare
+   insieme). Righe da cercare, in ordine: `[VERITAS scorci] … misure vere` →
+   `figura rimpicciolita da … a …` → `[VERITAS cervello] … stop` →
+   `[VERITAS montaggio] N tappe su 7 rinominate dopo la comprensione` con la
+   soglia dichiarata. Poi **guardare i nomi sulla barra**: devono essere quelli
+   capiti, non `INGRESSO · ACCETTAZIONE · CONTROLLO`.
+2. **I due occhi.** Dentro `index.html` (~19236, ~2904) vive un occhio più
+   vecchio che guarda **la sola pianta** e ha scritto «parcheggio» su quattro
+   zone diverse. Ora non riscrive più sopra il circuito (`5784fd2`), ma se il
+   circuito non assegna nulla le zone restano senza nome: **peggio di prima**.
+   Va fatto confluire, non solo zittito.
+3. **Il superpotere all'occhio** (chiesto da Raffaella): oggi il cervello riceve
+   pianta + 4 scorci, l'**occhio soltanto la pianta**. Dagli scorci si prende
+   solo la testimonianza, non i riquadri, perché in prospettiva un riquadro non
+   ha una posizione a terra (vedi commenti in `veritas_comprensione.js` ~597).
+   Dare all'occhio le stesse cinque immagini è Regola 0 punto 2 applicata fino
+   in fondo.
+4. **Il fronte 0**: togliere il riempimento posizionale in
+   `applyAutoAssignment` (~3562 di `index.html`, **dentro il bundle**, serve
+   budget pieno).
+5. **La segnaletica semantica.** Il lettore esiste e misura colore, direzione e
+   area (`[VERITAS segnaletica] … tinta 46deg direzionale direzione 90deg`).
+   Manca il passaggio da *fisica del segno* a *significato*: quella famiglia di
+   colore è «uscita di emergenza» o «percorso ai gate»? In ospedale la linea
+   gialla per il pronto soccorso **è** l'informazione, e dice l'intenzione del
+   progettista, che dalla geometria non si ricava mai.
+   ⚠️ **Le frecce rosa/arancioni/verdi visibili sulla pianta NON sono
+   segnaletica dell'edificio: le disegna VERITAS stesso.** Darle in pasto al
+   cervello vorrebbe dire guardarsi allo specchio e credere di aver scoperto
+   qualcosa.
+
+### Difetti minori visti il 29/08, non ancora aperti
+
+- La chat prende una frase come nome di zona: «assegna quelli che hai capito» →
+  ha creato una zona chiamata **«Quelli Che Hai Capito»**. Capisce
+  `assegna <nome>` e non una richiesta in italiano normale.
+- Alla dichiarazione di ingressi e uscite risponde *«appena finisco questo giro
+  ne faccio uno con quello che mi hai detto»* e poi ricomincia a dire che non
+  trova uscite. Promessa non mantenuta.
+- Motore fisico: `unreachable`, poi `memory access out of bounds`. Gli agenti
+  ripiegano sul percorso pianificato.
+- `index.html` ha **32** blocchi `<script>`, non 31 come scritto altrove.
+
+---
+
+## Come si è lavorato il 29/08 (metodo che ha funzionato)
+
+Modifiche fatte in sandbox e **committate direttamente**, senza far passare i
+file per la chat: costa un decimo. Per ogni modifica a `index.html`: estrazione
+dei blocchi con `html.parser`, `sha256` del blocco 3 verificato
+(`58d371701aa9a349`), `node --check` sul blocco toccato, e solo allora commit.
+
+⚠️ **La CDN `raw.githubusercontent.com` serve copie vecchie anche con
+cache-buster.** Per leggere lo stato vero si passa dall'API: `GITHUB_GET_A_TREE`
+→ `GITHUB_GET_A_BLOB`. Una patch applicata su una copia vecchia fallisce in
+silenzio o, peggio, sovrascrive.
+
+⚠️ **Due chat sullo stesso ramo si calpestano.** Il 29/08 alle 08:13 un'altra
+chat ha riportato `main` a `084dd95` (28/08 ore 10:11), portando via quattro
+commit del 28/08 che funzionavano. Ripristinato a `0f4a48d` con un commit nuovo
+(`cbacdbe`), senza riscrivere la storia. **Prima di scrivere, guardare
+`GITHUB_LIST_COMMITS`.**
+
+---
+
+## Dove eravamo — 28/08/2026
 
 **HA CAPITO UN AEROPORTO, DA SOLO, E L'HA DETTO A SCHERMO.**
 `aeroporto (modello completo). Fiducia 95%, dopo 2 giri. giro 1: 0 nominati, 23
