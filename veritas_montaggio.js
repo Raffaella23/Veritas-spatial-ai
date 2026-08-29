@@ -734,7 +734,10 @@ function applicaNomi(posti) {
       + ". Le tappe restano come stanno.");
     return 0;
   }
-  const n = window.__veritasApplicaOcchi({ assegnate }, nodi);
+  // `fonte` dice CHI ha guardato. Serve a due cose, tutte e due misurate il
+  // 29/08: l'occhio piu' vecchio (sola pianta) non riscrive sopra il circuito
+  // (tutte le viste), e il NOME letto qui vince sulla parola da tabella.
+  const n = window.__veritasApplicaOcchi({ assegnate, fonte: "comprensione" }, nodi);
   log(n + " tappe su " + nodi.length + " rinominate dopo la comprensione"
     + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza)");
   return n;
