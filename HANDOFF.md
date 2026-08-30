@@ -5,6 +5,79 @@
 
 ---
 
+## 📍 DOVE SIAMO — fine pomeriggio del 30/08/2026
+
+**Il fronte 0 è chiuso e il circuito gira.** Nell'ultima corsa misurata:
+`✅ Ho capito lo spazio: aeroporto (modello completo), fiducia 79%`,
+**20 volumi nominati su 23** (erano 3 al mattino), e la simulazione parte.
+
+Sei commit, in ordine. Ognuno ha il perché scritto per esteso nel proprio
+messaggio: **si legge quello, non si riscrive qui.**
+
+| commit | cosa |
+|---|---|
+| `7b41587` | il cervello nomina quando vede invece di descrivere e fermarsi |
+| `9a80fff` | i volumi si chiedono a **mazzetti da 6**; tolto il cancello sul tipo |
+| `68064a8` | **l'occhio guarda oggetti, non aeroporti** — vocabolario agnostico |
+| `f5cf5c6` | l'esterno non si cancella più, si marca |
+| `2625b98` | le convenzioni del disegno passano anche all'occhio |
+| `e218edf` | i nomi capiti arrivano fino allo schermo |
+
+### Le tre lezioni di oggi, che valgono oltre oggi
+
+1. **Il modello piccolo non va convinto, va interrogato bene.** 23 volumi in
+   una telefonata → 222 gettoni su 2500 e 3 nomi. A mazzetti da 6 → 20 nomi.
+   Nessuna soglia toccata, nessun modello cambiato.
+2. **Gli esempi si ricopiano.** Nel foglio del cervello c'era, scritta per
+   intero, la domanda sul volume 7: tornava identica da due giorni perché era
+   l'esempio. Un esempio concreto in un prompt è un'istruzione travestita.
+3. **I commenti mentono più del codice.** Due difetti di oggi erano commenti
+   che promettevano quello che il codice non faceva: «resta chi è riconosciuto
+   anche dall'occhio-cervello» (che gira dopo) e «le altre cercano al giro
+   successivo» (che non esiste). Quando un commento promette, si verifica.
+
+### ⚠️ RIPORTATA IN CIMA — la piattaforma è AGNOSTICA
+
+Deciso da Raffaella il 30/08, ed è una decisione di prodotto, non di stile:
+VERITAS riceve **aeroporti, scuole, musei, ospedali, negozi**. Non si scrive
+codice, vocabolario o esempio che pensi a un solo tipo di edificio.
+**L'occhio conta quanto o più del cervello**, perché un IFC con i nomi dentro è
+l'eccezione: dove le indicazioni non ci sono, il sistema ci deve arrivare
+guardando. Il report finale deve essere **interrogabile in italiano** su
+volumi, strutture, aperture, visibilità e punti notevoli — non solo su ingressi
+e uscite.
+
+### Cosa resta aperto, in ordine di importanza
+
+1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
+   È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
+   un aeroporto ha **due versi** (chi parte e chi arriva), non una fila. Va
+   sostituita da categorie che esistono ovunque (accesso, distribuzione, sosta,
+   controllo, servizio, collegamento verticale, esterno) più le **relazioni**
+   fra le zone. ⚠️ Non toglierla prima di avere qualcosa al suo posto: guida la
+   simulazione, e senza resterebbero zero tappe.
+2. **L'occhio non è un occhio separato.** OWLv2 non si apre su questo PC
+   (`Provider type for Cast node ... is not set`, tutti e cinque i formati) e il
+   ripiego è **lo stesso identico modello del cervello**: oggi il circuito è uno
+   che parla da solo. Va portato fuori dal browser, dove può girare un
+   rilevatore vero.
+3. **Il taccuino.** Un registro unico di ciò che è stato misurato — volumi,
+   aperture, altezze, distanze, visibilità, punti notevoli — con per ogni voce
+   il valore, **come si è saputo** e quanto è affidabile. È la base della chat
+   interrogabile: la chat risponde da lì, non a memoria.
+4. **Le finestre e le aperture**, prima casella di `NON_MISURATO` e la prima
+   che chiede un ingegnere. Si ricavano dalla geometria verticale che
+   `veritas_visibility.js` già costruisce: un'apertura è un muro che si
+   interrompe.
+5. **`veritas_visibility.js` non è mai stato acceso a schermo.** Isovista, linea
+   di vista, altezza dell'occhio diversa per chi è in piedi e chi è in
+   carrozzina: scritto per intero, mai mostrato. È metà del prodotto già pagata.
+6. **Il motore fisico** dà `unreachable` a ogni fotogramma, fase «ricerca punto
+   libero», e `nessuna strada` fra le tappe.
+7. **La chat non capisce l'italiano**: da una frase ha creato la zona «Le Zone».
+
+---
+
 ## 🔴 LE REGOLE CHE VENGONO PRIMA DI TUTTO
 
 Nate da un problema misurato: al 24/08/2026 c'erano **due rami e nove
