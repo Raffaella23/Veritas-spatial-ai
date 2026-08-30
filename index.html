@@ -3318,7 +3318,7 @@
     // un'ipotesi sull'edificio, non una misura, e va usata sapendolo.
     const seq = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
     const nodi = [];
-    let contatoreGate = 0, nSosta = 0, nPassaggio = 0, nSenzaNome = 0;
+    let contatoreGate = 0, nSosta = 0, nPassaggio = 0, nSenzaNome = 0, nEsterne = 0;
 
     // I ruoli delle zone di mezzo.
     //
@@ -3441,7 +3441,45 @@
       // tappa. Restano fuori solo le aree all'aperto che nessuno ha nominato —
       // piste e piazzali di servizio — perche' li' non si sa cosa siano e
       // farci camminare la gente sarebbe un'invenzione.
-      if (escluseFuori.has(i) && !etichette.get(i)) return;
+      // ⚠️ 30/08 — L'ESTERNO NON SI CANCELLA PIU', SI MARCA.
+      //    Qui un'area all'aperto che nessuno aveva ancora nominato veniva
+      //    saltata: niente nodo, niente volume disegnato, niente da nominare.
+      //    La regola voleva dire «non ci si cammina» e diceva invece «non
+      //    esiste»: dallo schermo sparivano il parcheggio e il piazzale degli
+      //    aerei, cioe' proprio i posti da cui la gente arriva e da cui se ne
+      //    va. Segnalato da Raffaella il 30/08 guardando i volumi.
+      //
+      //    C'era anche un difetto di TEMPI, ed e' il piu' insidioso: la regola
+      //    dichiarava «resta chi e' stato riconosciuto, anche dall'occhio e dal
+      //    cervello», ma l'unica fonte di nomi disponibile a questo punto e'
+      //    `analyzeMesh`, che legge i nomi delle mesh e gira PRIMA che il
+      //    circuito occhio-cervello abbia parlato. Su un modello le cui mesh
+      //    non hanno nomi — cioe' quasi tutti — nessuna area esterna poteva
+      //    sopravvivere, qualunque cosa il cervello capisse dopo.
+      //
+      //    Ora nasce come nodo di tipo `esterno`: si vede, si puo' nominare e
+      //    finisce nel referto. Non entra nel percorso a piedi, perche' il
+      //    tronco si costruisce sui tipi accoglienza/filtro/sosta e le partenze
+      //    sulle origini: nessuno cammina sul piazzale accanto all'aereo, che
+      //    era la ragione per cui la regola esisteva. Se poi il cervello la
+      //    riconosce come parcheggio, e' un nome vero su un volume vero.
+      if (escluseFuori.has(i) && !etichette.get(i)) {
+        nEsterne++;
+        nodi.push({
+          pos: [z.pos[0], z.pos[1], z.pos[2]],
+          type: "esterno",
+          label: (voc.esterno || "Area esterna ") + nEsterne
+               + (z.areaM2 ? " \u00b7 " + Math.round(z.areaM2) + " m\u00b2" : ""),
+          scale: 1.0, scaleZ: 1.0,
+          id: "zona_" + i,
+          origine: "misura",
+          areaM2: z.areaM2 || null,
+          formaLungo: z.formaLungo || null,
+          formaLargo: z.formaLargo || null,
+          formaAngolo: typeof z.formaAngolo === "number" ? z.formaAngolo : null,
+        });
+        return;
+      }
       const dato = etichette.get(i);
       let type, label;
       if (dato) {
@@ -3548,8 +3586,9 @@
     if (escluseFuori.size) {
       // Dichiarate, non sparite in silenzio: restano nelle misure e nel
       // referto, semplicemente non sono tappe di un percorso a piedi.
-      console.log("[VERITAS zone] " + escluseFuori.size + " area/e all'aperto tenute fuori dal"
-        + " percorso (piste, piazzali di servizio). L'arrivo e': "
+      console.log("[VERITAS zone] " + escluseFuori.size + " area/e all'aperto fuori dal"
+        + " percorso a piedi, di cui " + nEsterne + " disegnate come area esterna"
+        + " (si vedono e si possono nominare, ma non ci si cammina). L'arrivo e': "
         + (iArrivo >= 0 && nodi.length ? (nodi.find((n) => n.id === "zona_" + iArrivo) || {}).label : "—")
         + ", l'area all'aperto piu' vicina all'edificio.");
     }
