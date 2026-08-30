@@ -10856,6 +10856,30 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   }
   const totalePorzioni = Math.max(1, colonne * righe);
 
+  // ⚠️ L'ALTEZZA DELLA PORZIONE, E PERCHE' LA PRIMA VERSIONE ERA VUOTA.
+  //    Il 30/08 Raffaella ha aperto l'anteprima e ha visto «scorcio 4 — 90°»
+  //    quasi nero: una striscia di pavimento in basso e sopra il vuoto.
+  //
+  //    Il motivo era un mio commento sbagliato, scritto poche ore prima:
+  //    «l'altezza resta INTERA: si taglia in pianta, mai in alzato». Sembra
+  //    prudente, e invece e' il difetto. Il modello e' alto 15,4 m, ma quei
+  //    15,4 m sono le CODE DEGLI AEREI, che stanno in due porzioni su dodici.
+  //    In tutte le altre dentro c'e' un pavimento alto due metri. La camera
+  //    riempiva il riquadro con una scatola di 36x27x15, dentro cui la roba
+  //    vera occupava un decimo dell'altezza: schiacciata in fondo, e nove
+  //    decimi di nero mandati al cervello come se fossero informazione.
+  //
+  //    Ora l'altezza di ogni porzione la dicono i PEZZI che ci stanno dentro,
+  //    non il modello intero. Le scatole si prendono una volta sola qui: 2400
+  //    pezzi per 12 porzioni sono 29.000 confronti, cioe' niente.
+  const pezzi = [];
+  radice.traverse(function (o) {
+    if (!o || !o.isMesh || !o.geometry) return;
+    const b = new THREE.Box3().setFromObject(o);
+    if (b.isEmpty()) return;
+    pezzi.push(b);
+  });
+
   const scena = new THREE.Scene();
   scena.background = null;
   const rimetti = spegniLuci(THREE, radice);
@@ -10863,6 +10887,7 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
 
   const risultati = [];
+  let saltate = 0;
   try {
     scena.add(radice);
     const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
@@ -10875,16 +10900,33 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
         Math.sin(elevRad),
         Math.cos(elevRad) * Math.sin(azimuth),
       );
-      // La porzione di questo giro. L'altezza resta INTERA: si taglia in
-      // pianta, mai in alzato, altrimenti sparirebbero i soffitti, i
-      // mezzanini e le insegne appese, che sono meta' dell'indizio.
+      // La porzione di questo giro: si taglia in pianta, e l'altezza la
+      // dicono i pezzi che ci stanno dentro (vedi il commento sopra).
       const col = i % colonne, rig = Math.floor(i / colonne);
       const x0 = scatola.min.x + dimX * (col / colonne);
       const x1 = scatola.min.x + dimX * ((col + 1) / colonne);
       const z0 = scatola.min.z + dimZ * (rig / righe);
       const z1 = scatola.min.z + dimZ * ((rig + 1) / righe);
-      const sotto = new THREE.Box3(new THREE.Vector3(x0, scatola.min.y, z0),
-                                   new THREE.Vector3(x1, scatola.max.y, z1));
+
+      let yGiu = Infinity, ySu = -Infinity, dentro = 0;
+      for (let k = 0; k < pezzi.length; k++) {
+        const b = pezzi[k];
+        if (b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1) continue;
+        dentro++;
+        if (b.min.y < yGiu) yGiu = b.min.y;
+        if (b.max.y > ySu) ySu = b.max.y;
+      }
+      // Una porzione senza niente dentro non si manda: e' un riquadro nero, e
+      // un riquadro nero non e' un'informazione, e' una domanda sprecata a un
+      // modello che ne ha poche. Quante se ne saltano lo dice il log.
+      if (!dentro) { saltate++; continue; }
+      // Un pavimento perfettamente piatto darebbe altezza zero e la camera
+      // finirebbe dentro al modello: due metri di minimo, che e' una persona.
+      if (!isFinite(yGiu)) { yGiu = scatola.min.y; ySu = scatola.max.y; }
+      if (ySu - yGiu < 2) ySu = yGiu + 2;
+
+      const sotto = new THREE.Box3(new THREE.Vector3(x0, yGiu, z0),
+                                   new THREE.Vector3(x1, ySu, z1));
       const cSotto = sotto.getCenter(new THREE.Vector3());
       // La distanza si ricalcola a ogni angolo: il modello riempie il riquadro
       // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
@@ -10934,6 +10976,7 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
                        porzione: { indice: i + 1, totale: totalePorzioni,
                                    colonna: col + 1, colonne, riga: rig + 1, righe,
                                    larghezzaM: x1 - x0, profonditaM: z1 - z0,
+                                   altezzaM: ySu - yGiu, pezziDentro: dentro,
                                    cmPerPunto: latoM * 100 / Math.max(W, H) } });
     }
     // Le misure vere di CIO' CHE PARTE, non di cio' che il pannello mostra: il
@@ -10953,6 +10996,14 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
         + p0.profonditaM.toFixed(1) + " m \u2014 " + p0.cmPerPunto.toFixed(1)
         + " cm per punto (modello intero: " + dimX.toFixed(1) + "x" + dimZ.toFixed(1)
         + " m, " + (Math.max(dimX, dimZ) * 100 / Math.max(larghezza, altezza)).toFixed(1) + " cm)");
+      if (saltate) console.log("[VERITAS scorci] " + saltate + " porzioni saltate perche' vuote"
+        + " (riquadri neri: non si mandano)");
+      const alt = risultati.map((v) => v.porzione && v.porzione.altezzaM)
+                           .filter((a) => typeof a === "number");
+      if (alt.length) console.log("[VERITAS scorci] altezza inquadrata per porzione: da "
+        + Math.min.apply(null, alt).toFixed(1) + " a " + Math.max.apply(null, alt).toFixed(1)
+        + " m (il modello intero e' alto " + (scatola.max.y - scatola.min.y).toFixed(1)
+        + " m: inquadrare tutta quell'altezza su ogni porzione mandava riquadri quasi vuoti)");
     } catch (e) {}
     renderer.setRenderTarget(bersaglioPrec);
   } finally {
