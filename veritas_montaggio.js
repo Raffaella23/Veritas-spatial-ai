@@ -720,6 +720,11 @@ function applicaNomi(posti) {
   // distingue fra «li scarto tutti» e «la soglia e' troppo stretta»: due guasti
   // diversi con la stessa faccia.
   let volumiUtili = 0, minimaVista = Infinity, candidati = 0;
+  // quante tappe sono state confrontate sul posto in cui erano state MISURATE
+  // e non su quello in cui sono finite dopo lo spostamento: se questo numero e'
+  // zero su un modello a isole, lo spostamento non ha conservato l'origine e il
+  // guasto e' li', non qui.
+  let suPosizioneMisurata = 0;
   const presi = new Set();
   nodi.forEach(function (n, i) {
     let p = null;
@@ -729,7 +734,26 @@ function applicaNomi(posti) {
         Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
       if (p) perCampo++;
     }
-    if (!p && n.pos) {
+    // ⚠️ LA POSIZIONE CHE ERA GIA' CAMBIATA, misurato il 30/08: il circuito
+    //    capiva 7 volumi e una sola tappa su 7 veniva rinominata. Le tappe
+    //    vengono SPOSTATE dopo essere state misurate, per renderle raggiungibili
+    //    a piedi (`appoggiaTappe` / `catenaCamminabile` in index.html ~3050):
+    //    finiscono sugli arredi o lungo il corridoio che li unisce, cioe' non
+    //    piu' sopra la zona da cui sono nate. Confrontarle li' con i volumi
+    //    capiti e' confrontare due cose che non stanno piu' nello stesso posto.
+    //
+    //    Una tappa porta dentro DUE informazioni diverse: dove sta la roba
+    //    (serve per il nome) e dove si mettono i piedi per arrivarci (serve per
+    //    camminare). Lo spostamento riguarda solo la seconda. Il nome si
+    //    accoppia sulla PRIMA, che chi sposta conserva gia' in `posMisurata`.
+    //
+    //    Chi tocca questo punto: non e' un allargamento di soglia. Allargare la
+    //    soglia accoppierebbe la tappa alla zona sbagliata piu' vicina al
+    //    corridoio, con la stessa faccia di un accoppiamento giusto — la merce
+    //    avariata dei KPI finti. Qui si confronta il posto vero, non piu' largo.
+    const posNome = n.posMisurata || n.pos;
+    if (n.posMisurata) suPosizioneMisurata++;
+    if (!p && posNome) {
       let migliore = null, minima = Infinity;
       for (const q of posti) {
         // IL TERZO FILTRO MUTO, trovato il 29/08 sera. Qui si pretendeva ancora
@@ -740,7 +764,7 @@ function applicaNomi(posti) {
         // smascherarlo. Basta il nome, perche' e' il nome che si travasa.
         if (!q || !q.centro || !q.nome) continue;
         candidati++;
-        const d = distanzaXZ(q.centro, n.pos);
+        const d = distanzaXZ(q.centro, posNome);
         if (d < minima) { minima = d; migliore = q; }
       }
       if (migliore && minima < minimaVista) minimaVista = minima;
@@ -780,6 +804,7 @@ function applicaNomi(posti) {
       + (troppoLontane ? ", " + troppoLontane + " oltre i " + SOGLIA_ACCOPPIAMENTO_M + " m" : "")
       + (isFinite(minimaVista) ? ", il piu' vicino a " + minimaVista.toFixed(1) + " m"
                               : ", nessun volume con un nome utilizzabile")
+      + (suPosizioneMisurata ? ", " + suPosizioneMisurata + " confrontate sulla posizione misurata" : "")
       + ". Le tappe restano come stanno.");
     return 0;
   }
@@ -790,7 +815,10 @@ function applicaNomi(posti) {
     + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza"
     + (fuoriElenco ? ", " + fuoriElenco + " con una funzione fuori elenco: tenuto il nome" : "")
     + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
-    + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m)");
+    + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m"
+    + (suPosizioneMisurata ? ", " + suPosizioneMisurata
+        + " confrontate dove erano state misurate, non dove sono state spostate" : "")
+    + ")");
   return n;
 }
 

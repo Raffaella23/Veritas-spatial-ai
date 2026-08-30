@@ -4328,8 +4328,25 @@
       const lato = isGate ? 4 : 3;
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(lato, h, lato),
+        // ⚠️ IL COLORE DELLE TAPPE — chiesto da Raffaella il 30/08 guardando lo
+        //    schermo. Erano tre grigi scuri (0x1F3A5F / 0x2A4A3A / 0x2A2F3A):
+        //    su un modello di aeroporto, che e' grigio e bianco, un volume
+        //    grigio trasparente si confonde con la roba modellata e non si
+        //    capisce piu' cosa e' una tappa e cosa e' l'edificio.
+        //
+        //    Ora una famiglia fredda e satura, che nell'edificio non esiste:
+        //    azzurro per il filtro, verde acqua per la destinazione, ciano per
+        //    tutte le altre. `emissive` serve perche' il volume si veda anche
+        //    in ombra e nei controluce, senza alzare l'opacita' e senza
+        //    nascondere quello che c'e' sotto.
+        //
+        //    ⚠️ Non si usano rosa, arancione e verde chiaro: quelli sono i
+        //    percorsi che VERITAS disegna sulla pianta, e riusarli qui
+        //    farebbe leggere una tappa come un percorso.
         new THREE.MeshStandardMaterial({
-          color: n.type === "filtro" ? 2046559 : isGate ? 2771514 : 2764602,
+          color: n.type === "filtro" ? 0x2E9BFF : isGate ? 0x00E5B0 : 0x00C2D6,
+          emissive: n.type === "filtro" ? 0x2E9BFF : isGate ? 0x00E5B0 : 0x00C2D6,
+          emissiveIntensity: 0.45,
           transparent: true, opacity: 0.65, roughness: 0.6 }));
       box.position.set(n.pos[0], h / 2, n.pos[2]);
       box.castShadow = true; box.receiveShadow = true;
