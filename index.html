@@ -109,6 +109,8 @@
       logout_label: "esci", no_projects: "Nessun progetto ancora",
       new_project_label: "Nuovo progetto", new_project_placeholder: "Nome progetto",
       type_airport: "Aeroporto", type_museum: "Museo", type_gaming: "Gaming",
+      type_hospital: "Ospedale", type_school: "Scuola", type_retail: "Spazio commerciale",
+      type_generic: "Altro edificio",
       create_open_btn: "Crea e apri",
       type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
       type_sosta: "Sosta", type_destinazione: "Destinazione",
@@ -195,6 +197,8 @@
       logout_label: "sign out", no_projects: "No projects yet",
       new_project_label: "New project", new_project_placeholder: "Project name",
       type_airport: "Airport", type_museum: "Museum", type_gaming: "Gaming",
+      type_hospital: "Hospital", type_school: "School", type_retail: "Retail space",
+      type_generic: "Other building",
       create_open_btn: "Create and open",
       type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
       type_sosta: "Sosta", type_destinazione: "Destination",
@@ -442,6 +446,10 @@
         <select id="v-new-type">
           <option value="aeroporto">${t("type_airport")}</option>
           <option value="museo">${t("type_museum")}</option>
+          <option value="ospedale">${t("type_hospital")}</option>
+          <option value="scuola">${t("type_school")}</option>
+          <option value="commerciale">${t("type_retail")}</option>
+          <option value="generico">${t("type_generic")}</option>
           <option value="gaming">${t("type_gaming")}</option>
         </select>
       </div>
@@ -2757,19 +2765,34 @@
   //
   // Un nome preso dal modello NON viene toccato: chi ha modellato lo spazio
   // sapeva cos'era, e vale piu' di chi lo guarda da fuori.
+  // ⚠️ SI LEGGE PER RIGHE, NON PER COLONNE. La riga e' la funzione che l'occhio
+  //    ha visto negli oggetti: quella vale in qualunque edificio, ed e' la sola
+  //    cosa osservata. La colonna e' solo la parola con cui si chiama quella
+  //    funzione in quel tipo di edificio. Se la colonna manca si usa
+  //    `generico`, e non e' un ripiego: e' la risposta giusta per un edificio
+  //    che non rientra in nessuna categoria.
+  //
+  //    Ampliata il 30/08 (ospedale, scuola, spazio commerciale) su richiesta di
+  //    Raffaella: la piattaforma e' agnostica e le tipologie erano tre.
   const ETICHETTA_OCCHI = {
     parcheggio:   { aeroporto: "Parcheggio", museo: "Parcheggio", gaming: "Punto di ritrovo", generico: "Parcheggio" },
-    piazzale:     { aeroporto: "Piazzale d'ingresso", museo: "Sagrato", gaming: "Area aperta", generico: "Piazzale" },
-    pista:        { aeroporto: "Piazzale aeromobili", museo: "Area di servizio", gaming: "Area interdetta", generico: "Area di manovra" },
-    ingresso:     { aeroporto: "Ingresso", museo: "Atrio", gaming: "Spawn", generico: "Ingresso" },
-    accoglienza:  { aeroporto: "Accettazione", museo: "Biglietteria", gaming: "Hub", generico: "Accoglienza" },
-    controlli:    { aeroporto: "Controllo sicurezza", museo: "Controllo accessi", gaming: "Varco", generico: "Filtro" },
-    attesa:       { aeroporto: "Sala d'attesa", museo: "Area di sosta", gaming: "Zona sicura", generico: "Area di sosta" },
-    esposizione:  { aeroporto: "Area espositiva", museo: "Sala espositiva", gaming: "Arena", generico: "Sala" },
-    commerciale:  { aeroporto: "Area commerciale", museo: "Bookshop", gaming: "Mercato", generico: "Area commerciale" },
-    corridoio:    { aeroporto: "Passaggio", museo: "Passaggio", gaming: "Corridoio", generico: "Passaggio" },
-    destinazione: { aeroporto: "Gate", museo: "Uscita", gaming: "Obiettivo", generico: "Destinazione" },
-    servizi:      { aeroporto: "Servizi", museo: "Servizi", gaming: "Deposito", generico: "Servizi" },
+    piazzale:     { aeroporto: "Piazzale d'ingresso", museo: "Sagrato", ospedale: "Piazzale d'ingresso", scuola: "Cortile", gaming: "Area aperta", generico: "Piazzale" },
+    pista:        { aeroporto: "Piazzale aeromobili", museo: "Area di servizio", ospedale: "Area mezzi di soccorso", scuola: "Area di servizio", gaming: "Area interdetta", generico: "Area di manovra" },
+    ingresso:     { aeroporto: "Ingresso", museo: "Atrio", ospedale: "Ingresso", scuola: "Atrio", gaming: "Spawn", generico: "Ingresso" },
+    accoglienza:  { aeroporto: "Accettazione", museo: "Biglietteria", ospedale: "Accettazione", scuola: "Segreteria", commerciale: "Punto informazioni", gaming: "Hub", generico: "Accoglienza" },
+    controlli:    { aeroporto: "Controllo sicurezza", museo: "Controllo accessi", ospedale: "Filtro reparto", scuola: "Portineria", commerciale: "Antitaccheggio", gaming: "Varco", generico: "Filtro" },
+    attesa:       { aeroporto: "Sala d'attesa", museo: "Area di sosta", ospedale: "Sala d'attesa", scuola: "Area di sosta", gaming: "Zona sicura", generico: "Area di sosta" },
+    esposizione:  { aeroporto: "Area espositiva", museo: "Sala espositiva", scuola: "Aula magna", gaming: "Arena", generico: "Sala" },
+    commerciale:  { aeroporto: "Area commerciale", museo: "Bookshop", ospedale: "Punto ristoro", scuola: "Mensa", commerciale: "Area di vendita", gaming: "Mercato", generico: "Area commerciale" },
+    corridoio:    { aeroporto: "Passaggio", museo: "Passaggio", ospedale: "Corridoio di reparto", scuola: "Corridoio", gaming: "Corridoio", generico: "Passaggio" },
+    destinazione: { aeroporto: "Gate", museo: "Uscita", ospedale: "Reparto", scuola: "Aula", gaming: "Obiettivo", generico: "Destinazione" },
+    servizi:      { aeroporto: "Servizi", museo: "Servizi", ospedale: "Servizi", scuola: "Servizi", gaming: "Deposito", generico: "Servizi" },
+    // Funzioni nuove, che nascono dagli oggetti aggiunti al vocabolario
+    // dell'occhio: letti, lettini da visita, banchi scolastici, armadietti.
+    degenza:      { ospedale: "Reparto di degenza", generico: "Area di degenza" },
+    cura:         { ospedale: "Ambulatorio", scuola: "Infermeria", generico: "Ambulatorio" },
+    aula:         { scuola: "Aula", ospedale: "Aula didattica", museo: "Sala didattica", generico: "Aula" },
+    spogliatoio:  { scuola: "Spogliatoio", generico: "Spogliatoio" },
   };
 
   // ===========================================================================

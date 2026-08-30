@@ -149,6 +149,10 @@ const FUNZIONE_DI = Object.freeze({
   // aree di manovra dei mezzi: il pubblico non ci cammina
   runway: "pista", "dirt track": "pista", road: "pista", airplane: "pista",
   ship: "pista", pier: "pista",
+  // ci si sta sdraiati: e' un'area di degenza
+  bed: "degenza", cradle: "degenza",
+  // ci si lavora o si studia seduti a un piano: aula, ufficio, sala lettura
+  "pool table": "esposizione",
   // servizi
   toilet: "servizi", sink: "servizi", shower: "servizi", washer: "servizi",
   "conveyer belt": "servizi", wardrobe: "servizi",
@@ -200,25 +204,87 @@ const NOME_IT = Object.freeze({
 //    qui perche' nel vocabolario pubblicato non esiste un termine equivalente,
 //    e il motivo e' scritto accanto. Se un giorno se ne aggiungono altre,
 //    devono superare la stessa prova.
+// ⚠️ NON SI CHIEDE PER TIPO DI EDIFICIO, SI CHIEDE PER OGGETTO. Riscritto il
+//    30/08 su richiesta di Raffaella: la piattaforma e' agnostica e riceve
+//    scuole, musei, ospedali, negozi, palestre. Un elenco legato all'aeroporto
+//    rende cieco l'occhio davanti a tutto il resto — e la cecita' non si vede
+//    nel log, si vede solo nei volumi che restano senza nome.
+//
+//    Quasi tutte le voci sono ora `domini: "*"`, per lo stesso motivo gia'
+//    scritto piu' sotto per le automobili: un letto in un museo non e' un
+//    errore, e' l'infermeria; un armadietto in un aeroporto e' il deposito
+//    bagagli; un banco scolastico in un ospedale e' l'aula dei tirocinanti.
+//    Chiedere una cosa che non c'e' costa una riga di risposta vuota; non
+//    chiederla costa un volume senza nome.
+//
+//    Restano legate a un dominio solo le due voci che fuori da li' non
+//    significano niente.
 export const AGGIUNTE = Object.freeze([
-  { chiedi: "a check-in counter", nome: "banchi del check-in", funzione: "accoglienza",
-    domini: "aeroporto", perche: "ADE20K ha «counter», ma non distingue un banco di accettazione" },
-  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "controlli",
-    domini: "aeroporto", perche: "nessun termine ADE20K per il punto di filtro obbligato" },
-  { chiedi: "a metal detector", nome: "metal detector", funzione: "controlli",
-    domini: "aeroporto", perche: "idem, ed e' l'oggetto che si vede in pianta" },
-  { chiedi: "a turnstile", nome: "tornelli", funzione: "controlli",
-    domini: "*", perche: "il filtro dei musei e dei trasporti, assente da ADE20K" },
-  { chiedi: "a jet bridge", nome: "pontile d'imbarco", funzione: "destinazione",
-    domini: "aeroporto", perche: "il punto in cui il percorso a piedi finisce" },
-  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizi",
-    domini: "aeroporto", perche: "ADE20K ha «conveyer belt», qui e' piu' preciso" },
+  // --- accoglienza: il punto in cui qualcuno ti riceve ---------------------
+  { chiedi: "a reception desk", nome: "banco di accoglienza", funzione: "accoglienza",
+    domini: "*", perche: "«counter» c'e', ma non dice che dietro ci sta una persona che riceve" },
+  { chiedi: "a check-in counter", nome: "banchi di accettazione", funzione: "accoglienza",
+    domini: "*", perche: "accettazione: aeroporto, ospedale, albergo, fiera" },
+  { chiedi: "a ticket desk", nome: "biglietteria", funzione: "accoglienza",
+    domini: "*", perche: "museo, teatro, stadio, stazione: la funzione e' la stessa" },
   { chiedi: "a self service kiosk", nome: "chioschi", funzione: "accoglienza",
     domini: "*", perche: "il totem di servizio, diverso da «booth»" },
-  { chiedi: "a ticket desk", nome: "biglietteria", funzione: "accoglienza",
-    domini: "museo", perche: "«counter» e' generico: qui la funzione e' precisa" },
+  { chiedi: "a waiting room with rows of seats", nome: "sala d'attesa", funzione: "attesa",
+    domini: "*", perche: "le sedute in fila si vedono, ma nessun termine ADE20K le lega all'attesa" },
+
+  // --- controlli: dove si passa uno per volta ------------------------------
+  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "controlli",
+    domini: "*", perche: "aeroporti, tribunali, stadi, ospedali: il filtro obbligato non e' in ADE20K" },
+  { chiedi: "a metal detector", nome: "metal detector", funzione: "controlli",
+    domini: "*", perche: "e' l'oggetto che si vede in pianta, e non solo in aeroporto" },
+  { chiedi: "a turnstile", nome: "tornelli", funzione: "controlli",
+    domini: "*", perche: "il filtro dei musei e dei trasporti, assente da ADE20K" },
+
+  // --- cura: ospedali, cliniche, ambulatori, infermerie --------------------
+  { chiedi: "a hospital bed", nome: "letti di degenza", funzione: "degenza",
+    domini: "*", perche: "ADE20K ha «bed», ma non distingue un letto di casa da uno di reparto" },
+  { chiedi: "a hospital stretcher", nome: "barelle", funzione: "cura",
+    domini: "*", perche: "dice che li' passano lettighe, quindi il passaggio dev'essere largo" },
+  { chiedi: "a wheelchair", nome: "sedie a rotelle", funzione: null,
+    domini: "*", perche: "non implica una funzione, ma cambia le larghezze che servono" },
+  { chiedi: "a medical examination table", nome: "lettino da visita", funzione: "cura",
+    domini: "*", perche: "l'oggetto che distingue un ambulatorio da un ufficio" },
+  { chiedi: "a medical imaging machine", nome: "apparecchiature diagnostiche", funzione: "cura",
+    domini: "*", perche: "macchinari ingombranti e fissi: vincolano la stanza attorno" },
+  { chiedi: "a nurses station", nome: "postazione infermieri", funzione: "accoglienza",
+    domini: "*", perche: "il presidio di reparto, che non e' ne' un banco ne' un ufficio" },
+
+  // --- didattica: scuole, universita', sale corsi --------------------------
+  { chiedi: "rows of school desks", nome: "banchi scolastici", funzione: "aula",
+    domini: "*", perche: "«desk» e «table» non dicono che sono in file rivolte da una parte" },
+  { chiedi: "a whiteboard or blackboard", nome: "lavagna", funzione: "aula",
+    domini: "*", perche: "l'oggetto che orienta l'aula e ne indica il fronte" },
+  { chiedi: "a lecture hall with tiered seating", nome: "aula a gradoni", funzione: "aula",
+    domini: "*", perche: "ADE20K ha «grandstand», che non e' la stessa cosa di un'aula" },
+  { chiedi: "a row of lockers", nome: "armadietti", funzione: "spogliatoio",
+    domini: "*", perche: "scuole, palestre, piscine, depositi: assente da ADE20K" },
+  { chiedi: "a laboratory bench", nome: "banconi da laboratorio", funzione: "aula",
+    domini: "*", perche: "distingue un laboratorio da un'aula normale" },
+
+  // --- esposizione e vendita ----------------------------------------------
+  { chiedi: "a museum display case", nome: "vetrine espositive", funzione: "esposizione",
+    domini: "*", perche: "ADE20K ha «case», generico: qui la funzione e' precisa" },
+  { chiedi: "supermarket shelving aisles", nome: "scaffalature", funzione: "commerciale",
+    domini: "*", perche: "le corsie di vendita si leggono in pianta come file parallele" },
+  { chiedi: "a checkout counter with cash register", nome: "casse", funzione: "commerciale",
+    domini: "*", perche: "il punto di pagamento: e' un filtro, e fa coda" },
+
+  // --- trasporto: bagagli e mezzi -----------------------------------------
+  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizi",
+    domini: "*", perche: "ADE20K ha «conveyer belt», qui e' piu' preciso" },
   { chiedi: "a luggage trolley", nome: "carrelli", funzione: null,
-    domini: "aeroporto", perche: "non implica una funzione, ma dice che li' si trascinano valigie" },
+    domini: "*", perche: "non implica una funzione, ma dice che li' si trascina qualcosa" },
+
+  // --- le uniche due che restano legate a un dominio -----------------------
+  { chiedi: "a jet bridge", nome: "pontile d'imbarco", funzione: "destinazione",
+    domini: "aeroporto", perche: "fuori da un aeroporto non esiste: il punto in cui il cammino finisce" },
+  { chiedi: "an airport departure gate", nome: "gate d'imbarco", funzione: "destinazione",
+    domini: "aeroporto", perche: "idem: la meta di chi parte, e non significa niente altrove" },
 ]);
 
 /**
