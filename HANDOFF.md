@@ -78,6 +78,68 @@ e uscite.
 
 ---
 
+## 💸 IL BUDGET DEI GETTONI — regola operativa, si legge prima di cominciare
+
+Il 30/08 una sola sessione ha consumato circa il **12% del budget
+settimanale**. Non era previsto: non era stato calcolato. La settimana di
+lavoro che segue ha **sette giornate**, quindi va spartita prima, non dopo.
+
+⚠️ Le percentuali qui sotto sono un **tetto deciso**, non una misura: il
+consumo vero lo vede solo Raffaella nella sua applicazione. Chi lavora si ferma
+al tetto anche se «sembra che ce ne sia ancora».
+
+### I tetti
+
+| | tetto | perché |
+|---|---|---|
+| **Una giornata** | **12%** | sette giornate × 12% = 84%, e resta il 16% per il giorno che va storto — succede, ed è successo |
+| **Una sessione di chat** | **6%** | due sessioni al giorno. Una sessione chiusa a metà giornata consegna un passaggio di consegne pulito; una che muore al 15% lascia il lavoro a metà, e quella dopo deve ricostruire tutto il contesto da capo, pagandolo una seconda volta |
+| **Soglia di atterraggio** | **5%** | qui si smette di aprire roba nuova: si chiude quello che è aperto, si verifica, si consegna il prompt e si aggiorna questo documento |
+
+### Cosa è costato davvero, misurato il 30/08
+
+1. **La lettura integrale di questo documento** (53 KB). Serviva, ma una volta
+   sola. Da adesso: si legge la sezione *DOVE SIAMO* in cima, più le regole
+   rosse, e si va a fondo **solo sul fronte che si tocca in quella sessione**.
+2. **I pezzi di codice stampati in chat.** Ogni `sed -n 'A,Bp'` entra nel
+   contesto e ci resta per tutta la sessione: non è un costo che si paga una
+   volta, è un costo che si ripaga a ogni risposta successiva.
+3. **I log incollati con le tracce di chiamata.** Nel log del mattino, circa
+   **180 righe su 250** erano `funzione @ file:riga` — la stessa catena
+   ripetuta identica decine di volte, con dentro zero informazione. Sono
+   costate più di due letture di codice.
+
+### Le sei regole che ne discendono
+
+1. **Il lavoro sta nella sandbox, non nella chat.** Si scarica, si modifica e
+   si verifica là dentro; in chat arriva solo quello che serve per decidere.
+2. **Mai `grep` su `index.html` senza tagliare** (`| cut -c1-150` o
+   `sed -n 'A,Bp'`). Una riga minificata brucia una sessione in un colpo.
+3. **Il perché lungo va nel messaggio di commit, non nella risposta.** I
+   messaggi di commit non costano contesto e restano per sempre. La risposta in
+   chat dice cosa è cambiato e basta.
+4. **I log si incollano senza le tracce.** Servono le righe `[VERITAS …]`, gli
+   errori e le ultime righe del riepilogo. Le righe che finiscono con
+   `@ file:numero` si buttano: sono la stessa informazione ripetuta.
+5. **Una sola verifica finale per sessione**, non una dopo ogni modifica —
+   tranne il blocco 3, che si controlla a ogni tocco di `index.html` perché lì
+   l'errore è irreversibile.
+6. **Se un passo rischia di sforare il tetto, ci si ferma e lo si dice PRIMA
+   di cominciarlo.** Non a metà.
+
+### Come si spartisce la settimana
+
+Una giornata del piano = un tetto da 12%, in due sessioni. Il giorno più
+carico è quello del referto e della chat interrogabile: se serve, prende il 14%
+attingendo alla riserva, e in cambio il giorno del lancio ne usa 8%, perché
+quel giorno il lavoro è pubblicare, non scrivere codice.
+
+> Il piano dei sette giorni (referti visivi, azioni degli agenti, promozione)
+> **non sta in questo repo**: è un documento di lavoro separato, per la regola
+> del documento di stato unico.
+
+---
+
 ## 🔴 LE REGOLE CHE VENGONO PRIMA DI TUTTO
 
 Nate da un problema misurato: al 24/08/2026 c'erano **due rami e nove
