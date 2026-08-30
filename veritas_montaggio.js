@@ -725,6 +725,10 @@ function applicaNomi(posti) {
   // zero su un modello a isole, lo spostamento non ha conservato l'origine e il
   // guasto e' li', non qui.
   let suPosizioneMisurata = 0;
+  // quante tappe hanno usato la propria estensione misurata invece della
+  // soglia globale: dice se il contenimento sta lavorando o se le zone non
+  // portano l'area con se'.
+  let perContenimento = 0;
   const presi = new Set();
   nodi.forEach(function (n, i) {
     let p = null;
@@ -771,7 +775,30 @@ function applicaNomi(posti) {
       // Un volume non si assegna a due tappe: sarebbe lo stesso posto in due
       // punti diversi. La prima che lo prende se lo tiene; le altre cercano
       // altrove al giro successivo, e se non trovano restano come stanno.
-      if (migliore && minima <= SOGLIA_ACCOPPIAMENTO_M && !presi.has(migliore)) {
+      // ⚠️ LA MISURA GIUSTA E' LA ZONA, NON UN NUMERO UGUALE PER TUTTI.
+      //    Misurato il 30/08 sera, con la posizione gia' corretta qui sopra:
+      //    «7 confrontate sulla posizione misurata, il piu' vicino a 17,7 m,
+      //    soglia 9,4 m». Nessuna accoppiata. Non e' una soglia stretta: e'
+      //    una soglia che confronta cose di scala diversa.
+      //
+      //    Una tappa e' una ZONA (qui una vale circa 900 m2); un volume capito
+      //    e' un ARREDO dentro quella zona. Il centro di un banco non sta mai
+      //    sul centro della sala che lo contiene: 17,7 m e' esattamente la
+      //    distanza normale fra il centro di una stanza e una cosa che ci sta
+      //    dentro. Chiedere che coincidano e' chiedere l'impossibile.
+      //
+      //    Quindi si passa dal CONTENIMENTO: il volume appartiene alla zona se
+      //    cade dentro l'estensione della zona. L'estensione non e' inventata,
+      //    e' l'area misurata (`areaM2`, scritta da `assegnaZoneMisurate`)
+      //    ricondotta a un raggio. Se l'area non c'e' resta la soglia globale.
+      //
+      //    ⚠️ Non alzare il numero globale al posto di questo: una soglia larga
+      //    uguale per tutti farebbe pescare a una stanza piccola gli arredi
+      //    della sala accanto, con la faccia di un accoppiamento giusto.
+      const raggioZona = n.areaM2 > 0 ? Math.sqrt(n.areaM2 / Math.PI) : 0;
+      const portata = Math.max(SOGLIA_ACCOPPIAMENTO_M, raggioZona);
+      if (raggioZona > SOGLIA_ACCOPPIAMENTO_M) perContenimento++;
+      if (migliore && minima <= portata && !presi.has(migliore)) {
         p = migliore; presi.add(migliore); perVicinanza++;
       } else if (migliore) troppoLontane++;
     }
@@ -805,6 +832,7 @@ function applicaNomi(posti) {
       + (isFinite(minimaVista) ? ", il piu' vicino a " + minimaVista.toFixed(1) + " m"
                               : ", nessun volume con un nome utilizzabile")
       + (suPosizioneMisurata ? ", " + suPosizioneMisurata + " confrontate sulla posizione misurata" : "")
+      + (perContenimento ? ", " + perContenimento + " con l'area della zona come portata" : "")
       + ". Le tappe restano come stanno.");
     return 0;
   }
@@ -818,6 +846,8 @@ function applicaNomi(posti) {
     + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m"
     + (suPosizioneMisurata ? ", " + suPosizioneMisurata
         + " confrontate dove erano state misurate, non dove sono state spostate" : "")
+    + (perContenimento ? ", " + perContenimento
+        + " accoppiate dentro la propria area misurata" : "")
     + ")");
   return n;
 }
