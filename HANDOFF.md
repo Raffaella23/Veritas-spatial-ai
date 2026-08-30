@@ -475,44 +475,85 @@ qualunque accoppiamento è una toppa.
    dell'edificio: le disegna VERITAS.** Darle in pasto al cervello è
    guardarsi allo specchio.
 
-### ✅ Fatto il 30/08 — tre commit su `main`
+### ✅ Fatto il 30/08 — sette commit su `main`, e la prima corsa che migliora
 
-| cosa | commit | provato |
-|---|---|---|
-| le zone non escono prima che qualcuno abbia guardato; l'editor si apre da solo | `f48c732` | ⚠️ mai provato |
-| gli scorci inquadrano una porzione, non tutto l'edificio | `7d26f5b` | ⚠️ mai provato |
-| le viste ravvicinate a mazzetti, un mazzetto per giro | `fe75509` | ⚠️ mai provato |
+| cosa | commit |
+|---|---|
+| le zone non escono prima che qualcuno abbia guardato; l'editor si apre da solo | `f48c732` |
+| gli scorci inquadrano una porzione, non tutto l'edificio | `7d26f5b` |
+| le viste a mazzetti, un mazzetto per giro | `fe75509` |
+| l'editor si apre solo per il circuito, non per l'occhio della sola pianta | `13061a9` |
+| **fronte 0**: niente vocabolario d'aeroporto prima di guardare + quinta porta | `68325d0` |
+| gli scorci erano quasi vuoti: l'altezza la dicono i pezzi | `8410d34` |
 
-**L'editor delle zone: esisteva già, ed era spento di proposito.** Domanda di
-Raffaella il 30/08 — *«l'editor delle zone… comincio a chiedermi, è una suite
-di comandi in cui il cliente può sistemare come crede quello che VERITAS
-propone? Non ho mai visto questo passaggio.»* Non l'aveva mai visto perché
-nessuno lo apriva: il pannello `veritas-picker-panel` nasce nascosto e
-`hideCadPanelByDefault()` (~12519) lo richiude anche se qualcuno prova ad
-aprirlo. L'unica via era il pulsante `✎ Editor zone` in barra.
+**Misurato, non sperato.** Le tre corse della giornata, stesso modello:
 
-La sequenza che ora è codice (`f48c732`, blocco 31, in fondo al file):
+| | 29/08 | 30/08 mattina | 30/08 dopo `8410d34` |
+|---|---|---|---|
+| volumi nominati su 23 | 4 | 6 | **7** |
+| giro 2 → giro 3 | fermo | 6 → 6, **fermo** | 5 → **7, sale** |
+| fiducia | 90% | 90% | 80% |
+| parole cercate | parcheggi, piazzali | parcheggi, piazzali | **scale mobili, scivoli per bagagli** |
 
-    modello aperto           ->  nessuna zona a schermo
-    il circuito capisce      ->  le zone compaiono
-    l'editor si apre da solo ->  «controllale: spostale, cambia dimensioni e altezze»
-    il cliente corregge      ->  si applica, e solo dopo si va al report
+Le due righe che contano sono le ultime due. Per la prima volta il **terzo giro
+aggiunge qualcosa** invece di ripetere il secondo: prima il circuito girava a
+vuoto. E le parole che cerca sono passate da cose viste dall'alto e da lontano
+(parcheggi, piazzali) a cose **dentro l'edificio** (scale mobili, scivoli per
+bagagli). La fiducia scende da 90% a 80% ed è un miglioramento: prima era
+sicuro perché non vedeva niente.
 
-Rete di sicurezza: dopo due minuti senza conclusione le zone escono lo stesso,
-con un messaggio che **dichiara di non aver capito**. Non si lascia mai lo
-schermo vuoto senza dirne il motivo. E se il livello «Zone» viene acceso a
-mano, la decisione è dell'utente e il blocco smette di nascondere.
+⚠️ **Il difetto che ha reso inutile lo zoom per mezza giornata, e come si è
+visto.** Nel commento di `7d26f5b` era scritto «l'altezza resta INTERA: si
+taglia in pianta, mai in alzato». Sembra prudente ed è il difetto: il modello
+è alto 15,4 m ma quei metri sono **le code degli aerei**, presenti in 2
+porzioni su 12. Nelle altre c'è un pavimento alto due metri, e la camera
+riempiva il riquadro con una scatola 36×27×15: il soggetto schiacciato in
+fondo, nove decimi di nero spediti al cervello. Non si è visto da nessun
+numero — i 4,8 cm/punto erano giusti sulla carta. Si è visto perché Raffaella
+ha aperto l'anteprima e ha guardato un'immagine. **Le altezze ora vanno da 3,4
+a 14,9 m, e una porzione vuota non si manda più.**
 
-**Il conto degli scorci, che è il motivo del secondo commit.** 147 metri di
-edificio dentro 768 puntini fanno **20 cm per puntino**: una sedia sta in tre
-puntini, una persona in due. Non si vedevano male — non c'erano. Con 12
-porzioni da 36,8 × 27,3 m si scende a **4,8 cm per puntino**: la sedia diventa
-9 puntini, una macchina una sessantina. Le porzioni coprono **tutto**, tubi
-d'imbarco e parcheggio compresi: non è il ritaglio sbagliato del 29/08.
+### 🔴 IL COLLO DI BOTTIGLIA ADESSO: le tappe non stanno dove sta la roba
 
-⚠️ **Regolabile e guardabile senza spendere un giro:**
-`__veritasProvaScorci({latoMassimo: 30})` disegna in fondo allo schermo esattamente
-quello che vedrebbe l'occhio.
+Il circuito capisce 7 volumi, e solo **1 tappa su 7** viene rinominata:
+
+    1 tappe su 7 rinominate dopo la comprensione (1 per corrispondenza esatta,
+    1 per vicinanza, 1 con una funzione fuori elenco: tenuto il nome,
+    6 senza nome dal cervello, soglia 9 m)
+
+Sei tappe su sette non trovano **nessun** volume nominato entro 9 m. Il motivo
+è due righe più su nello stesso log:
+
+    [VERITAS cose] le 7 tappe erano su 6 aree scollegate: solo 3 posti su 7
+    tappe si raggiungono a piedi fra loro: le altre le ho messe lungo il
+    percorso che li unisce.
+    [VERITAS cammino] tappe: 0 appoggiate sul pavimento, 1 gruppi raggiungibili
+
+Le tappe **vengono spostate** dopo essere state misurate, per renderle
+raggiungibili a piedi. Dopo lo spostamento non stanno più sopra la zona da cui
+sono nate, e l'accoppiamento per vicinanza non le ritrova. È l'ultima forma
+del fronte 0: non i nomi, non il momento — la **posizione**.
+
+Due strade, da decidere: accoppiare i nomi **prima** dello spostamento (i
+centri misurati non si muovono), oppure accoppiare per **contenimento**
+(il volume sta dentro l'impronta della zona) invece che per distanza. La
+seconda è più giusta e costa di più.
+
+### Altro dalla corsa del 30/08
+
+- ✅ **Il motore vero su Render si è svegliato**: `traiettoria remota ACCETTATA
+  e in uso al posto di quella locale`, 800 frame, 28 mappe cognitive.
+- 🔴 **L'occhio della sola pianta continua a scrivere «parcheggio» su quattro
+  zone** (fronte 2). In un'altra corsa della stessa giornata rispondeva
+  `HTTP 400`. Non è ridondante: è rotto, e sporca il risultato.
+- 🔴 **Motore fisico**: `unreachable` a ogni ricalcolo, in fase «ricerca punto
+  libero». Gli agenti ripiegano sul percorso pianificato.
+- 🟠 **Le sei tappe scritte a mano nel bundle** (`INGRESSO · ACCETTAZIONE ·
+  CONTROLLO · LOUNGE · GATE A1`) compaiono in barra dal primo istante, prima
+  di qualunque misura: `applyAutoAssignment chiamato, zone: 3, currentNodes: 6`.
+  Sono nel blocco 3 e vanno zittite **da fuori**, come le zone grigie.
+- 🟠 **La chat prende una frase per un nome di zona.** Il cliente deve poter
+  chiedere «quanti banchi servono», non solo dare comandi.
 
 ### ⚠️ Non spiegato, e va spiegato prima di aggiungere altro
 
