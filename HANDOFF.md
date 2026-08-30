@@ -440,20 +440,21 @@ qualunque accoppiamento è una toppa.
 
 ## Cosa fare, in questo ordine
 
-1. 🔴 **PROVARE LA CORSA COMPLETA. Non è ancora stato fatto.** Al 30/08 niente
-   di quanto sotto è mai stato visto girare insieme, ed è il motivo per cui
-   ogni sessione ricomincia a indovinare. Righe da cercare, in ordine:
-   `[VERITAS scorci] … misure vere` → `[VERITAS scorci] porzioni: griglia …
-   cm per punto` → `[VERITAS scorci] giro N: porzioni …` → `[VERITAS editor]
-   modello nuovo: le zone restano nascoste` → `[VERITAS cervello] … stop` →
-   `[VERITAS editor] zone rivelate` → `[VERITAS montaggio] N tappe su 7
-   rinominate`. **Il log va preso intero, dal caricamento del modello in poi:**
-   il 30/08 è arrivato solo il pezzo dell'avvio, che si ferma prima e non
-   contiene nessuna di queste righe.
+1. 🔴 **FAR CONCLUDERE IL CERVELLO INVECE DI FERMARLO A CHIEDERE.** E' il
+   fronte, e i tre commit del 30/08 sera hanno tolto tutto quello che stava
+   davanti. Vedi «IL COLLO DI BOTTIGLIA ADESSO». Da guardare, in quest'ordine:
+   perche' un volume descritto bene («sedute in fila») finisce fra i senza
+   nome; perche' il giro 3 ripete identico il giro 2 invece di riassegnare;
+   perche' la stessa domanda sul volume 7 torna uguale a due giornate di
+   distanza. ⚠️ Non si risolve alzando la soglia di fiducia a caso: si guarda
+   cosa fa il passo di assegnazione con un volume descritto ma incerto.
 
-2. 🔴 **LE ZONE ESCONO AL MOMENTO GIUSTO MA NEL POSTO SBAGLIATO.** `f48c732`
-   sistema **quando** compaiono; **dove** compaiono è ancora il fronte 0. È la
-   prossima riparazione e ora si sa che costa poco (vedi fronte 0).
+2. 🔴 **VERIFICARE A SCHERMO I VOLUMI CON LA FORMA** (`f4ff56a`, mai visto
+   girare al momento della scrittura di questa riga). Cosa si deve vedere: la
+   zona dei controlli come **un solo volume allungato** che la copre, non un
+   cubetto in mezzo; una zona in diagonale disegnata in diagonale. Se compare
+   ancora un cubetto, quel nodo non porta `formaLungo`/`formaLargo` — succede
+   per le zone create a mano dalla chat, ed e' voluto.
 
 3. 🟠 **La chat deve capire l'italiano, non solo i comandi.** Il 30/08
    «assegna le zone e fai partire la simulazione» ha creato una zona chiamata
@@ -485,6 +486,10 @@ qualunque accoppiamento è una toppa.
 | l'editor si apre solo per il circuito, non per l'occhio della sola pianta | `13061a9` |
 | **fronte 0**: niente vocabolario d'aeroporto prima di guardare + quinta porta | `68325d0` |
 | gli scorci erano quasi vuoti: l'altezza la dicono i pezzi | `8410d34` |
+| **fronte 0 · posizione**: il nome si accoppia dove la tappa era stata MISURATA, non dove e' finita dopo lo spostamento | `8256e3c` |
+| i volumi delle tappe non sono piu' grigi: azzurro filtro, verde acqua destinazione, ciano le altre | `8256e3c` |
+| **fronte 0 · contenimento**: la portata dell'accoppiamento e' l'area della zona, non un numero uguale per tutti | `1c4d70a` |
+| **il volume prende la FORMA della zona** — lungo, largo e verso misurati, non un cubetto fisso | `f4ff56a` |
 
 **Misurato, non sperato.** Le tre corse della giornata, stesso modello:
 
@@ -513,31 +518,87 @@ numero — i 4,8 cm/punto erano giusti sulla carta. Si è visto perché Raffaell
 ha aperto l'anteprima e ha guardato un'immagine. **Le altezze ora vanno da 3,4
 a 14,9 m, e una porzione vuota non si manda più.**
 
-### 🔴 IL COLLO DI BOTTIGLIA ADESSO: le tappe non stanno dove sta la roba
+### ✅ FRONTE 0 CHIUSO IL 30/08 SERA — e ha scoperto il collo di bottiglia vero
 
-Il circuito capisce 7 volumi, e solo **1 tappa su 7** viene rinominata:
+**Cos'era.** Il circuito capiva 7 volumi e **1 tappa su 7** veniva rinominata.
+Le tappe **vengono spostate** dopo la misura per renderle raggiungibili a piedi
+(`appoggiaTappe` / `catenaCamminabile`, `index.html` ~3050): finiscono sugli
+arredi o lungo il corridoio che li unisce, non piu' sopra la zona da cui sono
+nate. `applicaNomi` le confrontava li'.
 
-    1 tappe su 7 rinominate dopo la comprensione (1 per corrispondenza esatta,
-    1 per vicinanza, 1 con una funzione fuori elenco: tenuto il nome,
-    6 senza nome dal cervello, soglia 9 m)
+**Riparato in tre passi, ognuno reso possibile dal precedente.**
 
-Sei tappe su sette non trovano **nessun** volume nominato entro 9 m. Il motivo
-è due righe più su nello stesso log:
+1. `8256e3c` — **la posizione.** Una tappa porta due informazioni diverse: dove
+   sta la roba (serve per il nome) e dove si mettono i piedi (serve per
+   camminare). Lo spostamento riguarda solo la seconda. Chi sposta conservava
+   gia' la prima in `posMisurata` e nessuno la usava: ora il confronto si fa li'.
+   ⚠️ Non e' un allargamento di soglia. Allargarla accoppierebbe la tappa alla
+   zona sbagliata piu' vicina al corridoio, con la faccia di un accoppiamento
+   giusto.
 
-    [VERITAS cose] le 7 tappe erano su 6 aree scollegate: solo 3 posti su 7
-    tappe si raggiungono a piedi fra loro: le altre le ho messe lungo il
-    percorso che li unisce.
-    [VERITAS cammino] tappe: 0 appoggiate sul pavimento, 1 gruppi raggiungibili
+2. `1c4d70a` — **il contenimento.** Corretta la posizione, il log ha mostrato il
+   difetto vero: `7 confrontate sulla posizione misurata, il piu' vicino a
+   17.7 m, soglia 9.4 m`. Si confrontavano cose di **scala diversa**: una tappa
+   e' una ZONA (qui ~900 m2, cioe' 17 m di raggio), un volume capito e' un
+   ARREDO che ci sta dentro. Il centro di un banco non coincide mai con il
+   centro della sala che lo contiene. Ora la portata e' l'estensione della zona
+   (`areaM2` → raggio), non un numero uguale per tutti.
 
-Le tappe **vengono spostate** dopo essere state misurate, per renderle
-raggiungibili a piedi. Dopo lo spostamento non stanno più sopra la zona da cui
-sono nate, e l'accoppiamento per vicinanza non le ritrova. È l'ultima forma
-del fronte 0: non i nomi, non il momento — la **posizione**.
+3. `f4ff56a` — **la forma.** Chiesto da Raffaella, ed e' prodotto: «il sistema
+   funziona quando individua tutta la zona dei controlli e mette UN volume
+   allungato che la copre, non un cubetto dentro». Le sedute e i banchi sono gli
+   INDIZI che danno il nome; la tappa e' **l'ambito funzionale intero**. Lungo e
+   largo si ricavavano gia'; mancava il **verso**, e una fila in diagonale
+   veniva disegnata dritta. Ora dove si contano le celle di ogni zona si
+   accumulano i momenti secondi: dalla dispersione escono lato lungo, lato corto
+   e angolo, senza un secondo giro.
+   ⚠️ Il rettangolo non dichiara mai piu' pavimento di quanto ne sia stato
+   misurato: su una zona a L si stringe in proporzione.
+   ⚠️ L'altezza NON e' misurata per zona e resta quella del ruolo (2 / 2,2 /
+   3,5 m). E' dichiarato nel commento: non si finga che venga dal modello.
 
-Due strade, da decidere: accoppiare i nomi **prima** dello spostamento (i
-centri misurati non si muovono), oppure accoppiare per **contenimento**
-(il volume sta dentro l'impronta della zona) invece che per distanza. La
-seconda è più giusta e costa di più.
+**Anche il colore** (`8256e3c`): i volumi erano tre grigi scuri e su un modello
+grigio e bianco si confondevano con l'edificio. Ora azzurro (filtro), verde
+acqua (destinazione), ciano (le altre), con `emissive` e uno spigolo acceso;
+sopra i 30 m2 d'impronta l'opacita' scende, cosi' un volume esteso non nasconde
+quello che copre. ⚠️ Rosa, arancione e verde chiaro restano ai percorsi che
+VERITAS disegna sulla pianta: riusarli qui farebbe leggere una tappa come un
+percorso.
+
+### 🔴 IL COLLO DI BOTTIGLIA ADESSO: IL CERVELLO NON OSA NOMINARE
+
+Corsa del 30/08 sera, con tutto quanto sopra attivo:
+
+    1 tappe su 7 rinominate (1 esatta, 1 per vicinanza, 1 fuori elenco,
+    6 senza nome dal cervello, soglia 9 m, 7 confrontate dove erano state
+    misurate, 2 accoppiate dentro la propria area misurata)
+
+    18 volumi su 23 restano senza nome.
+    giro 1: 0 nominati, 23 senza nome, fiducia 95%
+    giro 2: 5 nominati, 18 senza nome, fiducia 80%
+    giro 3: 5 nominati, 18 senza nome, fiducia 80%
+
+**I meccanismi nuovi hanno lavorato** — «7 confrontate dove erano state
+misurate», «2 dentro la propria area» — ma con **5 volumi nominati su 23** piu'
+di 5 tappe su 7 non potevano prendere un nome in nessun caso: l'accoppiamento
+non ha materiale. **Non e' piu' un problema di geometria.**
+
+⚠️ **E non e' l'occhio troppo lontano.** La prova e' la domanda che fa da solo:
+*«il volume 7 e' un rettangolo largo con delle sedute in fila: che spazio e'?»*
+Le sedute le vede, e le vede in fila. Un occhio lontano non descrive delle
+sedute. Manca il passo da **«sedute» a «sala d'attesa»**: descrive e poi
+chiede, invece di concludere. La domanda va in chat, nessuno risponde, e il
+giro 3 ripete identico il giro 2 — il circuito ha smesso di imparare.
+
+⚠️ **Il volume 7 e' la stessa domanda del 29/08.** Allora era «un rettangolo
+largo con delle sedute in fila» per due volumi diversi; oggi torna uguale.
+Chi ci mette mano guardi anche perche' quella domanda si ripete invece di
+essere consumata.
+
+⚠️ Regola 0 punto 5 dice «se non sa, chiede» — e va tenuta. Il difetto non e'
+che chiede: e' che chiede **anche quando sa**, e chiedendo si ferma. Sedute in
+fila dentro un rettangolo largo e' un'inferenza architettonica normale, non un
+salto nel buio: va nominata con fiducia dichiarata, non trasformata in domanda.
 
 ### ⚠️ Due cose da NON rifare, misurate il 30/08
 
