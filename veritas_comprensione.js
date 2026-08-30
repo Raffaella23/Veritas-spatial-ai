@@ -291,7 +291,7 @@ export function volumiPerCervello(posti) {
 //    parola la deve tirare fuori lui guardando. Dentro possono entrare un
 //    ospedale, una scuola, un museo, un parcheggio.
 
-export function promptSguardo(quanteViste, mettiAFuoco) {
+export function promptSguardo(quanteViste, mettiAFuoco, rappresentazione) {
   return [
     "Guarda queste " + quanteViste + " immagini: sono lo stesso posto visto da",
     "punti di vista diversi. La pianta dall'alto mostra TUTTO l'edificio. Gli",
@@ -299,6 +299,29 @@ export function promptSguardo(quanteViste, mettiAFuoco) {
     "stesso edificio: non sono edifici diversi, e quello che vedi in uno scorcio",
     "e' un pezzo di cio' che si vede nella pianta. Non concludere che l'edificio",
     "e' piccolo perche' in uno scorcio ne vedi poco.",
+    "",
+    "",
+    "COME SI GUARDA UN MODELLO DI ARCHITETTURA. Non e' una fotografia: e' un",
+    "modello costruito per farsi guardare, e chi lo ha fatto ha tolto dei pezzi",
+    "apposta.",
+    "- Un soffitto che manca, un tetto assente, una parete tagliata: e' uno",
+    "  SPACCATO, cioe' il modo di mostrare il dentro. Non e' un edificio rotto e",
+    "  soprattutto non e' uno spazio all'aperto. Una stanza scoperchiata resta una",
+    "  stanza: guarda che cosa ha ATTORNO, non che cosa ha sopra.",
+    "- Si sta all'aperto quando mancano i MURI attorno, non quando manca il tetto.",
+    "  Un cortile e' circondato dall'edificio; un piazzale confina col fuori da",
+    "  piu' lati.",
+    "- In pianta i muri sono le linee spesse e continue: dove si interrompono c'e'",
+    "  un passaggio, una porta o una vetrata. Le file di segni uguali e ripetuti",
+    "  sono arredi in serie (sedute, banchi, letti, scaffali, posti auto), non",
+    "  decorazioni.",
+    "- Campiture, retini e tratteggi distinguono un materiale o un uso, non un",
+    "  oggetto: due aree riempite allo stesso modo fanno probabilmente la stessa",
+    "  cosa.",
+    ...(rappresentazione ? [
+      "- Di questo modello si e' gia' stabilito che e': " + rappresentazione + ".",
+      "  Tienilo presente e non ricominciare a chiederti se l'edificio e' rotto o",
+      "  incompleto."] : []),
     "",
     "Non ti do nessun elenco e non ti chiedo di cercare niente in particolare.",
     "Guarda e dimmi cosa vedi, con parole tue.",
@@ -1085,7 +1108,14 @@ export async function comprendiGuardando(ctx) {
         + "se ci sono arredi, mezzi o attrezzature che al primo sguardo ti sono sfuggiti.";
     try {
       const viGiro = viste(2 + n);
-      const r = await ctx.cervello(promptSguardo(viGiro.length, mettiAFuoco),
+      // Quello che il cervello ha gia' stabilito su COME glielo stanno
+      // mostrando torna all'occhio: senza, l'occhio riparte a mani nude ogni
+      // giro e un ambiente scoperchiato ridiventa un cortile.
+      const comeMeLoMostrano = [studio.rappresentazione,
+        (studio.cosaManca && studio.cosaManca.length
+          ? "manca " + studio.cosaManca.join(", ") : null)]
+        .filter((x) => x && x !== "non so").join(", ") || null;
+      const r = await ctx.cervello(promptSguardo(viGiro.length, mettiAFuoco, comeMeLoMostrano),
         { immagine: ctx.pianta, immagini: viGiro, passo: "sguardo", giro: n + 1 });
       conservaRisposta("sguardo", r, null);
       const s2 = leggiSguardo(r);
