@@ -909,6 +909,45 @@ function applicaNomi(posti) {
       + ". Le tappe restano come stanno.");
     return 0;
   }
+  // ⚠️ IL RIEMPIMENTO CHE RESTAVA LI' ACCANTO. Con le tappe nuove nate qui
+  //    sopra ci sono ora DUE liste nella stessa scena: quelle capite guardando
+  //    e quelle piazzate prima che qualcuno guardasse, ordinando le zone per
+  //    la X. Tenerle tutte e due vuol dire mostrare la stessa sala due volte,
+  //    con due nomi diversi, e far passare i percorsi da tappe che nessuno ha
+  //    mai riconosciuto: e' cosi' che nasce un `nessuna strada` fra due punti
+  //    che sul modello sono collegatissimi.
+  //
+  //    Quindi il riempimento si toglie — ma SOLO quello, e solo quando c'e'
+  //    qualcosa al suo posto. Si toglie una tappa se ha tutte e tre:
+  //      1. `origine === "misura"` — nessuno ha mai messo un nome sopra:
+  //         ne' il progetto (`bim`), ne' il modello (`nome+misura`), ne' un
+  //         giro precedente del circuito (`comprensione`);
+  //      2. nessun volume capito le si e' accoppiato in questo giro;
+  //      3. l'utente non l'ha toccata a mano (`n.manuale`): quello che decide
+  //         una persona non si cancella mai da soli.
+  //
+  //    ⚠️ E non si scende sotto TRE tappe capite. Sotto quel numero non c'e'
+  //    un percorso da fare, e restare col riempimento e' meno peggio che
+  //    restare senza niente — e' la stessa cautela scritta nel documento:
+  //    non si toglie la fila prima di avere qualcosa che la sostituisca.
+  const nominati = new Set();
+  for (const a of assegnate) { const n = nodi[a.indice]; if (n) nominati.add(n); }
+  let tolte = 0;
+  if (nominati.size >= 3) {
+    for (const a of assegnate) a.__nodo = nodi[a.indice];
+    const tenuti = nodi.filter(function (n) {
+      const riempimento = n.origine === "misura" && !nominati.has(n) && !n.manuale;
+      if (riempimento) tolte++;
+      return !riempimento;
+    });
+    if (tolte) {
+      nodi.length = 0;
+      for (const n of tenuti) nodi.push(n);
+      for (const a of assegnate) a.indice = nodi.indexOf(a.__nodo);
+    }
+    for (const a of assegnate) delete a.__nodo;
+  }
+
   // `fonte` dice CHI ha guardato: serve alla porta per non farsi riscrivere
   // sopra dall'occhio della sola pianta, e per far vincere il nome letto.
   const n = window.__veritasApplicaOcchi({ assegnate, fonte: "comprensione" }, nodi);
@@ -918,6 +957,7 @@ function applicaNomi(posti) {
     + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
     + (giaPrese ? ", " + giaPrese + " volumi gia' presi da un'altra tappa: passata al successivo" : "")
     + (nate ? ", " + nate + " tappe nuove nate dai volumi capiti che non ne avevano una" : "")
+    + (tolte ? ", " + tolte + " tappe del riempimento iniziale tolte: nessuno le aveva mai riconosciute" : "")
     + (deboli ? ", " + deboli + " volumi capiti ma troppo incerti per farne una tappa" : "")
     + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m"
     + (suPosizioneMisurata ? ", " + suPosizioneMisurata
