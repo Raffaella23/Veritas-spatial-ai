@@ -140,6 +140,67 @@ quel giorno il lavoro è pubblicare, non scrivere codice.
 
 ---
 
+## 🎯 LA DIREZIONE DI PRODOTTO — decisa il 30/08, vale da qui in avanti
+
+Mancava, e senza questa le sessioni successive rifarebbero scelte già fatte.
+
+### Gli otto referti (sono il prodotto che si vende)
+
+1. **Pianta della comprensione** — zone, nomi, funzioni. C'è già.
+2. **Mappa delle strozzature** — la larghezza libera misurata, in rosso sotto
+   0,90 m, col numero scritto sopra. **È il referto più vendibile.**
+3. **Mappa dell'affollamento** — persone/m² al picco.
+4. **Linee di flusso** — traiettorie, più spesse dove passano in tanti.
+5. **Isovista** — cosa si vede da un punto.
+6. **Visibilità dei punti notevoli** — da dove si vede l'uscita, il cartello.
+7. **Doppia accessibilità** — la stessa pianta a 1,65 m e a 1,20 m, affiancate.
+8. **Tempi di uscita.**
+
+Più la **copertina**: che edificio è, quanti m², quanta fiducia, e in fondo
+l'elenco di quello che NON è stato misurato. È la pagina per cui un ingegnere
+si fida.
+
+### Le regole del disegno, decise una volta
+
+- **Il tratteggio significa dubbio**: fiducia bassa si campisce a tratteggio,
+  mai a tinta piena. Si capisce senza leggere la legenda.
+- **Il grigio significa non misurato.** Nessun riempimento inventato.
+- **Non si colora mai una larghezza che non è stata misurata.** Resta bianca e
+  finisce nell'elenco del non misurato. È l'onestà del sistema tradotta in
+  disegno.
+- Sette colori per le sette categorie, sempre gli stessi in tutti i referti.
+- Ogni immagine porta scala grafica, data e **la scala applicata** (7,3× su
+  questo modello). Un referto senza scala dichiarata non è un referto.
+
+### Le azioni degli agenti — sei, non di più
+
+**VAI** a un punto · **ASPETTA** · **USA** un oggetto (banco, tornello, cassa,
+bottone) · **GUARDA** un punto · **SCEGLI** fra due strade · **ESCI**.
+
+Bastano per un check-in, un triage, un cambio d'aula, una cassa, un'evacuazione.
+
+**Il pezzo forte, e la frase da usare in ogni presentazione:**
+
+> L'occhio trova il banco. Il banco diventa un'azione. L'azione fa la coda.
+> La coda fa il numero che il cliente deve decidere.
+
+Ogni oggetto che l'occhio riconosce diventa un **punto d'interazione** con
+posizione, capienza, tempo di servizio proposto e verso della coda. Le azioni
+si scrivono **in italiano dalla chat**, non con un pannello di parametri. La
+domanda che vale soldi è «quanti banchi servono per stare sotto i dieci
+minuti»: si risponde **provando**, non stimando.
+
+### Il registro
+
+Tutte le risposte della chat vengono da **un registro unico** di ciò che è
+stato misurato — volumi, larghezze, aperture, distanze, visibilità, tempi,
+code — dove ogni voce porta il valore, **come si è saputo** (misurato / visto /
+dichiarato dal file / detto da Raffaella) e quanto è affidabile. La chat non
+risponde a memoria: se non è nel registro, dice che non lo sa. È anche ciò che
+impedisce di inventare zone come «Le Zone».
+
+---
+
 ## 🔴 LE REGOLE CHE VENGONO PRIMA DI TUTTO
 
 Nate da un problema misurato: al 24/08/2026 c'erano **due rami e nove
