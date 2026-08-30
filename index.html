@@ -3499,6 +3499,11 @@
         // dover rifare l'analisi.
         origine: dato ? "nome+misura" : "misura",
         areaM2: z.areaM2 || null,
+        // la forma misurata viaggia col nodo: e' lei a dare le dimensioni del
+        // volume disegnato, al posto del cubetto di misura fissa.
+        formaLungo: z.formaLungo || null,
+        formaLargo: z.formaLargo || null,
+        formaAngolo: typeof z.formaAngolo === "number" ? z.formaAngolo : null,
       });
     });
 
@@ -3774,6 +3779,9 @@
         widthMinor,
         widthMajor,
         areaM2: z.areaM2,
+        formaLungo: z.formaLungo || null,
+        formaLargo: z.formaLargo || null,
+        formaAngolo: typeof z.formaAngolo === "number" ? z.formaAngolo : null,
         role: z.kind === "corridoio" ? "corridoio" : "area",
         flagged: z.kind === "corridoio" && widthMinor < CORRIDOR_MIN_WIDTH,
         floorIdx: z.floorIdx || 0,
@@ -4325,9 +4333,31 @@
     currentNodes.forEach((n) => {
       const isGate = n.type === "destinazione";
       const h = isGate ? 3.5 : n.type === "filtro" ? 2.2 : 2;
+      // ⚠️ IL VOLUME PRENDE LA FORMA DELLA ZONA, non una misura fissa.
+      //    Chiesto da Raffaella il 30/08: «il sistema funziona quando individua
+      //    tutta la zona dei controlli e mette UN volume allungato che la
+      //    copre, non un cubetto dentro». Le sedute e i banchi sono gli indizi
+      //    che danno il nome; la tappa e' l'ambito funzionale intero.
+      //
+      //    Lungo, largo e verso arrivano misurati dal motore geometrico
+      //    (`formaLungo`/`formaLargo`/`formaAngolo`, scritti dove si contano le
+      //    celle di ogni zona). Il cubetto di 3 o 4 m resta solo per i nodi che
+      //    la forma non ce l'hanno — un nodo creato a mano dalla chat, per
+      //    esempio: meglio un cubetto onesto che una forma inventata.
+      //
+      //    L'altezza NON e' misurata per zona e resta quella del ruolo: si
+      //    dichiara qui invece di far finta che venga dal modello.
       const lato = isGate ? 4 : 3;
+      const haForma = n.formaLungo > 0 && n.formaLargo > 0;
+      const dLungo = haForma ? n.formaLungo : lato;
+      const dLargo = haForma ? n.formaLargo : lato;
+      // Un volume grande che copre mezzo terminale non deve nascondere quello
+      // che c'e' sotto: piu' e' esteso, piu' e' trasparente. Sotto i 30 m2
+      // resta l'opacita' di prima.
+      const impronta = dLungo * dLargo;
+      const opac = impronta <= 30 ? 0.65 : Math.max(0.16, 0.65 * Math.sqrt(30 / impronta));
       const box = new THREE.Mesh(
-        new THREE.BoxGeometry(lato, h, lato),
+        new THREE.BoxGeometry(dLungo, h, dLargo),
         // ⚠️ IL COLORE DELLE TAPPE — chiesto da Raffaella il 30/08 guardando lo
         //    schermo. Erano tre grigi scuri (0x1F3A5F / 0x2A4A3A / 0x2A2F3A):
         //    su un modello di aeroporto, che e' grigio e bianco, un volume
@@ -4347,10 +4377,25 @@
           color: n.type === "filtro" ? 0x2E9BFF : isGate ? 0x00E5B0 : 0x00C2D6,
           emissive: n.type === "filtro" ? 0x2E9BFF : isGate ? 0x00E5B0 : 0x00C2D6,
           emissiveIntensity: 0.45,
-          transparent: true, opacity: 0.65, roughness: 0.6 }));
+          transparent: true, opacity: opac, roughness: 0.6 }));
       box.position.set(n.pos[0], h / 2, n.pos[2]);
+      // il verso misurato: un rettangolo in diagonale va disegnato in diagonale
+      if (haForma && typeof n.formaAngolo === "number") box.rotation.y = -n.formaAngolo;
       box.castShadow = true; box.receiveShadow = true;
       grp.add(box);
+      // Su un volume molto trasparente lo spigolo e' l'unica cosa che dice
+      // fin dove arriva la zona: senza, un'estensione grande si legge come una
+      // velatura e non come un confine.
+      if (haForma) {
+        const bordi = new THREE.LineSegments(
+          new THREE.EdgesGeometry(box.geometry),
+          new THREE.LineBasicMaterial({
+            color: n.type === "filtro" ? 0x2E9BFF : isGate ? 0x00E5B0 : 0x00C2D6,
+            transparent: true, opacity: 0.85 }));
+        bordi.position.copy(box.position);
+        bordi.rotation.copy(box.rotation);
+        grp.add(bordi);
+      }
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(1.2, 1.6, 24),
         new THREE.MeshBasicMaterial({
@@ -15150,9 +15195,19 @@ export function segmentZones(grid, ft, opts = {}) {
     const L = labels[i];
     if (L === -1) continue;
     let a = acc.get(L);
-    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0 }; acc.set(L, a); }
+    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0,
+                    sumXX: 0, sumZZ: 0, sumXZ: 0 }; acc.set(L, a); }
     const x = i % w, z = (i - x) / w;
     a.cells++; a.sumX += x; a.sumZ += z;
+    // ⚠️ I MOMENTI SECONDI SERVONO ALLA FORMA, non alle statistiche.
+    //    Chiesto da Raffaella il 30/08: il volume di una tappa deve prendere
+    //    la forma dell'ambito funzionale — tutta la fila dei controlli sotto
+    //    un unico parallelepipedo allungato — non un cubetto standard messo
+    //    in mezzo. Per farlo servono tre cose: quanto e' lunga la zona, quanto
+    //    e' larga, e COM'E' GIRATA. Le prime due si ricavavano gia' dall'area;
+    //    il verso no, e senza verso una fila in diagonale veniva disegnata
+    //    dritta. Questi tre accumuli lo danno senza un secondo giro sulle celle.
+    a.sumXX += x * x; a.sumZZ += z * z; a.sumXZ += x * z;
     if (dist[i] > a.maxClearance) a.maxClearance = dist[i];
   }
 
@@ -15160,9 +15215,39 @@ export function segmentZones(grid, ft, opts = {}) {
   for (const a of acc.values()) {
     const areaM2 = a.cells * cellArea;
     if (areaM2 < minArea) continue;
+    // La forma della zona, misurata: due lati e un verso.
+    //
+    // Si ricava dalla dispersione delle celle attorno al proprio centro. Per
+    // un rettangolo pieno la dispersione vale il lato diviso radice di 12,
+    // quindi il lato si riottiene esatto; per una zona storta si ottiene il
+    // rettangolo che meglio la rappresenta, che e' quello che serve a
+    // disegnarla. L'angolo e' quello del lato lungo nel piano orizzontale.
+    //
+    // ⚠️ Il rettangolo non puo' dichiarare piu' pavimento di quanto ne sia
+    //    stato misurato: su una zona a L i due lati ne promettono troppo. Se
+    //    succede si stringono tutti e due in proporzione, e il volume resta
+    //    dentro l'area vera. Promettere superficie che non c'e' e' la stessa
+    //    merce avariata di un KPI finto.
+    const mx = a.sumX / a.cells, mz = a.sumZ / a.cells;
+    const cxx = Math.max(0, a.sumXX / a.cells - mx * mx) * cellSize * cellSize;
+    const czz = Math.max(0, a.sumZZ / a.cells - mz * mz) * cellSize * cellSize;
+    const cxz = (a.sumXZ / a.cells - mx * mz) * cellSize * cellSize;
+    const media = (cxx + czz) / 2;
+    const scarto = Math.sqrt(Math.max(0, ((cxx - czz) / 2) * ((cxx - czz) / 2) + cxz * cxz));
+    let lungo = Math.sqrt(12 * Math.max(0, media + scarto));
+    let largo = Math.sqrt(12 * Math.max(0, media - scarto));
+    const angolo = 0.5 * Math.atan2(2 * cxz, cxx - czz);
+    if (lungo * largo > areaM2 && lungo * largo > 0) {
+      const k = Math.sqrt(areaM2 / (lungo * largo));
+      lungo *= k; largo *= k;
+    }
     zones.push({
       label: a.label,
       areaM2: +areaM2.toFixed(2),
+      // forma misurata: lato lungo, lato corto, e di quanto e' girato
+      formaLungo: +lungo.toFixed(2),
+      formaLargo: +largo.toFixed(2),
+      formaAngolo: +angolo.toFixed(4),
       centroidX: minX + (a.sumX / a.cells + 0.5) * cellSize,
       centroidZ: minZ + (a.sumZ / a.cells + 0.5) * cellSize,
       y: levelY,
