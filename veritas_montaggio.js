@@ -935,11 +935,39 @@ function applicaNomi(posti) {
   let tolte = 0;
   if (nominati.size >= 3) {
     for (const a of assegnate) a.__nodo = nodi[a.indice];
+    // ⚠️ MISURATO SUBITO DOPO, e il filtro qui non bastava: «20 tappe nuove
+    //    nate», zero tolte. Le tappe del riempimento su questo modello non
+    //    hanno `origine === "misura"` ma `"nome+misura"`, perche' portano
+    //    addosso il nome della MESH del GLB — «seduta 1», «Cube.083». Un nome
+    //    di mesh e' il nome di un OGGETTO, non di uno spazio, ed e'
+    //    esattamente il caso per cui la quinta porta di
+    //    `__veritasApplicaOcchi` (30/08) fa gia' vincere la comprensione sui
+    //    nomi del modello. Qui vale la stessa gerarchia, per la stessa
+    //    ragione: chi ha guardato pianta e porzioni batte una stringa di
+    //    export. Il BIM no: `origine === "bim"` lo scrive chi ha progettato
+    //    l'edificio e non si tocca, mai.
+    const RIEMPIMENTO = ["misura", "nome+misura"];
     const tenuti = nodi.filter(function (n) {
-      const riempimento = n.origine === "misura" && !nominati.has(n) && !n.manuale;
+      const riempimento = RIEMPIMENTO.indexOf(n.origine) >= 0
+        && !nominati.has(n) && !n.manuale;
       if (riempimento) tolte++;
       return !riempimento;
     });
+    // ⚠️ LA SIMULAZIONE HA BISOGNO DI UN DA DOVE E DI UN VERSO DOVE. I ruoli
+    //    li legge il motore, non i nomi: se fra le tappe che restano non c'e'
+    //    nessuna origine o nessuna destinazione, nessuno parte e nessuno
+    //    arriva — flusso zero, che e' peggio di una tappa nel posto sbagliato.
+    //    In quel caso la ripulitura si ANNULLA per intero e lo si scrive: non
+    //    si tiene mezza scena pulita e mezza rotta. Finche' il ruolo non lo da'
+    //    il riconoscimento, il riempimento e' l'unica cosa che lo porta, e si
+    //    tiene sapendolo.
+    const haRuolo = (r) => tenuti.some((n) => n.type === r && !n.escluso);
+    if (tolte && !(haRuolo("origine") && haRuolo("destinazione"))) {
+      log("le " + tolte + " tappe del riempimento restano: senza di loro non"
+        + " ci sarebbe ne' una partenza ne' un arrivo, e nessuno camminerebbe."
+        + " I nomi capiti sono comunque applicati.");
+      tolte = 0;
+    }
     if (tolte) {
       nodi.length = 0;
       for (const n of tenuti) nodi.push(n);
