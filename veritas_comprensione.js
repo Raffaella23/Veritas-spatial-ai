@@ -77,6 +77,16 @@ export const GIRI_MASSIMI = 2;
 // un mazzetto per giro, con la pianta INTERA sempre presente in ognuno.
 export const VISTE_PER_GIRO = 4;
 
+// Quanti volumi si chiedono in UNA telefonata. Non e' una preferenza: e' la
+// resa misurata del modello locale. Il 30/08 gli sono stati passati 23 volumi
+// in un colpo e ha risposto con 222 gettoni su 2500 concessi, nominandone 3 e
+// chiudendo: non e' stato troncato da noi, si e' fermato da solo. Un modello
+// da 7 miliardi risponde sui primi elementi di una lista lunga e considera
+// finito il lavoro. A mazzetti corti li nomina tutti, al prezzo di piu'
+// telefonate: e' esattamente lo scambio che conviene, perche' le telefonate
+// sono gratis e i volumi senza nome no.
+export const VOLUMI_PER_MAZZETTO = 6;
+
 // Sotto questa fiducia dichiarata dal cervello, «ho capito» non basta.
 // Un modello che dice «ho capito, fiducia 0.3» sta dicendo «non ho capito».
 export const FIDUCIA_PER_AGIRE = 0.7;
@@ -496,6 +506,9 @@ export function promptAssegnazione(studio, volumi, testimonianza, giaFatto) {
     "",
     "Questi sono i volumi MISURATI dentro lo spazio. Le posizioni e le aree sono",
     "certe e non si discutono: `centro` e' [x, z] in metri, come sulla pianta.",
+    "Sono POCHI apposta: e' un mazzetto, non tutto l'edificio. Nominali TUTTI,",
+    "uno per uno, senza saltarne nessuno. Degli altri volumi ti occupi dopo, in",
+    "un'altra telefonata: non e' un tuo problema adesso.",
     JSON.stringify(volumi, null, 2),
     ...(testimonianza ? ["",
       "E questo e' quello che l'occhio ha visto nelle immagini, con parole sue.",
@@ -923,18 +936,18 @@ export async function comprendiGuardando(ctx) {
                   capito: studio.capito, paroleChieste: [], dubbi: 0 }];
   if (typeof ctx.onGiro === "function") ctx.onGiro(giri[0]);
 
-  // Se non ha capito che posto e', non si passa oltre: assegnare nomi da una
-  // tipologia sbagliata li sbaglierebbe tutti, in modo credibile.
-  if (!studio.capito || studio.fiducia < FIDUCIA_PER_AGIRE) {
-    return {
-      ok: true, capito: false, agire: false,
-      cosaE, fiducia: studio.fiducia, studio, posti, giri, dubbi: [],
-      domandaUmana: studio.domandaUmana
-        || ("Non sono sicuro di che tipo di spazio sia questo. Me lo sai dire tu?"),
-      perche: "il cervello non ha stabilito con sicurezza che posto e'",
-      quotaSenzaNome: 1,
-    };
-  }
+  // ⚠️ QUI C'ERA UN CANCELLO, ed e' stato tolto il 30/08 su decisione di
+  //    Raffaella: «il cervello non deve bloccare la visione, ma chiedere
+  //    conferma». Prima, se non era sicuro del TIPO di edificio, si fermava
+  //    qui e nessun volume veniva nemmeno guardato: un dubbio solo spegneva
+  //    tutto il resto. Adesso il dubbio si dichiara e si va avanti lo stesso.
+  //    Un volume con le sedute in fila e' una sala d'attesa in un aeroporto,
+  //    in un ospedale e in un museo: il tipo di edificio serve a rifinire i
+  //    nomi, non a permettere di leggere lo spazio.
+  const dubbioTipo = (!studio.capito || studio.fiducia < FIDUCIA_PER_AGIRE)
+    ? (studio.domandaUmana
+       || "Non sono sicuro di che tipo di spazio sia questo: me lo confermi tu?")
+    : null;
 
   // --- (2) L'ANELLO: assegna, e se non basta manda l'occhio a cercare -------
   const paroleAccumulate = [];
@@ -949,38 +962,84 @@ export async function comprendiGuardando(ctx) {
   let sicuro = false, coperto = false;
 
   for (let n = 1; n <= giriMassimi; n++) {
-    let rispostaAss;
-    try {
-      rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza || sguardoInParole(sguardo), giaFatto),
-        { immagine: ctx.pianta, immagini: viste(1 + n), passo: "assegnazione", giro: n });
-    } catch (e) {
-      conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
+    // I volumi ancora anonimi, spezzati in mazzetti corti. Al primo giro sono
+    // tutti; dal secondo restano solo quelli rimasti, cosi' il giro nuovo non
+    // rifa' il lavoro gia' fatto ma lo completa.
+    const daFare = volumi.filter((v) => !(posti[v.id] && posti[v.id].nome));
+    const mazzetti = [];
+    for (let i = 0; i < daFare.length; i += VOLUMI_PER_MAZZETTO) {
+      mazzetti.push(daFare.slice(i, i + VOLUMI_PER_MAZZETTO));
+    }
+    if (!mazzetti.length) break;
+
+    const unite = [], senzaUniti = [];
+    let sommaFiducia = 0, mazzettiRiusciti = 0, capitoTutti = true, ultimoGuaio = null;
+
+    for (let m = 0; m < mazzetti.length; m++) {
+      const mazzo = mazzetti[m];
+      const dove = "mazzetto " + (m + 1) + "/" + mazzetti.length + " (" + mazzo.length
+        + " volumi, giro " + n + ")";
+      let risposta;
+      try {
+        risposta = await ctx.cervello(
+          promptAssegnazione(studio, mazzo, testimonianza || sguardoInParole(sguardo), giaFatto),
+          { immagine: ctx.pianta, immagini: viste(1 + n), passo: "assegnazione",
+            giro: n, mazzetto: m + 1, diQuanti: mazzetti.length });
+      } catch (e) {
+        ultimoGuaio = "il cervello non ha risposto: " + ((e && e.message) || e) + " — " + dove;
+        conservaRisposta("assegnazione", null, ultimoGuaio);
+        continue;
+      }
+      conservaRisposta("assegnazione", risposta, null);
+      const parziale = leggiAssegnazione(risposta);
+      if (!parziale.valido) {
+        // ⚠️ Qui si ferma il fronte 2. `perche` distingue i casi che finora si
+        //    potevano solo indovinare: risposta troncata (JSON incompleto), JSON
+        //    assente, oppure elenco vuoto — il cervello ha risposto bene ma non
+        //    ha voluto nominare niente. Sono tre difetti diversi.
+        ultimoGuaio = (parziale.perche || "risposta non leggibile") + " — " + dove;
+        conservaRisposta("assegnazione", risposta, ultimoGuaio);
+        continue;
+      }
+      // Un mazzetto risponde solo dei propri volumi: se nomina l'id 19 mentre
+      // gli sono stati dati gli id 0-5, quel nome non l'ha guardato.
+      const ammessi = new Set(mazzo.map((v) => v.id));
+      for (const x of parziale.assegnazioni) if (ammessi.has(x.id)) unite.push(x);
+      for (const q of parziale.senzaNome) if (ammessi.has(q.id)) senzaUniti.push(q);
+      sommaFiducia += parziale.fiducia;
+      mazzettiRiusciti++;
+      if (!parziale.capito) capitoTutti = false;
+    }
+
+    if (!mazzettiRiusciti) {
+      conservaRisposta("assegnazione", null,
+        "nessun mazzetto e' andato a buon fine al giro " + n
+        + (ultimoGuaio ? " — ultimo guaio: " + ultimoGuaio : ""));
       return ass ? finaleGuardando() : null;
     }
-    conservaRisposta("assegnazione", rispostaAss, null);
-    const a = leggiAssegnazione(rispostaAss);
-    if (!a.valido) {
-      // ⚠️ Qui si ferma il fronte 2. `perche` distingue i casi che finora si
-      //    potevano solo indovinare: risposta troncata (JSON incompleto), JSON
-      //    assente, oppure elenco vuoto — il cervello ha risposto bene ma non
-      //    ha voluto nominare niente. Sono tre difetti diversi.
-      conservaRisposta("assegnazione", rispostaAss,
-        (a.perche || "risposta non leggibile") + " (volumi chiesti: " + volumi.length
-        + ", giro " + n + ")");
-      return ass ? finaleGuardando() : null;
-    }
+
+    const a = {
+      valido: true,
+      assegnazioni: unite,
+      senzaNome: senzaUniti,
+      capito: capitoTutti,
+      fiducia: sommaFiducia / mazzettiRiusciti,
+    };
     ass = a;
 
     // Solo `nome`, `ruolo` e `fiducia`: la geometria non si tocca, e' l'unica
     // cosa certa che c'e'.
-    nominati = 0;
     for (const x of ass.assegnazioni) {
       const p = posti[x.id];
       if (!p) continue;
       p.nome = x.nome; p.ruolo = x.ruolo; p.fiducia = x.fiducia;
       p.fonte = "assegnazione"; p.perche = x.perche;
-      nominati++;
     }
+    // ⚠️ Si contano i posti con un nome, NON le righe dell'ultima risposta.
+    //    Con i mazzetti l'ultima risposta parla solo dei volumi rimasti: se si
+    //    contasse quella, i nomi dati al giro prima sparirebbero dal conto e il
+    //    sistema si direbbe da solo di aver fatto meno di quello che ha fatto.
+    nominati = posti.filter((p) => p && p.nome).length;
     senzaNome = posti.length - nominati;
     quotaAnonima = posti.length ? senzaNome / posti.length : 1;
     sicuro = ass.capito && ass.fiducia >= FIDUCIA_PER_AGIRE;
@@ -992,7 +1051,8 @@ export async function comprendiGuardando(ctx) {
       if (!domandeFatte.includes(d)) domandeFatte.push(d);
     }
     giaFatto = {
-      nomi: ass.assegnazioni.map((x) => ({ id: x.id, nome: x.nome })),
+      nomi: posti.map((p, i) => (p && p.nome ? { id: i, nome: p.nome } : null))
+        .filter(Boolean).slice(0, 24),
       domandeFatte: domandeFatte.slice(0, 6),
     };
 
@@ -1046,7 +1106,10 @@ export async function comprendiGuardando(ctx) {
   function finaleGuardando() {
     // Le domande sui volumi rimasti senza nome: vanno in chat, non nel silenzio.
     const domande = ass.senzaNome.map((s) => s.domanda).filter(Boolean);
-    const domandaUmana = (sicuro && coperto)
+    // Il dubbio sul tipo di edificio non ferma piu' niente, ma non si perde:
+    // esce come domanda, prima delle altre, perche' e' quella che, se risolta,
+    // rifinisce tutti i nomi insieme.
+    const domandaUmana = dubbioTipo ? dubbioTipo : (sicuro && coperto)
       ? (domande.length
           ? "Ho assegnato " + nominati + " volumi su " + posti.length + ". Su questi ho un dubbio: "
             + domande[0]
@@ -1062,9 +1125,11 @@ export async function comprendiGuardando(ctx) {
       cosaE, fiducia: ass.fiducia, studio, posti, giri,
       dubbi: ass.senzaNome.map((s) => ({ cosa: "volume " + s.id, perche: s.domanda })),
       domandaUmana,
-      perche: (sicuro && coperto) ? null
-        : (!sicuro ? "il cervello non e' sicuro dell'assegnazione"
-                   : senzaNome + " volumi su " + posti.length + " restano senza nome"),
+      perche: (sicuro && coperto && !dubbioTipo) ? null
+        : (dubbioTipo ? "il cervello non e' sicuro di che tipo di edificio sia, "
+             + "ma ha nominato lo stesso quello che ha riconosciuto"
+           : !sicuro ? "il cervello non e' sicuro dell'assegnazione"
+                     : senzaNome + " volumi su " + posti.length + " restano senza nome"),
       quotaSenzaNome: +quotaAnonima.toFixed(2),
     };
   }
@@ -1308,7 +1373,7 @@ export function racconta(c) {
 
 export default {
   conservaRisposta,
-  GIRI_MASSIMI, FIDUCIA_PER_AGIRE, QUOTA_SENZA_NOME_MAX, RUOLI,
+  GIRI_MASSIMI, FIDUCIA_PER_AGIRE, QUOTA_SENZA_NOME_MAX, RUOLI, VOLUMI_PER_MAZZETTO,
   riassuntoPerCervello, promptCervello, leggiVerdetto,
   volumiPerCervello, promptStudio, leggiStudio,
   promptAssegnazione, leggiAssegnazione, comprendiGuardando,
