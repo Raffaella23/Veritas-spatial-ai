@@ -729,6 +729,10 @@ function applicaNomi(posti) {
   // soglia globale: dice se il contenimento sta lavorando o se le zone non
   // portano l'area con se'.
   let perContenimento = 0;
+  // quante volte il volume piu' vicino era gia' stato preso da un'altra tappa e
+  // si e' passati al successivo: se questo numero e' alto, le zone si
+  // sovrappongono e vale la pena guardare le forme.
+  let giaPrese = 0;
   const presi = new Set();
   nodi.forEach(function (n, i) {
     let p = null;
@@ -758,6 +762,16 @@ function applicaNomi(posti) {
     const posNome = n.posMisurata || n.pos;
     if (n.posMisurata) suPosizioneMisurata++;
     if (!p && posNome) {
+      // ⚠️ SI TENGONO TUTTI I CANDIDATI, NON SOLO IL PIU' VICINO. Misurato il
+      //    30/08: il cervello nominava 20 volumi su 23 e a schermo si
+      //    rinominavano 3 tappe su 7. Il motivo era qui: si guardava il volume
+      //    PIU' VICINO e basta, e se quello era gia' stato preso da un'altra
+      //    tappa la ricerca finiva li'. Il commento diceva «le altre cercano
+      //    altrove al giro successivo», ma un giro successivo non esiste: la
+      //    tappa restava «Zona 4 · 541 m²» pur avendo dentro di se' altri
+      //    volumi nominati e liberi. Ora si scorrono in ordine di distanza e si
+      //    prende il primo libero dentro la portata.
+      const vicini = [];
       let migliore = null, minima = Infinity;
       for (const q of posti) {
         // IL TERZO FILTRO MUTO, trovato il 29/08 sera. Qui si pretendeva ancora
@@ -769,8 +783,10 @@ function applicaNomi(posti) {
         if (!q || !q.centro || !q.nome) continue;
         candidati++;
         const d = distanzaXZ(q.centro, posNome);
+        vicini.push({ q, d });
         if (d < minima) { minima = d; migliore = q; }
       }
+      vicini.sort((a, b) => a.d - b.d);
       if (migliore && minima < minimaVista) minimaVista = minima;
       // Un volume non si assegna a due tappe: sarebbe lo stesso posto in due
       // punti diversi. La prima che lo prende se lo tiene; le altre cercano
@@ -798,9 +814,12 @@ function applicaNomi(posti) {
       const raggioZona = n.areaM2 > 0 ? Math.sqrt(n.areaM2 / Math.PI) : 0;
       const portata = Math.max(SOGLIA_ACCOPPIAMENTO_M, raggioZona);
       if (raggioZona > SOGLIA_ACCOPPIAMENTO_M) perContenimento++;
-      if (migliore && minima <= portata && !presi.has(migliore)) {
-        p = migliore; presi.add(migliore); perVicinanza++;
-      } else if (migliore) troppoLontane++;
+      for (const v of vicini) {
+        if (v.d > portata) break;          // oltre la portata non si guarda
+        if (presi.has(v.q)) { giaPrese++; continue; }  // gia' di un'altra tappa
+        p = v.q; presi.add(v.q); perVicinanza++; break;
+      }
+      if (!p && migliore && minima > portata) troppoLontane++;
     }
     // ⚠️ CAPITO A META' VALE PIU' DI NIENTE — chiesto da Raffaella il 29/08,
     //    dopo una giornata in cui il cervello capiva e la barra non cambiava.
@@ -843,6 +862,7 @@ function applicaNomi(posti) {
     + " (" + perCampo + " per corrispondenza esatta, " + perVicinanza + " per vicinanza"
     + (fuoriElenco ? ", " + fuoriElenco + " con una funzione fuori elenco: tenuto il nome" : "")
     + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
+    + (giaPrese ? ", " + giaPrese + " volumi gia' presi da un'altra tappa: passata al successivo" : "")
     + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m"
     + (suPosizioneMisurata ? ", " + suPosizioneMisurata
         + " confrontate dove erano state misurate, non dove sono state spostate" : "")
