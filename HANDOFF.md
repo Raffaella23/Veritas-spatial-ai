@@ -539,6 +539,33 @@ centri misurati non si muovono), oppure accoppiare per **contenimento**
 (il volume sta dentro l'impronta della zona) invece che per distanza. La
 seconda è più giusta e costa di più.
 
+### ⚠️ Due cose da NON rifare, misurate il 30/08
+
+**1. Non ridurre il numero di viste per paura di saturare il modello locale.**
+Il dubbio è legittimo — 12 porzioni più la pianta sembrano tante — ma i numeri
+dicono di no. Ogni telefonata porta la pianta più 4 porzioni, cinque immagini
+in tutto, mai tredici. Le cinque telefonate della corsa del 30/08 sera:
+
+    1 sguardo       entrata 3401
+    2 studio        entrata 5292
+    3 assegnazione  entrata 5345
+    4 sguardo       entrata 3464
+    5 assegnazione  entrata 5387
+
+Tetto 16384, tutte chiuse con `stop`, nessuna troncata. Il massimo è **5387**,
+più basso dei 6358 del 29/08 con quattro viste larghe. C'è margine per il
+doppio delle porzioni, non per meno.
+
+**2. I numeri non bastano: bisogna GUARDARE un'immagine.** Il difetto più caro
+della giornata (`8410d34`, porzioni quasi nere) aveva tutti i conti giusti —
+4,8 cm per punto era vero — e nessuna riga di log lo segnalava. È saltato
+fuori solo aprendo l'anteprima. Il comando per farlo senza spendere un giro:
+
+    __veritasProvaScorci({latoMassimo: 30})
+
+Disegna in fondo allo schermo esattamente le immagini che partono. Prima di
+dichiarare che una modifica all'occhio funziona, si guarda.
+
 ### Altro dalla corsa del 30/08
 
 - ✅ **Il motore vero su Render si è svegliato**: `traiettoria remota ACCETTATA
