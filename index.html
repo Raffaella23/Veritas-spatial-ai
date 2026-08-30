@@ -2861,8 +2861,26 @@
       // Una risposta incerta non basta a scavalcare una misura: e' un indizio,
       // non una lettura.
       if (a.sicurezza === "bassa") { scartati.push(n.label + " (incerta)"); continue; }
-      // Il nome del modello vince sugli occhi.
-      if (n.origine === "nome+misura") { scartati.push(n.label + " (nome dal modello)"); continue; }
+      // ⚠️ LA QUINTA PORTA, trovata il 30/08. Qui c'era scritto «il nome del
+      //    modello vince sugli occhi», senza eccezioni. Sul modello vero
+      //    quella regola bloccava 5 zone su 7: il log diceva «7 nodi da 7 zone
+      //    MISURATE (5 con nome dal modello)», e quelle cinque erano immuni a
+      //    qualunque cosa il circuito capisse.
+      //
+      //    Il guaio e' cosa sono quei nomi. In un IFC il nome di uno spazio lo
+      //    scrive chi ha progettato l'edificio, e infatti `origine === "bim"`
+      //    resta intoccabile qui sotto. In un GLB scaricato no: sono i nomi
+      //    delle mesh, cioe' nomi di OGGETTI. Sullo schermo sono comparse zone
+      //    chiamate «seduta 1» e «seduta 2» — una seduta e' una sedia, non uno
+      //    spazio — e nessuno poteva piu' correggerle.
+      //
+      //    Ora vale la stessa gerarchia gia' scritta due righe piu' sotto per
+      //    il caso opposto: chi ha guardato la pianta E tutte le porzioni
+      //    ravvicinate (`fonte === "comprensione"`) supera un nome trovato su
+      //    una mesh. Un occhio solo, che ha visto una vista sola, no.
+      if (n.origine === "nome+misura" && esito.fonte !== "comprensione") {
+        scartati.push(n.label + " (nome dal modello)"); continue;
+      }
       // E il BIM vince su tutto: e' scritto da chi ha progettato l'edificio.
       // Un modello che guarda una pianta prende il 33-38% su una pianta
       // architettonica (ArchPlanVQA); una dichiarazione IFC e' quello che
@@ -3277,7 +3295,7 @@
     // un'ipotesi sull'edificio, non una misura, e va usata sapendolo.
     const seq = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
     const nodi = [];
-    let contatoreGate = 0, nSosta = 0, nPassaggio = 0;
+    let contatoreGate = 0, nSosta = 0, nPassaggio = 0, nSenzaNome = 0;
 
     // I ruoli delle zone di mezzo.
     //
@@ -3442,6 +3460,33 @@
           if (type === "sosta" && i !== iSosta) nSosta--;
           type = "sosta"; nPassaggio++; label = voc.passaggio + nPassaggio;
         }
+
+        // ⚠️ FRONTE 0 — REGOLA 0-BIS, L'ULTIMO POSTO IN CUI ERA VIOLATA.
+        //    Fin qui sopra il ruolo nel flusso viene deciso da MISURE vere
+        //    (chi e' l'arrivo, chi e' il filtro piu' stretto, chi e' un
+        //    corridoio) e va benissimo: serve alla simulazione e non si tocca.
+        //    Il difetto era l'ULTIMA riga: quel ruolo veniva stampato a schermo
+        //    con il vocabolario dell'aeroporto — INGRESSO, ACCETTAZIONE,
+        //    CONTROLLO, Gate A — su zone che NESSUNO aveva ancora guardato.
+        //
+        //    Due danni, non uno. Primo: la barra dichiarava che edificio fosse
+        //    prima che qualcuno lo sapesse. Secondo, peggiore: quei nomi erano
+        //    indistinguibili da quelli capiti davvero, quindi Raffaella non
+        //    poteva sapere quali fossero un riconoscimento e quali un
+        //    riempimento. Il 30/08, guardando lo schermo: «le zone sono
+        //    sbagliate, sembrano le solite messe a caso».
+        //
+        //    Ora una zona non ancora guardata si chiama con quello che di lei
+        //    e' stato misurato: un numero e la sua area. Non e' un nome piu'
+        //    bello — e' un nome che non mente. Appena il circuito capisce, il
+        //    nome vero lo sostituisce (vedi la porta qui sotto in
+        //    __veritasApplicaOcchi).
+        //
+        //    `type` NON cambia: la simulazione continua a sapere chi e'
+        //    l'origine e chi la destinazione. Cambia solo cosa si legge.
+        nSenzaNome++;
+        label = (z.role === "corridoio" ? "Passaggio " : "Zona ") + nSenzaNome
+              + (z.areaM2 ? " \u00b7 " + Math.round(z.areaM2) + " m\u00b2" : "");
       }
       if (type === "destinazione") contatoreGate++;
       nodi.push({
