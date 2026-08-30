@@ -480,7 +480,7 @@ export function risposteUmane() {
   return Array.isArray(a) ? a.filter((x) => typeof x === "string" && x.trim()) : [];
 }
 
-export function promptAssegnazione(studio, volumi, testimonianza) {
+export function promptAssegnazione(studio, volumi, testimonianza, giaFatto) {
   return [
     "Sei il cervello spaziale di VERITAS. Hai gia' stabilito che posto stai guardando:",
     JSON.stringify({
@@ -513,10 +513,23 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     '    { "id": 0, "nome": "nome della zona", "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
     '      "fiducia": numero fra 0 e 1, "perche": "una frase" }',
     "  ],",
-    '  "senza_nome": [ { "id": 7, "domanda": "Il volume 7 e\' un rettangolo largo con delle sedute in fila: che spazio e\'?" } ],',
+    '  "senza_nome": [ { "id": <id del volume>, "domanda": "<la domanda vera, gia\' scritta per intero>" } ],',
     '  "capito": true oppure false,',
     '  "fiducia": numero fra 0 e 1',
     "}",
+    ...(giaFatto && giaFatto.nomi && giaFatto.nomi.length ? [
+      "",
+      "AL GIRO PRIMA avevi gia' nominato questi volumi. Sono buoni: confermali con",
+      "lo stesso nome e spendi questo giro sui RIMANENTI. Ridarmi identico il giro",
+      "prima non aggiunge niente.",
+      ...giaFatto.nomi.map((x) => "- volume " + x.id + ": " + x.nome),
+    ] : []),
+    ...(giaFatto && giaFatto.domandeFatte && giaFatto.domandeFatte.length ? [
+      "",
+      "QUESTE DOMANDE LE HAI GIA' FATTE e nessuno ha risposto. Non rifarle uguali:",
+      "su quei volumi concludi da solo con la fiducia che hai, anche bassa.",
+      ...giaFatto.domandeFatte.map((d) => "- " + d),
+    ] : []),
     ...(risposteUmane().length ? [
       "",
       "QUELLO CHE TI HA GIA' DETTO CHI CONOSCE IL PROGETTO. Vale piu' di",
@@ -526,15 +539,24 @@ export function promptAssegnazione(studio, volumi, testimonianza) {
     ] : []),
     "",
     "REGOLE, e sono vincolanti:",
-    "- Ragiona per POSIZIONE nella sequenza, non per forma. Dall'alto un banco,",
-    "  una fila di sedute e un muretto sono lo stesso rettangolo: quello che",
-    "  distingue una zona d'attesa non e' che ha delle sedie, e' che sta fra la",
-    "  zona che la precede e quella che la segue. Usa gli scorci per l'altezza e",
-    "  usa quello che c'e' attorno all'edificio per orientarti.",
+    "- La SOLA FORMA non decide: dall'alto un banco, una fila di sedute e un",
+    "  muretto sono lo stesso rettangolo. Decidono due cose insieme: la POSIZIONE",
+    "  nella sequenza e QUELLO CHE SI VEDE SOPRA O DENTRO il volume. Un rettangolo",
+    "  largo con delle sedute in fila, messo dopo il filtro, e' una sala d'attesa:",
+    "  dirlo e' una deduzione architettonica normale, non un'invenzione. Usa gli",
+    "  scorci per l'altezza e quello che c'e' attorno all'edificio per orientarti.",
     "- Lo stesso nome puo' toccare a piu' volumi: se ci sono tre sale d'attesa,",
     "  assegnale tutte e tre. Non accorparle.",
-    "- Un volume di cui non sei sicuro NON si nomina a caso: mettilo in",
-    "  `senza_nome` con la domanda che faresti. Chiedere e' previsto, indovinare no.",
+    "- TRE STRADE, e la seconda e' quella che userai piu' spesso:",
+    "  1. lo riconosci: nome e `fiducia` alta;",
+    "  2. NON sei certo ma vedi che cosa c'e' sopra o dentro: **nominalo lo stesso**",
+    "     con `fiducia` fra 0.4 e 0.7 e scrivi in `perche` cosa te lo fa dire. Una",
+    "     fiducia bassa dichiarata e' un'informazione utile; un volume senza nome",
+    "     non lo e';",
+    "  3. `senza_nome` SOLO se non vedi niente sopra quel volume, o se due letture",
+    "     opposte sono ugualmente possibili e la differenza cambia il percorso.",
+    "  Non nominare mai a caso: ma descrivere una cosa e poi non nominarla e' lo",
+    "  spreco peggiore, perche' la descrizione l'avevi gia' fatta.",
     "- ⚠️ UNA DOMANDA ALLA VOLTA. Se hai piu' dubbi, metti per primo il volume",
     "  che pesa di piu' sul percorso: si chiede quello, il resto al giro dopo.",
     "  Tre domande insieme non ricevono tre risposte, ne ricevono zero.",
@@ -919,12 +941,17 @@ export async function comprendiGuardando(ctx) {
   const gia = new Set(vocabolarioPer(ctx.dominio, []).map((v) => v.chiedi));
   let testimonianza = null;
   let ass = null, nominati = 0, senzaNome = posti.length, quotaAnonima = 1;
+  // Cosa il cervello ha gia' fatto ai giri prima. Senza questo il giro 3 riceve
+  // esattamente lo stesso foglio del giro 2 e risponde identico: misurato il
+  // 30/08 (giro 2: 5 nominati, giro 3: 5 nominati, stessa domanda).
+  let giaFatto = null;
+  const domandeFatte = [];
   let sicuro = false, coperto = false;
 
   for (let n = 1; n <= giriMassimi; n++) {
     let rispostaAss;
     try {
-      rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza || sguardoInParole(sguardo)),
+      rispostaAss = await ctx.cervello(promptAssegnazione(studio, volumi, testimonianza || sguardoInParole(sguardo), giaFatto),
         { immagine: ctx.pianta, immagini: viste(1 + n), passo: "assegnazione", giro: n });
     } catch (e) {
       conservaRisposta("assegnazione", null, "il cervello non ha risposto: " + ((e && e.message) || e));
@@ -958,6 +985,16 @@ export async function comprendiGuardando(ctx) {
     quotaAnonima = posti.length ? senzaNome / posti.length : 1;
     sicuro = ass.capito && ass.fiducia >= FIDUCIA_PER_AGIRE;
     coperto = quotaAnonima <= QUOTA_SENZA_NOME_MAX;
+
+    // Quello che porta al giro dopo: i nomi gia' dati (da confermare, non da
+    // rifare) e le domande gia' uscite (da non ripetere uguali).
+    for (const d of ass.senzaNome.map((x) => x.domanda).filter(Boolean)) {
+      if (!domandeFatte.includes(d)) domandeFatte.push(d);
+    }
+    giaFatto = {
+      nomi: ass.assegnazioni.map((x) => ({ id: x.id, nome: x.nome })),
+      domandeFatte: domandeFatte.slice(0, 6),
+    };
 
     giri.push({ giro: giri.length + 1, passo: "assegnazione", cosaE: studio.tipo,
                 fiducia: ass.fiducia, nominati, senzaNome,
