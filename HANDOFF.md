@@ -557,6 +557,17 @@ nate. `applicaNomi` le confrontava li'.
    ⚠️ L'altezza NON e' misurata per zona e resta quella del ruolo (2 / 2,2 /
    3,5 m). E' dichiarato nel commento: non si finga che venga dal modello.
 
+📌 **Perche' la forma conta, detto da Raffaella il 30/08.** Nell'editor una
+tappa **e' un volume**: si sposta con un clic e si modificano lunghezza,
+larghezza e altezza. Finche' il sistema mette un cubetto standard, l'utente
+deve allungarlo e allargarlo a mano su ogni zona di ogni modello — cioe' fa
+lui il lavoro che si vende. Il volume deve nascere gia' della misura giusta:
+l'editor serve a correggere un errore, non a costruire.
+
+⚠️ **Gli effetti visivi si discutono dopo che il flusso gira** — deciso il
+30/08, non dimenticato. Non e' rifinitura da anticipare: prima le tappe devono
+prendere nome e forma giusti.
+
 **Anche il colore** (`8256e3c`): i volumi erano tre grigi scuri e su un modello
 grigio e bianco si confondevano con l'edificio. Ora azzurro (filtro), verde
 acqua (destinazione), ciano (le altre), con `emissive` e uno spigolo acceso;
@@ -682,6 +693,14 @@ silenzio o, peggio, sovrascrive.
 3 hanno righe minificate da centinaia di migliaia di caratteri: una sola riga
 che corrisponde riempie la chat e brucia budget in un colpo. Si usa `sed -n
 'A,Bp'`, oppure `grep -n … | cut -c1-160`. Successo il 30/08, costo reale.
+
+📌 **Come si committa `index.html` senza farlo passare per la chat** (30/08,
+funziona). L'API dei contenuti di GitHub e' scomoda per un file da 1,9 MB. Si
+usa l'API Git in quattro passi: si crea un *blob* col file in base64, un
+*tree* con `base_tree` = commit corrente e dentro solo i file cambiati, un
+*commit* con quel tree, e infine si sposta `refs/heads/main`. Nessun file
+transita in chat e la storia resta lineare. ⚠️ Prima del blob si rilegge
+`refs/heads/main` e si verifica che sia ancora il commit da cui si e' partiti.
 
 ⚠️ **Due chat sullo stesso ramo si calpestano.** Il 29/08 alle 08:13 un'altra
 chat ha riportato `main` a `084dd95` (28/08 ore 10:11), portando via quattro
