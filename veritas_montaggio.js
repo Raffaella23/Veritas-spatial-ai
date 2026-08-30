@@ -844,6 +844,60 @@ function applicaNomi(posti) {
       nome: p.nome,
     });
   });
+  // ⚠️ IL VOLUME CAPITO CHE NON DIVENTAVA NIENTE — visto da Raffaella il 30/08
+  //    guardando lo schermo: in pianta i nomi erano al posto giusto, nel
+  //    modello no. Il motivo sta qui: fino a ora questa funzione poteva solo
+  //    RINOMINARE le tappe che qualcun altro aveva gia' piazzato. I volumi
+  //    capiti che non trovavano una tappa vicina non diventavano niente —
+  //    22 su 23 capiti, 3 tappe su 7 rinominate, e il resto restava il
+  //    riempimento iniziale. L'occhio lavorava e il suo lavoro veniva buttato.
+  //
+  //    Ora un volume capito che non ha trovato posto NASCE come tappa sua, con
+  //    la posizione e la forma con cui e' stato MISURATO. Non si tocca nessuna
+  //    tappa esistente: e' un'aggiunta, non una sostituzione.
+  //
+  //    ⚠️ Solo i volumi di cui il circuito e' sicuro (fiducia >= 0.35, la
+  //    stessa soglia che qui sopra si chiama "alta"): un volume incerto e' un
+  //    indizio, e una tappa inventata su un indizio e' merce avariata quanto
+  //    un numero finto. Chi e' fuori resta fuori e viene contato, non nascosto.
+  //
+  //    ⚠️ Il tipo lo da' `tipoDiFunzione` da cio' che si e' capito. Quando non
+  //    lo riconosce resta "sosta", che e' il ruolo piu' innocuo: uno spazio in
+  //    cui si sta. Un volume riconosciuto come non calpestabile viene marcato
+  //    `escluso` dalla porta piu' avanti e non entra nel percorso.
+  let nate = 0, deboli = 0;
+  for (const q of posti) {
+    if (!q || !q.centro || !q.nome) continue;
+    if (presi.has(q)) continue;
+    if (!(q.fiducia >= 0.35)) { deboli++; continue; }
+    const tq = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
+      ? window.__veritasOcchi.tipoDiFunzione(q.funzione) : null;
+    const pos = [q.centro[0], q.centro[1] || 0, q.centro[2]];
+    const indice = nodi.length;
+    nodi.push({
+      pos: pos,
+      // dove la roba e' stata misurata: e' su questo che si accoppiano i nomi
+      // ai giri successivi, non su dove i piedi finiranno dopo lo spostamento.
+      posMisurata: [pos[0], pos[1], pos[2]],
+      type: tq && tq.tipo ? tq.tipo : "sosta",
+      label: q.nome,
+      scale: 1.0, scaleZ: 1.0,
+      id: "occhio_" + indice,
+      origine: "comprensione",
+      areaM2: q.areaM2 || q.area || null,
+      formaLungo: q.formaLungo || null,
+      formaLargo: q.formaLargo || null,
+      formaAngolo: typeof q.formaAngolo === "number" ? q.formaAngolo : null,
+    });
+    presi.add(q);
+    assegnate.push({
+      indice: indice, funzione: q.funzione || null,
+      tipo: tq ? tq.tipo : null, fuori: tq ? tq.fuori : undefined,
+      sicurezza: "alta", nome: q.nome,
+    });
+    nate++;
+  }
+
   if (!assegnate.length) {
     log("nessuna tappa accoppiata ai volumi capiti: " + nodi.length + " tappe, "
       + posti.length + " volumi"
@@ -863,6 +917,8 @@ function applicaNomi(posti) {
     + (fuoriElenco ? ", " + fuoriElenco + " con una funzione fuori elenco: tenuto il nome" : "")
     + (senzaNome ? ", " + senzaNome + " senza nome dal cervello" : "")
     + (giaPrese ? ", " + giaPrese + " volumi gia' presi da un'altra tappa: passata al successivo" : "")
+    + (nate ? ", " + nate + " tappe nuove nate dai volumi capiti che non ne avevano una" : "")
+    + (deboli ? ", " + deboli + " volumi capiti ma troppo incerti per farne una tappa" : "")
     + ", soglia " + SOGLIA_ACCOPPIAMENTO_M.toFixed(0) + " m"
     + (suPosizioneMisurata ? ", " + suPosizioneMisurata
         + " confrontate dove erano state misurate, non dove sono state spostate" : "")
