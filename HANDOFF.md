@@ -23,6 +23,46 @@ messaggio: **si legge quello, non si riscrive qui.**
 | `2625b98` | le convenzioni del disegno passano anche all'occhio |
 | `e218edf` | i nomi capiti arrivano fino allo schermo |
 
+### ✅ 30/08 sera — l'occhio fa nascere le tappe (`4b2290a`, `462b1192`, `7c87b66`)
+
+Raffaella ha guardato due schermate e ha detto la cosa giusta: **in pianta i
+nomi sono al posto giusto, nel modello no.** Non sbagliava l'occhio: il suo
+lavoro arrivava troppo tardi. Le tappe nascono da `assegnaZoneMisurate` prima
+che occhio e cervello parlino, e `applicaNomi` poteva solo RINOMINARE quelle
+gia' li'. Un volume capito senza una tappa vicina non diventava niente: 22
+capiti su 23, **3 tappe rinominate su 7**, diciannove volumi misurati e
+nominati buttati a ogni corsa, in silenzio.
+
+Cosa e' cambiato, tutto in `veritas_montaggio.js` (`index.html` non toccato):
+
+1. `4b2290a` — un volume capito che non trova posto **nasce come tappa sua**,
+   con la posizione e la forma con cui e' stato misurato e con `posMisurata`
+   fin dalla nascita. Solo fiducia >= 0.35; gli scartati si contano nel log.
+2. `462b1192` — le tappe del riempimento che nessuno ha mai riconosciuto si
+   **ritirano**. Mai quelle toccate a mano, mai quelle `bim`, e mai sotto tre
+   tappe capite. Gli indici di `assegnate` si rimappano per identita'
+   dell'oggetto, non per numero: sbagliare li' vuol dire scrivere il nome
+   capito sulla tappa sbagliata, errore con la faccia di un successo.
+3. `7c87b66` — misurato subito dopo: 20 tappe nuove nate, **zero tolte**. Il
+   riempimento non era `origine:"misura"` ma `"nome+misura"`, perche' porta il
+   nome della MESH del GLB. Un nome di mesh e' il nome di un oggetto, non di
+   uno spazio: stessa gerarchia della quinta porta, la comprensione vince.
+   Aggiunta la garanzia che annulla la ripulitura per intero se fra le tappe
+   rimaste manca una `origine` o una `destinazione` — senza partenza e arrivo
+   il flusso e' zero, che e' peggio di una tappa nel posto sbagliato.
+
+⚠️ **CHE COSA NON E' ANCORA RISOLTO, ed e' il lavoro numero uno.** I NOMI ora
+vengono dall'occhio. I **RUOLI** no. `type` (origine / accoglienza / filtro /
+sosta / destinazione) lo decide ancora `applyAutoAssignment` in `index.html`
+riga ~3492 ordinando le zone per la X, prima che qualcuno guardi — e la
+simulazione legge i ruoli, non i nomi. Finche' e' cosi' **l'occhio nomina ma
+non comanda**, e la garanzia del punto 3 scattera' spesso, scrivendolo ogni
+volta nel log. Quando i ruoli verranno dal riconoscimento, si spegnera' da sola.
+
+⚠️ Da guardare alla prossima corsa: quante tappe nascono e **dove**. Se ne
+nascono sulle ali degli aerei o fuori dal pavimento, serve il filtro «dove si
+cammina», e va messo qui, non altrove.
+
 ### Le tre lezioni di oggi, che valgono oltre oggi
 
 1. **Il modello piccolo non va convinto, va interrogato bene.** 23 volumi in
@@ -72,9 +112,22 @@ e uscite.
 5. **`veritas_visibility.js` non è mai stato acceso a schermo.** Isovista, linea
    di vista, altezza dell'occhio diversa per chi è in piedi e chi è in
    carrozzina: scritto per intero, mai mostrato. È metà del prodotto già pagata.
-6. **Il motore fisico** dà `unreachable` a ogni fotogramma, fase «ricerca punto
-   libero», e `nessuna strada` fra le tappe.
-7. **La chat non capisce l'italiano**: da una frase ha creato la zona «Le Zone».
+6. **I RUOLI non vengono ancora dall'occhio — è il lavoro numero uno.** I nomi
+   sì (`4b2290a`, `462b1192`, `7c87b66`), `type` no: lo decide
+   `applyAutoAssignment` in `index.html` riga ~3492 ordinando le zone per la X,
+   prima che qualcuno guardi. La simulazione legge i ruoli, non i nomi: finché
+   è così l'occhio nomina ma non comanda, e a schermo il divario si vede
+   esattamente come lo ha visto Raffaella — pianta giusta, movimento no.
+7. **Il motore fisico** dà `unreachable` a ogni fotogramma, fase «ricerca punto
+   libero», e `nessuna strada` fra le tappe. ⚠️ Il trap scatta nella prima
+   interrogazione dei raggi, `dentroPerParita` → `world.intersectionsWithRay`,
+   cioè DOPO il sanificatore dei triangoli: quel sanificatore non basta su
+   questo modello. E i percorsi vanno da tappa a tappa: con le tappe piazzate
+   per ordinamento, un `nessuna strada` può essere soltanto una tappa finita
+   dove non si cammina. **Si guarda prima dove stanno le tappe, poi il grafo.**
+8. **La chat non capisce l'italiano**: da una frase ha creato la zona «Le Zone».
+   Risponde con frasi preconfezionate su ciò che ha misurato; la conversazione
+   vera ha bisogno del taccuino (punto 3), non è aperta.
 
 ---
 
