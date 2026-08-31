@@ -49,72 +49,52 @@
 // =============================================================================
 
 // ---------------------------------------------------------------------------
-// 1. Le categorie: l'unica cosa chiusa, e non sono nomi
+// 1. Il vocabolario: le uniche risposte ammesse
 // ---------------------------------------------------------------------------
 //
-// ⚠️ REGOLA 0-BIS, applicata fino in fondo. Qui c'era un ELENCO CHIUSO DI DODICI
-// NOMI DI SPAZI (parcheggio, piazzale, pista, ingresso, accoglienza, controlli,
-// attesa, esposizione, commerciale, corridoio, destinazione, servizi) e il
-// modello che vede poteva rispondere SOLO con quelle parole. Un elenco chiuso di
-// nomi e' un'ipotesi sul tipo di edificio fatta PRIMA di guardare: su una
-// scuola, un ospedale, un magazzino o una palestra l'occhio diceva la parola
-// giusta — «aula», «corsia», «reparto» — la parola non era in tabella,
-// `tipoDiFunzione` tornava `null` e il suo lavoro veniva buttato in silenzio.
-// Le descrizioni erano anche peggio: «gate d'imbarco», «duty free», «via di
-// rullaggio» sono esempi che orientano la risposta prima ancora di guardare.
+// Sono FUNZIONI, non nomi. Il nome lo mette poi il lessico del dominio che
+// esiste gia' in index.html (LESSICO_ZONE): la stessa funzione "accoglienza"
+// si chiama Accettazione in un aeroporto e Biglietteria in un museo.
 //
-// Adesso il NOME lo dice l'occhio, con le sue parole, modello per modello.
-// Resta chiuso solo il RUOLO — la categoria architettonica, cioe' che cosa
-// quello spazio fa al movimento delle persone. Le categorie sono legittime
-// perche' non sono nomi: valgono su qualunque edificio, servono al motore per
-// le soglie e non si mostrano mai all'utente.
-//
-// ⚠️ Le chiavi qui sotto DEVONO restare dentro `TYPE_OPTIONS_DEF` (riga ~282),
-// che e' l'insieme dei ruoli che il resto del programma sa maneggiare. La
-// vecchia tabella emetteva anche `passaggio`, che li' dentro non c'e' mai
-// stato: un ruolo che il motore non conosce e' una tappa che non si muove.
-// La circolazione qui si chiama `distribuzione`, che e' il termine giusto e
-// soprattutto e' quello che il programma accetta.
-export const RUOLI = Object.freeze([
-  { chiave: 'origine', fuori: false,
-    descrizione: 'da qui la gente entra, arriva o comincia il percorso' },
-  { chiave: 'accoglienza', fuori: false,
-    descrizione: 'ci si ferma davanti a qualcuno o a qualcosa per essere serviti, registrati, ricevuti' },
-  { chiave: 'filtro', fuori: false,
-    descrizione: 'passaggio obbligato e controllato, si passa pochi per volta e si fa la fila' },
-  { chiave: 'sosta', fuori: false,
-    descrizione: 'ci si sta fermi, seduti o in piedi, senza dover per forza proseguire' },
-  { chiave: 'distribuzione', fuori: false,
-    descrizione: 'serve solo a spostarsi e a smistare la gente da una parte all altra' },
-  { chiave: 'servizio', fuori: false,
-    descrizione: 'spazio di supporto, non e la meta di nessuno' },
-  { chiave: 'destinazione', fuori: false,
-    descrizione: 'e il punto di arrivo: chi ci va, ci va apposta, e li il percorso finisce' },
-  { chiave: 'esterno', fuori: true,
-    descrizione: 'e all aperto, fuori dall edificio, ma la gente ci cammina' },
-  { chiave: 'escluso', fuori: true,
-    descrizione: 'qui il pubblico NON cammina: mezzi, veicoli, aree di manovra, locali tecnici chiusi' },
+// `tipo` e' il vocabolario PORTANTE del programma — spawn / checkin /
+// security / lounge / gate / passaggio — su cui si appoggiano generatore di
+// traiettorie, altezze dei marker e grafo delle missioni in una ventina di
+// punti (§14.3 di CLAUDE.md). Gli occhi scelgono la funzione; il tipo ne
+// discende per tabella. Nessuna risposta del modello puo' introdurre un tipo
+// nuovo.
+export const FUNZIONI = Object.freeze([
+  { chiave: 'parcheggio', tipo: 'spawn', fuori: true,
+    descrizione: 'parcheggio auto, stalli, piazzale di sosta dei veicoli' },
+  { chiave: 'piazzale', tipo: 'spawn', fuori: true,
+    descrizione: "spazio aperto esterno: piazza, sagrato, marciapiede, piazzale d'ingresso" },
+  { chiave: 'pista', tipo: 'escluso', fuori: true,
+    descrizione: 'area di manovra dei mezzi: pista, via di rullaggio, banchina di carico. NON ci cammina il pubblico' },
+  { chiave: 'ingresso', tipo: 'spawn', fuori: false,
+    descrizione: "atrio, hall, foyer, il primo spazio interno appena entrati" },
+  { chiave: 'accoglienza', tipo: 'checkin', fuori: false,
+    descrizione: 'banchi, sportelli, casse, biglietteria, reception, accettazione' },
+  { chiave: 'controlli', tipo: 'security', fuori: false,
+    descrizione: 'varchi di sicurezza, tornelli, metal detector, punto di filtro obbligato' },
+  { chiave: 'attesa', tipo: 'lounge', fuori: false,
+    descrizione: 'sedute, sala d attesa, area di sosta del pubblico' },
+  { chiave: 'esposizione', tipo: 'lounge', fuori: false,
+    descrizione: 'sala espositiva, mostra, area con opere o vetrine' },
+  { chiave: 'commerciale', tipo: 'lounge', fuori: false,
+    descrizione: 'negozi, bar, ristorazione, duty free' },
+  { chiave: 'corridoio', tipo: 'passaggio', fuori: false,
+    descrizione: 'passaggio stretto e allungato che serve solo a spostarsi' },
+  { chiave: 'destinazione', tipo: 'gate', fuori: false,
+    descrizione: "il punto di arrivo del percorso: gate d'imbarco, uscita finale, sala principale di destinazione" },
+  { chiave: 'servizi', tipo: 'lounge', fuori: false,
+    descrizione: 'bagni, depositi, locali tecnici, spazi di servizio' },
 ]);
 
-const PER_CHIAVE = new Map(RUOLI.map((r) => [r.chiave, r]));
+const PER_CHIAVE = new Map(FUNZIONI.map((f) => [f.chiave, f]));
 
-/**
- * Il ruolo portante che corrisponde a quello che ha detto chi ha guardato.
- * Restituisce `{ tipo, fuori }`, oppure `null` se il ruolo non e' riconosciuto.
- *
- * ⚠️ IL DIFETTO CHE HA TENUTO L'OCCHIO MUTO PER GIORNI. Questa funzione
- *    restituiva una STRINGA, ma chi la chiama legge `.tipo`:
- *      veritas_montaggio.js  `tq && tq.tipo ? tq.tipo : "sosta"`
- *      applicaNomi           `tipo: t ? t.tipo : null`
- *    e su una stringa `.tipo` e' `undefined`. Quindi `a.tipo` arrivava sempre
- *    vuoto a `__veritasApplicaOcchi`, dove `a.tipo || n.type` ripiegava sul
- *    ruolo messo per posizione, e le tappe nate dall'occhio finivano tutte
- *    "sosta". Il ruolo capito non e' MAI arrivato a destinazione: e' la ragione
- *    meccanica di «l'occhio nomina ma non comanda». Ora torna l'oggetto.
- */
+/** Il tipo portante che corrisponde a una funzione. `null` se non riconosciuta. */
 export function tipoDiFunzione(chiave) {
-  const r = PER_CHIAVE.get(String(chiave || '').trim().toLowerCase());
-  return r ? { tipo: r.chiave, fuori: r.fuori } : null;
+  const f = PER_CHIAVE.get(String(chiave || '').trim().toLowerCase());
+  return f ? f.tipo : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,18 +108,12 @@ export function tipoDiFunzione(chiave) {
  * passano le coordinate: se il modello le vedesse potrebbe ragionare sui
  * numeri invece che sull'immagine, ed e' il contrario di quello che serve.
  * Le uniche misure che si danno sono area e forma, perche' aiutano a
- * distinguere un passaggio da una sala e il modello non puo' ricavarle da
+ * distinguere un corridoio da una sala e il modello non puo' ricavarle da
  * un'immagine senza scala.
- *
- * ⚠️ Si chiedono DUE cose separate, ed e' il punto di tutta la riparazione:
- *    il NOME in liberta' («che spazio ti sembra?») e il RUOLO scelto fra le
- *    categorie. Prima si chiedeva una parola sola, che doveva fare tutti e due
- *    i mestieri: o era il nome giusto e il ruolo non usciva, o era la parola
- *    della tabella e il nome era gia' deciso prima di guardare.
  */
 export function prompt(zone, opz = {}) {
   const dominio = opz.dominio || null;
-  const voci = RUOLI.map((r) => `- ${r.chiave}: ${r.descrizione}`).join('\n');
+  const voci = FUNZIONI.map((f) => `- ${f.chiave}: ${f.descrizione}`).join('\n');
   const elenco = zone.map((z, i) => {
     const n = i + 1;
     const a = z.area != null ? `${Math.round(z.area)} m2` : 'area ignota';
@@ -150,27 +124,30 @@ export function prompt(zone, opz = {}) {
   }).join('\n');
 
   return [
-    "Guardi la pianta di uno spazio reale, vista dall'alto, e devi dire CHE COSA E' ogni zona e A COSA SERVE.",
+    "Guardi la pianta di uno spazio reale, vista dall'alto, e devi dire A COSA SERVE ogni zona.",
     dominio ? `Il progettista ha dichiarato che si tratta di: ${dominio}.` : '',
     '',
-    "Sull'immagine sono segnate e NUMERATE alcune zone. Per ciascuna dai due cose:",
-    '',
-    "1. `nome` — come chiameresti quello spazio, con parole tue, in italiano. Guarda che cosa c'e' dentro e deducilo: sedute in fila allineate sono una sala d'attesa, banchi in fila lungo una parete sono un punto di servizio al pubblico, righe bianche parallele a terra sono un parcheggio. Non esiste un elenco da cui scegliere: se ti sembra un'aula scrivi «aula», se ti sembra una corsia scrivi «corsia». Due o tre parole, non una frase.",
-    '',
-    '2. `ruolo` — che cosa quello spazio fa al MOVIMENTO delle persone. Qui invece devi scegliere ESATTAMENTE una di queste parole:',
+    "Sull'immagine sono segnate e NUMERATE alcune zone. Per ciascuna scegli UNA funzione fra queste:",
     voci,
     '',
     'Le zone segnate sono:',
     elenco,
     '',
     'REGOLE FERREE:',
-    '1. Rispondi SOLO con JSON: {"zone": [{"n": 1, "nome": "sala d\'attesa", "ruolo": "sosta", "sicurezza": "alta"}, ...]}',
-    '2. `nome` e libero. `ruolo` deve essere ESATTAMENTE una delle parole elencate al punto 2: quelle non sono nomi, sono categorie, e il programma sa maneggiare solo quelle.',
+    "1. Rispondi SOLO con JSON: {\"zone\": [{\"n\": 1, \"funzione\": \"parcheggio\", \"sicurezza\": \"alta\"}, ...]}",
+    '2. `funzione` deve essere ESATTAMENTE una delle parole elencate sopra. Niente sinonimi, niente parole nuove.',
     '3. `sicurezza` vale "alta" se lo vedi chiaramente, "media" se lo deduci, "bassa" se stai tirando a indovinare.',
     '4. NON inventare misure, larghezze, aree, quote o distanze: quelle le misura la geometria, non tu.',
     '5. Se di una zona non sai dire niente, OMETTILA. Una zona in meno vale piu di una risposta a caso.',
     '6. Non aggiungere zone che non sono nell elenco.',
-    '7. Se lo spazio non e un edificio che conosci, dillo lo stesso con parole tue: non forzare quello che vedi dentro un tipo di edificio che ti aspettavi.',
+    '',
+    'Cosa guardare:',
+    "- righe bianche parallele e regolari a terra, in file -> parcheggio",
+    "- file di sedute allineate -> attesa",
+    "- una fila di banchi o sportelli lungo una parete -> accoglienza",
+    "- un passaggio obbligato stretto con varchi affiancati -> controlli",
+    "- asfalto ampio e vuoto, segnaletica gialla larga, mezzi -> pista",
+    "- uno spazio lungo e stretto senza arredi -> corridoio",
   ].filter(Boolean).join('\n');
 }
 
@@ -197,19 +174,10 @@ export function estraiJSON(testo) {
 /**
  * Verifica la risposta contro le zone che ESISTONO davvero.
  *
- * Si scarta e si conta cio' che non combacia: un numero di zona che non esiste,
- * due risposte per la stessa zona. Il conteggio degli scarti non e' cosmetico —
- * e' il modo di accorgersi che il modello acceso non e' adatto, invece di
- * fidarsi di mezze risposte.
- *
- * ⚠️ UN NOME FUORI TABELLA NON E' PIU' UNO SCARTO, perche' non c'e' piu' una
- *    tabella di nomi. Se il ruolo manca o non e' riconosciuto la zona NON si
- *    butta: si tiene il nome capito e si lascia `tipo` a `null`, cosi' a valle
- *    `a.tipo || n.type` conserva il ruolo che la zona aveva. Capito a meta'
- *    vale piu' di niente; buttato via non vale nulla.
- *
- * ⚠️ Si accetta anche la vecchia chiave `funzione` al posto di `ruolo`: un
- *    modello che ha in pancia il formato di ieri non deve far fallire un giro.
+ * Tutto quello che non combacia si scarta e si conta: un numero di zona che
+ * non esiste, una funzione fuori vocabolario, due risposte per la stessa zona.
+ * Il conteggio degli scarti non e' cosmetico — e' il modo di accorgersi che il
+ * modello acceso non e' adatto, invece di fidarsi di mezze risposte.
  */
 export function validaRisposta(testo, zone) {
   const dati = typeof testo === 'string' ? estraiJSON(testo) : testo;
@@ -226,19 +194,16 @@ export function validaRisposta(testo, zone) {
       continue;
     }
     if (visto.has(n)) { esito.scartate.push({ n, perche: 'zona gia assegnata' }); continue; }
-    const nome = String((v && v.nome) || '').trim();
-    const detto = String((v && (v.ruolo || v.funzione)) || '').trim().toLowerCase();
-    const r = PER_CHIAVE.get(detto);
-    if (!nome && !r) { esito.scartate.push({ n, perche: 'ne nome ne ruolo' }); continue; }
-    if (!r && detto) esito.scartate.push({ n, perche: 'ruolo fuori categorie (nome tenuto): ' + detto });
+    const chiave = String((v && v.funzione) || '').trim().toLowerCase();
+    const f = PER_CHIAVE.get(chiave);
+    if (!f) { esito.scartate.push({ n, perche: 'funzione fuori vocabolario: ' + chiave }); continue; }
     const sic = String((v && v.sicurezza) || 'media').trim().toLowerCase();
     visto.add(n);
     esito.assegnate.push({
       indice: n - 1,
-      nome: nome || null,
-      funzione: nome || (r ? r.chiave : null),
-      tipo: r ? r.chiave : null,
-      fuori: r ? r.fuori : undefined,
+      funzione: f.chiave,
+      tipo: f.tipo,
+      fuori: f.fuori,
       sicurezza: ['alta', 'media', 'bassa'].includes(sic) ? sic : 'media',
     });
   }
@@ -425,7 +390,7 @@ export function racconta(esito, zone) {
   const nomi = esito.assegnate
     .filter((a) => a.sicurezza !== 'bassa')
     .map((a) => (zone && zone[a.indice] && zone[a.indice].nome ? zone[a.indice].nome + ': ' : '')
-                + (a.nome || a.tipo || 'senza nome'));
+                + a.funzione);
   const incerte = esito.assegnate.filter((a) => a.sicurezza === 'bassa').length;
   return 'Ho guardato la pianta e ho riconosciuto ' + esito.assegnate.length + ' zone su '
     + esito.totale + ': ' + nomi.join(', ') + '.'
@@ -435,7 +400,7 @@ export function racconta(esito, zone) {
 }
 
 export default {
-  RUOLI, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
+  FUNZIONI, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
   riquadriZone, immagineConZone, chiedi, guarda, racconta,
 };
 
