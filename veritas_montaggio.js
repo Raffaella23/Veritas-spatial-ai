@@ -834,12 +834,17 @@ function applicaNomi(posti) {
     //    Ora basta il nome. Il tipo, se non si riconosce, resta quello che la
     //    zona aveva: si scrive cio' che si e' capito e non si tocca il resto.
     if (!p || !p.nome) { senzaNome++; return; }
-    const t = window.__veritasOcchi && window.__veritasOcchi.funzioneDi
-      ? window.__veritasOcchi.funzioneDi(p.funzione) : null;
+    // ⚠️ `funzione` non e' piu' un nome di spazio preso da un elenco di dodici:
+    //    e' una CATEGORIA architettonica, e il nome vero viaggia in `nome`,
+    //    libero. Il conteggio `fuoriElenco` ora dice quante volte e' mancata la
+    //    CATEGORIA, non quante volte il nome era sconosciuto — che era una
+    //    misura di quanto l'elenco fosse stretto, non di quanto si fosse capito.
+    const t = window.__veritasOcchi && window.__veritasOcchi.categoriaDi
+      ? window.__veritasOcchi.categoriaDi(p.funzione) : null;
     if (!t) fuoriElenco++;
     assegnate.push({
-      indice: i, funzione: p.funzione || null,
-      tipo: t ? t.tipo : null, fuori: t ? t.fuori : undefined,
+      indice: i, funzione: t ? t.chiave : null,
+      tipo: t ? t.chiave : null, fuori: t ? t.fuori : undefined,
       sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),
       nome: p.nome,
     });
@@ -870,8 +875,8 @@ function applicaNomi(posti) {
     if (!q || !q.centro || !q.nome) continue;
     if (presi.has(q)) continue;
     if (!(q.fiducia >= 0.35)) { deboli++; continue; }
-    const tq = window.__veritasOcchi && window.__veritasOcchi.funzioneDi
-      ? window.__veritasOcchi.funzioneDi(q.funzione) : null;
+    const tq = window.__veritasOcchi && window.__veritasOcchi.categoriaDi
+      ? window.__veritasOcchi.categoriaDi(q.funzione) : null;
     const pos = [q.centro[0], q.centro[1] || 0, q.centro[2]];
     const indice = nodi.length;
     nodi.push({

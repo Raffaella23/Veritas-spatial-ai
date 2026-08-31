@@ -49,52 +49,88 @@
 // =============================================================================
 
 // ---------------------------------------------------------------------------
-// 1. Il vocabolario: le uniche risposte ammesse
+// 1. Le CATEGORIE. Non sono nomi di spazi, e il nome non sta piu' qui.
 // ---------------------------------------------------------------------------
 //
-// Sono FUNZIONI, non nomi. Il nome lo mette poi il lessico del dominio che
-// esiste gia' in index.html (LESSICO_ZONE): la stessa funzione "accoglienza"
-// si chiama Accettazione in un aeroporto e Biglietteria in un museo.
+// ⚠️ QUI C'ERA `FUNZIONI`: dodici NOMI di spazi (parcheggio, piazzale, pista,
+//    ingresso, accoglienza, controlli, attesa, esposizione, commerciale,
+//    corridoio, destinazione, servizi) decisi PRIMA di guardare qualunque
+//    modello. Era la Regola 0-bis violata alla lettera, e faceva due danni
+//    misurati:
 //
-// `tipo` e' il vocabolario PORTANTE del programma — spawn / checkin /
-// security / lounge / gate / passaggio — su cui si appoggiano generatore di
-// traiettorie, altezze dei marker e grafo delle missioni in una ventina di
-// punti (§14.3 di CLAUDE.md). Gli occhi scelgono la funzione; il tipo ne
-// discende per tabella. Nessuna risposta del modello puo' introdurre un tipo
-// nuovo.
-export const FUNZIONI = Object.freeze([
-  { chiave: 'parcheggio', tipo: 'spawn', fuori: true,
-    descrizione: 'parcheggio auto, stalli, piazzale di sosta dei veicoli' },
-  { chiave: 'piazzale', tipo: 'spawn', fuori: true,
-    descrizione: "spazio aperto esterno: piazza, sagrato, marciapiede, piazzale d'ingresso" },
-  { chiave: 'pista', tipo: 'escluso', fuori: true,
-    descrizione: 'area di manovra dei mezzi: pista, via di rullaggio, banchina di carico. NON ci cammina il pubblico' },
-  { chiave: 'ingresso', tipo: 'spawn', fuori: false,
-    descrizione: "atrio, hall, foyer, il primo spazio interno appena entrati" },
-  { chiave: 'accoglienza', tipo: 'checkin', fuori: false,
-    descrizione: 'banchi, sportelli, casse, biglietteria, reception, accettazione' },
-  { chiave: 'controlli', tipo: 'security', fuori: false,
-    descrizione: 'varchi di sicurezza, tornelli, metal detector, punto di filtro obbligato' },
-  { chiave: 'attesa', tipo: 'lounge', fuori: false,
-    descrizione: 'sedute, sala d attesa, area di sosta del pubblico' },
-  { chiave: 'esposizione', tipo: 'lounge', fuori: false,
-    descrizione: 'sala espositiva, mostra, area con opere o vetrine' },
-  { chiave: 'commerciale', tipo: 'lounge', fuori: false,
-    descrizione: 'negozi, bar, ristorazione, duty free' },
-  { chiave: 'corridoio', tipo: 'passaggio', fuori: false,
-    descrizione: 'passaggio stretto e allungato che serve solo a spostarsi' },
-  { chiave: 'destinazione', tipo: 'gate', fuori: false,
-    descrizione: "il punto di arrivo del percorso: gate d'imbarco, uscita finale, sala principale di destinazione" },
-  { chiave: 'servizi', tipo: 'lounge', fuori: false,
-    descrizione: 'bagni, depositi, locali tecnici, spazi di servizio' },
+//    1. FACEVA SPARIRE CIO' CHE ERA STATO CAPITO. Chi legge la risposta
+//       cercava la parola in questa tabella e, non trovandola, scartava il
+//       volume: `if (!t) return`. Il cervello poteva rispondere «sala
+//       d'attesa» o «parcheggio esterno» — descrizioni giuste — e sparire in
+//       silenzio. E' la stessa malattia delle quattro porte del 29/08:
+//       pretendere una parola gia' nota da chi sta guardando per la prima
+//       volta.
+//    2. SI RICOPIAVA. Le dodici parole finivano dentro la domanda, e un
+//       modello piccolo che non sa cosa dire ripete quello che ha appena
+//       letto. Da qui «parcheggio, parcheggio, parcheggio, parcheggio» su
+//       quattro zone di un aeroporto, visto da Raffaella il 31/08.
+//
+// Restano le CATEGORIE, che sono un'altra cosa: non dicono che spazio e', ma
+// che RUOLO ha uno spazio dentro un edificio qualunque. Valgono per un
+// aeroporto, una scuola, un ospedale, un museo, un negozio, e non nominano
+// nessuno di questi. Servono al Core e alle soglie per sapere cosa verificare;
+// non si mostrano all'utente.
+//
+// ⚠️ Le chiavi sono ESATTAMENTE quelle che il simulatore gia' conosce
+//    (`TYPE_OPTIONS_DEF`, index.html ~282), piu' `escluso`. Non e' un dettaglio:
+//    il 31/08 `corridoio` mandava il ruolo `passaggio`, che il motore non
+//    conosce, e il ruolo capito si perdeva per strada. Una categoria che il
+//    motore non sa leggere e' una categoria che non arriva.
+//
+// IL NOME NON STA PIU' NEL CODICE. Lo dice chi guarda, modello per modello, in
+// italiano libero, in base a cio' che vede: «sala d'attesa» perche' ci sono le
+// sedute in fila, «parcheggio» perche' ci sono le macchine.
+export const CATEGORIE = Object.freeze([
+  { chiave: 'origine', fuori: false,
+    descrizione: "da dove le persone entrano, o dove arrivano prima di entrare" },
+  { chiave: 'accoglienza', fuori: false,
+    descrizione: "dove si viene ricevuti, registrati o serviti da qualcuno dall'altra parte di un banco" },
+  { chiave: 'filtro', fuori: false,
+    descrizione: 'un passaggio obbligato e stretto che seleziona o rallenta chi lo attraversa' },
+  { chiave: 'sosta', fuori: false,
+    descrizione: 'dove si sta fermi: seduti, in attesa, a guardare, a consumare, ad acquistare' },
+  { chiave: 'distribuzione', fuori: false,
+    descrizione: 'si attraversa e basta: serve a raggiungere altro, non a starci' },
+  { chiave: 'destinazione', fuori: false,
+    descrizione: "il punto per cui si e' venuti, o quello da cui si esce" },
+  { chiave: 'servizio', fuori: false,
+    descrizione: "a supporto dell'edificio e non del percorso del pubblico" },
+  { chiave: 'esterno', fuori: true,
+    descrizione: "fuori dall'involucro costruito, all'aperto" },
+  { chiave: 'escluso', fuori: true,
+    descrizione: 'superficie su cui il pubblico non cammina: manovra di mezzi, carico, aree tecniche' },
 ]);
 
-const PER_CHIAVE = new Map(FUNZIONI.map((f) => [f.chiave, f]));
+// ⚠️ `tipo` e' LA STESSA COSA di `chiave`, ed e' ripetuto apposta. Il campo che
+//    il simulatore legge sui nodi si chiama `type`, e tutti i lettori scritti
+//    finora prendono `.tipo` dalla voce. Tenerlo evita che un lettore
+//    dimenticato legga `undefined` e perda il ruolo IN SILENZIO: e' esattamente
+//    il guasto costato il 31/08, e la sua firma e' un successo apparente.
+const PER_CHIAVE = new Map(
+  CATEGORIE.map((c) => [c.chiave, Object.freeze({ ...c, tipo: c.chiave })]));
 
-/** Il tipo portante che corrisponde a una funzione. `null` se non riconosciuta. */
+/** La voce intera di una categoria — `{chiave, fuori, descrizione}` — o `null`. */
+export function categoriaDi(chiave) {
+  return PER_CHIAVE.get(String(chiave || '').trim().toLowerCase()) || null;
+}
+
+/**
+ * La chiave di categoria, come STRINGA, o `null`.
+ *
+ * ⚠️ Restituisce una stringa, e chi legge deve saperlo. Il 31/08 tre chiamanti
+ *    leggevano `.tipo` sul valore di ritorno — cioe' `.tipo` di una stringa,
+ *    cioe' `undefined` — e il ruolo capito non arrivava mai al simulatore:
+ *    restava quello messo per posizione. Se serve la voce intera si usa
+ *    `categoriaDi`, non questa.
+ */
 export function tipoDiFunzione(chiave) {
-  const f = PER_CHIAVE.get(String(chiave || '').trim().toLowerCase());
-  return f ? f.tipo : null;
+  const c = categoriaDi(chiave);
+  return c ? c.chiave : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +149,7 @@ export function tipoDiFunzione(chiave) {
  */
 export function prompt(zone, opz = {}) {
   const dominio = opz.dominio || null;
-  const voci = FUNZIONI.map((f) => `- ${f.chiave}: ${f.descrizione}`).join('\n');
+  const voci = CATEGORIE.map((c) => `- ${c.chiave}: ${c.descrizione}`).join('\n');
   const elenco = zone.map((z, i) => {
     const n = i + 1;
     const a = z.area != null ? `${Math.round(z.area)} m2` : 'area ignota';
@@ -123,31 +159,50 @@ export function prompt(zone, opz = {}) {
     return `zona ${n}: ${a}${forma}`;
   }).join('\n');
 
+  // ⚠️ QUI NON CI SONO PIU' ESEMPI DI RISPOSTA, ed e' voluto.
+  //
+  //    C'era un elenco «Cosa guardare» che finiva con «-> parcheggio»,
+  //    «-> attesa», «-> controlli», e la riga del formato JSON conteneva la
+  //    parola «parcheggio» come esempio. Un modello piccolo che non sa cosa
+  //    dire ripete l'ultima cosa che ha letto: il 31/08 ha risposto
+  //    «parcheggio» su quattro zone diverse di un aeroporto, e quelle quattro
+  //    zone venivano rinominate davvero. Un esempio concreto dentro una
+  //    domanda e' un'istruzione travestita.
+  //
+  //    Si dice COME si guarda — gli oggetti sono gli indizi, la funzione si
+  //    deduce da quelli — senza mai dare una risposta gia' scritta.
   return [
-    "Guardi la pianta di uno spazio reale, vista dall'alto, e devi dire A COSA SERVE ogni zona.",
+    "Guardi la pianta di uno spazio reale, vista dall'alto, e devi dire CHE SPAZIO E' ognuna delle zone segnate.",
     dominio ? `Il progettista ha dichiarato che si tratta di: ${dominio}.` : '',
     '',
-    "Sull'immagine sono segnate e NUMERATE alcune zone. Per ciascuna scegli UNA funzione fra queste:",
+    "Sull'immagine sono segnate e NUMERATE alcune zone. Per ognuna dammi DUE cose:",
+    '',
+    "1. un NOME, in italiano, libero: come lo chiamerebbe chi ci lavora dentro.",
+    "   Non scegli da un elenco — il nome lo decidi tu guardando. Deducilo dagli",
+    "   OGGETTI che vedi: gli oggetti sono gli indizi da cui si capisce a cosa",
+    "   serve uno spazio. Se in una zona non riconosci niente, dillo con il nome",
+    "   piu' onesto che puoi.",
+    '2. una CATEGORIA, che invece scegli fra queste, e sono ruoli validi in',
+    '   qualunque edificio:',
     voci,
     '',
     'Le zone segnate sono:',
     elenco,
     '',
     'REGOLE FERREE:',
-    "1. Rispondi SOLO con JSON: {\"zone\": [{\"n\": 1, \"funzione\": \"parcheggio\", \"sicurezza\": \"alta\"}, ...]}",
-    '2. `funzione` deve essere ESATTAMENTE una delle parole elencate sopra. Niente sinonimi, niente parole nuove.',
+    '1. Rispondi SOLO con JSON, senza testo prima o dopo, senza ```:',
+    '   {"zone": [{"n": <numero della zona>, "nome": "<il nome che dai tu>",',
+    '              "categoria": "<una delle chiavi elencate sopra>",',
+    '              "sicurezza": "alta" | "media" | "bassa"}, ...]}',
+    '2. `categoria` deve essere ESATTAMENTE una delle chiavi elencate sopra.',
+    '   `nome` invece e\' libero: non copiarlo dalle chiavi, e non copiarlo da',
+    '   un\'altra zona.',
     '3. `sicurezza` vale "alta" se lo vedi chiaramente, "media" se lo deduci, "bassa" se stai tirando a indovinare.',
     '4. NON inventare misure, larghezze, aree, quote o distanze: quelle le misura la geometria, non tu.',
     '5. Se di una zona non sai dire niente, OMETTILA. Una zona in meno vale piu di una risposta a caso.',
     '6. Non aggiungere zone che non sono nell elenco.',
-    '',
-    'Cosa guardare:',
-    "- righe bianche parallele e regolari a terra, in file -> parcheggio",
-    "- file di sedute allineate -> attesa",
-    "- una fila di banchi o sportelli lungo una parete -> accoglienza",
-    "- un passaggio obbligato stretto con varchi affiancati -> controlli",
-    "- asfalto ampio e vuoto, segnaletica gialla larga, mezzi -> pista",
-    "- uno spazio lungo e stretto senza arredi -> corridoio",
+    '7. Zone diverse sono spazi diversi. Se ti accorgi di star dando lo stesso',
+    '   nome a tutte, non hai guardato: guarda di nuovo, o ometti.',
   ].filter(Boolean).join('\n');
 }
 
@@ -194,18 +249,60 @@ export function validaRisposta(testo, zone) {
       continue;
     }
     if (visto.has(n)) { esito.scartate.push({ n, perche: 'zona gia assegnata' }); continue; }
-    const chiave = String((v && v.funzione) || '').trim().toLowerCase();
-    const f = PER_CHIAVE.get(chiave);
-    if (!f) { esito.scartate.push({ n, perche: 'funzione fuori vocabolario: ' + chiave }); continue; }
+
+    // ⚠️ IL NOME NON SI VALIDA PIU' CONTRO UN ELENCO, e questo e' il punto del
+    //    cambiamento. Prima si cercava la parola in una tabella di dodici nomi
+    //    e, non trovandola, si buttava tutta la zona: chi guardava per la
+    //    prima volta doveva indovinare una parola decisa prima che guardasse.
+    //    Ora il nome e' cio' che si e' capito, e si tiene com'e'.
+    const nome = String((v && (v.nome || v.funzione)) || '').trim();
+    if (!nome) { esito.scartate.push({ n, perche: 'nessun nome' }); continue; }
+
+    // Si valida SOLO la categoria, perche' quella la legge il simulatore e una
+    // parola che non conosce si perde per strada. Se manca o e' sbagliata non
+    // si butta la zona: si tiene il nome e si lascia il ruolo a chi ce l'ha
+    // gia' — capito a meta' vale piu' di niente.
+    const c = PER_CHIAVE.get(String((v && (v.categoria || v.ruolo)) || '').trim().toLowerCase());
+    if (!c) esito.scartate.push({ n, perche: 'categoria non riconosciuta, tengo solo il nome' });
+
     const sic = String((v && v.sicurezza) || 'media').trim().toLowerCase();
     visto.add(n);
     esito.assegnate.push({
       indice: n - 1,
-      funzione: f.chiave,
-      tipo: f.tipo,
-      fuori: f.fuori,
+      nome: nome,
+      funzione: c ? c.chiave : null,
+      tipo: c ? c.chiave : null,
+      fuori: c ? c.fuori : undefined,
       sicurezza: ['alta', 'media', 'bassa'].includes(sic) ? sic : 'media',
     });
+  }
+
+  // ⚠️ LA RISPOSTA CHE DICE SEMPRE LA STESSA COSA — vista da Raffaella il
+  //    31/08 nel log: «Ho guardato la pianta e ho riconosciuto 4 zone su 7:
+  //    parcheggio, parcheggio, parcheggio, parcheggio», e quelle quattro zone
+  //    venivano rinominate DAVVERO, prima che il circuito completo aprisse
+  //    bocca. Sullo schermo restavano quattro parcheggi dentro un aeroporto.
+  //
+  //    Non e' una lettura: e' un modello piccolo che si incastra su una parola
+  //    e la ripete. Si butta TUTTA la risposta, non se ne salva una: se la
+  //    parola e' sbagliata lo e' per tutte, e quale sarebbe quella giusta non
+  //    si sa. Meglio nessun nome che quattro nomi finti. Sotto le tre zone non
+  //    si giudica: due ambienti uguali capitano davvero.
+  if (esito.assegnate.length >= 3) {
+    const uniche = new Set(esito.assegnate.map((a) => a.nome.toLowerCase()));
+    if (uniche.size === 1) {
+      const parola = esito.assegnate[0].nome;
+      for (const a of esito.assegnate) {
+        esito.scartate.push({ n: a.indice + 1, perche: 'risposta uniforme: "' + parola + '" su tutte le zone' });
+      }
+      esito.assegnate = [];
+      esito.uniforme = parola;
+      try {
+        console.warn('[VERITAS occhi] risposta buttata: "' + parola + '" su tutte le '
+          + esito.scartate.length + ' zone lette. Un modello che ripete la stessa parola'
+          + ' non ha guardato: meglio nessun nome che nomi finti.');
+      } catch (e) {}
+    }
   }
   return esito;
 }
@@ -390,7 +487,7 @@ export function racconta(esito, zone) {
   const nomi = esito.assegnate
     .filter((a) => a.sicurezza !== 'bassa')
     .map((a) => (zone && zone[a.indice] && zone[a.indice].nome ? zone[a.indice].nome + ': ' : '')
-                + a.funzione);
+                + a.nome + (a.funzione ? ' (' + a.funzione + ')' : ''));
   const incerte = esito.assegnate.filter((a) => a.sicurezza === 'bassa').length;
   return 'Ho guardato la pianta e ho riconosciuto ' + esito.assegnate.length + ' zone su '
     + esito.totale + ': ' + nomi.join(', ') + '.'
@@ -400,7 +497,7 @@ export function racconta(esito, zone) {
 }
 
 export default {
-  FUNZIONI, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
+  CATEGORIE, categoriaDi, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
   riquadriZone, immagineConZone, chiedi, guarda, racconta,
 };
 

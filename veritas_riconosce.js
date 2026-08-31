@@ -740,15 +740,25 @@ if (typeof window !== "undefined") {
       const p = r.posti.find((q) =>
         Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
         Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
-      if (!p || !p.nome || !p.funzione) return;
-      const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
-        ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
-      if (!t) return;
+      // ⚠️ QUI C'ERANO DUE CANCELLI, e sono la quinta porta del 29/08 rimasta
+      //    aperta in questo file mentre il gemello dentro index.html veniva
+      //    riparato. Il primo pretendeva una `funzione`: un volume con un nome
+      //    ottimo ma senza la parola giusta spariva. Il secondo chiamava
+      //    `tipoDiFunzione`, che restituisce una STRINGA, e ne leggeva `.tipo`
+      //    e `.fuori`: due `undefined`. Il ruolo capito non e' mai arrivato al
+      //    simulatore da questa strada.
+      //
+      //    Ora basta il NOME. Il ruolo si prende se c'e', e se non c'e' si
+      //    lascia null: chi riceve tiene quello che la tappa aveva gia'.
+      //    Capito a meta' vale piu' di niente.
+      if (!p || !p.nome) return;
+      const t = window.__veritasOcchi && window.__veritasOcchi.categoriaDi
+        ? window.__veritasOcchi.categoriaDi(p.funzione) : null;
       assegnate.push({
         indice: i,
-        funzione: p.funzione,
-        tipo: t.tipo,
-        fuori: t.fuori,
+        funzione: t ? t.chiave : null,
+        tipo: t ? t.chiave : null,
+        fuori: t ? t.fuori : undefined,
         // La fiducia del rilevatore diventa la sicurezza che il ponte gia'
         // sa leggere: sotto la soglia bassa non scavalca una misura.
         sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),

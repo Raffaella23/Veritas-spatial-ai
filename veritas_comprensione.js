@@ -163,7 +163,15 @@ export function promptCervello(riassunto) {
     '  "fiducia": numero fra 0 e 1,',
     '  "cosa_e": "che edificio e\', in una frase",',
     '  "dubbi": [ { "cosa": "...", "perche": "...", "dove": [x, z] } ],',
-    '  "chiedi_all_occhio": [ { "chiedi": "a baggage carousel", "nome": "nastro bagagli", "funzione": "attesa" } ],',
+    // ⚠️ NIENTE ESEMPIO CONCRETO QUI. C'era «a baggage carousel / nastro
+    //    bagagli / attesa»: un oggetto d'aeroporto scritto dentro la domanda.
+    //    Un modello piccolo ricopia l'esempio invece di rispondere — e' la
+    //    stessa strada da cui e' arrivato «parcheggio» su quattro zone — e per
+    //    di piu' suggeriva un aeroporto a chi doveva ancora dire che edificio
+    //    ha davanti. Si descrive la FORMA della risposta, non il suo contenuto.
+    '  "chiedi_all_occhio": [ { "chiedi": "<oggetto da cercare, in inglese>",',
+    '                           "nome": "<come si chiama in italiano>",',
+    '                           "funzione": uno fra ' + JSON.stringify(RUOLI) + ' oppure null } ],',
     '  "chiedi_all_umano": "una domanda in italiano, oppure null"',
     "}",
     "",
@@ -247,7 +255,24 @@ export function leggiVerdetto(testo) {
 // RUOLO invece viene da questo elenco chiuso e corto: serve solo al Core Python
 // e alle soglie normative per sapere cosa verificare, e non e' quello che si
 // legge a schermo.
-export const RUOLI = ["ingresso", "transito", "attesa", "controllo", "servizio", "uscita"];
+//
+// ⚠️ QUESTE PAROLE SONO CAMBIATE, E NON E' UN RITOCCO DI STILE. Erano
+//    ["ingresso", "transito", "attesa", "controllo", "servizio", "uscita"]:
+//    sei parole sensate, che pero' il SIMULATORE NON CONOSCE. Il motore legge
+//    `origine / accoglienza / filtro / sosta / distribuzione / destinazione`
+//    (`TYPE_OPTIONS_DEF`, index.html ~282), e un ruolo che non sa leggere lo
+//    ignora. Il cervello quindi capiva il ruolo, lo scriveva, e il ruolo
+//    moriva a meta' strada: a schermo restava quello messo per posizione da
+//    `applyAutoAssignment`. E' lo stesso guasto del 31/08, quando `corridoio`
+//    mandava `passaggio` e il ruolo si perdeva.
+//
+//    Ora occhio, cervello e motore dicono LE STESSE PAROLE. Sono le categorie
+//    dell'architettura — valgono per un aeroporto, una scuola, un ospedale, un
+//    museo — e non nominano nessuna tipologia: Regola 0-bis rispettata.
+export const RUOLI = [
+  "origine", "accoglienza", "filtro", "sosta",
+  "distribuzione", "destinazione", "servizio", "esterno", "escluso",
+];
 
 // I volumi MISURATI, come li vede il cervello. La geometria e' certa: si manda
 // cosi' com'e' e non si discute. Il cervello mette solo i nomi.
@@ -546,7 +571,8 @@ export function promptAssegnazione(studio, volumi, testimonianza, giaFatto) {
     "un oggetto JSON, senza testo prima o dopo, senza ```:",
     "{",
     '  "assegnazioni": [',
-    '    { "id": 0, "nome": "nome della zona", "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
+    '    { "id": 0, "nome": "il nome che dai tu, in italiano, libero",',
+    '      "ruolo": uno fra ' + JSON.stringify(RUOLI) + ',',
     '      "fiducia": numero fra 0 e 1, "perche": "una frase" }',
     "  ],",
     '  "senza_nome": [ { "id": <id del volume>, "domanda": "<la domanda vera, gia\' scritta per intero>" } ],',
