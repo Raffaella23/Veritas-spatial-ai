@@ -1,7 +1,44 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 30/08/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 31/08/2026, sera.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
+
+---
+
+## 🚩 SI RIPARTE DA QUI — 31/08/2026 sera
+
+**Testa: `8b2f7f4` + questo commit. Nessun codice toccato oggi: la giornata è
+stata tutta diagnosi, ed è finita con tre bugie del documento smascherate.**
+
+Il punto 0 (i due piani) è **diagnosticato e la cura è provata**, non ancora
+scritta. Si va a leggerlo per intero: c'è dentro la ricetta che funziona.
+
+**La riga sola:** il sistema vede benissimo i due piani, è il passo del
+cammino che riporta tutte le tappe a terra perché non conosce le scale mobili.
+Un collegamento fuori-mesh di navcat le unisce — provato, 2 gruppi → 1.
+
+🔴 **Le tre cose che questo documento affermava e che sono FALSE.** Erano il
+vero ostacolo: tenevano lontani dalla riparazione più di quanto facesse il
+codice.
+
+| il documento diceva | la misura dice |
+|---|---|
+| «le frecce colorate le disegna VERITAS, darle al cervello è specchiarsi» | sono **36 mesh `arrow*` dentro il GLB**, tre flussi, e due **salgono la scala mobile** |
+| «le isole a 3,6 m di 329, 138 e 71 m² sono le ali» | stanno **dentro il terminal, sopra il piano terra**: sono il **piano superiore** |
+| «il modello ha due piani e il sistema ne vede uno» | ne vede **due**, li misura e li stampa: sono le **tappe** a non arrivarci |
+
+E una quarta, che è una scelta da rivedere più che un errore: le **226 sagome
+umane** (164 al piano di sopra) sono messe in quarantena come «controprova» e
+non contano come indizi. L'occhio le capisce; è il sistema che non le ascolta.
+
+⚠️ **Detto da Raffaella il 31/08, ed è la direzione:** *«noi ci dobbiamo
+occupare di semantica e lettura di segni e spazi tridimensionali. La missione
+è più profonda.»* Le sagome e le frecce **sono indicatori di flusso messi da
+chi ha fatto il modello**, non rumore da scartare. La segnaletica semantica
+sale da 🟡 a 🔴 (punto 5 dell'elenco).
+
+**Il primo lavoro della prossima sessione**, in ordine, sta scritto nel punto 0
+sotto «LA CURA È GIÀ STATA PROVATA». Non serve rifare nessuna diagnosi.
 
 ---
 
@@ -234,18 +271,78 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    **La riparazione è nel GRAFO, non nelle sezioni.** Il fronte 4 (piante di
    piano) resta utile per la comprensione e per il referto, ma **non è quello
    che impedisce di salire**: partire da lì era la giornata che questo punto
-   avvertiva di non spendere. Ordine giusto:
-   1. far entrare le due scale mobili nella navmesh; se navcat non le regge a
-      questa risoluzione, dichiarare il collegamento verticale come
-      **collegamento fuori-mesh** — è lo strumento che Recast/Detour ha
-      apposta e navcat ne è il lignaggio, quindi non si scrive a mano;
-   2. **solo allora** togliere l'appiattimento: finché un percorso vero fra i
-      due piani non esiste, spegnere il ripiego lascerebbe sei tappe
-      irraggiungibili, che è peggio di sei tappe al piano sbagliato;
-   3. dare alla tappa il **livello** come campo. Oggi non ce l'ha: la zona lo
-      sa (`floorIdx`), la tappa lo perde per strada. Serve al referto — un'attesa
-      al terra e una al primo non sono la stessa cosa per esodo e affollamento
-      — e serve al punto qui sotto.
+   avvertiva di non spendere.
+
+   ### ✅ LA CURA È GIÀ STATA PROVATA SULLA PAGINA LIVE — si scrive, non si cerca
+
+   Eseguito il 31/08 sera nella console della simulazione, sul modello vero:
+
+       prima:  gruppiCollegati([terra, sopra]).quanti  ->  2
+       addOffMeshConnection(navMesh, {start: basso, end: alto,
+             radius: 1.5, direction: BIDIRECTIONAL, flags: 1, area: 0})
+       isOffMeshConnectionConnected(navMesh, id)       ->  true
+       dopo:   gruppiCollegati([terra, sopra]).quanti  ->  1
+
+   **I due piani diventano uno spazio solo.** E non serve toccare
+   l'appiattimento: il ripiego di `index.html` ~3048 scatta solo quando
+   `g.quanti > 1`. Con un gruppo solo **non parte proprio**, le sei tappe
+   restano a +3,64 m e il piano di sopra resta popolato. Un difetto chiuso
+   senza toccare il codice che lo produceva.
+
+   ⚠️ **navcat ha già lo strumento: `addOffMeshConnection`,
+   `removeOffMeshConnection`, `isOffMeshConnectionConnected`,
+   `OffMeshConnectionDirection`.** È il meccanismo con cui Recast/Detour
+   dichiara scale, scale mobili e salti da vent'anni. **Non si scrive a mano.**
+
+   ⚠️ **Trappola che è costata un tentativo:** la rampa sale verso **−X**. Se
+   si presume il verso invece di leggerlo dalla geometria, il capo alto cade
+   dove il piano di sopra non c'è, si aggancia al pavimento di sotto e il
+   risultato è un falso «già collegati, 1 gruppo». Il verso si legge dalla
+   **mediana delle quote ai due capi dell'asse lungo**, sempre.
+
+   ### La regola da scrivere, ed è GEOMETRICA — vale per qualunque edificio
+
+   Regola 0-bis rispettata: nessuna parola di tipologia, nessun nome di mesh,
+   nessun numero tarato su questo modello. I limiti sono le misure della
+   `PERSONA` (raggio 0,30 · gradino 0,40 · pendenza max 35°), che vengono da
+   riferimenti pubblicati.
+
+   > Dove una superficie inclinata quanto basta a una persona **parte da un
+   > livello misurato e arriva a un altro**, lì i due livelli si collegano.
+
+   I filtri, e sono stati **provati anche sui casi che devono FALLIRE**:
+
+   | filtro | perché |
+   |---|---|
+   | larghezza ≥ 2 × raggio | ci deve passare una persona |
+   | i due capi entro un `gradino` da due livelli **diversi** | parte da un piano e arriva a un altro |
+   | superficie inclinata (5°…pendenzaMax) ≥ **50% dell'impronta** | è una rampa, non un oggetto grande che spazia in altezza |
+   | il collegamento **si aggancia** (`isOffMeshConnectionConnected`), altrimenti si toglie e si conta | mai dichiarare un passaggio che non c'è |
+
+   Misurato, riempimento = inclinata / impronta: **rampa vera 87%** ·
+   aereo 9% · ala 8% · piastra piatta 0%. Separazione netta.
+   ⚠️ Il riempimento è preferibile al rapporto lunghezza/larghezza, che
+   boccerebbe uno **scalone monumentale** — largo 10 m e lungo 5 — cioè
+   proprio una chiesa o un museo.
+
+   ⚠️ **I livelli si ricavano raggruppando le quote delle ISOLE, non
+   l'istogramma delle quote.** Provato: le bande a mezzo metro l'una
+   dall'altra si incatenano e finiscono per unire il mezzanino con la coda di
+   un aereo sei metri più su. Con le isole vengono puliti: 0,75 · 3,7 · 6,2.
+
+   ### Poi, in quest'ordine
+
+   1. **il livello come campo della tappa.** Oggi non ce l'ha: la zona lo sa
+      (`floorIdx`), la tappa lo perde per strada. Serve al referto — un'attesa
+      al terra e una al primo non sono la stessa cosa per esodo e affollamento.
+   2. **l'accoppiamento dei nomi a parità di piano** (vedi qui sotto).
+   3. **la sentinella:** un livello con sagome umane sopra che resta
+      irraggiungibile va **dichiarato**, non appiattito in silenzio. Con questo
+      modello avrebbe gridato mesi fa: *164 persone su un piano dove non sale
+      nessuno*.
+   4. **le frecce del modello come conferma**: `arrow013_0` (quota 2,10, in
+      mezzo alla rampa) e `arrow014_0` (quota 4,12, in cima) dichiarano il
+      passaggio verticale. La geometria trova la rampa, i segni confermano.
 
    **E QUI SI SPIEGA ANCHE IL «3 TAPPE SU 7 RINOMINATE».** È lo stesso piano
    di troppo. L'accoppiamento nome→tappa (`applicaNomi`, `veritas_montaggio.js`)
@@ -642,14 +739,29 @@ via**. Chi ha fatto il modello i nomi ce li aveva; l'esportazione li ha
 appiattiti in 2.416 mesh chiamate `Cube.083`.
 
 **La prova che non si poteva vincere è geometrica.** Un difetto ricorrente era
-«Ingresso / Parcheggio» sull'ala di un aereo, a quota 3,64 m: quella navmesh ha
-isole a 3,6 m di 329, 138 e 71 m². Sono le ali.
+«Ingresso / Parcheggio» sull'ala di un aereo, a quota 3,64 m.
 
 > Un'ala d'aereo e un mezzanino sono **geometricamente identici**: superficie
 > orizzontale, larga qualche metro, a tre metri e mezzo da terra, senza niente
 > sopra la testa. Nessuna misura li distingue. **Mai.**
 
 Chi aggiunge "una soglia in più" sta ricominciando il ciclo di dieci giorni.
+
+🔴 **CORREZIONE 31/08, e questo paragrafo lo dimostra da solo.** Fino a oggi
+qui c'era scritto: *«quella navmesh ha isole a 3,6 m di 329, 138 e 71 m². Sono
+le ali.»* **È FALSO, ed è stato misurato.** Quelle tre isole stanno a
+x −58…−38, cioè **dentro l'impronta del terminal, esattamente sopra il piano
+terra**: sono il **PIANO SUPERIORE**. Le ali e i pezzi d'aereo sono altre
+isole, da ~45 m², a x −90…−105. A quota 3,6 m ci sono **tutte e due le cose**,
+e questo documento le aveva confuse chiamandole tutte ali.
+
+Il danno è durato giorni: il piano di sopra dell'edificio era stato
+catalogato come rottame d'aeroporto, quindi non c'era niente da spiegare.
+⚠️ E la lezione qui sopra ne esce **rafforzata, non smentita**: proprio perché
+nessuna misura distingue un'ala da un mezzanino, chi prova a deciderlo
+guardando solo la geometria sbaglia — e ha sbagliato. Si distinguono
+**leggendo i segni**: sul piano superiore ci sono 164 sagome umane in piedi e
+ci arrivano le frecce del modello. Su un'ala non c'è nessuno.
 
 | dominio | file d'origine | cosa porta già dentro |
 |---|---|---|
@@ -894,12 +1006,61 @@ qualunque accoppiamento è una toppa.
    rotazione a mazzetti l'occhio riceve già le stesse immagini del cervello,
    giro per giro: resta da verificarlo a schermo.
 
-5. 🟡 **La segnaletica semantica.** Il lettore misura colore, direzione e area
+5. 🔴 **LA SEGNALETICA SEMANTICA — promossa il 31/08, ed è la missione, non
+   una rifinitura.** Detto da Raffaella: *«noi ci dobbiamo occupare di
+   semantica e lettura di segni e spazi tridimensionali, la missione è più
+   profonda»*. Il lettore misura già colore, verso e area
    (`[VERITAS segnaletica] … tinta 46deg direzionale direzione 90deg`). Manca
    il passaggio da *fisica del segno* a *significato*.
-   ⚠️ **Le frecce rosa/arancioni/verdi sulla pianta NON sono segnaletica
-   dell'edificio: le disegna VERITAS.** Darle in pasto al cervello è
-   guardarsi allo specchio.
+
+   🔴 **CORREZIONE 31/08 — QUI C'ERA LA BUGIA PIÙ COSTOSA DEL DOCUMENTO.**
+   Fino a oggi c'era scritto: *«Le frecce rosa/arancioni/verdi sulla pianta
+   NON sono segnaletica dell'edificio: le disegna VERITAS. Darle in pasto al
+   cervello è guardarsi allo specchio.»* **È FALSO.** Nel GLB ci sono **36
+   mesh che si chiamano `arrow_0`, `arrow001_0` … `arrow031_0`**, materiali
+   `arrow.001` / `.002` / `.003`, spesse 17 cm e stese sul pavimento: **le ha
+   messe chi ha fatto il modello.** Tre tinte = **tre flussi**: verde 9, rosa
+   18, arancione 9.
+
+   E due di quelle frecce **salgono la scala mobile**: `arrow013_0` a x −33 e
+   quota **2,10 m** (in mezzo alla rampa), `arrow014_0` a x −38 e quota
+   **4,12 m** (in cima). L'edificio dichiara per iscritto che il flusso rosa
+   va al piano di sopra — mentre il sistema concludeva che lassù non ci
+   arriva nessuno. **Non c'è nessun filtro nel codice che le butti: a
+   escluderle è stata questa riga di documento**, per giorni.
+
+   ⚠️ Quello che resta vero è solo questo, e va tenuto distinto: i percorsi
+   che **VERITAS disegna a schermo** (rosa, arancio, verde chiaro) non vanno
+   rimandati al cervello. Si distinguono all'origine, non dal colore: quelli
+   del modello stanno dentro `__veritasModelRoot`, i nostri sono marcati
+   `__veritasHelper`. Chi confonde le due cose butta la segnaletica vera —
+   ed è successo.
+
+   📌 Raffaella l'aveva già detto il **19/08**, ed è citato dentro
+   `veritas_cose.js` riga 11: *«hai delle figure umane, che sono degli
+   elementi verticali, delle frecce orizzontali colorate che indicano i
+   percorsi»*. Il documento lo ha smentito e sono passati dodici giorni.
+
+6. 🔴 **LE SAGOME UMANE SONO INDIZI, e oggi vengono buttate.** Nel modello ci
+   sono **226 figure**: 61 al piano terra e **164 al piano di sopra** — c'è
+   più gente sopra che sotto, su un piano che il sistema dichiarava
+   irraggiungibile. L'occhio le capisce benissimo (`person` è nel suo
+   vocabolario, chiede *«a person standing»*), ma ogni persona vista viene
+   marcata `controprova` e messa in quarantena: *«le persone non nominano
+   niente»* (`veritas_riconosce.js` ~435), e vengono tolte dai posti su cui
+   si appoggiano le tappe (`veritas_cose.js` ~831).
+
+   ⚠️ La quarantena ha **una** ragione buona e una sola: se le figure
+   decidessero dove vanno le tappe, la controprova — «le zone che ho misurato
+   tornano con dove sta la gente?» — si darebbe ragione da sola. Quella
+   ragione vale per la VERIFICA, non per tutto il resto. Una figura modellata
+   è un indizio come una sedia o un'auto: **non è roba nostra, l'ha messa
+   l'autore del file.** Regola da applicare: le figure continuano a non dare
+   NOMI, ma valgono come prova che **una superficie è calpestabile e usata**.
+   Un livello con delle figure sopra è un livello a cui si deve poter
+   arrivare: se dopo i collegamenti resta irraggiungibile, il sistema lo
+   **dichiara** invece di appiattire in silenzio. Vale in una scuola, in una
+   chiesa, in un negozio: una figura modellata sta dove la gente sta.
 
 ### ✅ Fatto il 30/08 — sette commit su `main`, e la prima corsa che migliora
 
