@@ -19260,11 +19260,16 @@ function prompt(zone, opz = {}) {
   const voci = CATEGORIE.map((c) => `- ${c.chiave}: ${c.descrizione}`).join('\n');
   const elenco = zone.map((z, i) => {
     const n = i + 1;
-    const a = z.area != null ? `${Math.round(z.area)} m2` : 'area ignota';
+    // ⚠️ NIENTE TESTO COPIABILE QUANDO L'AREA MANCA. Qui c'era
+    //    'area ignota', e il 31/08 il modello l'ha restituita come NOME di
+    //    tutte e sette le zone: «zona 1: area ignota» era l'ultima cosa che
+    //    aveva letto, e l'ha ripetuta. Adesso, se l'area non c'e', della zona
+    //    non si dice niente: nessuna frase da ricopiare.
+    const a = z.area != null ? `${Math.round(z.area)} m2` : null;
     const forma = z.allungamento != null
       ? (z.allungamento > 3 ? ', stretta e lunga' : (z.allungamento < 1.5 ? ', compatta' : ''))
       : '';
-    return `zona ${n}: ${a}${forma}`;
+    return a ? `zona ${n}: ${a}${forma}` : `zona ${n}`;
   }).join('\n');
 
   // ⚠️ QUI NON CI SONO PIU' ESEMPI DI RISPOSTA, ed e' voluto.

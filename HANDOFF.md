@@ -173,6 +173,28 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
 
 ### Cosa resta aperto, in ordine di importanza
 
+0. 🔴 **IL MODELLO HA DUE PIANI E IL SISTEMA NE VEDE UNO.** Detto da Raffaella
+   il 31/08 guardando la simulazione: *«l'AI guarda solo un piano, la quota
+   zero, e non il piano superiore: fino a oggi non ho mai visto un passeggero
+   salire seguendo la scala mobile».* Non è un dettaglio del movimento, è una
+   cosa che rompe **tutti e tre** i mestieri di VERITAS insieme, ed è per
+   questo che sta in cima:
+   - **la comprensione**: la pianta è UNA vista dall'alto, e da lì i due
+     livelli si sovrappongono. Un volume al primo piano e uno al terra cadono
+     sullo stesso punto in pianta e diventano indistinguibili. È la ragione
+     per cui il fronte 4 (sezioni e piante di piano) non è una rifinitura;
+   - **il referto**: un'attesa al terra e una al primo non sono la stessa cosa
+     per esodo e affollamento, e oggi il livello non è nemmeno un campo;
+   - **la simulazione**: se le persone non salgono, metà edificio non viene
+     mai attraversato e ogni numero che ne esce è calcolato su metà modello.
+   ⚠️ **Le due spiegazioni possibili vanno separate prima di mettere mano**,
+   perché portano a riparazioni opposte: *(a)* il sistema non ha CAPITO che
+   c'è un piano sopra — allora è la pianta unica, fronte 4; *(b)* l'ha capito
+   ma le persone non ci arrivano — allora è la navmesh in 32 parti separate e
+   la scala mobile che non collega due isole, e si vede dai `[VERITAS cammino]
+   non è raggiungibile a piedi`. **Si guarda prima a quale quota stanno le
+   tappe**, poi il grafo. Riparare quella sbagliata costa una giornata.
+
 1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
    un aeroporto ha **due versi** (chi parte e chi arriva), non una fila. Va
