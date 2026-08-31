@@ -1,6 +1,6 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 30/08/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 31/08/2026.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
@@ -51,13 +51,34 @@ Cosa e' cambiato, tutto in `veritas_montaggio.js` (`index.html` non toccato):
    rimaste manca una `origine` o una `destinazione` — senza partenza e arrivo
    il flusso e' zero, che e' peggio di una tappa nel posto sbagliato.
 
-⚠️ **CHE COSA NON E' ANCORA RISOLTO, ed e' il lavoro numero uno.** I NOMI ora
-vengono dall'occhio. I **RUOLI** no. `type` (origine / accoglienza / filtro /
-sosta / destinazione) lo decide ancora `applyAutoAssignment` in `index.html`
-riga ~3492 ordinando le zone per la X, prima che qualcuno guardi — e la
-simulazione legge i ruoli, non i nomi. Finche' e' cosi' **l'occhio nomina ma
-non comanda**, e la garanzia del punto 3 scattera' spesso, scrivendolo ogni
-volta nel log. Quando i ruoli verranno dal riconoscimento, si spegnera' da sola.
+### ✅ 31/08 — I RUOLI VENGONO DAL RICONOSCIMENTO (`a7047cf`)
+
+Deciso da Raffaella: «l'occhio deve essere libero di trovare e il cervello si
+deve fare da parte». Tolto `FUNZIONI`, l'elenco chiuso di dodici nomi di spazi
+che il modello che vede era obbligato a usare. Il perche' per esteso sta nel
+messaggio di commit. Le tre cose da sapere:
+
+1. **Sotto c'era un difetto meccanico che nessuno aveva visto.**
+   `tipoDiFunzione` restituiva una **stringa**, e i due chiamanti leggono
+   `.tipo` (`veritas_montaggio.js` ~882, `applicaNomi` ~22242): su una stringa
+   `.tipo` e' `undefined`. Quindi `a.tipo` arrivava sempre vuoto a
+   `__veritasApplicaOcchi` (~2943), dove `a.tipo || n.type` ripiegava sul ruolo
+   posizionale, e ogni tappa nata dall'occhio nasceva `"sosta"`. **Il ponte
+   esisteva dal 30/08 ma non ci e' mai passato niente.** Ora torna
+   `{ tipo, fuori }`. Il documento dava la colpa all'ordinamento per la X:
+   quello era solo il ripiego che sopravviveva.
+2. **Si chiedono due cose separate.** `nome` libero, con le parole del modello
+   (aula, corsia, reparto, magazzino: prima sparivano tutte). `ruolo` fra nove
+   categorie architettoniche — origine, accoglienza, filtro, sosta,
+   **distribuzione**, servizio, destinazione, esterno, escluso. Le categorie
+   restano chiuse ed e' legittimo: non sono nomi, e non si mostrano all'utente.
+3. ⚠️ **Un ruolo che il motore non conosce e' una tappa che non si muove.** La
+   vecchia tabella emetteva `passaggio`, che non e' mai stato dentro
+   `TYPE_OPTIONS_DEF` (riga ~282). Difetto latente. Chi tocca i ruoli
+   **controlli quella riga**: e' l'unico insieme che il programma sa maneggiare.
+
+Verificato: blocco 3 `58d371701aa9a349`, 33 blocchi; `node --check` pulito;
+prova a mano sui nomi che prima sparivano. **Non provato a schermo.**
 
 ⚠️ Da guardare alla prossima corsa: quante tappe nascono e **dove**. Se ne
 nascono sulle ali degli aerei o fuori dal pavimento, serve il filtro «dove si
@@ -112,12 +133,13 @@ e uscite.
 5. **`veritas_visibility.js` non è mai stato acceso a schermo.** Isovista, linea
    di vista, altezza dell'occhio diversa per chi è in piedi e chi è in
    carrozzina: scritto per intero, mai mostrato. È metà del prodotto già pagata.
-6. **I RUOLI non vengono ancora dall'occhio — è il lavoro numero uno.** I nomi
-   sì (`4b2290a`, `462b1192`, `7c87b66`), `type` no: lo decide
-   `applyAutoAssignment` in `index.html` riga ~3492 ordinando le zone per la X,
-   prima che qualcuno guardi. La simulazione legge i ruoli, non i nomi: finché
-   è così l'occhio nomina ma non comanda, e a schermo il divario si vede
-   esattamente come lo ha visto Raffaella — pianta giusta, movimento no.
+6. ✅ **I ruoli vengono dall'occhio** (`a7047cf`, 31/08). **Da guardare alla
+   prima corsa, ed è il primo passo della prossima sessione:** quante tappe
+   nascono e **dove**. Se ne nascono sulle ali degli aerei o fuori dal
+   pavimento serve il filtro «dove si cammina», in `veritas_montaggio.js`.
+   ⚠️ Il ripiego per ordinamento resta in `applyAutoAssignment` (~3604) e in
+   `assegnaZoneMisurate` (~3228): **non si toglie prima di aver visto che i
+   ruoli capiti bastano** — senza ruoli la simulazione ha zero tappe.
 7. **Il motore fisico** dà `unreachable` a ogni fotogramma, fase «ricerca punto
    libero», e `nessuna strada` fra le tappe. ⚠️ Il trap scatta nella prima
    interrogazione dei raggi, `dentroPerParita` → `world.intersectionsWithRay`,
