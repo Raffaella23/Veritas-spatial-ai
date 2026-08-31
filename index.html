@@ -19325,6 +19325,39 @@ function validaRisposta(testo, zone) {
       sicurezza: ['alta', 'media', 'bassa'].includes(sic) ? sic : 'media',
     });
   }
+  // ⚠️ LA RISPOSTA CHE DICE SEMPRE LA STESSA COSA — vista da Raffaella il
+  //    31/08 nel log: «Ho guardato la pianta e ho riconosciuto 4 zone su 7:
+  //    parcheggio, parcheggio, parcheggio, parcheggio», e quelle quattro zone
+  //    venivano rinominate DAVVERO, prima che il circuito completo aprisse
+  //    bocca. Sullo schermo restavano quattro parcheggi dentro un aeroporto.
+  //
+  //    Non e' una lettura: e' un modello piccolo che si incastra su una parola
+  //    e la ripete — lo stesso difetto gia' visto quando ricopiava l'esempio
+  //    del prompt. Un edificio in cui tutto e' la stessa cosa non e' un
+  //    edificio articolato, e qui la geometria aveva misurato sette ambienti
+  //    diversi separati da varchi reali.
+  //
+  //    Si butta TUTTA la risposta, non se ne salva una: se la parola e'
+  //    sbagliata lo e' per tutte, e quale sarebbe quella giusta non si sa.
+  //    Meglio nessun nome che quattro nomi finti — e' la stessa onesta' del
+  //    resto del sistema. Sotto le tre zone non si giudica: due ambienti
+  //    uguali capitano davvero.
+  if (esito.assegnate.length >= 3) {
+    const uniche = new Set(esito.assegnate.map((a) => a.funzione));
+    if (uniche.size === 1) {
+      const parola = esito.assegnate[0].funzione;
+      for (const a of esito.assegnate) {
+        esito.scartate.push({ n: a.indice + 1, perche: 'risposta uniforme: "' + parola + '" su tutte le zone' });
+      }
+      esito.assegnate = [];
+      esito.uniforme = parola;
+      try {
+        console.warn('[VERITAS occhi] risposta buttata: "' + parola + '" su tutte le '
+          + esito.scartate.length + ' zone lette. Un modello che ripete la stessa parola'
+          + ' non ha guardato: meglio nessun nome che nomi finti.');
+      } catch (e) {}
+    }
+  }
   return esito;
 }
 
