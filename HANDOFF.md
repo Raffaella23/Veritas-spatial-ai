@@ -126,6 +126,51 @@ su GitHub, `buildig/uniclass-2015`) è la prima, ed è la stessa con cui si
 classificano gli oggetti IFC. Neufert e i manuali editoriali no: sono opere
 protette e in un prodotto che si vende diventano un problema legale.
 
+### 📍 STATO AL 31/08 sera — cosa e' cambiato oggi
+
+Testa: `e42c3fb`. Tre commit, tutti additivi, nessun ramo nuovo.
+
+**`d371820` — la direzione di prodotto, scritta.** La sezione "A COSA SERVE
+VERITAS" qui sopra. Non c'era.
+
+**`71f3111` — il ruolo capito arriva alle tappe.** Era il difetto che Raffaella
+descriveva come «l'occhio vedeva bene ma non veniva tradotto in
+un'autoassegnazione intelligente». `tipoDiFunzione` torna una STRINGA e i tre
+chiamanti leggevano `.tipo` su di essa, cioe' `undefined`: al ponte arrivava un
+ruolo vuoto, e `a.tipo || n.type` teneva ogni volta il ruolo messo per posizione
+da `applyAutoAssignment`. Aggiunta `funzioneDi(chiave)` che torna la voce intera;
+i tre chiamanti usano quella. `corridoio` passato da `passaggio` (ruolo che il
+motore non conosce) a `distribuzione` (che conosce).
+
+**`e42c3fb` — buttata la risposta uniforme.** Nel log: «ho riconosciuto 4 zone
+su 7: parcheggio, parcheggio, parcheggio, parcheggio», e le rinominava davvero,
+prima che parlasse il circuito completo. `validaRisposta` ora scarta l'intera
+risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
+
+**COSA DICE IL LOG DEL 31/08, letto per intero — due paure rientrate:**
+
+1. **Le 4 zone della geometria non esistono.** Quella corsa ha misurato 7
+   ambienti separati da varchi reali su 2 livelli, 6340 m2 calpestabili, e il
+   circuito ha capito **22 volumi su 23, fiducia 74%**, in 2 giri. Il "4" era
+   l'occhio della sola pianta. Nessuna regressione da indagare.
+2. **Gli agenti CAMMINANO** — detto da Raffaella e confermato dal log: la
+   traiettoria dal motore remoto viene accettata e usata, 800 frame, 27 punti.
+
+**Cosa resta rotto nel log, in ordine:**
+- `[VERITAS corpo] non applicato: errore nel motore fisico` — sempre allo stesso
+  punto, `nascitaLibera/dentroUnSolido`, fotogramma 0-1. Due errori diversi:
+  `memory access out of bounds` e `recursive use of an object detected which
+  would lead to unsafe aliasing in rust`. Il secondo e' la firma di una query
+  Rapier chiamata DENTRO la callback di un'altra query sullo stesso world.
+  Il movimento c'e' lo stesso: e' il corpo fisico che non si applica.
+- `tappe: 0 appoggiate sul pavimento, 1 gruppi raggiungibili`; navmesh in **32
+  parti separate**.
+- OWLv2 non si apre in nessun formato (webgpu q4f16/fp16/q8, wasm q8/fp32):
+  `Provider type for Cast node '/class_head/Cast' is not set`. Si passa
+  all'occhio di riserva (qwen2.5-vl-7b), i cui riquadri non sono confrontabili
+  con le misure di OWLv2.
+- `backend non raggiungibile` a intermittenza su Render (cold start).
+
 ### Cosa resta aperto, in ordine di importanza
 
 1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
