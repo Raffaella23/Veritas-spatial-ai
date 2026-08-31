@@ -173,7 +173,7 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
 
 ### Cosa resta aperto, in ordine di importanza
 
-0. 🔴 **IL MODELLO HA DUE PIANI E IL SISTEMA NE VEDE UNO.** Detto da Raffaella
+0. 🔴 **IL MODELLO HA DUE PIANI E NESSUNO CI SALE.** Detto da Raffaella
    il 31/08 guardando la simulazione: *«l'AI guarda solo un piano, la quota
    zero, e non il piano superiore: fino a oggi non ho mai visto un passeggero
    salire seguendo la scala mobile».* Non è un dettaglio del movimento, è una
@@ -187,13 +187,83 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
      per esodo e affollamento, e oggi il livello non è nemmeno un campo;
    - **la simulazione**: se le persone non salgono, metà edificio non viene
      mai attraversato e ogni numero che ne esce è calcolato su metà modello.
-   ⚠️ **Le due spiegazioni possibili vanno separate prima di mettere mano**,
-   perché portano a riparazioni opposte: *(a)* il sistema non ha CAPITO che
-   c'è un piano sopra — allora è la pianta unica, fronte 4; *(b)* l'ha capito
-   ma le persone non ci arrivano — allora è la navmesh in 32 parti separate e
-   la scala mobile che non collega due isole, e si vede dai `[VERITAS cammino]
-   non è raggiungibile a piedi`. **Si guarda prima a quale quota stanno le
-   tappe**, poi il grafo. Riparare quella sbagliata costa una giornata.
+   ✅ **SEPARATE IL 31/08 SERA, MISURANDO SULLA PAGINA LIVE. Vince la (b):
+   il sistema HA CAPITO che c'è un piano sopra, e sono le TAPPE a non
+   arrivarci.** La (a) è esclusa: la comprensione dei due livelli c'è già e
+   funziona. I numeri, letti dalla simulazione in esecuzione:
+
+   | cosa | misura |
+   |---|---|
+   | piani riconosciuti | **2** — piano 0 a +0,77 m, piano 1 a +3,64 m |
+   | zone misurate | 7: **una** al terra (5.261 m²), **sei** al primo (942 + 44 + 12 + 27 + 23 + 31 m²) |
+   | dove le tappe sono NATE | **6 su 7 a +3,64 m** (`posMisurata`), 1 a +0,77 m |
+   | dove le tappe STANNO ora | **7 su 7 a +0,79 m** — tutte al piano terra |
+   | isole della navmesh | 32; fra la zona del terra e quella del primo: **2 gruppi, nessun percorso** |
+
+   Il piano sopra non è un'ala d'aereo: la zona da 942 m² sta a (-48, -4),
+   cioè **sopra** la sala del terra che sta a (-43, -2). Le altre cinque,
+   piccole e spostate a x ≈ -90, sono i tubi d'imbarco e i pezzi degli aerei.
+
+   **Dove si perde, esattamente.** Le tappe nascono giuste, al piano giusto.
+   Poi il passo che le rende raggiungibili a piedi (`index.html` ~3048) chiede
+   alla navmesh in quanti gruppi cadono, trova che stanno su isole scollegate,
+   e siccome il gruppo principale non regge metà delle tappe ripiega:
+   `appoggiaTappe` / `catenaCamminabile` le rimettono **tutte sull'isola più
+   estesa**, che è il piano terra. Sei tappe scendono di 2,85 m e il primo
+   piano resta senza una sola tappa. Si riconosce dal loro `origine`, che
+   diventa `cose` o `cammino` — i due nomi che solo quel ripiego assegna.
+
+   **Perché le due isole non si toccano: le due scale mobili non sono nella
+   navmesh.** Nel GLB non hanno un nome — ⚠️ `ElevatorL/R` e `Aileron` sono
+   le code e gli alettoni degli aerei, non ascensori: chi le cerca per nome
+   trova quelli e sbaglia strada. Sono `Cube062` e `Cube195`, a (-34, -0,6) e
+   (-34, +10,5): due rampe di **7,2 × 1,2 m** che salgono da +0,65 a +3,75,
+   pendenza **23-29°**, sotto i 35° ammessi, con ~20 m² di superficie ad
+   angolo camminabile ciascuna. La geometria c'è ed è buona. Ma campionando la
+   rampa lungo la salita la navmesh risponde «calpestabile» solo in basso — e
+   lì aggancia il pavimento sotto, 1,89 m più giù — e **«non calpestabile»
+   da +3,7 m in su**: la rampa non c'è.
+   ⚠️ Ipotesi da provare per prima, NON ancora verificata: la rampa è larga
+   1,2 m fra due balaustre piene; erosa del raggio della persona (0,30 m per
+   lato) resta una striscia di 2-4 celle da 15 cm, cioè **sotto
+   `minRegionArea` (176 celle ≈ 4 m²)**, e viene buttata come isola troppo
+   piccola. Si controlla abbassando `isolaMinimaM2` **solo per la prova**: se
+   la scala compare, è quello. La risoluzione non è il problema — cella
+   0,151 m, `grossolana: false`.
+
+   **La riparazione è nel GRAFO, non nelle sezioni.** Il fronte 4 (piante di
+   piano) resta utile per la comprensione e per il referto, ma **non è quello
+   che impedisce di salire**: partire da lì era la giornata che questo punto
+   avvertiva di non spendere. Ordine giusto:
+   1. far entrare le due scale mobili nella navmesh; se navcat non le regge a
+      questa risoluzione, dichiarare il collegamento verticale come
+      **collegamento fuori-mesh** — è lo strumento che Recast/Detour ha
+      apposta e navcat ne è il lignaggio, quindi non si scrive a mano;
+   2. **solo allora** togliere l'appiattimento: finché un percorso vero fra i
+      due piani non esiste, spegnere il ripiego lascerebbe sei tappe
+      irraggiungibili, che è peggio di sei tappe al piano sbagliato;
+   3. dare alla tappa il **livello** come campo. Oggi non ce l'ha: la zona lo
+      sa (`floorIdx`), la tappa lo perde per strada. Serve al referto — un'attesa
+      al terra e una al primo non sono la stessa cosa per esodo e affollamento
+      — e serve al punto qui sotto.
+
+   **E QUI SI SPIEGA ANCHE IL «3 TAPPE SU 7 RINOMINATE».** È lo stesso piano
+   di troppo. L'accoppiamento nome→tappa (`applicaNomi`, `veritas_montaggio.js`)
+   misura la distanza con `distanzaXZ`: **solo in pianta, la quota non entra
+   nel confronto.** Ma la zona del primo piano e quella del terra si
+   sovrappongono quasi esattamente in pianta — 5,4 m fra i due centri, dentro
+   il raggio di entrambe. Due spazi diversi, uno sopra l'altro, sono lo
+   **stesso punto** per chi confronta in pianta: si contendono gli stessi
+   volumi capiti, la prima tappa che arriva se li prende, e le altre restano
+   «Zona 4 · 541 m²» pur avendo volumi nominati proprio sotto. Aggiungere il
+   livello alla tappa (punto 3 qui sopra) e confrontare **a parità di piano**
+   chiude i due difetti con un lavoro solo.
+   ⚠️ E c'è una causa a monte, ed è l'unica parte di questo punto che il
+   fronte 4 riguarda davvero: i 22 volumi il cervello li capisce dalla
+   **pianta**, che è UNA vista dall'alto. Un volume visto lì non ha un piano,
+   perché i due livelli sono sovrapposti nell'immagine. Finché la vista è una,
+   il livello di un volume capito non è deducibile: si può solo **ereditare
+   dalla zona misurata**, che il piano lo sa.
 
 1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
