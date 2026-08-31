@@ -19184,7 +19184,7 @@ const FUNZIONI = Object.freeze([
     descrizione: 'sala espositiva, mostra, area con opere o vetrine' },
   { chiave: 'commerciale', tipo: 'sosta', fuori: false,
     descrizione: 'negozi, bar, ristorazione, duty free' },
-  { chiave: 'corridoio', tipo: 'passaggio', fuori: false,
+  { chiave: 'corridoio', tipo: 'distribuzione', fuori: false,
     descrizione: 'passaggio stretto e allungato che serve solo a spostarsi' },
   { chiave: 'destinazione', tipo: 'destinazione', fuori: false,
     descrizione: "il punto di arrivo del percorso: gate d'imbarco, uscita finale, sala principale di destinazione" },
@@ -19198,6 +19198,21 @@ const PER_CHIAVE = new Map(FUNZIONI.map((f) => [f.chiave, f]));
 function tipoDiFunzione(chiave) {
   const f = PER_CHIAVE.get(String(chiave || '').trim().toLowerCase());
   return f ? f.tipo : null;
+}
+
+/**
+ * La VOCE INTERA che corrisponde a una funzione — `{chiave, tipo, fuori,
+ * descrizione}` — oppure `null`.
+ *
+ * ⚠️ Esiste perche' i chiamanti hanno bisogno di DUE cose (`tipo` e `fuori`) e
+ * `tipoDiFunzione` ne restituisce una sola, come STRINGA. Chi leggeva `.tipo`
+ * sul valore di ritorno leggeva `.tipo` di una stringa, cioe' `undefined`, e il
+ * ruolo capito non arrivava mai: restava quello messo per posizione. Il ponte
+ * `__veritasApplicaOcchi` funzionava benissimo, gli si consegnava un ruolo
+ * vuoto. Era la ragione meccanica di «l'occhio nomina ma non comanda».
+ */
+function funzioneDi(chiave) {
+  return PER_CHIAVE.get(String(chiave || '').trim().toLowerCase()) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -19503,7 +19518,7 @@ function racconta(esito, zone) {
 }
 
 window.__veritasOcchi = {
-  FUNZIONI, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
+  FUNZIONI, tipoDiFunzione, funzioneDi, prompt, estraiJSON, validaRisposta,
   riquadriZone, immagineConZone, chiedi, guarda, racconta,
 };
 
@@ -22239,8 +22254,8 @@ if (typeof window !== "undefined") {
         Math.abs(q.centro[0] - n.posto.centro[0]) < 1e-9 &&
         Math.abs(q.centro[2] - n.posto.centro[2]) < 1e-9);
       if (!p || !p.nome || !p.funzione) return;
-      const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
-        ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
+      const t = window.__veritasOcchi && window.__veritasOcchi.funzioneDi
+        ? window.__veritasOcchi.funzioneDi(p.funzione) : null;
       if (!t) return;
       assegnate.push({
         indice: i,

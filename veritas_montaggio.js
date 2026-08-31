@@ -834,8 +834,8 @@ function applicaNomi(posti) {
     //    Ora basta il nome. Il tipo, se non si riconosce, resta quello che la
     //    zona aveva: si scrive cio' che si e' capito e non si tocca il resto.
     if (!p || !p.nome) { senzaNome++; return; }
-    const t = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
-      ? window.__veritasOcchi.tipoDiFunzione(p.funzione) : null;
+    const t = window.__veritasOcchi && window.__veritasOcchi.funzioneDi
+      ? window.__veritasOcchi.funzioneDi(p.funzione) : null;
     if (!t) fuoriElenco++;
     assegnate.push({
       indice: i, funzione: p.funzione || null,
@@ -870,8 +870,8 @@ function applicaNomi(posti) {
     if (!q || !q.centro || !q.nome) continue;
     if (presi.has(q)) continue;
     if (!(q.fiducia >= 0.35)) { deboli++; continue; }
-    const tq = window.__veritasOcchi && window.__veritasOcchi.tipoDiFunzione
-      ? window.__veritasOcchi.tipoDiFunzione(q.funzione) : null;
+    const tq = window.__veritasOcchi && window.__veritasOcchi.funzioneDi
+      ? window.__veritasOcchi.funzioneDi(q.funzione) : null;
     const pos = [q.centro[0], q.centro[1] || 0, q.centro[2]];
     const indice = nodi.length;
     nodi.push({
