@@ -21819,34 +21819,34 @@ const ADE20K_150 = Object.freeze([
 //    Forzare una funzione su ogni oggetto sarebbe inventare.
 const FUNZIONE_DI = Object.freeze({
   // ci si siede: e' un'area di sosta
-  chair: "attesa", armchair: "attesa", seat: "attesa", sofa: "attesa",
-  bench: "attesa", stool: "attesa", ottoman: "attesa", grandstand: "attesa",
+  chair: "sosta", armchair: "sosta", seat: "sosta", sofa: "sosta",
+  bench: "sosta", stool: "sosta", ottoman: "sosta", grandstand: "sosta",
   // ci si presenta a qualcuno
   counter: "accoglienza", countertop: "accoglienza", desk: "accoglienza",
-  booth: "accoglienza", buffet: "accoglienza", bar: "commerciale",
+  booth: "accoglienza", buffet: "accoglienza", bar: "sosta",
   // ci si sposta fra i livelli o si passa
-  stairs: "corridoio", stairway: "corridoio", escalator: "corridoio",
-  door: "corridoio", "screen door": "corridoio", path: "corridoio",
-  bridge: "corridoio", step: "corridoio",
+  stairs: "distribuzione", stairway: "distribuzione", escalator: "distribuzione",
+  door: "distribuzione", "screen door": "distribuzione", path: "distribuzione",
+  bridge: "distribuzione", step: "distribuzione",
   // si guarda qualcosa: e' esposizione
-  painting: "esposizione", sculpture: "esposizione", case: "esposizione",
-  poster: "esposizione", stage: "esposizione", "bulletin board": "esposizione",
+  painting: "sosta", sculpture: "sosta", case: "sosta",
+  poster: "sosta", stage: "sosta", "bulletin board": "sosta",
   // veicoli fermi: si arriva da li'
-  car: "parcheggio", van: "parcheggio", truck: "parcheggio", bus: "parcheggio",
-  bicycle: "parcheggio", minibike: "parcheggio", boat: "parcheggio",
+  car: "origine", van: "origine", truck: "origine", bus: "origine",
+  bicycle: "origine", minibike: "origine", boat: "origine",
   // aree di manovra dei mezzi: il pubblico non ci cammina
-  runway: "pista", "dirt track": "pista", road: "pista", airplane: "pista",
-  ship: "pista", pier: "pista",
+  runway: "escluso", "dirt track": "escluso", road: "escluso", airplane: "escluso",
+  ship: "escluso", pier: "escluso",
   // servizi
-  toilet: "servizi", sink: "servizi", shower: "servizi", washer: "servizi",
-  "conveyer belt": "servizi", wardrobe: "servizi",
+  toilet: "servizio", sink: "servizio", shower: "servizio", washer: "servizio",
+  "conveyer belt": "servizio", wardrobe: "servizio",
   // commerciale
-  "arcade machine": "commerciale", refrigerator: "commerciale",
-  stove: "commerciale", oven: "commerciale", food: "commerciale",
-  "pool table": "commerciale",
+  "arcade machine": "sosta", refrigerator: "sosta",
+  stove: "sosta", oven: "sosta", food: "sosta",
+  "pool table": "sosta",
   // spazio aperto davanti a un edificio
-  sidewalk: "piazzale", fountain: "piazzale", grass: "piazzale",
-  field: "piazzale", "swimming pool": "piazzale",
+  sidewalk: "origine", fountain: "origine", grass: "origine",
+  field: "origine", "swimming pool": "origine",
 });
 
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
@@ -21891,15 +21891,15 @@ const NOME_IT = Object.freeze({
 const AGGIUNTE = Object.freeze([
   { chiedi: "a check-in counter", nome: "banchi del check-in", funzione: "accoglienza",
     domini: "aeroporto", perche: "ADE20K ha «counter», ma non distingue un banco di accettazione" },
-  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "controlli",
+  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "filtro",
     domini: "aeroporto", perche: "nessun termine ADE20K per il punto di filtro obbligato" },
-  { chiedi: "a metal detector", nome: "metal detector", funzione: "controlli",
+  { chiedi: "a metal detector", nome: "metal detector", funzione: "filtro",
     domini: "aeroporto", perche: "idem, ed e' l'oggetto che si vede in pianta" },
-  { chiedi: "a turnstile", nome: "tornelli", funzione: "controlli",
+  { chiedi: "a turnstile", nome: "tornelli", funzione: "filtro",
     domini: "*", perche: "il filtro dei musei e dei trasporti, assente da ADE20K" },
   { chiedi: "a jet bridge", nome: "pontile d'imbarco", funzione: "destinazione",
     domini: "aeroporto", perche: "il punto in cui il percorso a piedi finisce" },
-  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizi",
+  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizio",
     domini: "aeroporto", perche: "ADE20K ha «conveyer belt», qui e' piu' preciso" },
   { chiedi: "a self service kiosk", nome: "chioschi", funzione: "accoglienza",
     domini: "*", perche: "il totem di servizio, diverso da «booth»" },

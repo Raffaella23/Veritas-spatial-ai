@@ -131,38 +131,38 @@ export const ADE20K_150 = Object.freeze([
 //    Forzare una funzione su ogni oggetto sarebbe inventare.
 const FUNZIONE_DI = Object.freeze({
   // ci si siede: e' un'area di sosta
-  chair: "attesa", armchair: "attesa", seat: "attesa", sofa: "attesa",
-  bench: "attesa", stool: "attesa", ottoman: "attesa", grandstand: "attesa",
+  chair: "sosta", armchair: "sosta", seat: "sosta", sofa: "sosta",
+  bench: "sosta", stool: "sosta", ottoman: "sosta", grandstand: "sosta",
   // ci si presenta a qualcuno
   counter: "accoglienza", countertop: "accoglienza", desk: "accoglienza",
-  booth: "accoglienza", buffet: "accoglienza", bar: "commerciale",
+  booth: "accoglienza", buffet: "accoglienza", bar: "sosta",
   // ci si sposta fra i livelli o si passa
-  stairs: "corridoio", stairway: "corridoio", escalator: "corridoio",
-  door: "corridoio", "screen door": "corridoio", path: "corridoio",
-  bridge: "corridoio", step: "corridoio",
+  stairs: "distribuzione", stairway: "distribuzione", escalator: "distribuzione",
+  door: "distribuzione", "screen door": "distribuzione", path: "distribuzione",
+  bridge: "distribuzione", step: "distribuzione",
   // si guarda qualcosa: e' esposizione
-  painting: "esposizione", sculpture: "esposizione", case: "esposizione",
-  poster: "esposizione", stage: "esposizione", "bulletin board": "esposizione",
+  painting: "sosta", sculpture: "sosta", case: "sosta",
+  poster: "sosta", stage: "sosta", "bulletin board": "sosta",
   // veicoli fermi: si arriva da li'
-  car: "parcheggio", van: "parcheggio", truck: "parcheggio", bus: "parcheggio",
-  bicycle: "parcheggio", minibike: "parcheggio", boat: "parcheggio",
+  car: "origine", van: "origine", truck: "origine", bus: "origine",
+  bicycle: "origine", minibike: "origine", boat: "origine",
   // aree di manovra dei mezzi: il pubblico non ci cammina
-  runway: "pista", "dirt track": "pista", road: "pista", airplane: "pista",
-  ship: "pista", pier: "pista",
+  runway: "escluso", "dirt track": "escluso", road: "escluso", airplane: "escluso",
+  ship: "escluso", pier: "escluso",
   // ci si sta sdraiati: e' un'area di degenza
-  bed: "degenza", cradle: "degenza",
+  bed: "sosta", cradle: "sosta",
   // ci si lavora o si studia seduti a un piano: aula, ufficio, sala lettura
-  "pool table": "esposizione",
+  "pool table": "sosta",
   // servizi
-  toilet: "servizi", sink: "servizi", shower: "servizi", washer: "servizi",
-  "conveyer belt": "servizi", wardrobe: "servizi",
+  toilet: "servizio", sink: "servizio", shower: "servizio", washer: "servizio",
+  "conveyer belt": "servizio", wardrobe: "servizio",
   // commerciale
-  "arcade machine": "commerciale", refrigerator: "commerciale",
-  stove: "commerciale", oven: "commerciale", food: "commerciale",
-  "pool table": "commerciale",
+  "arcade machine": "sosta", refrigerator: "sosta",
+  stove: "sosta", oven: "sosta", food: "sosta",
+  "pool table": "sosta",
   // spazio aperto davanti a un edificio
-  sidewalk: "piazzale", fountain: "piazzale", grass: "piazzale",
-  field: "piazzale", "swimming pool": "piazzale",
+  sidewalk: "origine", fountain: "origine", grass: "origine",
+  field: "origine", "swimming pool": "origine",
 });
 
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
@@ -229,53 +229,53 @@ export const AGGIUNTE = Object.freeze([
     domini: "*", perche: "museo, teatro, stadio, stazione: la funzione e' la stessa" },
   { chiedi: "a self service kiosk", nome: "chioschi", funzione: "accoglienza",
     domini: "*", perche: "il totem di servizio, diverso da «booth»" },
-  { chiedi: "a waiting room with rows of seats", nome: "sala d'attesa", funzione: "attesa",
+  { chiedi: "a waiting room with rows of seats", nome: "sala d'attesa", funzione: "sosta",
     domini: "*", perche: "le sedute in fila si vedono, ma nessun termine ADE20K le lega all'attesa" },
 
   // --- controlli: dove si passa uno per volta ------------------------------
-  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "controlli",
+  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "filtro",
     domini: "*", perche: "aeroporti, tribunali, stadi, ospedali: il filtro obbligato non e' in ADE20K" },
-  { chiedi: "a metal detector", nome: "metal detector", funzione: "controlli",
+  { chiedi: "a metal detector", nome: "metal detector", funzione: "filtro",
     domini: "*", perche: "e' l'oggetto che si vede in pianta, e non solo in aeroporto" },
-  { chiedi: "a turnstile", nome: "tornelli", funzione: "controlli",
+  { chiedi: "a turnstile", nome: "tornelli", funzione: "filtro",
     domini: "*", perche: "il filtro dei musei e dei trasporti, assente da ADE20K" },
 
   // --- cura: ospedali, cliniche, ambulatori, infermerie --------------------
-  { chiedi: "a hospital bed", nome: "letti di degenza", funzione: "degenza",
+  { chiedi: "a hospital bed", nome: "letti di degenza", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «bed», ma non distingue un letto di casa da uno di reparto" },
-  { chiedi: "a hospital stretcher", nome: "barelle", funzione: "cura",
+  { chiedi: "a hospital stretcher", nome: "barelle", funzione: "sosta",
     domini: "*", perche: "dice che li' passano lettighe, quindi il passaggio dev'essere largo" },
   { chiedi: "a wheelchair", nome: "sedie a rotelle", funzione: null,
     domini: "*", perche: "non implica una funzione, ma cambia le larghezze che servono" },
-  { chiedi: "a medical examination table", nome: "lettino da visita", funzione: "cura",
+  { chiedi: "a medical examination table", nome: "lettino da visita", funzione: "sosta",
     domini: "*", perche: "l'oggetto che distingue un ambulatorio da un ufficio" },
-  { chiedi: "a medical imaging machine", nome: "apparecchiature diagnostiche", funzione: "cura",
+  { chiedi: "a medical imaging machine", nome: "apparecchiature diagnostiche", funzione: "sosta",
     domini: "*", perche: "macchinari ingombranti e fissi: vincolano la stanza attorno" },
   { chiedi: "a nurses station", nome: "postazione infermieri", funzione: "accoglienza",
     domini: "*", perche: "il presidio di reparto, che non e' ne' un banco ne' un ufficio" },
 
   // --- didattica: scuole, universita', sale corsi --------------------------
-  { chiedi: "rows of school desks", nome: "banchi scolastici", funzione: "aula",
+  { chiedi: "rows of school desks", nome: "banchi scolastici", funzione: "sosta",
     domini: "*", perche: "«desk» e «table» non dicono che sono in file rivolte da una parte" },
-  { chiedi: "a whiteboard or blackboard", nome: "lavagna", funzione: "aula",
+  { chiedi: "a whiteboard or blackboard", nome: "lavagna", funzione: "sosta",
     domini: "*", perche: "l'oggetto che orienta l'aula e ne indica il fronte" },
-  { chiedi: "a lecture hall with tiered seating", nome: "aula a gradoni", funzione: "aula",
+  { chiedi: "a lecture hall with tiered seating", nome: "aula a gradoni", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «grandstand», che non e' la stessa cosa di un'aula" },
-  { chiedi: "a row of lockers", nome: "armadietti", funzione: "spogliatoio",
+  { chiedi: "a row of lockers", nome: "armadietti", funzione: "servizio",
     domini: "*", perche: "scuole, palestre, piscine, depositi: assente da ADE20K" },
-  { chiedi: "a laboratory bench", nome: "banconi da laboratorio", funzione: "aula",
+  { chiedi: "a laboratory bench", nome: "banconi da laboratorio", funzione: "sosta",
     domini: "*", perche: "distingue un laboratorio da un'aula normale" },
 
   // --- esposizione e vendita ----------------------------------------------
-  { chiedi: "a museum display case", nome: "vetrine espositive", funzione: "esposizione",
+  { chiedi: "a museum display case", nome: "vetrine espositive", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «case», generico: qui la funzione e' precisa" },
-  { chiedi: "supermarket shelving aisles", nome: "scaffalature", funzione: "commerciale",
+  { chiedi: "supermarket shelving aisles", nome: "scaffalature", funzione: "sosta",
     domini: "*", perche: "le corsie di vendita si leggono in pianta come file parallele" },
-  { chiedi: "a checkout counter with cash register", nome: "casse", funzione: "commerciale",
+  { chiedi: "a checkout counter with cash register", nome: "casse", funzione: "sosta",
     domini: "*", perche: "il punto di pagamento: e' un filtro, e fa coda" },
 
   // --- trasporto: bagagli e mezzi -----------------------------------------
-  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizi",
+  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizio",
     domini: "*", perche: "ADE20K ha «conveyer belt», qui e' piu' preciso" },
   { chiedi: "a luggage trolley", nome: "carrelli", funzione: null,
     domini: "*", perche: "non implica una funzione, ma dice che li' si trascina qualcosa" },

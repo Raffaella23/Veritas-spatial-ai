@@ -839,8 +839,24 @@ function applicaNomi(posti) {
     //    libero. Il conteggio `fuoriElenco` ora dice quante volte e' mancata la
     //    CATEGORIA, non quante volte il nome era sconosciuto — che era una
     //    misura di quanto l'elenco fosse stretto, non di quanto si fosse capito.
+    // ⚠️ PRIMA `ruolo`, POI `funzione`, E L'ORDINE E' IL PUNTO.
+    //
+    //    `ruolo` e' la CONCLUSIONE del cervello: ha visto gli oggetti, ha visto
+    //    dove sta il volume nella sequenza, e ha deciso. `funzione` invece e'
+    //    quello che ha stampato una tabella oggetto->funzione a monte
+    //    (`FUNZIONE_DI`): «se vedi una sedia allora e' sosta».
+    //
+    //    Qui si leggeva SOLO `funzione`. Il cervello scriveva la sua
+    //    conclusione in `ruolo` (comprensione ~1089) e non la leggeva nessuno:
+    //    a decidere la zona era la sedia, non il ragionamento. Detto da
+    //    Raffaella il 31/08: «gli oggetti devono essere gli indizi in base a
+    //    cui l'AI assegna le zone, non un problema a se stante — in questo modo
+    //    l'assegnazione e' reale».
+    //
+    //    La tabella resta, ma al posto suo: e' l'ultimo ripiego per un volume
+    //    su cui il cervello non si e' pronunciato, non la prima autorita'.
     const t = window.__veritasOcchi && window.__veritasOcchi.categoriaDi
-      ? window.__veritasOcchi.categoriaDi(p.funzione) : null;
+      ? window.__veritasOcchi.categoriaDi(p.ruolo || p.funzione) : null;
     if (!t) fuoriElenco++;
     assegnate.push({
       indice: i, funzione: t ? t.chiave : null,
@@ -875,8 +891,10 @@ function applicaNomi(posti) {
     if (!q || !q.centro || !q.nome) continue;
     if (presi.has(q)) continue;
     if (!(q.fiducia >= 0.35)) { deboli++; continue; }
+    // Stessa gerarchia di sopra: la conclusione del cervello prima della
+    // tabella degli oggetti.
     const tq = window.__veritasOcchi && window.__veritasOcchi.categoriaDi
-      ? window.__veritasOcchi.categoriaDi(q.funzione) : null;
+      ? window.__veritasOcchi.categoriaDi(q.ruolo || q.funzione) : null;
     const pos = [q.centro[0], q.centro[1] || 0, q.centro[2]];
     const indice = nodi.length;
     nodi.push({
@@ -896,7 +914,7 @@ function applicaNomi(posti) {
     });
     presi.add(q);
     assegnate.push({
-      indice: indice, funzione: q.funzione || null,
+      indice: indice, funzione: tq ? tq.chiave : null,
       tipo: tq ? tq.tipo : null, fuori: tq ? tq.fuori : undefined,
       sicurezza: "alta", nome: q.nome,
     });
