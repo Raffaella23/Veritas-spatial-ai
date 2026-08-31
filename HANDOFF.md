@@ -87,6 +87,45 @@ guardando. Il report finale deve essere **interrogabile in italiano** su
 volumi, strutture, aperture, visibilità e punti notevoli — non solo su ingressi
 e uscite.
 
+### 🎯 A COSA SERVE VERITAS — le tre cose che fa, e chi fa cosa
+
+Detto da Raffaella il 31/08, perché non era mai stato messo per intero in un
+posto solo. Vale come direzione, non come commento.
+
+La piattaforma è **agnostica** — qualunque edificio, qualunque modello, anche
+uno spaccato o un pezzo — e fa **tre cose, in quest'ordine**:
+
+1. **Capire a fondo il modello.** Prima dichiara **che cosa ha davanti nel suo
+   insieme** (una chiesa, una scuola, un ospedale, un pezzo d'aeroporto), poi
+   dice che spazio è ogni ambiente. Gli **oggetti che vede dentro sono gli
+   indizi** da cui deduce la funzione degli spazi: le sedute in fila fanno la
+   sala d'attesa, le macchine fanno il parcheggio, i letti la degenza.
+2. **Generare i referti che l'utente chiede**, in base alle sue domande, non a
+   un elenco fisso deciso prima.
+3. **Dare un compito agli agenti** e farglielo svolgere dentro il modello.
+
+**Chi fa cosa, e non si scambia:**
+
+> **L'occhio comanda e dà i nomi** a ciò che vede.
+> **Il cervello misura e certifica.**
+
+⚠️ Finché il **ruolo** di uno spazio lo decide una regola di posizione
+(`applyAutoAssignment`, ordinamento per la X) invece dell'occhio, questa
+divisione è violata. È il difetto aperto al 31/08, ed è il punto 6 dell'elenco
+qui sotto.
+
+**La chat è in italiano normale** e serve all'utente per **interrogare il
+modello**: quanti banchi servono, cosa si vede da dove, quant'è largo quel
+corridoio, dove si formano le code. Non è una riga di comando, e non risponde a
+memoria: risponde dal registro di ciò che è stato misurato.
+
+⚠️ **Il vocabolario semantico di riferimento non si inventa e non si copia.**
+Se serve più semantica per aiutare il riconoscimento si prendono raccolte
+libere e citabili — **Uniclass 2015 tabella SL** (gratuita, ISO 12006-2, in CSV
+su GitHub, `buildig/uniclass-2015`) è la prima, ed è la stessa con cui si
+classificano gli oggetti IFC. Neufert e i manuali editoriali no: sono opere
+protette e in un prodotto che si vende diventano un problema legale.
+
 ### Cosa resta aperto, in ordine di importanza
 
 1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
