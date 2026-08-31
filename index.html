@@ -48,30 +48,51 @@
 (function () {
   "use strict";
 
-  // Il bundle prova SEMPRE, ad ogni caricamento pagina, 3 percorsi GLB di
-  // default hardcoded (./airport.glb, ./Assets/models/airport.glb,
-  // ./veritas_airport.glb) che su questo deploy Vercel non esistono mai
-  // (404 garantito). Il problema non e' solo il rumore in console: per un
-  // bug di dipendenze in un useEffect del bundle, questo tentativo puo'
-  // ripartire da capo anche DOPO che l'utente ha gia' iniziato a caricare
-  // manualmente il proprio GLB (si vede in console: "handleFileSelected"
-  // seguito subito da un nuovo "Tentativo fetch ./airport.glb"), creando
-  // una corsa tra il caricamento vero e questo tentativo morto - che su
-  // file reali di molti MB (che impiegano secondi a essere letti/parsati)
-  // ha tutto il tempo di completare PRIMA e forzare lo stato a "fallback"
-  // mentre il caricamento vero e' ancora in corso, lasciando l'app in uno
-  // stato inconsistente. Non possiamo editare in sicurezza il bundle
-  // minificato, quindi intercettiamo qui queste 3 richieste specifiche e
-  // le facciamo fallire ISTANTANEAMENTE (invece che dopo un vero round-trip
-  // di rete), riducendo la finestra della corsa da centinaia di ms a
-  // sostanzialmente zero.
-  (function veritasKillDeadGlbAutoFetch() {
-    const deadPaths = new Set(["./airport.glb", "./Assets/models/airport.glb", "./veritas_airport.glb"]);
+  // ⚠️ REGOLA 0-BIS. Qui c'era un elenco di tre nomi di file — tutti e tre con
+  // dentro il nome di UN TIPO DI EDIFICIO — che il bundle minificato prova a
+  // scaricare da solo a ogni caricamento della pagina. Erano scritti nel
+  // codice: un modello deciso prima che l'utente porti il suo. Su questo
+  // deploy non esistono, quindi facevano 404 e riempivano la console; peggio,
+  // per un difetto di dipendenze in un useEffect del bundle il tentativo puo'
+  // ripartire DOPO che l'utente ha gia' iniziato a caricare il proprio file, e
+  // su un modello di molti MB fa in tempo a concludersi PRIMA, forzando lo
+  // stato a "fallback" mentre il caricamento vero e' ancora in corso.
+  //
+  // Il bundle e' il blocco 3 e non si tocca. Quindi la richiesta si ferma qui,
+  // ma NON per nome: si ferma per REGOLA. Il modello lo porta l'utente, e
+  // nessun modello si carica da solo prima che l'utente abbia fatto qualcosa.
+  // Detto cosi' vale per qualunque nome di file e per qualunque tipo di
+  // edificio, oggi e quando il bundle cambiera' i suoi nomi di default.
+  //
+  // Il segnale di "l'utente ha fatto qualcosa" e' il primo gesto vero sulla
+  // pagina (click, tasto, trascinamento, scelta di un file). I caricamenti
+  // automatici all'avvio arrivano tutti prima di qualsiasi gesto; quelli
+  // voluti arrivano tutti dopo. Un file trascinato non passa di qui: viene
+  // letto dal disco, non scaricato dalla rete.
+  (function veritasNienteModelliDaSoli() {
+    let utenteHaAgito = false;
+    const segna = function () { utenteHaAgito = true; };
+    for (const evento of ["pointerdown", "keydown", "drop", "change", "dragover"]) {
+      try { window.addEventListener(evento, segna, { capture: true, passive: true }); } catch (e) {}
+    }
+
+    const eUnModello = function (url) {
+      try {
+        const u = new URL(url, window.location.href);
+        // Solo quello che verrebbe scaricato da questo stesso sito: un modello
+        // che arriva da un archivio esterno (Supabase e simili) e' voluto.
+        if (u.origin !== window.location.origin) return false;
+        return /\.(glb|gltf)$/i.test(u.pathname);
+      } catch (e) { return false; }
+    };
+
     const origFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
       try {
         const url = typeof input === "string" ? input : (input && input.url);
-        if (url && deadPaths.has(url)) {
+        if (url && !utenteHaAgito && eUnModello(url)) {
+          console.log("[VERITAS GLB] fermato un caricamento automatico prima di"
+            + " qualunque gesto dell'utente: " + url + " — il modello lo porti tu.");
           return Promise.resolve(new Response(null, { status: 404, statusText: "Not Found" }));
         }
       } catch (e) {}
