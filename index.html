@@ -2030,14 +2030,12 @@
     // informazioni e uffici)».
     const nmFrame = (window.__veritasNavmesh && window.__veritasNavmesh.stato())
       ? window.__veritasNavmesh : null;
-    const RIENTRO = [1.5, 1.0, 1.5];   // quanto lontano si cerca il calpestabile
     let fuoriDalCammino = 0;
     const frames = [];
     const lastPos = new Map();
     for (let f = 0; f < totalFrames; f++) {
       const t = f * 0.5;
       const frameAgents = [];
-      const suiPonti = new Set();
       const groupCenter = new Map();
       for (const ag of agents) {
         const p = lastPos.get(ag.id);
@@ -2143,28 +2141,15 @@
         const pos = [x, y, z];
         lastPos.set(ag.id, pos);
         frameAgents.push({ id: ag.id, pos, rot, state, group: ag.group, archetype: ag.archetype, stress });
-        if (suPonte) suiPonti.add(ag.id);
       }
       resolveOverlaps(frameAgents);
-      // L'ULTIMA PAROLA CE L'HA IL CAMMINO. Dopo tutti gli scarti, ogni
-      // posizione torna sulla superficie calpestabile piu' vicina: dentro un
-      // muro non si sta, e da una scala non si esce. Chi e' su un
-      // collegamento dichiarato resta dov'e' — li' la superficie non c'e'
-      // apposta, e riportarcelo vorrebbe dire farlo cadere di sotto.
+      // L'ultima parola ce l'ha il cammino. Stessa identica regola che si
+      // applica alla traiettoria del motore reale, e scritta in un posto solo:
+      // due copie di questa regola vorrebbero dire due comportamenti diversi a
+      // seconda di quale motore ha risposto.
       if (nmFrame) {
-        for (const fa of frameAgents) {
-          if (suiPonti.has(fa.id)) continue;
-          const q = nmFrame.sulCamminoCorrente(fa.pos, RIENTRO);
-          // Si rientra solo se il calpestabile sta QUI: allo stesso piano e a
-          // pochi passi. Un rientro che scavalca un dislivello, o che tira via
-          // di due metri, non e' una correzione: e' un'altra strada. E' quello
-          // che ai piedi della scala rimetteva giu' chi stava salendo.
-          const scarto = q.ok ? Math.hypot(q.punto[0] - fa.pos[0], q.punto[2] - fa.pos[2]) : Infinity;
-          const salto = q.ok ? Math.abs(q.punto[1] - fa.pos[1]) : Infinity;
-          if (q.ok && scarto <= 1.2 && salto <= 0.6) {
-            fa.pos[0] = q.punto[0]; fa.pos[1] = q.punto[1]; fa.pos[2] = q.punto[2];
-          } else fuoriDalCammino++;   // troppo lontano per rientrare qui: si conta
-        }
+        const r = veritasRientraSulCammino([{ agents: frameAgents }]);
+        if (r) fuoriDalCammino += r.fuori;
       }
       frames.push({ t, agents: frameAgents });
     }
@@ -5167,6 +5152,65 @@
   // Restituisce null se la maggior parte degli agenti resta illeggibile:
   // meglio ricadere sul generatore locale, che funziona, che mostrare una
   // scena vuota.
+  // ---------------------------------------------------------------------------
+  // IL CAMMINO HA L'ULTIMA PAROLA — e vale per TUTTE E DUE LE STRADE
+  // ---------------------------------------------------------------------------
+  //
+  // Le traiettorie arrivano da due posti diversi: il motore reale su Render
+  // (Social Force Model) e il generatore JS di riserva qui dentro. Il 01/09 la
+  // correzione «gli agenti non stanno dentro i muri» era stata scritta solo nel
+  // generatore locale — e sulla pagina live gira il motore reale. Il difetto
+  // era corretto e continuava a vedersi: la gente passava nei muri con la
+  // riparazione fatta.
+  //
+  // Da qui in avanti la correzione sta in un posto solo e la usano tutte e due.
+  //
+  // ⚠️ L'ECCEZIONE E' SEMPRE LA STESSA: sui collegamenti dichiarati — una scala
+  //    mobile, un salto — la superficie non c'e' apposta, e riportarci un
+  //    agente vorrebbe dire farlo ricadere sul piano di sotto. Il collegamento
+  //    si chiede a chi l'ha dichiarato: la navmesh ne conosce i due capi e la
+  //    larghezza (§6-bis di veritas_navmesh.js).
+  function veritasRientraSulCammino(frames) {
+    const nm = window.__veritasNavmesh;
+    const stato = nm && nm.stato && nm.stato();
+    if (!stato || !Array.isArray(frames)) return null;
+    const coll = ((stato.collegamenti || {}).aggiunti) || [];
+    const RIENTRO = [1.5, 1.0, 1.5];
+    const suUnCollegamento = (p) => {
+      for (const c of coll) {
+        if (!c || !c.da || !c.a) continue;
+        const ax = c.da[0], az = c.da[2];
+        const vx = c.a[0] - ax, vz = c.a[2] - az;
+        const l2 = vx * vx + vz * vz;
+        let t = l2 > 0 ? ((p[0] - ax) * vx + (p[2] - az) * vz) / l2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        if (Math.hypot(p[0] - (ax + vx * t), p[2] - (az + vz * t)) > Math.max(1.5, c.larghezza || 1.2)) continue;
+        if (p[1] >= Math.min(c.da[1], c.a[1]) - 0.6 && p[1] <= Math.max(c.da[1], c.a[1]) + 0.6) return true;
+      }
+      return false;
+    };
+    let dentro = 0, ponte = 0, fuori = 0;
+    for (const f of frames) {
+      const lista = f && (f.agents || f.a);
+      if (!Array.isArray(lista)) continue;
+      for (const ag of lista) {
+        const p = ag && (ag.pos || ag.position || ag.p);
+        if (!p || p.length < 3) continue;
+        if (suUnCollegamento(p)) { ponte++; continue; }
+        const q = nm.sulCamminoCorrente(p, RIENTRO);
+        // Si rientra solo se il calpestabile sta QUI: stesso piano, un passo.
+        // Piu' in la' non e' una correzione, e' un'altra strada.
+        const scarto = q.ok ? Math.hypot(q.punto[0] - p[0], q.punto[2] - p[2]) : Infinity;
+        const salto = q.ok ? Math.abs(q.punto[1] - p[1]) : Infinity;
+        if (q.ok && scarto <= 1.2 && salto <= 0.6) {
+          p[0] = q.punto[0]; p[1] = q.punto[1]; p[2] = q.punto[2]; dentro++;
+        } else fuori++;
+      }
+    }
+    return { dentro, ponte, fuori };
+  }
+  window.__veritasRientraSulCammino = veritasRientraSulCammino;
+
   function veritasNormalizeTrajectory(traj, nodes) {
     if (!traj || !Array.isArray(traj.frames) || !traj.frames.length) return null;
     const toVec = (v) => {
@@ -5362,6 +5406,13 @@
         return null;
       }
       console.log("[VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale");
+      // Anche la traiettoria del motore reale passa dal cammino: il Social
+      // Force Model spinge le persone via l'una dall'altra e non sa niente dei
+      // muri di QUESTO modello ne' delle scale mobili dichiarate.
+      const rientro = veritasRientraSulCammino(data.trajectory.frames);
+      if (rientro) console.log("[VERITAS cammino] traiettoria remota riportata sul calpestabile: "
+        + rientro.dentro + " posizioni; " + rientro.ponte + " su collegamenti dichiarati (scale mobili); "
+        + rientro.fuori + " troppo lontane per rientrare qui, lasciate dove sono");
       // Dati percettivi: cosa ogni agente ha VISTO e come lo ha interpretato.
       // Si tengono qui, lato client, invece di rileggerli poi dal server:
       // il backend ne conserva una copia sola e globale, quindi con piu'
