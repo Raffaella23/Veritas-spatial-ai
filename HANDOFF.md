@@ -406,7 +406,39 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    il livello di un volume capito non è deducibile: si può solo **ereditare
    dalla zona misurata**, che il piano lo sa.
 
-1. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
+1. **I FLUSSI: il programma ne teneva UNO SOLO. Ora ne tiene più di uno.**
+   Detto da Raffaella il 01/09: *«l'AI ha messo l'origine correttamente vicino
+   al tunnel che collega aereo e terminal, ma quello è il flusso in arrivo, ed
+   è uno solo. Dovrebbe assegnare anche l'ingresso dalla strada: occhio e
+   cervello riconoscono l'aeroporto e assegnano TUTTI i flussi che si generano,
+   non solo uno.»* Non sbagliava l'occhio: **non c'era dove metterlo.** Dentro
+   `generateTrajectory` tre righe decidevano tutto — `find` prendeva la PRIMA
+   accoglienza, il PRIMO filtro, la PRIMA sosta, gli stessi per tutti.
+
+   **La regola generale, e non è una parola di tipologia:** un flusso nasce a
+   ogni **modo di entrare dal fuori**. Qui sono due — la strada delle macchine
+   e il tunnel dell'aereo. In una scuola il cancello e il cortile; in un
+   ospedale il pronto soccorso e l'ingresso normale, che sono due flussi con
+   due versi diversi. Il verso e l'ordine li danno le cose che stanno in mezzo,
+   e l'occhio quelle le vede già: i portali di sicurezza si attraversano in un
+   senso solo, i banchi dei documenti stanno prima, le sedute in fila e i
+   chioschi sono la sosta. E il modello lo sta già dicendo: le sue frecce sono
+   **tre flussi**, e due salgono la scala mobile.
+
+   I tre passi, e il primo è idraulica:
+   1. ✅ **fatto il 01/09** — `veritas_flussi.js` (+ copia inlinata, blocco 23).
+      Un flusso è `{ nome, tappe, quota }`, il motore ne percorre più di uno e
+      ogni gruppo fa il suo. ⚠️ Oggi ne costruisce **esattamente quanti ne
+      faceva prima** — uno per coppia ingresso-uscita, stesso accoppiamento,
+      stessa immagine a schermo: un rifacimento che cambia anche l'immagine non
+      si sa più se ha funzionato. Il guadagno è `imposta()`, la porta da cui
+      entrano i due passi seguenti.
+   2. **gli ACCESSI**: dove il calpestabile tocca il fuori. Due accessi, due
+      flussi. È qui che entra l'ingresso dalla strada, che oggi manca.
+   3. **l'ORDINE dentro ogni flusso**, dagli indizi che l'occhio riconosce fra
+      i due capi — controlli, banchi, sedute, chioschi.
+
+1-bis. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
    un aeroporto ha **due versi** (chi parte e chi arriva), non una fila. Va
    sostituita da categorie che esistono ovunque (accesso, distribuzione, sosta,
@@ -862,7 +894,7 @@ Ramo unico **`main`**. Anteprima live:
 
 | cosa | dove |
 |---|---|
-| runtime completo | `index.html` (~1,86 MB, 31 blocchi `<script>`) |
+| runtime completo | `index.html` (~1,9 MB, **34** blocchi `<script>` dal 01/09: prima 33) |
 | landing page demo | `landing.html` |
 | Core Python | `Assets/core/` — `engine.py`, `agent.py`, `behaviour.py`, `compliance.py`, `recommendations.py`, `topology_analyzer.py`, `report_builder.py`, `path_loader.py` |
 | API del Core | `api_server.py` (FastAPI, servito da Render) |
