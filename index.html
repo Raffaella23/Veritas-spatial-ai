@@ -1944,9 +1944,33 @@
       // ogni fotogramma.
       const nmc = window.__veritasNavmesh;
       if (nmc && nmc.stato()) {
+        // ⚠️ NON BASTA CHIEDERE ALLA NAVMESH SE IL PUNTO E' CALPESTABILE.
+        //    Ai piedi di una scala mobile il pavimento del piano di sotto e'
+        //    li' a un passo: il punto risulta calpestabile, l'agente non
+        //    veniva marcato "sul collegamento", e a ogni fotogramma il
+        //    rientro lo riportava giu'. Visto da Raffaella il 01/09: «si sono
+        //    bloccati sulla scala mobile».
+        //    Il collegamento si riconosce da SE STESSO: la navmesh sa dove
+        //    l'ha dichiarato, con i due capi e la larghezza.
+        const coll = ((nmc.stato().collegamenti || {}).aggiunti) || [];
+        const suUnCollegamento = (p) => {
+          for (const c of coll) {
+            if (!c || !c.da || !c.a) continue;
+            const ax = c.da[0], az = c.da[2];
+            const vx = c.a[0] - ax, vz = c.a[2] - az;
+            const l2 = vx * vx + vz * vz;
+            let t = l2 > 0 ? ((p[0] - ax) * vx + (p[2] - az) * vz) / l2 : 0;
+            t = Math.max(0, Math.min(1, t));
+            const d = Math.hypot(p[0] - (ax + vx * t), p[2] - (az + vz * t));
+            if (d > Math.max(1.5, c.larghezza || 1.2)) continue;
+            if (p[1] >= Math.min(c.da[1], c.a[1]) - 0.6 && p[1] <= Math.max(c.da[1], c.a[1]) + 0.6)
+              return true;
+          }
+          return false;
+        };
         for (const p of expanded) {
           const q = nmc.sulCamminoCorrente(p.pos, [0.4, 0.6, 0.4]);
-          p.fuoriMesh = !q.ok;
+          p.fuoriMesh = !q.ok || suUnCollegamento(p.pos);
         }
       }
       return { path: expanded, securityAt };
@@ -2131,8 +2155,15 @@
         for (const fa of frameAgents) {
           if (suiPonti.has(fa.id)) continue;
           const q = nmFrame.sulCamminoCorrente(fa.pos, RIENTRO);
-          if (q.ok) { fa.pos[0] = q.punto[0]; fa.pos[1] = q.punto[1]; fa.pos[2] = q.punto[2]; }
-          else fuoriDalCammino++;   // troppo lontano perfino per rientrare: si conta
+          // Si rientra solo se il calpestabile sta QUI: allo stesso piano e a
+          // pochi passi. Un rientro che scavalca un dislivello, o che tira via
+          // di due metri, non e' una correzione: e' un'altra strada. E' quello
+          // che ai piedi della scala rimetteva giu' chi stava salendo.
+          const scarto = q.ok ? Math.hypot(q.punto[0] - fa.pos[0], q.punto[2] - fa.pos[2]) : Infinity;
+          const salto = q.ok ? Math.abs(q.punto[1] - fa.pos[1]) : Infinity;
+          if (q.ok && scarto <= 1.2 && salto <= 0.6) {
+            fa.pos[0] = q.punto[0]; fa.pos[1] = q.punto[1]; fa.pos[2] = q.punto[2];
+          } else fuoriDalCammino++;   // troppo lontano per rientrare qui: si conta
         }
       }
       frames.push({ t, agents: frameAgents });
@@ -18522,10 +18553,32 @@ function costruisciFlussi(nodi, opz = {}) {
     if (n) mezzo.push(n);
   }
 
-  // Nessun ingresso dichiarato: se ne elegge uno, la tappa piu' lontana dalle
-  // uscite. E' la definizione operativa di «da che parte si entra» quando
-  // nessuno l'ha detto — il lato terra, opposto al lato volo.
-  let entrate = ingressi;
+  let entrate = ingressi.slice();
+
+  // GLI ACCESSI (`veritas_accessi.js`): dove il tetto finisce e si continua a
+  // camminare. Ognuno fa nascere un flusso, ed e' la risposta al «manca
+  // l'ingresso dalla strada»: una tappa di tipo origine li' puo' non esserci —
+  // nessuno l'ha dichiarata, e la comprensione non ci e' arrivata — ma la
+  // porta nel modello c'e' lo stesso, e si misura.
+  const accessi = opz.accessi || (typeof window !== 'undefined'
+    && window.__veritasAccessi && window.__veritasAccessi.accessi) || [];
+  for (const a of accessi) {
+    if (!a || !a.centro) continue;
+    // Se una tappa di ingresso sta gia' li', l'accesso non ne aggiunge una
+    // seconda: sarebbe lo stesso ingresso contato due volte.
+    const gia = entrate.some((n) => Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
+      < (opz.stessoIngressoM || 8));
+    if (gia) continue;
+    entrate.push({
+      label: a.nome || 'Accesso', type: 'origine', origine: 'accesso',
+      pos: a.centro.slice(), larghezza: a.larghezza,
+    });
+  }
+
+  // Nessun ingresso dichiarato e nessun accesso misurato: se ne elegge uno, la
+  // tappa piu' lontana dalle uscite. E' la definizione operativa di «da che
+  // parte si entra» quando nessuno l'ha detto — il lato terra, opposto al lato
+  // volo.
   if (!entrate.length) {
     const rif = uscite.length ? uscite[0].pos : tutte[tutte.length - 1].pos;
     let meglio = null, dist = -1;

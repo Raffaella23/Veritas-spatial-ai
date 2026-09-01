@@ -87,10 +87,32 @@ export function costruisciFlussi(nodi, opz = {}) {
     if (n) mezzo.push(n);
   }
 
-  // Nessun ingresso dichiarato: se ne elegge uno, la tappa piu' lontana dalle
-  // uscite. E' la definizione operativa di «da che parte si entra» quando
-  // nessuno l'ha detto — il lato terra, opposto al lato volo.
-  let entrate = ingressi;
+  let entrate = ingressi.slice();
+
+  // GLI ACCESSI (`veritas_accessi.js`): dove il tetto finisce e si continua a
+  // camminare. Ognuno fa nascere un flusso, ed e' la risposta al «manca
+  // l'ingresso dalla strada»: una tappa di tipo origine li' puo' non esserci —
+  // nessuno l'ha dichiarata, e la comprensione non ci e' arrivata — ma la
+  // porta nel modello c'e' lo stesso, e si misura.
+  const accessi = opz.accessi || (typeof window !== 'undefined'
+    && window.__veritasAccessi && window.__veritasAccessi.accessi) || [];
+  for (const a of accessi) {
+    if (!a || !a.centro) continue;
+    // Se una tappa di ingresso sta gia' li', l'accesso non ne aggiunge una
+    // seconda: sarebbe lo stesso ingresso contato due volte.
+    const gia = entrate.some((n) => Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
+      < (opz.stessoIngressoM || 8));
+    if (gia) continue;
+    entrate.push({
+      label: a.nome || 'Accesso', type: 'origine', origine: 'accesso',
+      pos: a.centro.slice(), larghezza: a.larghezza,
+    });
+  }
+
+  // Nessun ingresso dichiarato e nessun accesso misurato: se ne elegge uno, la
+  // tappa piu' lontana dalle uscite. E' la definizione operativa di «da che
+  // parte si entra» quando nessuno l'ha detto — il lato terra, opposto al lato
+  // volo.
   if (!entrate.length) {
     const rif = uscite.length ? uscite[0].pos : tutte[tutte.length - 1].pos;
     let meglio = null, dist = -1;
