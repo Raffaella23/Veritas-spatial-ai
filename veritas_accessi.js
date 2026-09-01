@@ -430,9 +430,19 @@ export function vocePersone(figure, opz = {}) {
  * VOCE 4 — gli oggetti.
  *
  * Le cose ripetute e messe in fila stanno di traverso a un passaggio e lo
- * segnano: tornelli, banchi, transenne, sedute allineate lungo un fronte. Non
- * e' una parola di tipologia — e' una disposizione, e `veritas_cose.js` l'ha
- * gia' misurata.
+ * segnano: tornelli, banchi, transenne. Non e' una parola di tipologia — e' una
+ * disposizione, e `veritas_cose.js` l'ha gia' misurata.
+ *
+ * ⚠️ Misurato il 02/09: presa cosi', questa voce proponeva 316 posti su questo
+ *    modello — piu' di tutte le altre messe insieme — e a quel punto non e' un
+ *    indizio, e' rumore che si trova d'accordo con chiunque. Due filtri, e sono
+ *    tutti e due geometrici:
+ *
+ *      - la fila deve essere un OSTACOLO: alta almeno mezzo passo di persona.
+ *        Sotto quella misura si scavalca, e una fila di piastrelle o di luci
+ *        non e' una soglia;
+ *      - di una fila si prende il CENTRO, non i due capi. Una fila di tornelli
+ *        si attraversa in mezzo; i suoi capi sono dove tocca i muri.
  */
 export function voceOggetti(cose, opz = {}) {
   const voce = { nome: 'gli oggetti in fila', punti: [], file: 0, gruppi: 0 };
@@ -440,12 +450,22 @@ export function voceOggetti(cose, opz = {}) {
   voce.gruppi = elenco.length;
   if (!elenco.length) { voce.cieca = true; voce.perche = 'nessun gruppo di oggetti ripetuti'; return voce; }
   const eFigura = opz.eFigura;
+  // Mezzo gradino: sotto si scavalca, sopra si aggira o si attraversa.
+  const alto = opz.altezzaOstacolo != null ? opz.altezzaOstacolo : 0.5;
   for (const g of elenco) {
     if (eFigura && eFigura(g)) continue;          // le persone hanno la loro voce
-    const pezzi = (g.pezzi || []).map((p) => p.centro).filter(Boolean);
+    const pezzi = (g.pezzi || []).filter((p) => p && p.centro);
     if (g.disposizione !== 'fila' || pezzi.length < (opz.filaMinima || 3)) continue;
+    let h = 0;
+    for (const p of pezzi) if (p.ingombro && p.ingombro[1] > h) h = p.ingombro[1];
+    if (h < alto) continue;
     voce.file++;
-    for (const c of capi(pezzi)) voce.punti.push({ centro: c, oggetti: g.quante || pezzi.length });
+    let sx = 0, sy = 0, sz = 0;
+    for (const p of pezzi) { sx += p.centro[0]; sy += p.centro[1]; sz += p.centro[2]; }
+    voce.punti.push({
+      centro: [sx / pezzi.length, sy / pezzi.length, sz / pezzi.length],
+      oggetti: g.quante || pezzi.length, altezza: h,
+    });
   }
   return voce;
 }
@@ -469,17 +489,41 @@ export function uniscoVoci(voci, nm, opz = {}) {
   if (!tutti.length) return { accessi: [], scartati: [], vociVive: vive.length };
 
   const vicino = opz.vicino != null ? opz.vicino : VICINO;
-  const posizioni = tutti.map((t) => t.centro);
-  // Si raggruppa sugli indici, non sui punti: serve sapere DA CHI viene ognuno.
-  const indici = posizioni.map((p, i) => [p[0], p[1], p[2], i]);
-  const gruppi = raggruppa(indici, vicino, opz.dislivelloVoci != null ? opz.dislivelloVoci : 2.0);
+  const disl = opz.dislivelloVoci != null ? opz.dislivelloVoci : 2.0;
+
+  // ⚠️ NON si raggruppa a catena. Misurato il 02/09: col raggruppamento a
+  //    catena — A tocca B, B tocca C, quindi A e C sono lo stesso posto — un
+  //    accesso ha raccolto 227 indizi ed era una striscia lunga mezzo edificio,
+  //    non una porta. Un ingresso ha una misura: si sta dentro sei metri.
+  //
+  //    Quindi: ogni posto e' il vicinato di UN punto. Si serve per primo il
+  //    punto su cui cadono piu' VOCI DIVERSE, gli si assegna il suo vicinato, e
+  //    quei punti non parlano piu'.
+  const vicini = tutti.map(() => []);
+  for (let i = 0; i < tutti.length; i++)
+    for (let j = i + 1; j < tutti.length; j++)
+      if (dXZ(tutti[i].centro, tutti[j].centro) <= vicino
+        && Math.abs(tutti[i].centro[1] - tutti[j].centro[1]) <= disl) {
+        vicini[i].push(j); vicini[j].push(i);
+      }
+  const quanteVoci = (lista) => {
+    const nomi = [];
+    for (const k of lista) if (nomi.indexOf(tutti[k].voce) < 0) nomi.push(tutti[k].voce);
+    return nomi;
+  };
+  const forza = tutti.map((t, i) => quanteVoci([i].concat(vicini[i])).length);
+  const ordine = tutti.map((t, i) => i)
+    .sort((a, b) => (forza[b] - forza[a]) || (vicini[b].length - vicini[a].length));
 
   const minime = opz.vociMinime != null ? opz.vociMinime : VOCI_MINIME;
+  const preso = new Uint8Array(tutti.length);
   const accessi = [], scartati = [];
-  for (const g of gruppi) {
-    const membri = g.map((p) => tutti[p[3]]);
-    const nomi = [];
-    for (const m of membri) if (nomi.indexOf(m.voce) < 0) nomi.push(m.voce);
+  for (const i of ordine) {
+    if (preso[i]) continue;
+    const gruppo = [i].concat(vicini[i].filter((j) => !preso[j]));
+    for (const k of gruppo) preso[k] = 1;
+    const membri = gruppo.map((k) => tutti[k]);
+    const nomi = quanteVoci(gruppo);
     let sx = 0, sy = 0, sz = 0;
     for (const m of membri) { sx += m.centro[0]; sy += m.centro[1]; sz += m.centro[2]; }
     let centro = [sx / membri.length, sy / membri.length, sz / membri.length];
@@ -496,7 +540,7 @@ export function uniscoVoci(voci, nm, opz = {}) {
       sulCammino: !!(q && q.ok),
     };
     if (nomi.length < minime) {
-      a.perche = 'un indizio solo (' + nomi.join(', ') + '): puo\' essere una meta, non un ingresso';
+      a.perche = 'una voce sola (' + nomi.join(', ') + '): puo\' essere una meta, non un ingresso';
       scartati.push(a);
       continue;
     }
