@@ -5,7 +5,50 @@
 
 ---
 
-## 🚩 SI RIPARTE DA QUI — 01/09/2026
+## 🚩 SI RIPARTE DA QUI — 01/09/2026, sera
+
+**Dove siamo, in una tabella.** Sette commit oggi, tutti su `main`.
+
+| pezzo | stato |
+|---|---|
+| le scale mobili nella navmesh | ✅ 4 collegamenti agganciati, **1 gruppo** invece di 2, le tappe restano ai loro piani |
+| gli agenti dentro i muri | ✅ rientro sul calpestabile, misurato **98%** delle posizioni, e vale per **tutti e due** i motori |
+| il piano su cui stanno | 🆕 scritto il 01/09 sera, **ancora da guardare a schermo**: la folla la fa il motore, la quota la mettiamo noi |
+| più flussi insieme | 🟡 l'impianto regge N flussi, ma ne nasce ancora **uno**: manca chi glieli dà |
+| gli accessi | ⏸ scritti e **spenti**: aspettano gli indizi, perché su uno spaccato la sola geometria sbaglia |
+| i nomi in pianta | ❌ non compaiono ancora — è il punto 2 delle priorità |
+
+**La riga da cercare al primo avvio:** `quote rimesse dai nostri piani: …
+cambi di piano senza un collegamento`. Quel numero misura quanto il motore
+piano stia ignorando i livelli, e va guardato prima di ogni altra cosa.
+
+| commit | cosa |
+|---|---|
+| `c310e37` | le scale mobili entrano nella navmesh (§6-bis) |
+| `f1dcfe8` | la prova sul modello vero: 4 collegamenti, un gruppo solo |
+| `9ab1107` | la pagina live si prova da soli; a schermo si scende la scala |
+| `da9acc7` | il motore tiene più di un flusso (l'idraulica) |
+| `56409f7` | trappola: il modello non si carica dalla console |
+| `7914058` + `ac82d7c` | il cammino ha l'ultima parola, e la scala si sblocca |
+| `49fa69f` | la correzione era nel motore sbagliato: ora vale per tutti e due |
+| `115705b` | la folla è sua, la quota è nostra |
+
+**Le tre lezioni di oggi, e valgono oltre oggi:**
+
+1. **Una cosa dichiarata non si indovina dai suoi effetti.** Riconoscere una
+   scala mobile chiedendo «questo punto è calpestabile?» sembrava funzionare, e
+   ai piedi della rampa il pavimento di sotto è lì a un passo: gli agenti
+   restavano bloccati. Il collegamento si chiede a chi l'ha dichiarato.
+2. **Prima di correggere un comportamento, si guarda quale dei due motori lo
+   sta producendo.** Una correzione scritta nel ramo che non gira dà
+   esattamente la scena di prima, e sembra che la diagnosi fosse sbagliata.
+3. **Un modello più piccolo del vero fa sbagliare tutto quello che viene dopo,
+   in silenzio.** Dopo ogni caricamento si guarda l'ingombro prima di credere a
+   qualunque numero.
+
+---
+
+## 🚩 IL PUNTO 0 — com'era la mattina del 01/09/2026
 
 **Testa: `a260eba` + questo commit. La cura del punto 0 è SCRITTA**, in
 `veritas_navmesh.js` (nuova sezione 6-bis) e nella copia inlinata di
