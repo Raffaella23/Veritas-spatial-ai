@@ -5,17 +5,30 @@
 
 ---
 
-## 🚩 SI RIPARTE DA QUI — 31/08/2026 sera
+## 🚩 SI RIPARTE DA QUI — 01/09/2026
 
-**Testa: `8b2f7f4` + questo commit. Nessun codice toccato oggi: la giornata è
-stata tutta diagnosi, ed è finita con tre bugie del documento smascherate.**
+**Testa: `a260eba` + questo commit. La cura del punto 0 è SCRITTA**, in
+`veritas_navmesh.js` (nuova sezione 6-bis) e nella copia inlinata di
+`index.html` — le due copie sono identiche riga per riga, verificato.
 
-Il punto 0 (i due piani) è **diagnosticato e la cura è provata**, non ancora
-scritta. Si va a leggerlo per intero: c'è dentro la ricetta che funziona.
+**La riga sola:** dove una superficie inclinata quanto basta a una persona
+parte da un livello misurato e arriva a un altro, lì i due livelli si
+collegano, e il collegamento si dichiara a navcat con `addOffMeshConnection`.
 
-**La riga sola:** il sistema vede benissimo i due piani, è il passo del
-cammino che riporta tutte le tappe a terra perché non conosce le scale mobili.
-Un collegamento fuori-mesh di navcat le unisce — provato, 2 gruppi → 1.
+⚠️ **COSA MANCA, ed è la prima cosa della prossima sessione: la prova sul
+modello vero.** Al banco sono provati i FILTRI, su sette casi costruiti a mano:
+passano la scala mobile (anche messa in diagonale) e lo scalone monumentale;
+falliscono aereo (14% di riempimento), ala, piastra piatta e passerella da
+40 cm. Sulla pagina live non è ancora girato: **va guardato il log** — deve
+dire `2 livelli … 2 collegamenti verticali dichiarati` — e poi **dove stanno le
+tappe**, che devono restare sei a +3,64 m invece di scendere a +0,79.
+Se il log dice invece «NESSUNA rampa che li colleghi», elenca da solo le
+superfici scartate col motivo: si legge quello, non si ricomincia.
+
+**Un errore trovato scrivendo, che vale oltre oggi:** la direzione della salita
+non è l'asse più lungo. Uno scalone monumentale è largo 10 m e lungo 5, e
+misurando lungo il lato lungo saliva 18 cm invece di 3 m — spariva. Si legge
+dalla media delle normali delle facce, pesata sull'area.
 
 🔴 **Le tre cose che questo documento affermava e che sono FALSE.** Erano il
 vero ostacolo: tenevano lontani dalla riparazione più di quanto facesse il
@@ -272,6 +285,18 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    piano) resta utile per la comprensione e per il referto, ma **non è quello
    che impedisce di salire**: partire da lì era la giornata che questo punto
    avvertiva di non spendere.
+
+   ### ✅ SCRITTA IL 01/09 — dove sta, e cosa resta da guardare
+
+   `veritas_navmesh.js` §6-bis e la stessa identica copia in `index.html`:
+   `livelli()` (raggruppa le quote delle ISOLE), `superficiInclinate()` (cerca
+   mesh per mesh le facce fra 5° e la pendenza di una persona),
+   `misuraInclinata()` (asse della salita, riempimento, i due capi) e
+   `collegamentiVerticali()` (i quattro filtri, poi `addOffMeshConnection` e la
+   verifica `isOffMeshConnectionConnected`: se non si aggancia si toglie e si
+   conta). Chiamate da `costruisciDaScena` subito dopo le isole; il log dice
+   sempre quanti livelli ha visto e se qualcosa li collega.
+   ⚠️ **Resta da guardare sulla pagina live** — vedi il riquadro in cima.
 
    ### ✅ LA CURA È GIÀ STATA PROVATA SULLA PAGINA LIVE — si scrive, non si cerca
 

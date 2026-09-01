@@ -482,6 +482,388 @@ export function percorso(nav, navMesh, da, a, opz = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// 6-bis. I collegamenti verticali: dove una rampa unisce due livelli
+// ---------------------------------------------------------------------------
+//
+// PERCHE' ESISTE QUESTO PEZZO
+//
+// Misurato il 31/08/2026 sul modello vero, con la simulazione in esecuzione: il
+// sistema riconosce DUE piani (+0,77 m e +3,64 m) e li misura bene. Sei tappe
+// su sette NASCONO al piano di sopra e vengono riportate a +0,79 m dal passo
+// che le rende raggiungibili a piedi, perche' fra i due piani la navmesh trova
+// due isole e nessun percorso. Il piano di sopra — con 164 sagome umane sopra —
+// non lo attraversa nessuno, e ogni numero della simulazione esce calcolato su
+// meta' edificio.
+//
+// Le scale mobili nel modello ci sono e sono buone: due rampe di 7,2 x 1,2 m
+// che salgono da +0,65 a +3,75, pendenza 23-29°, sotto i 35° ammessi. Ma larghe
+// 1,2 m fra due balaustre piene, erose del raggio di una persona, restano una
+// striscia di poche celle: sotto `minRegionArea`, e la voxelizzazione la butta
+// come isola troppo piccola.
+//
+// La riparazione NON e' abbassare quella soglia — si riempirebbe il modello di
+// isole grandi come uno sgabello. E' DICHIARARE il collegamento: e' il
+// meccanismo con cui Recast/Detour descrive scale, scale mobili e salti da
+// vent'anni, e navcat ce l'ha gia' (`addOffMeshConnection`,
+// `isOffMeshConnectionConnected`, `removeOffMeshConnection`). Non si scrive a
+// mano. Provato in console sul modello vero: i gruppi raggiungibili passano da
+// 2 a 1, e non serve toccare l'appiattimento delle tappe — quel ripiego parte
+// solo quando i gruppi sono piu' di uno, e con un gruppo solo non parte.
+//
+// LA REGOLA E' GEOMETRICA e vale per una scuola, una chiesa, un ospedale, un
+// negozio (Regola 0-bis: nessun nome di mesh, nessuna parola di tipologia,
+// nessun numero tarato su questo modello — i limiti sono le misure di PERSONA):
+//
+//     dove una superficie inclinata quanto basta a una persona parte da un
+//     livello misurato e arriva a un altro, li' i due livelli si collegano.
+//
+// ⚠️ I filtri sono stati provati anche sui casi che devono FALLIRE. Il
+//    riempimento (inclinata / impronta) separa: rampa vera 87% · aereo 9% ·
+//    ala 8% · piastra piatta 0%. Il rapporto lunghezza/larghezza no:
+//    boccerebbe uno scalone monumentale largo 10 m e lungo 5, cioe' proprio
+//    una chiesa o un museo.
+//
+// ⚠️ Trappola che e' costata un tentativo: il verso della salita NON si
+//    presume. La rampa di questo modello sale verso −X; presumendo il verso il
+//    capo alto cade dove il piano di sopra non c'e', si aggancia al pavimento
+//    di sotto, e il risultato e' un falso «gia' collegati». Il verso si legge
+//    dalla MEDIANA DELLE QUOTE ai due capi dell'asse lungo, sempre.
+
+/**
+ * I livelli dell'edificio, raggruppando le quote delle ISOLE.
+ *
+ * ⚠️ Non l'istogramma delle quote della navmesh. Provato: le bande a mezzo
+ *    metro l'una dall'altra si incatenano e finiscono per mettere insieme il
+ *    mezzanino e la coda di un aereo sei metri piu' su. Con le isole vengono
+ *    puliti: 0,75 · 3,7 · 6,2.
+ *
+ * Due isole stanno sullo stesso livello se le separa meno di un gradino: sotto
+ * quella distanza una persona passa dall'una all'altra camminando.
+ */
+export function livelli(gruppi, opz = {}) {
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const minima = opz.livelloMinimoM2 != null ? opz.livelloMinimoM2 : ISOLA_UNIONE_M2;
+  const q = (gruppi || [])
+    .filter((i) => i && isFinite(i.quotaMedia) && i.area >= minima)
+    .map((i) => ({ quota: i.quotaMedia, area: i.area }))
+    .sort((a, b) => a.quota - b.quota);
+  if (!q.length) return [];
+
+  const banchi = [];
+  let corrente = [q[0]];
+  for (let i = 1; i < q.length; i++) {
+    if (q[i].quota - corrente[corrente.length - 1].quota <= p.gradino) corrente.push(q[i]);
+    else { banchi.push(corrente); corrente = [q[i]]; }
+  }
+  banchi.push(corrente);
+
+  return banchi.map((b) => {
+    const area = b.reduce((s, x) => s + x.area, 0);
+    // Media pesata sull'area: un livello sta dove sta la sua superficie, non
+    // dove sta il suo pianerottolo piu' piccolo.
+    return { quota: b.reduce((s, x) => s + x.quota * x.area, 0) / area, area, isole: b.length };
+  }).sort((a, b) => a.quota - b.quota);
+}
+
+/** Il punto (a, b) sta dentro il triangolo? Coordinate baricentriche. */
+function dentroTriangolo(a, b, t) {
+  const [x1, y1] = t[0], [x2, y2] = t[1], [x3, y3] = t[2];
+  const d = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+  if (Math.abs(d) < 1e-12) return false;
+  const l1 = ((y2 - y3) * (a - x3) + (x3 - x2) * (b - y3)) / d;
+  const l2 = ((y3 - y1) * (a - x3) + (x1 - x3) * (b - y3)) / d;
+  return l1 >= -1e-9 && l2 >= -1e-9 && l1 + l2 <= 1 + 1e-9;
+}
+
+/** La mediana, che regge un vertice sbagliato dove la media no. */
+function mediana(v) {
+  if (!v.length) return NaN;
+  const s = [...v].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/**
+ * Misura una superficie inclinata: quanto e' larga, quanto riempie la sua
+ * impronta, dove sono i suoi due capi e quale dei due sta in alto.
+ *
+ * `facce` sono triangoli in coordinate del mondo, gia' scremati alla sola
+ * pendenza che una persona affronta. Funzione pura: nessuna libreria, si prova
+ * al banco con quattro triangoli scritti a mano.
+ */
+export function misuraInclinata(facce, opz = {}) {
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  if (!facce || facce.length < 2) return null;
+
+  // 1. L'ASSE DELLA SALITA, letto dalla geometria: la direzione in cui la
+  //    superficie sale piu' ripida, mediata su tutte le facce e pesata
+  //    sull'area. Per una faccia rivolta in su e' l'opposto della proiezione
+  //    in pianta della sua normale.
+  //
+  //    ⚠️ NON e' l'asse piu' lungo, ed e' un errore che costa lo scalone
+  //       monumentale: largo 10 m e lungo 5, il lato lungo e' quello per cui
+  //       NON si sale. Misurato prendendo il lato lungo: dislivello 18 cm
+  //       invece di 3 m, e lo scalone sparisce dai candidati.
+  let cx = 0, cz = 0, n = 0;
+  for (const t of facce) for (const v of t) { cx += v[0]; cz += v[2]; n++; }
+  cx /= n; cz /= n;
+
+  let gx = 0, gz = 0, peso = 0;
+  for (const t of facce) {
+    const ux = t[1][0] - t[0][0], uy = t[1][1] - t[0][1], uz = t[1][2] - t[0][2];
+    const wx = t[2][0] - t[0][0], wy = t[2][1] - t[0][1], wz = t[2][2] - t[0][2];
+    let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+    const len = Math.hypot(nx, ny, nz);
+    if (!(len > 1e-12)) continue;
+    if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }   // normali sempre verso l'alto
+    const oriz = Math.hypot(nx, nz);
+    peso += len / 2;
+    if (!(oriz > 1e-12)) continue;                  // faccia orizzontale: non indica verso
+    gx += (-nx / oriz) * (len / 2);
+    gz += (-nz / oriz) * (len / 2);
+  }
+  const forza = Math.hypot(gx, gz);
+  // Coerenza: quanto le facce salgono TUTTE nello stesso verso. Su una rampa
+  // vale quasi 1; su una fusoliera i due fianchi si annullano e vale quasi 0.
+  const coerenza = peso > 0 ? forza / peso : 0;
+
+  let cu, su;
+  if (forza > 1e-9 && coerenza > 0.02) {
+    cu = gx / forza; su = gz / forza;
+  } else {
+    // Superficie senza un verso di salita (piatta, o simmetrica): si ripiega
+    // sull'asse di massima estensione. Non e' una rampa, e i filtri lo diranno.
+    let Sxx = 0, Szz = 0, Sxz = 0;
+    for (const t of facce) for (const v of t) {
+      const dx = v[0] - cx, dz = v[2] - cz;
+      Sxx += dx * dx; Szz += dz * dz; Sxz += dx * dz;
+    }
+    const th = 0.5 * Math.atan2(2 * Sxz, Sxx - Szz);
+    cu = Math.cos(th); su = Math.sin(th);
+  }
+  // A e' la direzione della salita (positiva verso l'alto), B la traversa.
+  const A = (v) => (v[0] - cx) * cu + (v[2] - cz) * su;
+  const B = (v) => -(v[0] - cx) * su + (v[2] - cz) * cu;
+
+  let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+  for (const t of facce) for (const v of t) {
+    const a = A(v), b = B(v);
+    if (a < amin) amin = a; if (a > amax) amax = a;
+    if (b < bmin) bmin = b; if (b > bmax) bmax = b;
+  }
+  const lunghezza = amax - amin, larghezza = bmax - bmin;
+  if (!(lunghezza > 1e-6) || !(larghezza > 1e-6)) return null;
+
+  // 2. Il riempimento: quanta parte dell'impronta e' davvero coperta
+  //    dall'inclinata. Si conta a celle, non sommando le aree proiettate: su
+  //    una fusoliera le facce si sovrappongono in pianta e la somma sballa
+  //    sopra il 100% promuovendo un aereo a rampa.
+  const nA = Math.max(4, Math.min(48, Math.round(lunghezza / Math.max(0.1, p.raggio))));
+  const nB = Math.max(3, Math.min(48, Math.round(larghezza / Math.max(0.1, p.raggio))));
+  const griglia = new Uint8Array(nA * nB);
+  const pa = lunghezza / nA, pb = larghezza / nB;
+  for (const t of facce) {
+    const tri = [[A(t[0]), B(t[0])], [A(t[1]), B(t[1])], [A(t[2]), B(t[2])]];
+    const i0 = Math.max(0, Math.floor((Math.min(tri[0][0], tri[1][0], tri[2][0]) - amin) / pa));
+    const i1 = Math.min(nA - 1, Math.floor((Math.max(tri[0][0], tri[1][0], tri[2][0]) - amin) / pa));
+    const j0 = Math.max(0, Math.floor((Math.min(tri[0][1], tri[1][1], tri[2][1]) - bmin) / pb));
+    const j1 = Math.min(nB - 1, Math.floor((Math.max(tri[0][1], tri[1][1], tri[2][1]) - bmin) / pb));
+    for (let i = i0; i <= i1; i++)
+      for (let j = j0; j <= j1; j++) {
+        if (griglia[i * nB + j]) continue;
+        if (dentroTriangolo(amin + (i + 0.5) * pa, bmin + (j + 0.5) * pb, tri))
+          griglia[i * nB + j] = 1;
+      }
+  }
+  let coperte = 0;
+  for (let i = 0; i < griglia.length; i++) if (griglia[i]) coperte++;
+  const riempimento = coperte / griglia.length;
+
+  // 3. I due capi, e QUALE DEI DUE STA IN ALTO. Si legge dalla MEDIANA DELLE
+  //    QUOTE delle due fasce estreme, mai presumendo il verso: la rampa di
+  //    questo modello sale verso −X, e presumendo si aggancia il capo alto al
+  //    pavimento di sotto ottenendo un falso «gia' collegati».
+  //    La fascia e' stretta — un ottavo — perche' su una fascia larga la
+  //    mediana cade a meta' salita e il capo risulta 25 cm piu' in su di dov'e'.
+  const fascia = Math.max(pa, lunghezza * 0.08);
+  const bassa = { y: [], x: [], z: [] }, alta = { y: [], x: [], z: [] };
+  for (const t of facce) for (const v of t) {
+    const a = A(v);
+    const dove = a <= amin + fascia ? bassa : (a >= amax - fascia ? alta : null);
+    if (!dove) continue;
+    dove.y.push(v[1]); dove.x.push(v[0]); dove.z.push(v[2]);
+  }
+  if (!bassa.y.length || !alta.y.length) return null;
+  const capoA = [mediana(bassa.x), mediana(bassa.y), mediana(bassa.z)];
+  const capoB = [mediana(alta.x), mediana(alta.y), mediana(alta.z)];
+  const sale = capoB[1] >= capoA[1];
+  const capoBasso = sale ? capoA : capoB;
+  const capoAlto = sale ? capoB : capoA;
+
+  const inPianta = Math.hypot(capoAlto[0] - capoBasso[0], capoAlto[2] - capoBasso[2]);
+  const dislivello = capoAlto[1] - capoBasso[1];
+  return {
+    capoBasso, capoAlto, dislivello, larghezza, lunghezza, riempimento, coerenza,
+    pendenza: Math.atan2(dislivello, Math.max(1e-6, inPianta)) * 180 / Math.PI,
+    facce: facce.length,
+  };
+}
+
+/**
+ * Cerca nel modello le superfici che una persona potrebbe salire.
+ *
+ * Guarda mesh per mesh — una rampa e' un oggetto, e mescolando i triangoli di
+ * tutto l'edificio l'impronta non vuol piu' dire niente. Tiene solo le facce
+ * con pendenza fra `pendenzaMinima` e quella che una persona affronta: sotto e'
+ * pavimento, sopra e' copertura.
+ *
+ * @param THREE   il three del modello (iniettato, come altrove qui)
+ * @param radice  THREE.Object3D del modello caricato
+ */
+export function superficiInclinate(THREE, radice, opz = {}) {
+  if (!THREE || !radice) return [];
+  radice.updateMatrixWorld(true);
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const pendMin = opz.pendenzaMinima != null ? opz.pendenzaMinima : 5;
+  const tettoMesh = opz.tettoTriangoliMesh || 200000;
+  const tettoTotale = opz.tettoTriangoliInclinate || 3e6;
+
+  const out = [];
+  let letti = 0, saltate = 0;
+  const v = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+  const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nn = new THREE.Vector3();
+
+  radice.traverse((o) => {
+    if (!o.isMesh || !o.geometry || o.visible === false) return;
+    if (o.userData && (o.userData.__veritasHelper || o.userData.__veritasAgent)) return;
+    // Le istanze sono arredo ripetuto — sedie, tavoli, sagome. Una rampa non si
+    // istanzia; guardarle costerebbe piu' di quanto renda, e si dichiara.
+    if (o.isInstancedMesh) { saltate++; return; }
+    const attr = o.geometry.attributes && o.geometry.attributes.position;
+    if (!attr) return;
+    const ind = o.geometry.index;
+    const nTri = Math.floor((ind ? ind.count : attr.count) / 3);
+    if (!nTri || nTri > tettoMesh || letti > tettoTotale) { if (nTri > tettoMesh) saltate++; return; }
+    letti += nTri;
+
+    const M = o.matrixWorld;
+    const facce = [];
+    for (let t = 0; t < nTri; t++) {
+      for (let k = 0; k < 3; k++) {
+        const i = ind ? ind.getX(t * 3 + k) : t * 3 + k;
+        v[k].set(attr.getX(i), attr.getY(i), attr.getZ(i)).applyMatrix4(M);
+      }
+      e1.subVectors(v[1], v[0]); e2.subVectors(v[2], v[0]); nn.crossVectors(e1, e2);
+      const len = nn.length();
+      if (!(len > 1e-9)) continue;
+      const gradi = Math.acos(Math.min(1, Math.abs(nn.y) / len)) * 180 / Math.PI;
+      if (gradi < pendMin || gradi > p.pendenzaMax) continue;
+      facce.push([[v[0].x, v[0].y, v[0].z], [v[1].x, v[1].y, v[1].z], [v[2].x, v[2].y, v[2].z]]);
+    }
+    if (facce.length < 2) return;
+    const m = misuraInclinata(facce, opz);
+    if (m) out.push({ nome: o.name || '(mesh senza nome)', ...m });
+  });
+
+  out.sort((a, b) => b.dislivello - a.dislivello);
+  out.saltate = saltate;
+  return out;
+}
+
+/**
+ * Dichiara alla navmesh i collegamenti verticali che superano i filtri.
+ *
+ * Restituisce sempre anche gli SCARTATI col motivo: un passaggio che non c'e'
+ * non si dichiara, e uno che c'e' e non si aggancia va detto, non nascosto.
+ */
+export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
+  const esito = { aggiunti: [], scartati: [], ids: [], livelli: liv || [] };
+  if (!nav || !navMesh || !candidati || !candidati.length) {
+    esito.perche = 'nessuna superficie inclinata nel modello';
+    return esito;
+  }
+  if (!liv || liv.length < 2) {
+    esito.perche = "un livello solo: non c'e' niente da collegare";
+    return esito;
+  }
+  if (typeof nav.addOffMeshConnection !== 'function'
+      || typeof nav.isOffMeshConnectionConnected !== 'function'
+      || !nav.OffMeshConnectionDirection) {
+    esito.perche = 'questa navcat non espone i collegamenti fuori-mesh';
+    return esito;
+  }
+
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const riempMin = opz.riempimentoMinimo != null ? opz.riempimentoMinimo : 0.5;
+  const raggioAggancio = opz.raggioAggancio || p.raggio * 5;
+  // Il pavimento si cerca entro l'altezza di una persona: piu' in la' non e'
+  // il pavimento di quella rampa, e' un altro piano.
+  const tolleranza = [p.raggio * 5, p.altezza, p.raggio * 5];
+
+  const livelloDi = (y) => {
+    let quale = -1, dist = Infinity;
+    liv.forEach((l, i) => { const d = Math.abs(l.quota - y); if (d < dist) { dist = d; quale = i; } });
+    return dist <= p.gradino ? quale : -1;
+  };
+
+  for (const c of candidati) {
+    const scarta = (perche) => esito.scartati.push({
+      nome: c.nome, perche, larghezza: c.larghezza,
+      riempimento: c.riempimento, dislivello: c.dislivello,
+    });
+    if (c.larghezza < p.raggio * 2) { scarta('troppo stretta: non ci passa una persona'); continue; }
+    if (c.dislivello <= p.gradino) { scarta('non sale: i due capi stanno alla stessa quota'); continue; }
+    if (c.riempimento < riempMin) {
+      scarta("non e' una rampa: solo " + Math.round(c.riempimento * 100)
+        + "% dell'impronta e' inclinato"); continue;
+    }
+    const basso = livelloDi(c.capoBasso[1]), alto = livelloDi(c.capoAlto[1]);
+    if (basso < 0 || alto < 0) { scarta('un capo non arriva a nessun livello misurato'); continue; }
+    if (basso === alto) { scarta('parte e arriva sullo stesso livello'); continue; }
+
+    // I capi si agganciano al pavimento vero: una rampa modellata comincia
+    // quasi sempre qualche centimetro sopra o sotto la superficie camminabile.
+    const qb = sulCammino(nav, navMesh, c.capoBasso, tolleranza);
+    const qa = sulCammino(nav, navMesh, c.capoAlto, tolleranza);
+    if (!qb.ok || !qa.ok) { scarta('un capo non tocca nessuna superficie camminabile'); continue; }
+
+    let id = null;
+    try {
+      const r = nav.addOffMeshConnection(navMesh, {
+        start: qb.punto,
+        end: qa.punto,
+        radius: raggioAggancio,
+        direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
+        flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
+        area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
+      });
+      id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
+    } catch (e) {
+      scarta('navcat ha rifiutato il collegamento (' + ((e && e.message) || e) + ')');
+      continue;
+    }
+    // Mai dichiarare un passaggio che non c'e'. Se non si aggancia da entrambi
+    // i capi si toglie e si conta: un collegamento appeso nel vuoto farebbe
+    // credere collegati due piani che restano separati.
+    if (id == null || !nav.isOffMeshConnectionConnected(navMesh, id)) {
+      if (id != null && typeof nav.removeOffMeshConnection === 'function') {
+        try { nav.removeOffMeshConnection(navMesh, id); } catch (e) {}
+      }
+      scarta('dichiarato ma non agganciato alla navmesh');
+      continue;
+    }
+    esito.ids.push(id);
+    esito.aggiunti.push({
+      nome: c.nome, id, da: qb.punto, a: qa.punto,
+      dislivello: c.dislivello, larghezza: c.larghezza,
+      riempimento: c.riempimento, pendenza: c.pendenza,
+      quote: [liv[basso].quota, liv[alto].quota],
+    });
+  }
+  return esito;
+}
+
+// ---------------------------------------------------------------------------
 // 7. L'aggancio al programma
 // ---------------------------------------------------------------------------
 //
@@ -520,6 +902,22 @@ export async function costruisciDaScena(THREE, radice, opz = {}) {
   ULTIMA = r;
   r.geometria = { triangoli: geo.triangoli, mesh: geo.mesh, ingombro: geo.ingombro };
   r.isole = isole(r.navMesh);
+
+  // I livelli e le rampe che li uniscono (§6-bis). Senza questo passo i piani
+  // restano isole, e le tappe del piano di sopra vengono riportate a terra.
+  // Dentro un try: un modello senza rampe, o una navcat piu' vecchia, devono
+  // dare la navmesh di prima, non un errore.
+  if (opz.collegaLivelli !== false) {
+    try {
+      r.livelli = livelli(r.isole, opz);
+      r.collegamenti = collegamentiVerticali(
+        lib.nav, r.navMesh, superficiInclinate(THREE, radice, opz), r.livelli, opz);
+    } catch (e) {
+      r.livelli = r.livelli || [];
+      r.collegamenti = { aggiunti: [], scartati: [], ids: [], livelli: r.livelli,
+                         perche: 'errore nei collegamenti verticali: ' + ((e && e.message) || e) };
+    }
+  }
   return { ok: true, ...r };
 }
 
@@ -676,15 +1074,32 @@ export function raccontaCammino(r) {
           + Math.round(grandi[0].area) + ' m2)'
         : ', tutti collegati fra loro')
     + '. Le superfici troppo ripide, troppo piccole o senza spazio sopra la testa '
-    + 'sono escluse: non ci si cammina.';
+    + 'sono escluse: non ci si cammina.'
+    + raccontaLivelli(r);
+}
+
+/** I piani, e se ci si sale. Si dice sempre: un piano dove non sale nessuno e'
+ *  meta' edificio che non viene mai attraversato. */
+export function raccontaLivelli(r) {
+  const liv = (r && r.livelli) || [];
+  if (liv.length < 2) return '';
+  const c = (r && r.collegamenti) || { aggiunti: [] };
+  const quote = liv.map((l) => (l.quota >= 0 ? '+' : '') + l.quota.toFixed(2) + ' m').join(', ');
+  return ' Ho visto ' + liv.length + ' livelli (' + quote + '): '
+    + (c.aggiunti && c.aggiunti.length
+        ? 'li collegano ' + c.aggiunti.length + (c.aggiunti.length === 1 ? ' rampa' : ' rampe')
+          + ' che si salgono a piedi.'
+        : 'non ho trovato nessuna rampa che li colleghi, quindi da un piano '
+          + "all'altro a piedi non si passa.");
 }
 
 export default {
   PERSONA, ISOLA_MINIMA_M2, ISOLA_UNIONE_M2, VOXEL_MAX,
   cellaOttima, parametri, geometriaDaModello, costruisci,
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
+  livelli, misuraInclinata, superficiInclinate, collegamentiVerticali,
   libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente,
-  gruppiCollegati, catenaCamminabile, raccontaCammino,
+  gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli,
 };
 
 // ---------------------------------------------------------------------------
@@ -724,6 +1139,22 @@ if (typeof window !== 'undefined') {
         console.log('[VERITAS cammino] navmesh: ' + r.poligoni + ' poligoni, '
           + Math.round(r.area) + ' m2, ' + (r.isole || []).length + ' parti separate, '
           + r.ms + ' ms, cella ' + r.parametri.risoluzione.cella.toFixed(2) + ' m');
+        // I livelli e le rampe, sempre a schermo: un piano irraggiungibile e'
+        // meta' modello mai attraversato, e va detto invece che appiattito.
+        const liv = r.livelli || [], col = r.collegamenti || { aggiunti: [], scartati: [] };
+        if (liv.length > 1) {
+          const quote = liv.map((l) => l.quota.toFixed(2) + ' m').join(' · ');
+          if (col.aggiunti.length)
+            console.log('[VERITAS cammino] ' + liv.length + ' livelli (' + quote + '), '
+              + col.aggiunti.length + ' collegamenti verticali dichiarati: '
+              + col.aggiunti.map((a) => a.nome + ' +' + a.dislivello.toFixed(2) + ' m').join(', '));
+          else
+            console.warn('[VERITAS cammino] ' + liv.length + ' livelli (' + quote + ') e NESSUNA '
+              + 'rampa che li colleghi' + (col.perche ? ' (' + col.perche + ')' : '')
+              + ': chi sta di sopra non scende e nessuno ci sale.'
+              + (col.scartati.length ? ' Scartate ' + col.scartati.length + ' superfici inclinate: '
+                  + col.scartati.slice(0, 4).map((s) => s.nome + ' — ' + s.perche).join(' | ') : ''));
+        }
         if (typeof window.__veritasAnnounce === 'function') {
           try { window.__veritasAnnounce(raccontaCammino(r)); } catch (e) {}
         }
