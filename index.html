@@ -25662,7 +25662,11 @@ if (typeof window !== 'undefined') {
      window.__veritasAccessi, e da li' `veritas_flussi.js` fa nascere un flusso
      per ogni ingresso. Esterno e in fondo, come il montaggio: cosi' non sposta
      nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_accessi.js"></script>
+<!-- ⚠️ Il numero in fondo si cambia a ogni modifica del modulo. index.html?v=N
+     rinfresca solo index.html: i file dei moduli hanno la loro cache, e senza
+     questo si guarda il codice vecchio credendo di guardare quello nuovo.
+     Costato una verifica intera il 02/09. -->
+<script type="module" src="./veritas_accessi.js?v=3"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
