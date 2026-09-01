@@ -16,7 +16,7 @@
 | il tetto che finisce, su uno spaccato | ✅ si dichiara **MUTA da sola**: 36 campioni coperti su 1.544 (2%) |
 | l'aggancio ai flussi | ✅ `veritas_flussi.js` legge `window.__veritasAccessi`: **da 1 flusso a 9** (misurato) |
 | i tetti dei tunnel | ✅ buttati: **8 posti su 12** non erano porte ma lastre da cui non si entra |
-| l'ingresso dalla strada | 🟡 non ancora riconosciuto **come strada**: manca la voce che vede le macchine fuori |
+| l'ingresso dalla strada | ✅ trovato dalle quattro voci a x=16, e **marcato «da fuori»**: si vedono arrivare i taxi |
 | il livello come campo della tappa | ❌ non fatto — resta il punto 2 |
 
 👁️ **Visto a schermo da Raffaella, 02/09:** *«ho visto più flussi e passeggeri
@@ -79,19 +79,50 @@ caratteri accentati si rompono e **il blocco 3 cambia hash**. Si modifica con
 l'editor, mai riscrivendolo per intero. La ricetta di verifica l'ha preso al
 volo — e' esattamente per questo che esiste.
 
-### Il lavoro numero uno adesso: L'INGRESSO DALLA STRADA
+### ✅ L'INGRESSO DALLA STRADA — c'era gia', e la quinta voce NON si scrive
 
-Raffaella non ha visto nessuno entrare da dove stanno le automobili, e ha
-ragione: **nessuna delle quattro voci sa cos'e' una strada**. La segnaletica, le
-figure e gli oggetti in fila stanno tutti dentro il terminal, quindi e' li' che
-l'accordo si forma. Manca la voce che guarda il **fuori**: le macchine ferme in
-file parallele, il piazzale, la fermata. Non e' una parola di tipologia — sono
-oggetti ripetuti, tutti uguali, appoggiati su una superficie grande e vuota
-lontana dalla massa dell'edificio, ed e' misurabile come le altre.
-E' la quinta voce, e va scritta accanto alle quattro che ci sono.
+👁️ Raffaella, 02/09, guardando la simulazione: *«GUARDA ARRIVANO DALLE
+MACCHINE!»*. L'ingresso dalla strada l'hanno trovato **le quattro voci da
+sole**, a x = 16, con la segnaletica e gli oggetti in fila.
 
-Subito dopo, invariato: **il livello come campo della tappa** e i nomi
-accoppiati a parita' di piano.
+Misurato nel file, senza browser, leggendo il GLB del repo: proprio li' ci sono
+**4 oggetti lunghi 4,2 m e larghi 1,8 messi in fila**, due nastri lunghi 36 m a
+x 18-29, e una decina di sagome umane fuori dall'edificio.
+
+**Quindi la quinta voce non si e' scritta, ed e' la decisione giusta:** le
+macchine votano gia' come oggetti in fila. Farle votare una seconda volta
+alzerebbe l'affidabilita' con **lo stesso indizio detto due volte** — l'errore
+contro cui questo stesso file mette in guardia.
+
+Quello che mancava era **sapere che quell'accesso da' sul fuori**. E' un
+**marchio**, non un voto (`coseFerme`), e si riconosce da quattro misure: cose
+piu' lunghe di 3 m, piu' larghe di 1,5 m, piu' alte di 1 m (nessun arredo lo
+e'), messe a **distanze regolari** con vuoto in mezzo, e almeno tre. L'accesso
+che le tocca si chiama **«Accesso N da fuori»**, e siccome `veritas_flussi.js`
+chiama il flusso col nome del suo ingresso, quel nome arriva fino allo schermo.
+
+Provato sui 2.416 pezzi veri: su 139 gruppi con almeno tre copie ne marca
+**due**, e uno e' il gruppo delle macchine. Senza la misura della larghezza ne
+marcava sette, e sei erano pannelli e banconi interni — lunghi ma sottili.
+
+⚠️ **Due strade misurate e scartate, per non rifarle:** «dove finisce il tetto»
+(36 campioni coperti su 1.544) e «dove finisce il **costruito**», cioe' i muri —
+**52 muri in tutto il modello, che non chiudono nessuna cella**. Su uno spaccato
+il fuori lo dicono solo le cose che ci stanno.
+
+### Il lavoro numero uno adesso
+
+**Il livello come campo della tappa** e i nomi accoppiati a parita' di piano: e'
+il motivo per cui in pianta i nomi non compaiono.
+
+⚠️ **Un intoppo da sistemare, visto il 02/09:** aprendo un progetto dal
+selettore il suo modello **non si ricarica** — il caricatore automatico prova
+`./airport.glb`, `./Assets/models/airport.glb`, `./veritas_airport.glb`, tutti
+404, mentre il file nel repo si chiama `airport_foot_traffic.glb`. Ogni tanto il
+modello torna, ogni tanto no, e senza modello non si verifica niente sulla
+pagina. Nel frattempo si misura in locale sul GLB: **la parte JSON di un glTF
+porta gia' gli ingombri e le matrici dei nodi**, quindi non serve nemmeno three
+— lo script sta in `scratchpad/leggi_glb.mjs` e si rifa' in venti righe.
 
 ---
 
