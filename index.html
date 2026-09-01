@@ -5170,6 +5170,90 @@
   //    agente vorrebbe dire farlo ricadere sul piano di sotto. Il collegamento
   //    si chiede a chi l'ha dichiarato: la navmesh ne conosce i due capi e la
   //    larghezza (§6-bis di veritas_navmesh.js).
+  // ---------------------------------------------------------------------------
+  // LA FOLLA E' SUA, LA QUOTA E' NOSTRA
+  // ---------------------------------------------------------------------------
+  //
+  // Il motore reale su Render e' un Social Force Model: spinge, evita, fa le
+  // code, e quelle cose le fa bene. Ma e' un modello PIANO — lavora in due
+  // dimensioni — e su un edificio a due piani li schiaccia in uno.
+  //
+  // Misurato sulla pagina live il 01/09, sulla traiettoria vera: 2.240
+  // posizioni campionate, **zero sopra i due metri**, mentre le tappe da cui
+  // gli agenti partono stanno a +3,64 m e a quella quota gliele mandiamo.
+  // Non e' che scendevano male dalla scala: al piano di sopra non ci sono mai
+  // stati. E' questo il «solo 1 e' sceso correttamente» visto da Raffaella.
+  //
+  // Quindi al motore si chiede quello che sa fare — come si muove la gente in
+  // pianta — e IL PIANO SU CUI STA lo rimettiamo noi, che lo sappiamo.
+  //
+  // La regola e' la continuita': una persona non si teletrasporta fra i piani.
+  // Parte dal livello della tappa da cui e' nata, e lo cambia soltanto lungo
+  // un collegamento dichiarato, dove la quota la da' il collegamento stesso.
+  // Dove il suo piano non c'e' piu' si prende quello che c'e', e SI CONTA: e'
+  // la misura di quanto il motore piano stia ignorando i livelli.
+  function veritasRiportaSuiPiani(frames, nodes) {
+    const nm = window.__veritasNavmesh;
+    const stato = nm && nm.stato && nm.stato();
+    if (!stato || !Array.isArray(frames)) return null;
+    const coll = ((stato.collegamenti || {}).aggiunti) || [];
+    const collegamentoSotto = (p) => {
+      for (const c of coll) {
+        if (!c || !c.da || !c.a) continue;
+        const ax = c.da[0], az = c.da[2];
+        const vx = c.a[0] - ax, vz = c.a[2] - az;
+        const l2 = vx * vx + vz * vz;
+        let t = l2 > 0 ? ((p[0] - ax) * vx + (p[2] - az) * vz) / l2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        if (Math.hypot(p[0] - (ax + vx * t), p[2] - (az + vz * t)) <= Math.max(1.5, c.larghezza || 1.2))
+          return c.da[1] + (c.a[1] - c.da[1]) * t;
+      }
+      return null;
+    };
+    const quotaDi = new Map();
+    let corretti = 0, saltiDiPiano = 0, suiCollegamenti = 0;
+    for (const f of frames) {
+      const lista = f && (f.agents || f.a);
+      if (!Array.isArray(lista)) continue;
+      for (const ag of lista) {
+        const p = ag && ag.pos;
+        if (!p || p.length < 3) continue;
+        let y = quotaDi.get(ag.id);
+        if (y == null) {
+          // L'ancora: la tappa piu' vicina in pianta alla prima posizione.
+          // Le tappe il loro piano ce l'hanno, ed e' da li' che si parte.
+          let vicina = null, dist = Infinity;
+          for (const n of (nodes || [])) {
+            if (!n || !n.pos) continue;
+            const d = Math.hypot(n.pos[0] - p[0], n.pos[2] - p[2]);
+            if (d < dist) { dist = d; vicina = n; }
+          }
+          y = vicina ? vicina.pos[1] : p[1];
+        }
+        const suRampa = collegamentoSotto(p);
+        if (suRampa != null) { y = suRampa; suiCollegamenti++; }
+        else {
+          // Il pavimento del PROPRIO piano, cercato attorno alla quota di
+          // prima: cosi' chi sta di sopra resta di sopra.
+          let q = nm.sulCamminoCorrente([p[0], y, p[2]], [1.5, 1.2, 1.5]);
+          if (q.ok) y = q.punto[1];
+          else {
+            // Il suo piano qui non c'e'. Si prende quello che c'e', ma e' un
+            // cambio di piano senza scala: si conta e si dice.
+            q = nm.sulCamminoCorrente([p[0], y, p[2]], [1.5, 8, 1.5]);
+            if (q.ok && Math.abs(q.punto[1] - y) > 0.6) { y = q.punto[1]; saltiDiPiano++; }
+            else if (q.ok) y = q.punto[1];
+          }
+        }
+        if (Math.abs(p[1] - y) > 0.05) corretti++;
+        p[1] = y;
+        quotaDi.set(ag.id, y);
+      }
+    }
+    return { corretti, saltiDiPiano, suiCollegamenti };
+  }
+  window.__veritasRiportaSuiPiani = veritasRiportaSuiPiani;
+
   function veritasRientraSulCammino(frames) {
     const nm = window.__veritasNavmesh;
     const stato = nm && nm.stato && nm.stato();
@@ -5406,6 +5490,14 @@
         return null;
       }
       console.log("[VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale");
+      // Prima la QUOTA, poi il cammino, e l'ordine conta: rientrare sul
+      // calpestabile con la quota sbagliata vorrebbe dire agganciarsi al
+      // pavimento del piano sbagliato, e confermare li' chi doveva stare sopra.
+      const piani = veritasRiportaSuiPiani(data.trajectory.frames, nodes);
+      if (piani) console.log("[VERITAS cammino] quote rimesse dai nostri piani: "
+        + piani.corretti + " posizioni corrette, " + piani.suiCollegamenti
+        + " su una scala mobile, " + piani.saltiDiPiano
+        + " cambi di piano senza un collegamento (il motore reale e' un modello piano)");
       // Anche la traiettoria del motore reale passa dal cammino: il Social
       // Force Model spinge le persone via l'una dall'altra e non sa niente dei
       // muri di QUESTO modello ne' delle scale mobili dichiarate.

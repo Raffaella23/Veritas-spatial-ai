@@ -48,6 +48,29 @@ non è l'asse più lungo. Uno scalone monumentale è largo 10 m e lungo 5, e
 misurando lungo il lato lungo saliva 18 cm invece di 3 m — spariva. Si legge
 dalla media delle normali delle facce, pesata sull'area.
 
+### 🔴 IL MOTORE REALE È UN MODELLO PIANO — scoperto il 01/09 sera
+
+Misurato leggendo la traiettoria in esecuzione: **2.240 posizioni campionate,
+zero sopra i due metri**, mentre le tappe da cui gli agenti nascono stanno a
++3,64 m e a quella quota gli vengono mandate. Non è che scendevano male dalla
+scala mobile: **al piano di sopra non ci sono mai stati.** È il «solo 1 è sceso
+correttamente» visto da Raffaella.
+
+Il Social Force Model su Render lavora **in due dimensioni**: spinge, evita, fa
+le code — e quelle cose le fa bene — ma un edificio a due piani lo schiaccia in
+uno. Non è un difetto da riparare nel motore: è quello che quel modello è.
+
+**La cura, ed è la stessa regola di tutta la giornata: la cosa dichiarata la sa
+chi l'ha dichiarata.** Al motore si chiede quello che sa fare — come si muove
+la gente in pianta — e **il piano su cui sta lo rimettiamo noi**
+(`veritasRiportaSuiPiani`). La regola è la continuità: una persona parte dal
+livello della tappa da cui è nata e lo cambia **solo lungo un collegamento
+dichiarato**, dove la quota la dà il collegamento stesso. Dove il suo piano non
+c'è più si prende quello che c'è **e si conta**: quel numero, nel log, è la
+misura di quanto il motore piano stia ignorando i livelli.
+⚠️ L'ordine conta: prima la quota, poi il rientro sul calpestabile. Al
+contrario ci si aggancia al pavimento del piano sbagliato e ci si resta.
+
 🔴 **Le tre cose che questo documento affermava e che sono FALSE.** Erano il
 vero ostacolo: tenevano lontani dalla riparazione più di quanto facesse il
 codice.
@@ -991,6 +1014,27 @@ scala uomo/modello»: era il modello, non la scala.
 **Il modo giusto:** aprire un progetto che ha già il suo modello dentro, oppure
 farlo caricare dal pulsante. E la prima cosa da guardare dopo un caricamento è
 sempre l'ingombro: `new THREE.Box3().setFromObject(window.__veritasModelRoot)`.
+
+**Come si fa, in pratica.** Si aprono le domande a mazzi con `browser_batch`
+— navigare, aspettare, leggere console, interrogare la pagina — in una chiamata
+sola invece di una alla volta: è la differenza fra una verifica che costa un
+minuto e una che costa venti. `read_console_messages` con un filtro
+(`VERITAS cammino|VERITAS bridge`) dà il log in diretta; `javascript_tool`
+interroga il programma e **misura da solo** invece di credere a quello che si è
+appena scritto.
+⚠️ La pagina viene servita dalla cache del browser: dopo un `git push` si apre
+`index.html?v=<numero diverso ogni volta>`, altrimenti si guarda il codice
+vecchio e si conclude che la correzione non ha funzionato. Costato una volta.
+
+🔴 **LA DOMANDA ZERO, PRIMA DI OGNI ALTRA: quale motore sta girando?**
+Le traiettorie arrivano da due posti — il **motore reale** su Render (Social
+Force Model) e il **generatore JS locale** dentro `index.html` — e il riquadro
+in alto lo dice sempre. Il 01/09 una correzione è stata scritta nel generatore
+locale mentre girava quello reale: il difetto era riparato e continuava a
+vedersi identico, come se la diagnosi fosse sbagliata. **Correggere il ramo che
+non sta girando dà esattamente la scena di prima.** La riga da cercare:
+
+    [VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale
 
 Le tre domande che valgono per qualunque lavoro sul cammino:
 
