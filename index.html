@@ -1932,6 +1932,23 @@
         }
         if (rawNodes[s + 1].type === "filtro") securityAt = cum;
       }
+
+      // Quali punti del percorso NON stanno su una superficie calpestabile.
+      // Sono i tratti DICHIARATI — una scala mobile, un salto — che la navmesh
+      // non contiene come superficie ma come collegamento fra due livelli
+      // (§6-bis di veritas_navmesh.js). Li' non si scarta di lato e non si
+      // riporta nessuno "sul cammino": in quel tratto il cammino e' il
+      // collegamento stesso, e riportarli sulla mesh vorrebbe dire farli
+      // ricadere sul piano di sotto.
+      // Si segna UNA VOLTA per percorso — i percorsi sono in cache — non a
+      // ogni fotogramma.
+      const nmc = window.__veritasNavmesh;
+      if (nmc && nmc.stato()) {
+        for (const p of expanded) {
+          const q = nmc.sulCamminoCorrente(p.pos, [0.4, 0.6, 0.4]);
+          p.fuoriMesh = !q.ok;
+        }
+      }
       return { path: expanded, securityAt };
     }
 
@@ -1980,11 +1997,23 @@
     const queueSlot = new Map();
     queueOrder.forEach((ag, i) => queueSlot.set(ag.id, i));
 
+    // IL CAMMINO VERO. Il percorso e' gia' quello della navmesh, ma ogni
+    // agente riceve poi degli scarti — serpeggio, meandro, richiamo del
+    // gruppo, rumore, e la spinta di `resolveOverlaps` — che sommati arrivano
+    // a un paio di metri. Su un corridoio non si vedono; su una scala mobile
+    // larga 1,2 m la figura esce dalla scala, e accanto a un ufficio ci entra.
+    // Raffaella, 01/09: «sbordano un pochine e attraversano i muri (box
+    // informazioni e uffici)».
+    const nmFrame = (window.__veritasNavmesh && window.__veritasNavmesh.stato())
+      ? window.__veritasNavmesh : null;
+    const RIENTRO = [1.5, 1.0, 1.5];   // quanto lontano si cerca il calpestabile
+    let fuoriDalCammino = 0;
     const frames = [];
     const lastPos = new Map();
     for (let f = 0; f < totalFrames; f++) {
       const t = f * 0.5;
       const frameAgents = [];
+      const suiPonti = new Set();
       const groupCenter = new Map();
       for (const ag of agents) {
         const p = lastPos.get(ag.id);
@@ -2049,6 +2078,9 @@
         const dx = a1[0] - a0[0], dz = a1[2] - a0[2];
         const len = Math.hypot(dx, dz) || 1;
         const perpX = -dz / len, perpZ = dx / len;
+        // Questo tratto e' un collegamento dichiarato (scala mobile, salto)?
+        // Lo dice il percorso, che l'ha misurato una volta sola.
+        const suPonte = !!(path[seg].fuoriMesh || (path[seg + 1] && path[seg + 1].fuoriMesh));
         if (state === "WAITING" && securityAt !== null) {
           // coda visibile: si dispone in fila dietro il varco, su 2 colonne,
           // arretrando lungo la direzione di provenienza in base alla posizione in coda
@@ -2058,11 +2090,16 @@
           z -= (dz / len) * (row * 0.9);
           x += perpX * col * 0.55;
           z += perpZ * col * 0.55;
-        } else {
+        } else if (!suPonte) {
           // il serpeggiare laterale si amplifica nelle zone piu' affollate
           // (piu' gente vicina = piu' scarti per evitarsi visivamente), piu'
           // un meandro lento e ampio cosi' il percorso non sembra sempre lo
           // stesso "corridoio a 3 corsie" ma varia nel tempo
+          //
+          // ⚠️ MAI SU UN COLLEGAMENTO DICHIARATO. Su una scala mobile larga
+          //    1,2 m questi scarti arrivano a due metri: la figura esce dalla
+          //    scala e scende per aria. Li' si passa in fila indiana, che e'
+          //    anche come ci si sta davvero.
           const density = localDensityAt(x, z);
           const crowdFactor = Math.min(1.6, 1 + density * 0.12);
           const lateral = ((ag.id % 3 - 1) * 0.6 + Math.sin(t * 0.5 + ag.id) * 0.2) * crowdFactor;
@@ -2071,7 +2108,10 @@
           z += perpZ * (lateral + meander);
         }
         const gc = groupCenter.get(ag.group);
-        if (gc && state === "MOVING" && Math.random() < 0.9) { x += (gc.x - x) * 0.08; z += (gc.z - z) * 0.08; }
+        // Il richiamo del gruppo tira verso il baricentro dei compagni — che
+        // puo' essere dall'altra parte di un muro, o su un altro piano. Sul
+        // collegamento non si applica.
+        if (gc && state === "MOVING" && !suPonte && Math.random() < 0.9) { x += (gc.x - x) * 0.08; z += (gc.z - z) * 0.08; }
         x += (Math.random() - 0.5) * 0.015;
         z += (Math.random() - 0.5) * 0.015;
         const rot = Math.atan2(dz, dx);
@@ -2079,9 +2119,30 @@
         const pos = [x, y, z];
         lastPos.set(ag.id, pos);
         frameAgents.push({ id: ag.id, pos, rot, state, group: ag.group, archetype: ag.archetype, stress });
+        if (suPonte) suiPonti.add(ag.id);
       }
       resolveOverlaps(frameAgents);
+      // L'ULTIMA PAROLA CE L'HA IL CAMMINO. Dopo tutti gli scarti, ogni
+      // posizione torna sulla superficie calpestabile piu' vicina: dentro un
+      // muro non si sta, e da una scala non si esce. Chi e' su un
+      // collegamento dichiarato resta dov'e' — li' la superficie non c'e'
+      // apposta, e riportarcelo vorrebbe dire farlo cadere di sotto.
+      if (nmFrame) {
+        for (const fa of frameAgents) {
+          if (suiPonti.has(fa.id)) continue;
+          const q = nmFrame.sulCamminoCorrente(fa.pos, RIENTRO);
+          if (q.ok) { fa.pos[0] = q.punto[0]; fa.pos[1] = q.punto[1]; fa.pos[2] = q.punto[2]; }
+          else fuoriDalCammino++;   // troppo lontano perfino per rientrare: si conta
+        }
+      }
       frames.push({ t, agents: frameAgents });
+    }
+    if (nmFrame) {
+      const totali = frames.length * agents.length;
+      console.log('[VERITAS cammino] posizioni riportate sul calpestabile: '
+        + (totali - fuoriDalCammino) + ' su ' + totali
+        + (fuoriDalCammino ? '; ' + fuoriDalCammino + ' erano troppo lontane perfino per '
+          + 'rientrare, e restano dove sono' : ''));
     }
     return { nodes, frames, duration: totalFrames * 0.5 };
   }
