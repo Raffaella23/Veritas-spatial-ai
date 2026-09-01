@@ -7,8 +7,8 @@
 
 ## 🚩 SI RIPARTE DA QUI — 02/09/2026
 
-**Gli ACCESSI ci sono, e i flussi nascono da loro.** Cinque commit, tutti su
-`main`, testa `0623eab`.
+**Gli ACCESSI ci sono, e i flussi nascono da loro.** Nove commit, tutti su
+`main`, testa `6a75ddd`.
 
 | pezzo | stato |
 |---|---|
@@ -34,6 +34,10 @@ entra». La quarta e' il lavoro di domani.
 | `da4987c` | da un ingresso si entra: i tetti dei tunnel non sono porte |
 | `4c81ddd` | il modulo ha la sua versione: `index.html?v=N` non rinfresca i moduli |
 | `0623eab` | il ricalcolo dei flussi aspetta quanto dura il giro, non mezzo minuto |
+| `c8bc969` | il quadro del 02/09 in cima al documento |
+| `e02b5d9` | il fuori non e' una voce in piu': e' un marchio sull'accesso |
+| `9646156` | una cosa parcheggiata e' grossa in tutte e due le dimensioni |
+| `6a75ddd` | il quadro aggiornato: l'ingresso dalla strada c'era gia' |
 
 ### Come funziona adesso, in una riga
 
