@@ -1,7 +1,97 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 31/08/2026, sera.** Questo è **l'unico documento di stato del
+> **Aggiornato il 02/09/2026.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
+
+---
+
+## 🚩 SI RIPARTE DA QUI — 02/09/2026
+
+**Gli ACCESSI ci sono, e i flussi nascono da loro.** Cinque commit, tutti su
+`main`, testa `0623eab`.
+
+| pezzo | stato |
+|---|---|
+| gli accessi | ✅ accesi. Non piu' una regola sola: **quattro voci che votano**, e l'affidabilita' e' quante sono d'accordo |
+| il tetto che finisce, su uno spaccato | ✅ si dichiara **MUTA da sola**: 36 campioni coperti su 1.544 (2%) |
+| l'aggancio ai flussi | ✅ `veritas_flussi.js` legge `window.__veritasAccessi`: **da 1 flusso a 9** (misurato) |
+| i tetti dei tunnel | ✅ buttati: **8 posti su 12** non erano porte ma lastre da cui non si entra |
+| l'ingresso dalla strada | 🟡 non ancora riconosciuto **come strada**: manca la voce che vede le macchine fuori |
+| il livello come campo della tappa | ❌ non fatto — resta il punto 2 |
+
+👁️ **Visto a schermo da Raffaella, 02/09:** *«ho visto più flussi e passeggeri
+che arrivavano al terminal dall'aereo attraverso il tunnel (correttamente),
+altri ci camminavano sopra; non ho visto qualcuno entrare là to automobili»*.
+Le prime due cose sono la conferma che l'aggancio funziona. La terza era un
+difetto vero, ed e' quello che ha fatto nascere la regola «da un ingresso si
+entra». La quarta e' il lavoro di domani.
+
+| commit | cosa |
+|---|---|
+| `868b0a4` | gli accessi: quattro voci che votano, e il tetto su uno spaccato tace |
+| `0d32364` | un ingresso sta dentro sei metri: niente catene, e gli oggetti bassi non votano |
+| `952da3b` | gli accessi ci sono prima delle tappe: il ricalcolo si chiede quando ci sono i due capi |
+| `da4987c` | da un ingresso si entra: i tetti dei tunnel non sono porte |
+| `4c81ddd` | il modulo ha la sua versione: `index.html?v=N` non rinfresca i moduli |
+| `0623eab` | il ricalcolo dei flussi aspetta quanto dura il giro, non mezzo minuto |
+
+### Come funziona adesso, in una riga
+
+> Un accesso e' un posto dove **piu' indizi indipendenti sono d'accordo**, da
+> cui **si entra davvero a piedi**. Quanti indizi sono d'accordo e' la sua
+> affidabilita', ed e' il numero che va nel referto.
+
+Le quattro voci, e nessuna decide da sola (`veritas_accessi.js`):
+
+| voce | cosa guarda | su questo modello |
+|---|---|---|
+| il tetto che finisce | dove il coperto tocca lo scoperto | **MUTA**: 36 coperti su 1.544 |
+| la segnaletica del modello | le macchie piatte e sature della stessa tinta sono una corsia, e una corsia ha due capi | 29 posti (76 macchie, 6 tinte) |
+| le persone gia' modellate | dove le figure stanno **in fila** si passa uno per volta | 20 posti (37 gruppi, 140 figure) |
+| gli oggetti | le cose ripetute **in fila** e alte abbastanza da non scavalcarsi stanno di traverso a un passaggio | 72 posti |
+
+Poi due filtri, e sono tutti e due misure, non soglie inventate:
+**almeno due voci diverse** entro sei metri (25 posti scartati perche' ne
+avevano una sola), e **da li' si entra** — si guarda quanto spazio ognuno
+raggiunge a piedi e si tiene chi sta sulla massa principale (8 posti buttati:
+erano i tetti dei tunnel e pezzi staccati).
+
+Esito misurato sulla pagina live: **4 accessi**, tutti sul calpestabile vero,
+in ~5 secondi.
+
+### Le tre lezioni del 02/09
+
+1. **Una regola che non puo' funzionare va fatta TACERE, non tarata.** Il tetto
+   su uno spaccato non e' impreciso: e' cieco, e ogni soglia che trova lungo il
+   taglio e' finta. Adesso lo dice da solo nel log, col numero.
+2. **Un indizio che parla troppo non e' un indizio.** Gli oggetti proponevano
+   316 posti su 365 totali: si trovava d'accordo con chiunque. Due filtri
+   geometrici l'hanno riportato a 72, e solo allora l'accordo ha voluto dire
+   qualcosa.
+3. **`index.html?v=N` NON rinfresca i moduli esterni.** Ognuno ha la sua cache.
+   Una verifica intera e' stata buttata guardando codice di venti minuti prima
+   e concludendo che la correzione non funzionava. Il tag porta `?v=` suo, e
+   quel numero **si cambia a ogni modifica del modulo**.
+
+⚠️ **E una trappola nuova sui file:** `index.html` NON si tocca con
+`Get-Content -Raw` / `Set-Content` in PowerShell. Rilegge il file come ANSI, i
+caratteri accentati si rompono e **il blocco 3 cambia hash**. Si modifica con
+l'editor, mai riscrivendolo per intero. La ricetta di verifica l'ha preso al
+volo — e' esattamente per questo che esiste.
+
+### Il lavoro numero uno adesso: L'INGRESSO DALLA STRADA
+
+Raffaella non ha visto nessuno entrare da dove stanno le automobili, e ha
+ragione: **nessuna delle quattro voci sa cos'e' una strada**. La segnaletica, le
+figure e gli oggetti in fila stanno tutti dentro il terminal, quindi e' li' che
+l'accordo si forma. Manca la voce che guarda il **fuori**: le macchine ferme in
+file parallele, il piazzale, la fermata. Non e' una parola di tipologia — sono
+oggetti ripetuti, tutti uguali, appoggiati su una superficie grande e vuota
+lontana dalla massa dell'edificio, ed e' misurabile come le altre.
+E' la quinta voce, e va scritta accanto alle quattro che ci sono.
+
+Subito dopo, invariato: **il livello come campo della tappa** e i nomi
+accoppiati a parita' di piano.
 
 ---
 
@@ -1068,6 +1158,26 @@ appena scritto.
 ⚠️ La pagina viene servita dalla cache del browser: dopo un `git push` si apre
 `index.html?v=<numero diverso ogni volta>`, altrimenti si guarda il codice
 vecchio e si conclude che la correzione non ha funzionato. Costato una volta.
+
+🔴 **E il `?v=` NON basta per i moduli esterni** (`veritas_accessi.js`,
+`veritas_montaggio.js`): ognuno ha la sua cache, e resta quello di prima anche
+con index.html rinfrescato. Costato una verifica intera il 02/09. Due modi:
+il tag porta il suo numero (`src="./veritas_accessi.js?v=4"`, **e si cambia a
+ogni modifica del modulo**), oppure, per una prova al volo senza ricaricare:
+
+```js
+const M = await import('./veritas_accessi.js?fresh=' + Date.now());
+M.trova(window.THREE, window.__veritasModelRoot, window.__veritasNavmesh);
+```
+
+**La quarta domanda, da quando ci sono gli accessi:**
+
+```js
+// da dove si entra, con quante voci d'accordo e quanto spazio raggiunge
+window.__veritasAccessi.accessi.map(a => [a.nome, a.affidabilita, a.voci, a.raggiunge]);
+window.__veritasAccessi.voci        // chi ha parlato, chi e' MUTA e perche'
+(window.__veritasFlussiCorrenti || []).map(f => f.nome);   // quanti flussi ne nascono
+```
 
 🔴 **LA DOMANDA ZERO, PRIMA DI OGNI ALTRA: quale motore sta girando?**
 Le traiettorie arrivano da due posti — il **motore reale** su Render (Social
