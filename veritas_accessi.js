@@ -616,6 +616,46 @@ export default {
 //    restano scritti in una variabile che nessuno rilegge fino al prossimo giro.
 
 if (typeof window !== 'undefined') {
+  /**
+   * Chiede che la traiettoria si rifaccia, ma non prima che ci siano le tappe.
+   *
+   * ⚠️ Misurato il 02/09: gli accessi sono pronti PRIMA delle tappe — bastano
+   *    la navmesh e la scena — e chiedere subito il ricalcolo faceva costruire
+   *    i flussi su un elenco di tappe ancora vuoto: zero flussi, e nessuno
+   *    ripassava piu' di li'. Chiesto al momento giusto, gli stessi accessi
+   *    danno nove flussi invece di uno.
+   */
+  const chiediRicalcolo = function () {
+    let giri = 0;
+    const passo = function () {
+      if (++giri > 60) {
+        console.warn('[VERITAS accessi] nessuna tappa dopo mezzo minuto: flussi non rifatti');
+        return;
+      }
+      const nodi = typeof window.__veritasGetNodes === 'function' ? window.__veritasGetNodes() : [];
+      const haCapi = nodi.some((n) => n && n.type === 'origine')
+        && nodi.some((n) => n && n.type === 'destinazione');
+      // Senza due capi non nasce nessun flusso, e mentre un giro e' in corso
+      // si aspetta: due ricalcoli sovrapposti si sovrascrivono a vicenda.
+      if (!haCapi || window.__veritasGiroInCorso
+        || typeof window.__veritasRicalcolaTraiettoria !== 'function') {
+        setTimeout(passo, 500);
+        return;
+      }
+      try {
+        window.__veritasRicalcolaTraiettoria();
+        // Il ricalcolo puo' finire dopo, perche' passa dal motore vero: il
+        // conto dei flussi si guarda quando e' finito, non subito.
+        setTimeout(function () {
+          const f = window.__veritasFlussiCorrenti || [];
+          console.log('[VERITAS accessi] chiesto il ricalcolo dei flussi: adesso sono ' + f.length
+            + (f.length ? ' (' + f.map((x) => x.nome).join('; ') + ')' : ''));
+        }, 4000);
+      } catch (e) { console.error('[VERITAS accessi] traiettoria non rifatta:', e); }
+    };
+    setTimeout(passo, 0);
+  };
+
   const precedente = window.__veritasOnModelLoaded;
   window.__veritasOnModelLoaded = function (radice) {
     let out;
@@ -652,11 +692,7 @@ if (typeof window !== 'undefined') {
           if (typeof window.__veritasAnnounce === 'function') {
             try { window.__veritasAnnounce(raccontaAccessi(r)); } catch (e) {}
           }
-          // Adesso i flussi possono nascere anche dagli ingressi misurati.
-          if (typeof window.__veritasRicalcolaTraiettoria === 'function') {
-            try { window.__veritasRicalcolaTraiettoria(); }
-            catch (e) { console.error('[VERITAS accessi] traiettoria non rifatta:', e); }
-          }
+          chiediRicalcolo();
         }
       } catch (e) {
         console.error('[VERITAS accessi] non riuscito:', e);
