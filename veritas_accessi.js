@@ -684,8 +684,10 @@ if (typeof window !== 'undefined') {
   const chiediRicalcolo = function () {
     let giri = 0;
     const passo = function () {
-      if (++giri > 60) {
-        console.warn('[VERITAS accessi] nessuna tappa dopo mezzo minuto: flussi non rifatti');
+      // Si aspetta a lungo apposta: il giro di comprensione dura minuti, e
+      // arrendersi dopo mezzo minuto voleva dire non rifare mai i flussi.
+      if (++giri > 900) {
+        console.warn('[VERITAS accessi] nessuna tappa dopo sette minuti: flussi non rifatti');
         return;
       }
       const nodi = typeof window.__veritasGetNodes === 'function' ? window.__veritasGetNodes() : [];
