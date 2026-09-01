@@ -433,10 +433,45 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
       stessa immagine a schermo: un rifacimento che cambia anche l'immagine non
       si sa più se ha funzionato. Il guadagno è `imposta()`, la porta da cui
       entrano i due passi seguenti.
-   2. **gli ACCESSI**: dove il calpestabile tocca il fuori. Due accessi, due
-      flussi. È qui che entra l'ingresso dalla strada, che oggi manca.
+   2. **gli ACCESSI — geometria PIÙ indizi.** `veritas_accessi.js` è scritto e
+      **spento apposta**. La regola geometrica è «dove il tetto finisce e si
+      continua a camminare»: si guarda in su da ogni punto calpestabile, se
+      c'è qualcosa sei dentro, se c'è il cielo sei fuori, e la soglia è dove i
+      due si toccano. ⚠️ Ma Raffaella, 01/09: *«questo modello è uno SPACCATO,
+      ma ci sono gli indizi che ti dicono da dove si entra: sì
+      all'architettura, ma + indizi visivi + segnaletica + persone +
+      oggetti»*. Su uno spaccato il tetto manca dove il modello è tagliato, e
+      la sola geometria troverebbe una fila di ingressi lungo il taglio.
+      Gli indizi, e ognuno vale come voce: il tetto che finisce · la
+      **segnaletica** del modello (frecce e cartelli sono messi da chi l'ha
+      disegnato) · le **persone** già modellate (dove stanno in fila c'è una
+      porta o un banco) · gli **oggetti** (le macchine stanno fuori, i tunnel
+      attaccano un aereo all'edificio, i tornelli stanno su una soglia).
+      **Un accesso è dove più indizi sono d'accordo, e quanti sono d'accordo è
+      la sua affidabilità** — il numero da mettere nel referto.
    3. **l'ORDINE dentro ogni flusso**, dagli indizi che l'occhio riconosce fra
       i due capi — controlli, banchi, sedute, chioschi.
+
+   ### L'ordine di priorità, deciso il 01/09
+
+   Detto da Raffaella: *«metti in ordine di priorità»*, e sulla domanda
+   dell'algoritmo predittivo la risposta è **no, non per i percorsi**. Quanti
+   flussi ci sono e dove vanno non è una previsione, è una **lettura**: gli
+   accessi, i controlli e le mete stanno nel modello e si misurano. Un modello
+   che indovina i percorsi dà numeri indifendibili, e il referto si vende. Il
+   predittivo serve più in basso e in due punti soli — **quanti vanno di qua e
+   quanti di là**, e **come si muove il singolo nella folla** — e lì si usano
+   modelli pubblicati e citabili (forze sociali di Helbing, RVO/ORCA per
+   l'evitamento, teoria delle code ai controlli), non una scatola nera.
+
+   | | cosa |
+   |---|---|
+   | 🔴 1 | gli accessi → i flussi principali (geometria + indizi) |
+   | 🔴 2 | il livello sulla tappa, e i nomi accoppiati a parità di piano |
+   | 🟠 3 | il comportamento legato alla funzione: ci si siede, si fa la coda |
+   | 🟠 4 | quanti vanno di qua e quanti di là — qui entra il predittivo |
+   | 🟡 5 | l'evitamento vero fra le persone al posto del serpeggio finto |
+   | 🟡 6 | il taccuino, cioè il referto interrogabile |
 
 1-bis. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e

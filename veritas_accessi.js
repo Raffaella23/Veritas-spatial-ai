@@ -36,6 +36,30 @@
 //
 // ⚠️ Il conto si fa UNA VOLTA, al caricamento del modello, e resta. Non e' una
 //    cosa da rifare a ogni fotogramma ne' a ogni corsa della simulazione.
+//
+// 🔴 QUESTO FILE NON E' FINITO, E NON E' AGGANCIATO AL PROGRAMMA.
+//    Detto da Raffaella il 01/09, ed e' il pezzo che manca: *«questo modello e'
+//    uno SPACCATO, ma ci sono gli indizi che ti dicono da dove si entra: si'
+//    all'architettura, ma + indizi visivi + segnaletica + persone + oggetti»*.
+//
+//    Su uno spaccato il tetto non c'e' dove il modello e' tagliato: la sola
+//    regola geometrica troverebbe una fila di ingressi lungo il taglio, che
+//    ingressi non sono. La copertura resta un indizio buono — il primo — ma da
+//    sola non decide. Vanno messi insieme, e ognuno vale come voce:
+//
+//      - il tetto che finisce (questo file, gia' scritto);
+//      - la SEGNALETICA del modello: frecce e cartelli sono messi da chi l'ha
+//        disegnato e dicono da dove si passa (`veritas_segnaletica.js`);
+//      - le PERSONE gia' modellate: dove stanno in fila o in gruppo c'e' una
+//        porta, un banco o una coda;
+//      - gli OGGETTI: macchine e parcheggi stanno fuori, i tunnel d'imbarco
+//        attaccano un aereo all'edificio, i tornelli e i banchi stanno su una
+//        soglia.
+//
+//    Un accesso e' un posto dove PIU' INDIZI SONO D'ACCORDO, e quanti sono
+//    d'accordo e' anche la sua affidabilita' — che e' il numero da mettere nel
+//    referto. Finche' questo non c'e', il file resta scritto e spento: e'
+//    meglio nessun ingresso che una fila di ingressi finti lungo un taglio.
 // =============================================================================
 
 /** Quanto si allarga la griglia dei campioni, in metri. */
