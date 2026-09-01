@@ -29,6 +29,15 @@ Non è più una prova al banco:
 La settima nasce a x ≈ −90, su un'isola staccata che è un pezzo d'aereo, e
 viene spostata nella sala: quella è un'altra questione, e non è questa.
 
+👁️ **E SI VEDE A SCHERMO.** Raffaella, 01/09, guardando la simulazione: *«per
+la prima volta sono scesi dalla scala mobile e sembrava arrivassero dall'aereo
+a destra, e poi risalgono a sinistra per partire»*. Sono i due versi di un
+aeroporto — chi arriva e chi parte — e nessuno li ha scritti: escono dalla
+geometria e dai collegamenti. È anche la conferma delle frecce del modello, che
+salgono la scala mobile.
+⚠️ Resta vero che **in pianta i nomi non ci sono ancora**: è l'accoppiamento
+nome→tappa a parità di piano, che è il prossimo lavoro qui sotto.
+
 Al banco restano provati anche i casi che devono FALLIRE, su sette figure
 costruite a mano: passano la scala mobile (anche messa in diagonale) e lo
 scalone monumentale; falliscono aereo (riempimento 14%), ala, piastra piatta e
@@ -894,6 +903,29 @@ print('ok, blocchi:', len(p.s))
 ```
 
 Poi `node --check` sui blocchi modificati (i moduli ES vanno copiati in `.mjs`).
+
+**🔴 LA PAGINA LIVE SI PROVA DA SOLI — dal 01/09 non si incolla più niente.**
+
+Claude ha una finestra browser dentro Claude desktop: apre
+`https://raffaella23.github.io/Veritas-spatial-ai/`, **il modello si carica da
+solo**, e da lì legge la console e interroga il programma. Non serve più che
+Raffaella copi il log: si guarda da soli, e si torna con i numeri.
+⚠️ Da fare sempre PRIMA di dire che una cosa funziona. Il 01/09 questa modalità
+ha trasformato un «provato al banco, da guardare sulla pagina» in una misura
+vera in tre domande.
+
+Le tre domande che valgono per qualunque lavoro sul cammino:
+
+```js
+// 1. cosa ha capito la navmesh: livelli, collegamenti agganciati, scarti col motivo
+window.__veritasNavmeshEsito     // .ok .isole .livelli .collegamenti
+
+// 2. due punti si raggiungono a piedi? (uno al terra, uno al piano di sopra)
+window.__veritasNavmesh.gruppiCollegati([[-43, 0.79, -2], [-48, 3.64, -4]]).quanti
+
+// 3. dove stanno le tappe, e dove erano NATE
+window.__veritasGetNodes().map(z => [z.label, z.type, z.pos[1], z.posMisurata && z.posMisurata[1], z.origine])
+```
 
 **Core Python senza Render:**
 ```bash
