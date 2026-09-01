@@ -553,6 +553,55 @@ export function uniscoVoci(voci, nm, opz = {}) {
 }
 
 /**
+ * DA UN INGRESSO SI ENTRA: la prova del cammino.
+ *
+ * ⚠️ Detto da Raffaella il 02/09 guardando la simulazione: *«ho visto piu'
+ *    flussi e passeggeri che arrivavano al terminal dall'aereo attraverso il
+ *    tunnel (correttamente), altri ci camminavano SOPRA»*. Misurato subito
+ *    dopo: 7 accessi su 8 non arrivavano a piedi ne' alla partenza ne'
+ *    all'arrivo. Stavano sul TETTO dei tunnel e su pezzi staccati — superfici
+ *    piatte che, su uno spaccato senza copertura, la navmesh legge come
+ *    calpestabili perche' geometricamente lo sono.
+ *
+ * La regola che mancava e' la piu' semplice di tutte: **da un ingresso si
+ * entra**. Se da li' non si arriva al resto dello spazio, non e' una porta: e'
+ * un tetto, una pensilina, una lastra per aria.
+ *
+ * Non c'e' una soglia inventata: si guarda quanti posti dello spazio ognuno
+ * raggiunge, e si tiene chi sta sulla MASSA PRINCIPALE — quella che ne
+ * raggiunge di piu'. Chi ne raggiunge meno della meta' e' su un pezzo suo.
+ */
+export function raggiungibili(nm, accessi, punti, opz = {}) {
+  const quanti = opz.quantiControllare || 60;
+  const passo = Math.max(1, Math.floor(punti.length / quanti));
+  const meta = [];
+  for (let i = 0; i < punti.length && meta.length < quanti; i += passo) meta.push(punti[i]);
+  if (!meta.length || !accessi.length) return { tenuti: accessi, buttati: [] };
+
+  let massimo = 0;
+  for (const a of accessi) {
+    let n = 0;
+    for (const m of meta) {
+      const r = nm.percorsoCorrente(a.centro, m);
+      if (r && !r.parziale) n++;
+    }
+    a.raggiunge = n / meta.length;
+    if (n > massimo) massimo = n;
+  }
+  const limite = Math.max((massimo / meta.length) * 0.5, opz.raggiungeMinimo != null ? opz.raggiungeMinimo : 0.10);
+  const tenuti = [], buttati = [];
+  for (const a of accessi) {
+    if (a.raggiunge >= limite) tenuti.push(a);
+    else {
+      a.perche = 'da qui non si entra: si raggiunge il ' + Math.round(a.raggiunge * 100)
+        + '% dello spazio, e' + ' non e\' una porta ma un tetto o una lastra staccata';
+      buttati.push(a);
+    }
+  }
+  return { tenuti, buttati };
+}
+
+/**
  * Trova gli accessi del modello. Da chiamare una volta, a modello caricato.
  */
 export function trova(THREE, radice, nm, opz = {}) {
@@ -571,6 +620,13 @@ export function trova(THREE, radice, nm, opz = {}) {
     voceOggetti(cose, { ...opz, eFigura: CP && CP.eUnaFigura }),
   ];
   const r = uniscoVoci(voci, nm, opz);
+  // Da un ingresso si entra: chi non arriva al resto dello spazio non e' un
+  // ingresso. E' il filtro che toglie i tetti dei tunnel.
+  const prova = raggiungibili(nm, r.accessi, punti, opz);
+  r.accessi = prova.tenuti;
+  r.scartati = (r.scartati || []).concat(prova.buttati);
+  r.senzaCammino = prova.buttati.length;
+  r.accessi.forEach((a, i) => { a.nome = 'Accesso ' + (i + 1); });
   r.voci = voci.map((v) => ({
     nome: v.nome, punti: v.punti.length, cieca: !!v.cieca, perche: v.perche,
   }));
@@ -685,9 +741,12 @@ if (typeof window !== 'undefined') {
         for (const v of r.voci || [])
           console.log('[VERITAS accessi] voce «' + v.nome + '»: '
             + (v.cieca ? 'MUTA — ' + v.perche : v.punti + ' posti proposti'));
+        if (r.senzaCammino)
+          console.log('[VERITAS accessi] ' + r.senzaCammino
+            + ' posti buttati perche\' da li\' non si entra: tetti o lastre staccate');
         if (r.scartati && r.scartati.length)
-          console.log('[VERITAS accessi] scartati ' + r.scartati.length
-            + ' posti con un indizio solo (una voce da sola non fa un ingresso)');
+          console.log('[VERITAS accessi] scartati in tutto ' + r.scartati.length
+            + ' posti (una voce da sola non fa un ingresso, e da un ingresso si entra)');
         if (r.accessi.length) {
           if (typeof window.__veritasAnnounce === 'function') {
             try { window.__veritasAnnounce(raccontaAccessi(r)); } catch (e) {}
