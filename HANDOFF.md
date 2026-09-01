@@ -946,6 +946,17 @@ Raffaella copi il log: si guarda da soli, e si torna con i numeri.
 ha trasformato un «provato al banco, da guardare sulla pagina» in una misura
 vera in tre domande.
 
+🔴 **TRAPPOLA, pagata il 01/09: il modello NON si carica dalla console.**
+Infilare il GLB nell'`input[type=file]` con un `DataTransfer` sembra funzionare
+— il modello compare — ma **salta la scala automatica del blocco 2**. Misurato:
+l'aeroporto entrava 20 × 11 m invece di 145 × 76, la navmesh trovava 23 m²
+calpestabili invece di 6.340, e le sagome umane, che erano giuste (0,82 m),
+sembravano giganti. Raffaella l'ha visto subito e ha detto «hai modificato la
+scala uomo/modello»: era il modello, non la scala.
+**Il modo giusto:** aprire un progetto che ha già il suo modello dentro, oppure
+farlo caricare dal pulsante. E la prima cosa da guardare dopo un caricamento è
+sempre l'ingombro: `new THREE.Box3().setFromObject(window.__veritasModelRoot)`.
+
 Le tre domande che valgono per qualunque lavoro sul cammino:
 
 ```js
