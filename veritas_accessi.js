@@ -444,8 +444,66 @@ export function vocePersone(figure, opz = {}) {
  *      - di una fila si prende il CENTRO, non i due capi. Una fila di tornelli
  *        si attraversa in mezzo; i suoi capi sono dove tocca i muri.
  */
+/**
+ * LE COSE FERME, cioe' il FUORI.
+ *
+ * ⚠️ Il 02/09 la strada mancava, e sembrava servisse una QUINTA VOCE che
+ *    vedesse le automobili. Misurando si e' visto che le macchine votano
+ *    GIA', come oggetti in fila: e' esattamente l'indizio che ha trovato
+ *    l'ingresso dal quale si vedono arrivare i taxi. Farle votare una seconda
+ *    volta avrebbe alzato l'affidabilita' con lo stesso indizio detto due
+ *    volte — l'errore contro cui questo file mette in guardia da solo.
+ *
+ * Quello che manca non e' un voto in piu': e' SAPERE CHE QUELL'ACCESSO DA' SUL
+ * FUORI. Un ingresso dalla strada e una soglia interna non sono la stessa cosa
+ * ne' per il referto ne' per i flussi.
+ *
+ * Come si riconosce, e sono tre misure, nessuna parola di tipologia:
+ *   - le cose sono PIU' GRANDI DI QUALUNQUE ARREDO: lunghe almeno tre metri e
+ *     alte almeno uno. Un banco non arriva a tre metri, una seduta non arriva
+ *     a un metro d'altezza;
+ *   - stanno DISTANZIATE FRA LORO in modo regolare, con vuoto in mezzo: e' la
+ *     firma di una cosa parcheggiata, non di un arredo appoggiato al muro;
+ *   - e sono almeno tre: una sola e' un oggetto, tre in fila regolare sono un
+ *     posto dove le cose si fermano.
+ *
+ * ⚠️ Provato prima due strade che NON funzionano su uno spaccato, e vanno
+ *    ricordate: «dove finisce il tetto» (36 campioni coperti su 1.544) e «dove
+ *    finisce il costruito», cioe' i muri — misurati: 52 muri in tutto il
+ *    modello, che non chiudono NESSUNA cella. Il fuori, qui, lo dicono solo le
+ *    cose che ci stanno.
+ */
+export function coseFerme(pezzi, opz = {}) {
+  const minimo = opz.coseFermeMinime || 3;
+  if (!pezzi || pezzi.length < minimo) return false;
+  const lunga = opz.coseFermeLunghe != null ? opz.coseFermeLunghe : 3.0;
+  const alta = opz.coseFermeAlte != null ? opz.coseFermeAlte : 1.0;
+  for (const p of pezzi) {
+    if (!p.ingombro) return false;
+    if (Math.max(p.ingombro[0], p.ingombro[2]) < lunga) return false;
+    if (p.ingombro[1] < alta) return false;
+  }
+  // Distanziate in modo regolare: si ordinano lungo la fila e si guardano i
+  // vuoti fra una e l'altra. Se sono tutti simili, sono messe li' apposta.
+  const c = pezzi.map((p) => p.centro);
+  const due = capi(c);
+  if (due.length < 2) return false;
+  const dx = due[1][0] - due[0][0], dz = due[1][2] - due[0][2];
+  const lung = Math.hypot(dx, dz);
+  if (lung <= 0) return false;
+  const lungo = c.map((p) => ((p[0] - due[0][0]) * dx + (p[2] - due[0][2]) * dz) / lung).sort((a, b) => a - b);
+  const vuoti = [];
+  for (let i = 1; i < lungo.length; i++) vuoti.push(lungo[i] - lungo[i - 1]);
+  const media = vuoti.reduce((s, v) => s + v, 0) / vuoti.length;
+  if (!(media > 0)) return false;
+  let scarto = 0;
+  for (const v of vuoti) scarto += (v - media) * (v - media);
+  scarto = Math.sqrt(scarto / vuoti.length) / media;
+  return scarto <= (opz.regolarita != null ? opz.regolarita : 0.4);
+}
+
 export function voceOggetti(cose, opz = {}) {
-  const voce = { nome: 'gli oggetti in fila', punti: [], file: 0, gruppi: 0 };
+  const voce = { nome: 'gli oggetti in fila', punti: [], file: 0, fuori: 0, gruppi: 0 };
   const elenco = cose || [];
   voce.gruppi = elenco.length;
   if (!elenco.length) { voce.cieca = true; voce.perche = 'nessun gruppo di oggetti ripetuti'; return voce; }
@@ -462,9 +520,11 @@ export function voceOggetti(cose, opz = {}) {
     voce.file++;
     let sx = 0, sy = 0, sz = 0;
     for (const p of pezzi) { sx += p.centro[0]; sy += p.centro[1]; sz += p.centro[2]; }
+    const fuori = coseFerme(pezzi, opz);
+    if (fuori) voce.fuori++;
     voce.punti.push({
       centro: [sx / pezzi.length, sy / pezzi.length, sz / pezzi.length],
-      oggetti: g.quante || pezzi.length, altezza: h,
+      oggetti: g.quante || pezzi.length, altezza: h, fuori,
     });
   }
   return voce;
@@ -538,6 +598,10 @@ export function uniscoVoci(voci, nm, opz = {}) {
       fiducia: vive.length ? nomi.length / vive.length : 0,
       indizi: membri.length, larghezza: larghezza || undefined,
       sulCammino: !!(q && q.ok),
+      // Da qui si arriva dal FUORI: fra gli indizi c'e' un posto dove le cose
+      // grandi si fermano in fila regolare. Non e' un voto in piu' — e' quello
+      // che distingue un ingresso dalla strada da una soglia interna.
+      fuori: membri.some((m) => m.fuori),
     };
     if (nomi.length < minime) {
       a.perche = 'una voce sola (' + nomi.join(', ') + '): puo\' essere una meta, non un ingresso';
@@ -626,7 +690,10 @@ export function trova(THREE, radice, nm, opz = {}) {
   r.accessi = prova.tenuti;
   r.scartati = (r.scartati || []).concat(prova.buttati);
   r.senzaCammino = prova.buttati.length;
-  r.accessi.forEach((a, i) => { a.nome = 'Accesso ' + (i + 1); });
+  // Il nome se lo porta dietro fino allo schermo: `veritas_flussi.js` chiama
+  // il flusso col nome del suo ingresso, e «da fuori» e' l'informazione che
+  // Raffaella cercava guardando la simulazione.
+  r.accessi.forEach((a, i) => { a.nome = 'Accesso ' + (i + 1) + (a.fuori ? ' da fuori' : ''); });
   r.voci = voci.map((v) => ({
     nome: v.nome, punti: v.punti.length, cieca: !!v.cieca, perche: v.perche,
   }));
@@ -654,9 +721,9 @@ export function raccontaAccessi(r) {
 export default {
   PASSO, CAMPIONI_MAX, VICINO, VOCI_MINIME, COPERTURA_CIECA, CATENA,
   campiona, copertura, accessiDaCopertura, profondita,
-  capi, raggruppa, tintaSat, segnaleticaDallaScena,
+  capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme,
   voceTetto, voceSegnaletica, vocePersone, voceOggetti, uniscoVoci,
-  trova, raccontaAccessi,
+  raggiungibili, trova, raccontaAccessi,
 };
 
 // ---------------------------------------------------------------------------
@@ -764,8 +831,8 @@ if (typeof window !== 'undefined') {
   };
   window.__veritasAccessiModulo = {
     PASSO, VICINO, VOCI_MINIME, campiona, copertura, accessiDaCopertura, profondita,
-    capi, raggruppa, segnaleticaDallaScena, voceTetto, voceSegnaletica,
-    vocePersone, voceOggetti, uniscoVoci, trova, raccontaAccessi,
+    capi, raggruppa, segnaleticaDallaScena, coseFerme, voceTetto, voceSegnaletica,
+    vocePersone, voceOggetti, uniscoVoci, raggiungibili, trova, raccontaAccessi,
   };
   console.log('[VERITAS accessi] pronto — window.__veritasAccessi dopo il caricamento');
 }
