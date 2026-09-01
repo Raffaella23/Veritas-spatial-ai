@@ -477,10 +477,15 @@ export function coseFerme(pezzi, opz = {}) {
   const minimo = opz.coseFermeMinime || 3;
   if (!pezzi || pezzi.length < minimo) return false;
   const lunga = opz.coseFermeLunghe != null ? opz.coseFermeLunghe : 3.0;
+  const larga = opz.coseFermeLarghe != null ? opz.coseFermeLarghe : 1.5;
   const alta = opz.coseFermeAlte != null ? opz.coseFermeAlte : 1.0;
   for (const p of pezzi) {
     if (!p.ingombro) return false;
     if (Math.max(p.ingombro[0], p.ingombro[2]) < lunga) return false;
+    // Grossa anche nell'altro verso: un pannello e un bancone sono lunghi ma
+    // sottili. Misurato il 02/09: senza questa riga passavano sei file di
+    // pannelli interni e le cose ferme fuori diventavano una su sette.
+    if (Math.min(p.ingombro[0], p.ingombro[2]) < larga) return false;
     if (p.ingombro[1] < alta) return false;
   }
   // Distanziate in modo regolare: si ordinano lungo la fila e si guardano i
