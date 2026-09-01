@@ -15,15 +15,24 @@
 parte da un livello misurato e arriva a un altro, lì i due livelli si
 collegano, e il collegamento si dichiara a navcat con `addOffMeshConnection`.
 
-⚠️ **COSA MANCA, ed è la prima cosa della prossima sessione: la prova sul
-modello vero.** Al banco sono provati i FILTRI, su sette casi costruiti a mano:
-passano la scala mobile (anche messa in diagonale) e lo scalone monumentale;
-falliscono aereo (14% di riempimento), ala, piastra piatta e passerella da
-40 cm. Sulla pagina live non è ancora girato: **va guardato il log** — deve
-dire `2 livelli … 2 collegamenti verticali dichiarati` — e poi **dove stanno le
-tappe**, che devono restare sei a +3,64 m invece di scendere a +0,79.
-Se il log dice invece «NESSUNA rampa che li colleghi», elenca da solo le
-superfici scartate col motivo: si legge quello, non si ricomincia.
+✅ **MISURATO SULLA PAGINA LIVE, sul modello vero, subito dopo il commit.**
+Non è più una prova al banco:
+
+| cosa | misura |
+|---|---|
+| livelli letti dalle isole | **3**: +0,70 m (3.845 m²) · +3,70 m (710 m²) · +6,25 m (155 m²) |
+| collegamenti dichiarati e **agganciati** | **4**: `Cube062_0/_2` e `Cube195_0/_2` — le due scale mobili, ognuna in due pezzi di mesh. Dislivello 2,90 m, pendenza 26°, riempimento 100% |
+| scartati, col loro motivo | `Plane001_8` 9% · `Rudder_0` 23% · `Part290001_0` larga 15 cm. Sono aerei, e cadono da soli |
+| terra ↔ primo piano | `gruppiCollegati` → **1 gruppo** (era 2). Percorso vero: 38 m, 34 punti, non parziale, finisce a +3,64 m |
+| dove stanno le tappe | **5 su 7 restano a +3,64 m** (erano 0 su 7), una nasce e resta al terra |
+
+La settima nasce a x ≈ −90, su un'isola staccata che è un pezzo d'aereo, e
+viene spostata nella sala: quella è un'altra questione, e non è questa.
+
+Al banco restano provati anche i casi che devono FALLIRE, su sette figure
+costruite a mano: passano la scala mobile (anche messa in diagonale) e lo
+scalone monumentale; falliscono aereo (riempimento 14%), ala, piastra piatta e
+passerella da 40 cm.
 
 **Un errore trovato scrivendo, che vale oltre oggi:** la direzione della salita
 non è l'asse più lungo. Uno scalone monumentale è largo 10 m e lungo 5, e
@@ -296,7 +305,8 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    verifica `isOffMeshConnectionConnected`: se non si aggancia si toglie e si
    conta). Chiamate da `costruisciDaScena` subito dopo le isole; il log dice
    sempre quanti livelli ha visto e se qualcosa li collega.
-   ⚠️ **Resta da guardare sulla pagina live** — vedi il riquadro in cima.
+   ✅ **Misurato sulla pagina live: 4 collegamenti agganciati, 1 gruppo invece
+   di 2, cinque tappe restano al piano di sopra.** I numeri stanno in cima.
 
    ### ✅ LA CURA È GIÀ STATA PROVATA SULLA PAGINA LIVE — si scrive, non si cerca
 
