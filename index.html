@@ -80,26 +80,39 @@
   // GLTFLoader puo' usare l'uno o l'altro, e la HEAD di sondaggio del bundle
   // e il caricamento vero devono finire sullo stesso file.
   (function veritasReindirizzaGlbAutoFetch() {
-    const VERO = "./airport_foot_traffic.glb";
-    const daReindirizzare = new Set(["./airport.glb"]);
-    const morti = new Set(["./Assets/models/airport.glb", "./veritas_airport.glb"]);
+    // Il confronto va fatto sulla CODA del percorso, non sulla stringa esatta.
+    // Il bundle sonda il percorso scrivendolo com'e' ("./airport.glb"), ma
+    // GLTFLoader lo risolve in indirizzo assoluto prima di scaricare
+    // ("https://.../Veritas-spatial-ai/airport.glb"): confrontando la stringa
+    // esatta la sonda veniva reindirizzata e lo scaricamento no, quindi il
+    // caricatore credeva di aver trovato il file e poi falliva con 404.
+    const VERO = new URL("./airport_foot_traffic.glb", document.baseURI).href;
+    const CODE_MORTE = ["/Assets/models/airport.glb", "/veritas_airport.glb"];
+    const CODA_VERA = "/airport.glb";
     window.__veritasGlbAuto = VERO;
 
-    function rimappa(url) {
-      return url && daReindirizzare.has(url) ? VERO : null;
+    // null = lascia passare, "morto" = 404 subito, altrimenti = indirizzo vero
+    function decide(url) {
+      if (!url) return null;
+      let p;
+      try { p = new URL(url, document.baseURI).pathname; } catch (e) { return null; }
+      for (let i = 0; i < CODE_MORTE.length; i++) {
+        if (p.endsWith(CODE_MORTE[i])) return "morto";
+      }
+      return p.endsWith(CODA_VERA) ? VERO : null;
     }
 
     const origFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
       try {
         const url = typeof input === "string" ? input : (input && input.url);
-        const nuovo = rimappa(url);
-        if (nuovo) {
-          console.log("[VERITAS GLB] " + url + " reindirizzato a " + nuovo);
-          return origFetch(nuovo, init);
-        }
-        if (url && morti.has(url)) {
+        const esito = decide(url);
+        if (esito === "morto") {
           return Promise.resolve(new Response(null, { status: 404, statusText: "Not Found" }));
+        }
+        if (esito) {
+          console.log("[VERITAS GLB] " + url + " reindirizzato a " + esito);
+          return origFetch(esito, init);
         }
       } catch (e) {}
       return origFetch(input, init);
@@ -107,11 +120,11 @@
 
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (method, url) {
-      const nuovo = rimappa(url);
-      if (nuovo) {
+      const esito = decide(url);
+      if (esito && esito !== "morto") {
         const resto = Array.prototype.slice.call(arguments, 2);
-        console.log("[VERITAS GLB] XHR " + url + " reindirizzato a " + nuovo);
-        return origOpen.apply(this, [method, nuovo].concat(resto));
+        console.log("[VERITAS GLB] XHR " + url + " reindirizzato a " + esito);
+        return origOpen.apply(this, [method, esito].concat(resto));
       }
       return origOpen.apply(this, arguments);
     };
