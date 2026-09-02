@@ -65,55 +65,17 @@
   // le facciamo fallire ISTANTANEAMENTE (invece che dopo un vero round-trip
   // di rete), riducendo la finestra della corsa da centinaia di ms a
   // sostanzialmente zero.
-  // 02/09/2026 - IL MODELLO NON SI RICARICAVA MAI APRENDO UN PROGETTO.
-  // Un progetto salvato porta tappe, telecamere e parametri, ma NON porta il
-  // modello: l'unica strada per farlo comparire e' proprio questo caricatore
-  // automatico del bundle. Con tutti e tre i percorsi a 404, aprire un
-  // progetto lasciava la scena vuota, e senza modello non si verifica niente
-  // sulla pagina. Il file vero nel repo si chiama airport_foot_traffic.glb.
-  // Il bundle e' minificato e il suo blocco <script> e' sotto controllo di
-  // hash (blocco 3 = 58d371701aa9a349), quindi NON si tocca: si reindirizza
-  // qui la prima richiesta al file vero, e le altre due restano morte subito
-  // (l'intercettazione originale serviva a chiudere la corsa fra questo
-  // tentativo e un caricamento manuale, e resta valida).
-  // Il reindirizzamento passa sia da fetch sia da XMLHttpRequest perche'
-  // GLTFLoader puo' usare l'uno o l'altro, e la HEAD di sondaggio del bundle
-  // e il caricamento vero devono finire sullo stesso file.
-  (function veritasReindirizzaGlbAutoFetch() {
-    const VERO = "./airport_foot_traffic.glb";
-    const daReindirizzare = new Set(["./airport.glb"]);
-    const morti = new Set(["./Assets/models/airport.glb", "./veritas_airport.glb"]);
-    window.__veritasGlbAuto = VERO;
-
-    function rimappa(url) {
-      return url && daReindirizzare.has(url) ? VERO : null;
-    }
-
+  (function veritasKillDeadGlbAutoFetch() {
+    const deadPaths = new Set(["./airport.glb", "./Assets/models/airport.glb", "./veritas_airport.glb"]);
     const origFetch = window.fetch.bind(window);
     window.fetch = function (input, init) {
       try {
         const url = typeof input === "string" ? input : (input && input.url);
-        const nuovo = rimappa(url);
-        if (nuovo) {
-          console.log("[VERITAS GLB] " + url + " reindirizzato a " + nuovo);
-          return origFetch(nuovo, init);
-        }
-        if (url && morti.has(url)) {
+        if (url && deadPaths.has(url)) {
           return Promise.resolve(new Response(null, { status: 404, statusText: "Not Found" }));
         }
       } catch (e) {}
       return origFetch(input, init);
-    };
-
-    const origOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function (method, url) {
-      const nuovo = rimappa(url);
-      if (nuovo) {
-        const resto = Array.prototype.slice.call(arguments, 2);
-        console.log("[VERITAS GLB] XHR " + url + " reindirizzato a " + nuovo);
-        return origOpen.apply(this, [method, nuovo].concat(resto));
-      }
-      return origOpen.apply(this, arguments);
     };
   })();
 
