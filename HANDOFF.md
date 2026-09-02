@@ -18,6 +18,9 @@
 | i tetti dei tunnel | ✅ buttati: **8 posti su 12** non erano porte ma lastre da cui non si entra |
 | l'ingresso dalla strada | ✅ trovato dalle quattro voci a x=16, e **marcato «da fuori»**: si vedono arrivare i taxi |
 | il livello come campo della tappa | ❌ non fatto — resta il punto 2 |
+| il progetto si porta dietro il suo spazio | ✅ **fatto e misurato** (`003c4a0`): riaperto un progetto, il modello e' tornato **da solo** dal browser, **147,3 × 82,2 m in pianta e 15,4 m di altezza** — cioe' dalla strada del pulsante, con la scala automatica |
+| la schermata d'apertura | ✅ **fatta** (`003c4a0`, `2fc7153`): ogni riga dice file, peso, quando e **se il modello c'e'**; una strada sola per entrare; si rinomina e si butta. Le righe vuote erano **175, non venti**, e **172** non hanno ne' modello ne' tappe |
+| l'interfaccia intera | 🔴 aperta il 02/09 — nuova sezione qui sotto |
 
 👁️ **Visto a schermo da Raffaella, 02/09:** *«ho visto più flussi e passeggeri
 che arrivavano al terminal dall'aereo attraverso il tunnel (correttamente),
@@ -177,6 +180,44 @@ che e'», che e' la stessa regola del resto del progetto.
 
 Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
 di piano: e' il motivo per cui in pianta i nomi non compaiono.
+
+### 🔴 LA REVISIONE DELL'INTERFACCIA INTERA — chiesta da Raffaella il 02/09
+
+Guardando la cattura dello spazio di lavoro aperto sul progetto «Aeroporto —
+banco di prova»: *«il nome del progetto non si vede, e le icone si sovrappongono.
+Metti in lista un check della UI intera: potrebbero esserci vecchie impostazioni,
+oppure la necessità di menù contestuali all'azione che l'utente sta svolgendo.
+Più la UI è semplice e intuitiva meglio è, dando per scontato che deve offrire
+tutto quello che stiamo progettando. Per esempio le domande dell'occhio non
+trovano risposta in quella finestra: al massimo potremmo rispondere nella chat.
+Preferisco che le palette stiano lateralmente, con la possibilità di espandersi
+alla richiesta dell'utente.»*
+
+Non e' una passata di stile: e' la stessa regola dei due lavori di oggi — **una
+cosa deve dire quello che e', e deve stare dove serve.** Oggi lo spazio di
+lavoro apre tutto insieme e sopra il modello: il pannello dei punti, «quello che
+vedo», i dati di progetto, la barra di riproduzione, i comandi di vista. Il
+modello, che e' l'unica cosa che si deve guardare, resta sotto.
+
+Le quattro cose da fare, in ordine:
+
+1. **le palette stanno di lato e si aprono a richiesta**, non tutte aperte sopra
+   al modello. Chiuse sono una linguetta; aperte prendono una colonna, non il
+   centro;
+2. **i comandi seguono quello che si sta facendo.** Posizionare un punto,
+   guardare un referto e far correre la simulazione sono tre momenti diversi, e
+   oggi mostrano gli stessi venti comandi tutti insieme;
+3. **una passata su cosa e' rimasto indietro.** Ci sono comandi e riquadri nati
+   in sessioni vecchie che potrebbero non servire piu': si guarda uno per uno se
+   risponde a una domanda che qualcuno si fa davvero;
+4. **le domande dell'occhio si rispondono nella chat**, non in un riquadro di
+   suo: sono una conversazione, e in una finestra separata restano senza
+   risposta — come si vede oggi («giro 1 · 0 scatole viste», «il cervello non ha
+   risposto»).
+
+⚠️ Il vincolo, scritto: **deve offrire tutto quello che stiamo progettando.**
+Semplificare qui non vuol dire togliere funzioni, vuol dire non mostrarle tutte
+nello stesso momento.
 
 ### 📌 LE PROVE VIAGGIANO COL RISULTATO — promesso in pubblico il 02/09
 
@@ -789,6 +830,7 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    | 🟠 4 | quanti vanno di qua e quanti di là — qui entra il predittivo |
    | 🟡 5 | l'evitamento vero fra le persone al posto del serpeggio finto |
    | 🟡 6 | il taccuino, cioè il referto interrogabile |
+   | 🟠 7 | **la revisione dell'interfaccia intera** — pannelli laterali che si aprono a richiesta, comandi legati a quello che si sta facendo (dettaglio nel blocco del 02/09) |
 
 1-bis. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
