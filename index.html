@@ -153,6 +153,8 @@
       missing_model_title: "Manca lo spazio",
       missing_model_msg: (f) => `Questo progetto lavora su <b>${f}</b>, ma in questo browser il file non c'è. Ricaricalo per riprendere da dove eri.`,
       missing_model_btn: "Carica il file",
+      empty_sweep: (n) => `${n} progetti senza spazio e senza tappe · buttali tutti`,
+      empty_sweep_confirm: (n) => `Butto via ${n} progetti che non hanno né un modello né una tappa?\n\nQuelli con dentro qualcosa restano. Non si torna indietro.`,
       type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
       type_sosta: "Sosta", type_destinazione: "Destinazione",
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
@@ -257,6 +259,8 @@
       missing_model_title: "The space is missing",
       missing_model_msg: (f) => `This project works on <b>${f}</b>, but the file is not in this browser. Load it again to pick up where you left off.`,
       missing_model_btn: "Load the file",
+      empty_sweep: (n) => `${n} projects with no space and no points · delete them all`,
+      empty_sweep_confirm: (n) => `Delete ${n} projects that have neither a model nor a point?\n\nThose with something in them stay. This cannot be undone.`,
       type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
       type_sosta: "Sosta", type_destinazione: "Destination",
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
@@ -396,6 +400,9 @@
       font-family:inherit;}
     .v-proj-azioni button:hover{background:rgba(255,255,255,0.1);color:#e2e8f0;}
     .v-hint{font-size:10px;color:#64748b;margin:6px 0 0;line-height:1.5;}
+    .v-scopa{font-size:10.5px;color:#94a3b8;text-align:center;margin:-6px 0 14px;cursor:pointer;
+      text-decoration:underline;text-underline-offset:3px;}
+    .v-scopa:hover{color:#fca5a5;}
     .v-file-scelto{font-size:11px;color:#93c5fd;background:rgba(59,130,246,0.08);
       border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -580,6 +587,15 @@
     try { if (dep) schede = await dep.schede(); }
     catch (e) { console.warn("[VERITAS deposito] cartellini non leggibili:", e && e.message); }
 
+    // Le sessioni aperte e mai riempite. Il 02/09 erano 175, non venti:
+    // buttarle una per una, con una conferma ciascuna, non e' una strada.
+    // ⚠️ Vuoto vuol dire senza modello E senza nemmeno una tappa: un progetto
+    // che ha delle tappe contiene del lavoro anche se lo spazio non c'e' piu',
+    // e non si butta insieme agli altri.
+    const vuoti = (projects || []).filter(
+      (p) => !modelloDichiarato(p) && !(p.nodes_config && p.nodes_config.length)
+    );
+
     card.style.position = "relative";
     card.innerHTML = `
       ${langSwitcherHtml()}
@@ -612,6 +628,7 @@
           .join("")}
         ${!projects || !projects.length ? `<div class="meta" style="text-align:center;padding:16px 0;">${t("no_projects")}</div>` : ""}
       </div>
+      ${vuoti.length > 1 ? `<div class="v-scopa" id="v-scopa">${t("empty_sweep", vuoti.length)}</div>` : ""}
 
       <button class="v-btn secondary" id="v-pick-file">${t("pick_file_btn")}</button>
       <p class="v-hint">${t("pick_file_hint")}</p>
@@ -651,6 +668,19 @@
         if (p) bootWithProject(p);
       };
     });
+
+    const scopa = card.querySelector("#v-scopa");
+    if (scopa) {
+      scopa.onclick = async () => {
+        if (!window.confirm(t("empty_sweep_confirm", vuoti.length))) return;
+        scopa.textContent = t("saving");
+        const ids = vuoti.map((p) => p.id);
+        const { error: errScopa } = await sb.from("projects").delete().in("id", ids);
+        if (errScopa) { alert(errScopa.message); scopa.textContent = t("empty_sweep", vuoti.length); return; }
+        if (dep) { for (const id of ids) { try { await dep.butta(id); } catch (e) {} } }
+        showProjects();
+      };
+    }
 
     // Una strada sola: si sceglie il file, e SOLO ALLORA compare il resto.
     const inputFile = card.querySelector("#v-new-file");
