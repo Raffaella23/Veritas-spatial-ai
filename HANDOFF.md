@@ -121,13 +121,26 @@ un buco di prodotto che si vede subito, ed e' quello che oggi ha reso ogni
 verifica a meta' — senza modello sulla pagina non si misura niente, e il giro di
 comprensione dura minuti.
 
-Due meta', e la seconda e' una decisione di Raffaella perche' costa spazio:
-1. **il ritorno immediato**: la pagina ricorda l'ultimo modello aperto (in
-   locale, nel browser) e lo rimette quando si riapre lo stesso progetto. Non
-   costa niente e chiude il giro di verifica;
-2. **il progetto vero**: il file sta col progetto, e chi lo riapre da un'altra
-   macchina ritrova il suo edificio. Qui c'e' da decidere dove tenerlo e quanto
-   pesa (questo GLB e' 19 MB).
+✅ **DECISO DA RAFFAELLA IL 02/09: il modello resta NEL BROWSER. Non si spende
+altro in spazio sul server.** La decisione e' presa, non si riapre.
+
+Come si fa, ed e' tutto qui:
+1. il file caricato si tiene in **IndexedDB**, con la chiave del progetto.
+   ⚠️ Non `localStorage`: quello tiene testo e sta stretto, e questo GLB pesa
+   19 MB. IndexedDB tiene i byte;
+2. il progetto salva **il nome e il peso del file**, non il file. Sono due
+   campi, e servono a due cose: riconoscere che il modello ritrovato e' quello
+   giusto, e poter **dire quale file chiedere** quando non c'e';
+3. riaprendo il progetto: se in IndexedDB c'e' quel file, si rimette da solo e
+   la pagina non chiede niente. Se non c'e' — altra macchina, altro browser,
+   cache pulita — si dice **col nome**: «questo progetto lavora su
+   `airport_foot_traffic.glb`, ricaricalo», invece di aprirsi vuoto e in
+   silenzio.
+
+⚠️ Il modello va rimesso **per la stessa strada del pulsante**, quella che passa
+dalla scala automatica del blocco 2. Non con un `DataTransfer` e non saltando
+quel passo: un modello 7 volte piu' piccolo del vero fa sbagliare in silenzio
+tutto quello che viene dopo (trappola del 01/09).
 
 Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
 di piano: e' il motivo per cui in pianta i nomi non compaiono.
