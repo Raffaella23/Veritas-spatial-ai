@@ -142,6 +142,39 @@ dalla scala automatica del blocco 2. Non con un `DataTransfer` e non saltando
 quel passo: un modello 7 volte piu' piccolo del vero fa sbagliare in silenzio
 tutto quello che viene dopo (trappola del 01/09).
 
+### 🔴 E LA SCHERMATA D'APERTURA, che e' lo stesso problema visto da davanti
+
+Detto da Raffaella il 02/09: *«ora nella schermata iniziale abbiamo infiniti
+progetti creati nelle sessioni. Si puo' scegliere la tipologia di modello, ma si
+puo' anche caricare direttamente senza dare un nome al progetto. A me non e'
+chiaro, figuriamoci a un utente esterno!!!»*
+
+Misurato aprendola: **venti righe, tutte chiamate «Nome progetto», tutte
+«aeroporto», tutte con la stessa data.** Nessuna dice che cosa contiene. E una
+sola di quelle venti, provandole, aveva ancora il modello — perche' era la cache
+del browser, non il progetto.
+
+E' lo stesso buco di prima visto da davanti: **se un progetto non contiene il suo
+spazio, non c'e' niente da mostrare in quell'elenco** — restano un nome vuoto e
+una data. Per questo le due cose si fanno insieme e in quest'ordine.
+
+Le quattro cose da sistemare, e sono tutte conseguenze di quella:
+
+1. **una riga deve dire di che spazio parla**: il nome del file su cui lavora,
+   quando e' stata aperta l'ultima volta, e — la piu' importante — **se il
+   modello ce l'ha o no**. Oggi un progetto pieno e uno vuoto sono identici;
+2. **una strada sola per entrare, non due.** Oggi si puo' creare un progetto
+   *oppure* trascinare un file senza dare un nome a niente: la seconda strada
+   lascia un lavoro senza casa. Chi carica un file sta creando un progetto, e il
+   nome del file e' un nome di partenza piu' che ragionevole;
+3. **non si crea un progetto finche' non c'e' dentro qualcosa.** Le venti righe
+   vuote sono sessioni aperte e mai riempite;
+4. **si devono poter buttare.** Serve togliere quelle venti, e serve poterle
+   rinominare.
+
+⚠️ Nessuna di queste e' una scelta grafica: sono tutte «una cosa deve dire quello
+che e'», che e' la stessa regola del resto del progetto.
+
 Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
 di piano: e' il motivo per cui in pianta i nomi non compaiono.
 
