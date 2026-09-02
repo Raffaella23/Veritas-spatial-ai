@@ -6080,7 +6080,11 @@
       window.__veritasSimStarted = true;
       veritasApplyPassengerScale(); // i gruppi possono essere nati prima del progetto
       badge.remove();
-      applyNodesToScene();
+      // ⚠️ La barra si fa ripartire DOPO, non prima: applyNodesToScene rifa'
+      // i fotogrammi e la durata, e una barra fatta ripartire adesso
+      // correrebbe su quelli vecchi. Un bottone che dice «play» deve far
+      // partire QUESTA simulazione, non quella di prima.
+      Promise.resolve(applyNodesToScene()).then(veritasResumeBundleTimeline);
     };
   }
 
@@ -6142,14 +6146,73 @@
     }
     return null;
   }
+  // Lo STESSO bottone fa play e pausa: cambia solo l'icona dentro. Quando lo
+  // mettiamo in pausa all'avvio ce lo teniamo, cosi' per farlo ripartire non
+  // serve indovinare quale sia — si riclicca quello.
+  let veritasBundleTimelineBtn = null;
   function veritasAutoPauseBundleTimeline() {
     if (veritasAutoPauseDone || window.__veritasSimStarted) return;
     const btn = veritasFindBundlePauseButton();
     if (btn) {
       btn.click();
+      veritasBundleTimelineBtn = btn;
       veritasAutoPauseDone = true;
       console.log("[VERITAS] Timeline del bundle era in play automatico all'avvio - messa in pausa (bottone trovato via icona).");
     }
+  }
+
+  // L'icona «Play» di lucide-react: un solo <polygon> con questi vertici
+  // esatti, e in tutta la pagina ce n'e' uno. Stessa tecnica della pausa, e
+  // per la stessa ragione: il bundle e' minificato e non possiamo chiedergli
+  // il suo stato, ma la geometria dell'icona lo dichiara.
+  function veritasFindBundlePlayButton() {
+    const svgs = document.querySelectorAll("svg");
+    for (const svg of svgs) {
+      if (svg.querySelectorAll("rect").length) continue;
+      const poly = svg.querySelectorAll("polygon");
+      if (poly.length !== 1) continue;
+      const punti = (poly[0].getAttribute("points") || "").replace(/[\s,]+/g, " ").trim();
+      if (punti !== "6 3 20 12 6 21 6 3") continue;
+      const btn = svg.closest("button");
+      if (btn) return btn;
+    }
+    return null;
+  }
+
+  // ⚠️ IL DIFETTO CHE QUESTO CHIUDE, misurato il 02/09.
+  //
+  // Premuto il ▶ PLAY vero, la simulazione risultava avviata, i flussi
+  // c'erano e la traiettoria aveva 800 fotogrammi — e la barra a schermo
+  // restava su «0.1s / 180s · FRAME 0/361», flusso 0.000, attivi 0.
+  //
+  // La causa erano due cose, e nessuna delle due era la simulazione:
+  //   1. la barra del bundle era stata messa in pausa da noi all'avvio (per
+  //      non far camminare i passeggeri sulle sei tappe cablate prima che ci
+  //      fosse un modello vero) e NESSUNO la faceva ripartire. Il commento di
+  //      quella pausa diceva «finche' non la riavvia l'utente dal bottone
+  //      stesso o dal nostro PLAY»: il nostro PLAY non l'ha mai riavviata;
+  //   2. `traj.duration` restava a 180 s, il valore della sequenza
+  //      dimostrativa del bundle, mentre i nostri fotogrammi arrivano a
+  //      399,5 s. Da li' il «361», che e' 180 x 2 + 1: la barra misurava la
+  //      corsa col metro sbagliato e si fermava a meta'.
+  //
+  // Si riparte DOPO che i fotogrammi e la durata sono a posto: al contrario
+  // la barra correrebbe sui fotogrammi vecchi.
+  function veritasResumeBundleTimeline() {
+    const btn = (veritasBundleTimelineBtn && document.contains(veritasBundleTimelineBtn))
+      ? veritasBundleTimelineBtn : null;
+    // Se sul bottone c'e' l'icona «Play», la barra e' ferma e va fatta
+    // ripartire. Se c'e' gia' quella di «Pausa» sta gia' correndo, e
+    // cliccarla la fermerebbe: e' il difetto al contrario.
+    const daPremere = veritasFindBundlePlayButton() || btn;
+    if (!daPremere) {
+      console.warn("[VERITAS] barra di riproduzione: non trovo il bottone del bundle, la simulazione resta ferma");
+      return false;
+    }
+    if (!veritasFindBundlePlayButton()) return true; // gia' in corsa
+    daPremere.click();
+    console.log("[VERITAS] barra di riproduzione fatta ripartire col PLAY");
+    return true;
   }
 
   setInterval(() => {
@@ -6211,6 +6274,18 @@
       fresh = await veritasApplicaCorpo(fresh);
       traj.frames.length = 0;
       traj.frames.push(...fresh.frames);
+      // ⚠️ Anche la DURATA, non solo i fotogrammi.
+      //
+      // Qui si sostituivano i fotogrammi e si lasciava `duration` a 180 s,
+      // che e' la lunghezza della sequenza dimostrativa del bundle. La barra
+      // di riproduzione conta i fotogrammi dalla durata (180 x 2 + 1 = 361) e
+      // continuava a dire «FRAME 0/361» davanti a 800 fotogrammi veri: con la
+      // durata vecchia la corsa si sarebbe fermata a meta' della simulazione.
+      // La durata la dicono i fotogrammi stessi, non un valore dichiarato.
+      const ultimo = fresh.frames[fresh.frames.length - 1];
+      const durataVera = fresh.duration
+        || (ultimo && typeof ultimo.t === "number" ? ultimo.t : null);
+      if (durataVera && durataVera > 0) traj.duration = durataVera;
       // Le figure devono esserci PRIMA che il ciclo di animazione legga i
       // frame: chi non trova la propria viene saltato in silenzio.
       veritasEnsurePassengerPool(traj.frames);
