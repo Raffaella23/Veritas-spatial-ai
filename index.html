@@ -5355,6 +5355,10 @@
     const P = window.__veritasPerception;
     const canIsovist = !!(P && P.isovist && (P.isReady() || (P.build() || {}).ok));
     let isovistOk = 0;
+    // Da oggetto-tappa al suo id nel grafo. Serve perche' un flusso porta gli
+    // STESSI oggetti che stanno in `nodes`, piu' la sua entrata, che nasce da
+    // un accesso misurato e fra le tappe non c'e'.
+    const idDi = new Map();
     nodes.forEach((n, i) => {
       const id = n.id || ("node_" + i);
       const meta = { type: n.type, label: n.label };
@@ -5364,6 +5368,7 @@
         if (standing && seated) { meta.isovist = { standing, seated }; isovistOk++; }
       }
       out.nodes[id] = { pos: veritasSnapToFloor(n.pos), meta };
+      idDi.set(n, id);
       order.push(id);
     });
     // Senza questa riga un'isovista muta (mesh non interrogabile, BVH non
@@ -5390,41 +5395,128 @@
     // di transito calcolati con Dijkstra sul grafo delle zone. Cosi' anche
     // il motore fisico reale segue un percorso che rispetta i muri, invece
     // di tagliare dritto zona-a-zona.
-    const routeIds = [order[0]];
-    let wpN = 0;
-    // Aggiunge un waypoint gia' appoggiato al pavimento e lo mette in coda al
-    // percorso. Gli id restano unici anche con l'infittimento.
-    const pushWaypoint = (pos) => {
-      const wpId = "wp_" + (wpN++);
-      out.nodes[wpId] = { pos: veritasSnapToFloor(pos), meta: { type: "waypoint" } };
-      routeIds.push(wpId);
+    // Il percorso fra una fila di tappe era scritto una volta sola, per l'unica
+    // fila che c'era. Adesso serve per ogni flusso, quindi e' una funzione: una
+    // sola strada per costruire un percorso, cosi' i percorsi non divergono.
+    let estN = 0, wpN = 0;
+    const idDelNodo = (n) => {
+      if (!n || !n.pos) return null;
+      const gia = idDi.get(n);
+      if (gia) return gia;
+      // Una tappa che in `nodes` non c'e': e' l'entrata di un flusso nata da un
+      // accesso misurato. Entra nel grafo con la sua posizione vera.
+      const id = "ingresso_misurato_" + (estN++);
+      out.nodes[id] = {
+        pos: veritasSnapToFloor(n.pos),
+        meta: { type: n.type || "origine", label: n.label, origine: n.origine || null },
+      };
+      idDi.set(n, id);
+      return id;
     };
-    for (let i = 1; i < order.length; i++) {
-      const puoInstradare = typeof findRoute === "function" && lastZones && lastZones.length
-                            && lastNavigablePoints && lastNavigablePoints.length;
-      // La spezzata che l'agente percorrera' davvero: i punti di aggiramento
-      // di findRoute se disponibili, altrimenti il tratto diretto.
-      const tappe = [nodes[i - 1].pos];
-      if (puoInstradare) {
-        const via = findRoute(nodes[i - 1].pos, nodes[i].pos);
-        for (let k = 0; k < via.length - 1; k++) {
-          const wp = via[k];
-          // salta il primo elemento se coincide col nodo di partenza
-          if (k === 0 && Math.hypot(wp[0] - nodes[i - 1].pos[0], wp[2] - nodes[i - 1].pos[2]) < 0.01) continue;
-          tappe.push(wp);
+
+    const percorsoDa = (sequenza) => {
+      const vive = (sequenza || []).filter((n) => n && n.pos);
+      if (!vive.length) return [];
+      const ids = [idDelNodo(vive[0])];
+      // Aggiunge un waypoint gia' appoggiato al pavimento e lo mette in coda al
+      // percorso. Gli id restano unici anche con l'infittimento.
+      const pushWaypoint = (pos) => {
+        const wpId = "wp_" + (wpN++);
+        out.nodes[wpId] = { pos: veritasSnapToFloor(pos), meta: { type: "waypoint" } };
+        ids.push(wpId);
+      };
+      for (let i = 1; i < vive.length; i++) {
+        const da = vive[i - 1].pos, a = vive[i].pos;
+        const puoInstradare = typeof findRoute === "function" && lastZones && lastZones.length
+                              && lastNavigablePoints && lastNavigablePoints.length;
+        // La spezzata che l'agente percorrera' davvero: i punti di aggiramento
+        // di findRoute se disponibili, altrimenti il tratto diretto.
+        const tappe = [da];
+        if (puoInstradare) {
+          const via = findRoute(da, a);
+          for (let k = 0; k < via.length - 1; k++) {
+            const wp = via[k];
+            // salta il primo elemento se coincide col nodo di partenza
+            if (k === 0 && Math.hypot(wp[0] - da[0], wp[2] - da[2]) < 0.01) continue;
+            tappe.push(wp);
+          }
         }
+        tappe.push(a);
+        // Ogni tratto fra due tappe viene infittito: senza questo Python
+        // congiunge le tappe con una retta, che su un tratto lungo passa dentro
+        // i muri e ignora i dislivelli.
+        for (let t = 0; t < tappe.length - 1; t++) {
+          for (const p of veritasDensifyForBridge(tappe[t], tappe[t + 1])) pushWaypoint(p);
+          if (t < tappe.length - 2) pushWaypoint(tappe[t + 1]);
+        }
+        ids.push(idDelNodo(vive[i]));
       }
-      tappe.push(nodes[i].pos);
-      // Ogni tratto fra due tappe viene infittito: senza questo Python
-      // congiunge le tappe con una retta, che su un tratto lungo passa dentro
-      // i muri e ignora i dislivelli.
-      for (let t = 0; t < tappe.length - 1; t++) {
-        for (const p of veritasDensifyForBridge(tappe[t], tappe[t + 1])) pushWaypoint(p);
-        if (t < tappe.length - 2) pushWaypoint(tappe[t + 1]);
-      }
-      routeIds.push(order[i]);
-    }
+      return ids;
+    };
+
+    const routeIds = percorsoDa(nodes);
     out.mission_profiles.default = routeIds;
+
+    // ============================================================
+    // UN PROFILO PER FLUSSO: al motore vero arrivano gli INGRESSI, non le sole
+    // tappe.
+    //
+    // ⚠️ Il difetto che chiude, misurato il 02/09 sulla pagina live e sullo
+    // stesso modello: con il motore reale acceso tutti e 28 i passeggeri
+    // nascevano nello stesso punto (-55, -14) e camminavano in fila indiana;
+    // con il motore reale spento gli stessi 28 nascevano in 14 punti attorno a
+    // TUTTI E QUATTRO gli accessi, quello dei taxi compreso. Non era una
+    // regressione e non era il motore: il generatore locale i flussi li usa, e
+    // qui non arrivavano mai. `veritasNodesToGraph` riceve le tappe, e gli
+    // ingressi misurati stanno nei FLUSSI, non nelle tappe.
+    //
+    // Adesso ogni flusso diventa un profilo di missione con la sua entrata, il
+    // suo tronco e la sua uscita, presi dalla STESSA funzione che usa il
+    // generatore locale (`window.__veritasFlussi.per`): i due motori non
+    // possono piu' raccontare due edifici diversi.
+    const flussi = (window.__veritasFlussi && typeof window.__veritasFlussi.per === "function")
+      ? window.__veritasFlussi.per(nodes) : null;
+    if (flussi && flussi.length > 1) {
+      // Quante file per flusso. Un ingresso vero e' largo e le persone non
+      // entrano tutte dallo stesso centimetro; e senza questo i compagni di
+      // flusso partirebbero sovrapposti, che e' il difetto per cui il ventaglio
+      // esisteva gia'. Se ne fanno tante quante bastano perche' ogni gruppo di
+      // agenti abbia il suo profilo: gli agenti sono distribuiti sui profili a
+      // gruppi di tre, quindi profili = gruppi e nessun flusso resta vuoto.
+      const quantiAgenti = window.__veritasAgentCount || 28;
+      const gruppi = Math.max(1, Math.ceil(quantiAgenti / 3));
+      const file = Math.max(1, Math.round(gruppi / flussi.length));
+      let quantiProfili = 0;
+      flussi.forEach((f, i) => {
+        const ids = percorsoDa(f.tappe);
+        if (ids.length < 2) return;
+        const a = out.nodes[ids[0]].pos, b = out.nodes[ids[1]].pos;
+        const dx = b[0] - a[0], dz = b[2] - a[2];
+        const len = Math.hypot(dx, dz) || 1;
+        // normale orizzontale alla direzione di marcia
+        const nx = -dz / len, nz = dx / len;
+        const coda = ids.slice(1);
+        for (let v = 0; v < file; v++) {
+          const off = (v - (file - 1) / 2) * 1.2; // 1,2 m fra una fila e l'altra
+          let partenza = ids[0];
+          if (off !== 0) {
+            partenza = "ingresso_" + i + "_fila" + v;
+            out.nodes[partenza] = {
+              pos: veritasSnapToFloor([a[0] + nx * off, a[1], a[2] + nz * off]),
+              meta: { type: "origine", label: f.nome },
+            };
+          }
+          out.mission_profiles["flusso_" + i + "_" + v] = [partenza].concat(coda);
+          quantiProfili++;
+        }
+      });
+      if (quantiProfili) {
+        console.log("[VERITAS bridge] " + quantiProfili + " profili di missione da "
+          + flussi.length + " flussi (" + file + " file per flusso): "
+          + flussi.map((f) => f.nome).join("; "));
+        return out;
+      }
+    }
 
     // Un solo percorso per tutti gli agenti li fa arrivare impilati.
     //
@@ -5868,10 +5960,18 @@
       // disallineamento: se partono grandi e tornano piccole le trasforma il
       // motore, se partono gia' piccole il problema e' a monte, nelle zone.
       const idsInviati = Object.keys(graph && graph.nodes ? graph.nodes : {});
+      // ⚠️ Si stampa DA DOVE PARTE ogni profilo, non i primi quattro nodi del
+      // grafo. Quei quattro erano sempre le stesse tappe in un angolo, e
+      // guardandoli non si poteva vedere il difetto del 02/09: tutti i profili
+      // partivano dallo stesso punto, e il log diceva esattamente la stessa
+      // cosa anche quando partivano da quattro ingressi diversi.
+      const partenze = Object.entries(graph.mission_profiles || {}).map(([nome, ids]) => {
+        const n = graph.nodes[ids && ids[0]];
+        return nome + "@" + (n && n.pos ? n.pos.map((v) => Math.round(v)).join(",") : "?");
+      });
       console.log("[VERITAS bridge] chiamo il motore reale:", window.__veritasApiBase,
-                  "-", count, "agenti,", idsInviati.length, "nodi",
-                  "- posizioni inviate:", JSON.stringify(idsInviati.slice(0, 4).map((k) => graph.nodes[k].pos)),
-                  "- profili missione:", JSON.stringify(Object.keys(graph.mission_profiles || {})));
+                  "-", count, "agenti,", idsInviati.length, "nodi,",
+                  partenze.length, "profili - da dove partono:", JSON.stringify(partenze));
       veritasBridgeNotify("Connessione al motore fisico reale (Render)... se e' inattivo da un po' puo' richiedere fino a 60s", "#facc15");
       const controller = new AbortController();
       // Il piano gratuito Render si addormenta dopo inattivita' e puo'
