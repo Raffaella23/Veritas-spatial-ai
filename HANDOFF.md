@@ -178,6 +178,61 @@ che e'», che e' la stessa regola del resto del progetto.
 Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
 di piano: e' il motivo per cui in pianta i nomi non compaiono.
 
+### 📌 LE PROVE VIAGGIANO COL RISULTATO — promesso in pubblico il 02/09
+
+Il 02/09 il risultato di oggi e' stato pubblicato, e un commento tecnico
+pubblico (Aviotix) ha centrato un buco vero. In sostanza: le tre cose giuste
+sono **la corroborazione** (piu' voci che devono concordare), **l'astensione
+esplicita** (una regola che si dichiara cieca invece di indovinare) e **il
+vincolo fisico** (da un ingresso si deve poter entrare). Ma la salvaguardia che
+manca e' che **il pacchetto di prove** — compresi i candidati scartati e la
+ragione per cui una regola ha taciuto — **viaggi insieme a ogni ingresso
+inferito, dentro ogni cosa che ne discende.** Altrimenti il risultato e'
+spiegabile quando lo crei e indifendibile quando lo riusi. In pubblico e' stato
+risposto che e' il prossimo lavoro: quindi sta scritto qui, altrimenti e' una
+promessa che non sta da nessuna parte.
+
+**Quello che c'e' gia', ed e' molto: il pacchetto esiste nel momento del
+calcolo.** In `window.__veritasAccessi`, per ogni accesso:
+
+| campo | cosa dice |
+|---|---|
+| `voci` | quali indizi l'hanno proposto |
+| `affidabilita` | quante voci concordano |
+| gli indizi | quanti sono, e quali |
+| `raggiunge` | quanto spazio si tocca a piedi partendo da li' |
+
+e accanto, **gia' scritte per esteso**: la lista degli **scartati col motivo**
+(«una voce sola (...)», «da qui non si entra: si raggiunge il X% dello spazio»)
+e le **voci mute con la ragione e il numero** — la voce del tetto su questo
+modello tace, e lo dice cosi': 36 campioni coperti su 1.544.
+
+**Quello che manca: non viaggia.** `veritas_flussi.js`, quando un accesso fa
+nascere un flusso, costruisce una tappa fatta di
+`{ label, type, origine:'accesso', pos, larghezza }` e basta. Affidabilita',
+voci, scarti e silenzi restano indietro. Da li' in poi — la traiettoria, il
+referto, il numero che finisce in una presentazione — **c'e' solo un nome.**
+
+Le due cose da fare:
+
+1. **la tappa che nasce da un accesso si porta dietro le sue prove**, non il
+   solo nome;
+2. **il flusso deve poter risalire all'accesso che l'ha generato**, e da li'
+   all'intero pacchetto.
+
+⚠️ **Le prove negative contano quanto le altre.** Gli scartati e le regole che
+hanno taciuto sono esattamente la parte che viene contestata: quindi **non sono
+righe di log, sono parte del referto.** Un referto che mostra solo cio' che ha
+trovato e' un referto che nasconde come l'ha trovato.
+
+Si lega al **punto 6 dell'elenco delle priorita'** — «il taccuino, cioe' il
+referto interrogabile»: e' la stessa cosa, e questa ne e' la prima meta'.
+
+⚠️ **Il limite, scritto perche' non si allarghi da solo:** non abbiamo firme,
+catena di custodia ne' registro esterno, e **in pubblico non e' stato promesso
+niente del genere.** Quello che si promette e' una cosa sola: **le prove
+restano attaccate al risultato.**
+
 ### 🔴 UN PROGETTO SALVATO NON CONTIENE IL SUO MODELLO — misurato il 02/09
 
 Detto da Raffaella dopo aver guardato che cosa viene salvato davvero: **un
