@@ -92,6 +92,31 @@
   const SUPABASE_ANON_KEY = "sb_publishable_C5R-fyvf7NKa-Zg2jtH8jA_lckexRNC";
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ⚠️ IL DEPOSITO SI CARICA DA QUI, NON CON UN TAG <script> IN PIU'.
+  //
+  // Un tag in piu' in cima sposta di uno l'indice di tutti i blocchi, e il
+  // bundle React smette di essere il blocco 3: la ricetta di verifica che ne
+  // controlla l'hash fallirebbe per sempre, e sarebbe un allarme finto — il
+  // peggior tipo di allarme, perche' poi si smette di guardarlo.
+  //
+  // Si carica quindi a mano, e chi lo usa aspetta questa promessa. Nessuna
+  // corsa: tutte le funzioni che lo toccano sono asincrone. Se il file non
+  // arriva, la promessa vale `null` e il programma continua come prima,
+  // chiedendo il modello all'utente.
+  // ⚠️ Il ?v= si cambia a ogni modifica di veritas_deposito.js.
+  const depositoPronto = new Promise((risolvi) => {
+    if (window.__veritasDeposito) { risolvi(window.__veritasDeposito); return; }
+    const s = document.createElement("script");
+    s.src = "./veritas_deposito.js?v=1";
+    s.onload = () => risolvi(window.__veritasDeposito || null);
+    s.onerror = () => {
+      console.warn("[VERITAS deposito] modulo non caricato: i progetti non terranno il modello");
+      risolvi(null);
+    };
+    document.head.appendChild(s);
+  });
+  function deposito() { return depositoPronto; }
+
   let LANG = "it";
   try { LANG = localStorage.getItem("veritasLang") || "it"; } catch (e) {}
 
@@ -112,6 +137,22 @@
       type_hospital: "Ospedale", type_school: "Scuola", type_retail: "Spazio commerciale",
       type_generic: "Altro edificio",
       create_open_btn: "Crea e apri",
+      projects_subtitle_2: "Apri un progetto, oppure scegli un file: il file È il progetto",
+      pick_file_btn: "＋ Nuovo progetto — scegli il file",
+      pick_file_hint: "Un progetto nasce da uno spazio. Il file resta nel tuo browser, non viene caricato da nessuna parte.",
+      chosen_file_label: "File scelto",
+      model_ready: "modello pronto in questo browser",
+      model_absent: "modello da ricaricare",
+      model_none: "nessuno spazio caricato",
+      model_other: "in questo browser c'è un altro file",
+      never_opened: "mai aperto",
+      rename_title: "Rinomina",
+      delete_title: "Butta via",
+      rename_prompt: "Nuovo nome del progetto:",
+      delete_confirm: (n) => `Butto via il progetto «${n}» e il suo modello tenuto in questo browser?\n\nNon si torna indietro.`,
+      missing_model_title: "Manca lo spazio",
+      missing_model_msg: (f) => `Questo progetto lavora su <b>${f}</b>, ma in questo browser il file non c'è. Ricaricalo per riprendere da dove eri.`,
+      missing_model_btn: "Carica il file",
       type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
       type_sosta: "Sosta", type_destinazione: "Destinazione",
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
@@ -200,6 +241,22 @@
       type_hospital: "Hospital", type_school: "School", type_retail: "Retail space",
       type_generic: "Other building",
       create_open_btn: "Create and open",
+      projects_subtitle_2: "Open a project, or pick a file: the file IS the project",
+      pick_file_btn: "＋ New project — pick the file",
+      pick_file_hint: "A project starts from a space. The file stays in your browser, it is not uploaded anywhere.",
+      chosen_file_label: "Chosen file",
+      model_ready: "model ready in this browser",
+      model_absent: "model to reload",
+      model_none: "no space loaded",
+      model_other: "this browser holds a different file",
+      never_opened: "never opened",
+      rename_title: "Rename",
+      delete_title: "Delete",
+      rename_prompt: "New project name:",
+      delete_confirm: (n) => `Delete the project "${n}" and the model kept in this browser?\n\nThis cannot be undone.`,
+      missing_model_title: "The space is missing",
+      missing_model_msg: (f) => `This project works on <b>${f}</b>, but the file is not in this browser. Load it again to pick up where you left off.`,
+      missing_model_btn: "Load the file",
       type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
       type_sosta: "Sosta", type_destinazione: "Destination",
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
@@ -321,6 +378,45 @@
     .v-proj-list{max-height:280px;overflow:auto;margin-bottom:14px;}
     .v-logout{position:absolute;top:16px;right:16px;font-size:10px;color:#64748b;cursor:pointer;}
 
+    /* Una riga deve dire di che spazio parla: il file, quando e' stata aperta,
+       e — la piu' importante — SE il modello ce l'ha. Prima un progetto pieno
+       e uno vuoto erano identici. */
+    .v-proj-testo{min-width:0;flex:1;}
+    .v-proj-item .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .v-proj-item .file{font-size:10px;color:#94a3b8;margin-top:3px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .v-proj-stato{font-size:10px;margin-top:3px;display:flex;align-items:center;gap:5px;}
+    .v-proj-stato .pallino{width:6px;height:6px;border-radius:50%;flex:none;}
+    .v-proj-stato.pronto{color:#6ee7b7;} .v-proj-stato.pronto .pallino{background:#34d399;}
+    .v-proj-stato.assente{color:#fcd34d;} .v-proj-stato.assente .pallino{background:#f59e0b;}
+    .v-proj-stato.vuoto{color:#64748b;} .v-proj-stato.vuoto .pallino{background:#475569;}
+    .v-proj-azioni{display:flex;gap:4px;flex:none;margin-left:10px;}
+    .v-proj-azioni button{background:transparent;border:1px solid rgba(255,255,255,0.12);
+      border-radius:6px;color:#94a3b8;font-size:11px;line-height:1;padding:5px 7px;cursor:pointer;
+      font-family:inherit;}
+    .v-proj-azioni button:hover{background:rgba(255,255,255,0.1);color:#e2e8f0;}
+    .v-hint{font-size:10px;color:#64748b;margin:6px 0 0;line-height:1.5;}
+    .v-file-scelto{font-size:11px;color:#93c5fd;background:rgba(59,130,246,0.08);
+      border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+    /* Il cartello che compare quando il progetto sa quale file vuole e quel
+       file in questo browser non c'e'. Prima la pagina si apriva vuota e in
+       silenzio, e non c'era modo di sapere cosa mancasse. */
+    #veritas-manca-modello{position:fixed;left:50%;transform:translateX(-50%);top:74px;z-index:9500;
+      max-width:min(560px,calc(100vw - 32px));background:rgba(12,15,23,0.96);
+      border:1px solid rgba(245,158,11,0.45);border-radius:12px;padding:14px 16px;
+      font-family:'JetBrains Mono',monospace;color:#e2e8f0;box-shadow:0 12px 40px rgba(0,0,0,0.55);
+      backdrop-filter:blur(10px);}
+    #veritas-manca-modello h3{margin:0 0 6px;font-size:10px;letter-spacing:.08em;color:#fcd34d;
+      text-transform:uppercase;}
+    #veritas-manca-modello p{margin:0 0 10px;font-size:12px;line-height:1.55;color:#cbd5e1;}
+    #veritas-manca-modello b{color:#fff;}
+    #veritas-manca-modello .riga{display:flex;gap:8px;align-items:center;}
+    #veritas-manca-modello button{padding:8px 12px;border-radius:8px;border:none;background:#fff;
+      color:#000;font-weight:600;font-family:inherit;font-size:11px;cursor:pointer;}
+    #veritas-manca-modello .chiudi{background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.12);}
+
     #veritas-picker-panel{position:fixed;right:14px;top:70px;z-index:9000;width:250px;max-height:calc(100vh - 90px);overflow-y:auto;
       background:rgba(12,15,23,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:14px;
       padding:14px;font-family:'JetBrains Mono',monospace;color:#e2e8f0;backdrop-filter:blur(10px);
@@ -415,6 +511,60 @@
     resolveAuthed();
   }
 
+  // ============================================================
+  // LA SCHERMATA D'APERTURA — e cioe' il buco del modello visto da davanti
+  //
+  // Com'era il 02/09: venti righe tutte chiamate «Nome progetto», tutte
+  // «aeroporto», tutte con la stessa data, e nessun modo di sapere quale
+  // contenesse qualcosa. Erano sessioni aperte e mai riempite, perche' si
+  // creava il progetto PRIMA di avere uno spazio da metterci dentro. E si
+  // poteva anche trascinare un file senza dare un nome a niente: quella
+  // seconda strada lasciava un lavoro senza casa.
+  //
+  // Adesso: una strada sola (chi sceglie un file sta creando un progetto),
+  // nessun progetto prima che ci sia dentro qualcosa, e ogni riga dice di che
+  // spazio parla e se quello spazio ce l'ha davvero.
+  // ============================================================
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+  }
+
+  function pesoInParole(byte) {
+    if (!byte && byte !== 0) return "";
+    if (byte < 1048576) return Math.max(1, Math.round(byte / 1024)) + " KB";
+    return (byte / 1048576).toFixed(1) + " MB";
+  }
+
+  // Il file che il progetto dichiara di usare: sta dentro sim_params, che e'
+  // gia' una colonna JSON. Nessuna migrazione di schema per due campi.
+  function modelloDichiarato(p) {
+    const sp = (p && p.sim_params) || {};
+    return sp.modello && sp.modello.nome ? sp.modello : null;
+  }
+
+  function quandoApertoLaVoltaScorsa(p) {
+    const sp = (p && p.sim_params) || {};
+    return sp.ultimaApertura || p.updated_at || null;
+  }
+
+  // Tre stati, e sono tre cose diverse che prima si vedevano tutte uguali.
+  function statoDelModello(p, schede, dep) {
+    const dichiarato = modelloDichiarato(p);
+    if (!dichiarato) return { classe: "vuoto", testo: t("model_none") };
+    const qui = schede && schede[p.id];
+    if (!qui) return { classe: "assente", testo: t("model_absent") };
+    if (dep && !dep.combacia(qui, dichiarato)) return { classe: "assente", testo: t("model_other") };
+    return { classe: "pronto", testo: t("model_ready") };
+  }
+
+  // Il file scelto nella schermata d'apertura, in attesa che la scena sia
+  // pronta per riceverlo. Non passa da IndexedDB per essere ricaricato subito:
+  // e' gia' qui in memoria.
+  let fileDaMettereInScena = null;
+
   async function showProjects() {
     const { data: userData } = await sb.auth.getUser();
     const userEmail = userData?.user?.email || "";
@@ -423,37 +573,66 @@
       .select("*")
       .order("updated_at", { ascending: false });
 
+    // I cartellini di tutti i modelli tenuti in questo browser, in una lettura
+    // sola e senza toccare un byte di geometria.
+    const dep = await deposito();
+    let schede = {};
+    try { if (dep) schede = await dep.schede(); }
+    catch (e) { console.warn("[VERITAS deposito] cartellini non leggibili:", e && e.message); }
+
     card.style.position = "relative";
     card.innerHTML = `
       ${langSwitcherHtml()}
-      <div class="v-logout" id="v-logout" style="right:60px;">${userEmail} · ${t("logout_label")}</div>
+      <div class="v-logout" id="v-logout" style="right:60px;">${esc(userEmail)} · ${t("logout_label")}</div>
       <h1>${t("projects_title")}</h1>
-      <p class="sub">${t("projects_subtitle")}</p>
-      ${error ? `<div class="v-error">${error.message}</div>` : ""}
+      <p class="sub">${t("projects_subtitle_2")}</p>
+      ${error ? `<div class="v-error">${esc(error.message)}</div>` : ""}
       <div class="v-proj-list" id="v-proj-list">
         ${(projects || [])
-          .map(
-            (p) => `<div class="v-proj-item" data-id="${p.id}">
-              <div><div class="name">${p.name}</div><div class="meta">${p.project_type} · ${new Date(p.updated_at).toLocaleDateString()}</div></div>
-              <div class="meta">→</div>
-            </div>`
-          )
+          .map((p) => {
+            const stato = statoDelModello(p, schede, dep);
+            const dichiarato = modelloDichiarato(p);
+            const quando = quandoApertoLaVoltaScorsa(p);
+            const file = dichiarato
+              ? esc(dichiarato.nome) + (dichiarato.peso ? " · " + pesoInParole(dichiarato.peso) : "")
+              : "—";
+            return `<div class="v-proj-item" data-id="${esc(p.id)}">
+              <div class="v-proj-testo">
+                <div class="name">${esc(p.name)}</div>
+                <div class="file">${file}</div>
+                <div class="v-proj-stato ${stato.classe}"><span class="pallino"></span>${stato.testo}</div>
+                <div class="meta">${esc(p.project_type)} · ${quando ? new Date(quando).toLocaleString() : t("never_opened")}</div>
+              </div>
+              <div class="v-proj-azioni">
+                <button data-az="rinomina" title="${t("rename_title")}">✏️</button>
+                <button data-az="butta" title="${t("delete_title")}">🗑</button>
+              </div>
+            </div>`;
+          })
           .join("")}
         ${!projects || !projects.length ? `<div class="meta" style="text-align:center;padding:16px 0;">${t("no_projects")}</div>` : ""}
       </div>
-      <div class="v-field"><label>${t("new_project_label")}</label><input type="text" id="v-new-name" placeholder="${t("new_project_placeholder")}"></div>
-      <div class="v-field">
-        <select id="v-new-type">
-          <option value="aeroporto">${t("type_airport")}</option>
-          <option value="museo">${t("type_museum")}</option>
-          <option value="ospedale">${t("type_hospital")}</option>
-          <option value="scuola">${t("type_school")}</option>
-          <option value="commerciale">${t("type_retail")}</option>
-          <option value="generico">${t("type_generic")}</option>
-          <option value="gaming">${t("type_gaming")}</option>
-        </select>
+
+      <button class="v-btn secondary" id="v-pick-file">${t("pick_file_btn")}</button>
+      <p class="v-hint">${t("pick_file_hint")}</p>
+      <input type="file" id="v-new-file" accept=".ifc,.glb,.gltf,.fbx,.obj,.ply,.splat,.ksplat,.spz,.sog" style="display:none">
+
+      <div id="v-nuovo-form" style="display:none;margin-top:14px;">
+        <div class="v-file-scelto" id="v-file-scelto"></div>
+        <div class="v-field"><label>${t("new_project_label")}</label><input type="text" id="v-new-name" placeholder="${t("new_project_placeholder")}"></div>
+        <div class="v-field">
+          <select id="v-new-type">
+            <option value="aeroporto">${t("type_airport")}</option>
+            <option value="museo">${t("type_museum")}</option>
+            <option value="ospedale">${t("type_hospital")}</option>
+            <option value="scuola">${t("type_school")}</option>
+            <option value="commerciale">${t("type_retail")}</option>
+            <option value="generico">${t("type_generic")}</option>
+            <option value="gaming">${t("type_gaming")}</option>
+          </select>
+        </div>
+        <button class="v-btn" id="v-create-btn">${t("create_open_btn")}</button>
       </div>
-      <button class="v-btn" id="v-create-btn">${t("create_open_btn")}</button>
     `;
     wireLangSwitcher(card, () => showProjects());
 
@@ -463,32 +642,94 @@
     };
 
     card.querySelectorAll(".v-proj-item").forEach((el) => {
-      el.onclick = () => openProject(el.getAttribute("data-id"), projects);
+      const id = el.getAttribute("data-id");
+      const p = (projects || []).find((x) => String(x.id) === id);
+      el.onclick = (e) => {
+        const az = e.target && e.target.getAttribute && e.target.getAttribute("data-az");
+        if (az === "rinomina") { e.stopPropagation(); rinominaProgetto(p); return; }
+        if (az === "butta") { e.stopPropagation(); buttaProgetto(p); return; }
+        if (p) bootWithProject(p);
+      };
     });
 
+    // Una strada sola: si sceglie il file, e SOLO ALLORA compare il resto.
+    const inputFile = card.querySelector("#v-new-file");
+    card.querySelector("#v-pick-file").onclick = () => inputFile.click();
+    inputFile.onchange = () => {
+      const file = inputFile.files && inputFile.files[0];
+      if (!file) return;
+      fileDaMettereInScena = file;
+      const senzaEstensione = (file.name || "").replace(/\.[^.]+$/, "");
+      card.querySelector("#v-file-scelto").textContent =
+        t("chosen_file_label") + ": " + file.name + " · " + pesoInParole(file.size);
+      card.querySelector("#v-new-name").value = senzaEstensione;
+      card.querySelector("#v-nuovo-form").style.display = "";
+      card.querySelector("#v-new-name").focus();
+    };
+
     card.querySelector("#v-create-btn").onclick = async () => {
-      const name = card.querySelector("#v-new-name").value.trim() || t("new_project_placeholder");
+      const bottone = card.querySelector("#v-create-btn");
+      const file = fileDaMettereInScena;
+      if (!file) return;
+      const name = card.querySelector("#v-new-name").value.trim() || file.name;
       const project_type = card.querySelector("#v-new-type").value;
+      bottone.disabled = true;
+      bottone.textContent = t("saving");
       const { data: userData2 } = await sb.auth.getUser();
       const { data, error: insErr } = await sb
         .from("projects")
-        .insert({ name, project_type, user_id: userData2.user.id })
+        .insert({
+          name,
+          project_type,
+          user_id: userData2.user.id,
+          sim_params: {
+            passengerScale: 0.82,
+            agentCount: 28,
+            modello: { nome: file.name, peso: file.size },
+            ultimaApertura: new Date().toISOString(),
+          },
+        })
         .select()
         .single();
       if (insErr) {
-        card.querySelector("#v-create-btn").insertAdjacentHTML(
-          "beforebegin",
-          `<div class="v-error">${insErr.message}</div>`
-        );
+        bottone.disabled = false;
+        bottone.textContent = t("create_open_btn");
+        bottone.insertAdjacentHTML("beforebegin", `<div class="v-error">${esc(insErr.message)}</div>`);
         return;
+      }
+      // I byte vanno nel deposito PRIMA di aprire: se il browser viene chiuso
+      // a meta' sessione, il progetto ritrova comunque il suo spazio.
+      if (dep) {
+        try { await dep.salva(data.id, file); }
+        catch (e) { console.warn("[VERITAS deposito] non tenuto:", e && e.message); }
       }
       bootWithProject(data);
     };
   }
 
-  function openProject(id, projects) {
-    const p = (projects || []).find((x) => x.id === id);
-    if (p) bootWithProject(p);
+  async function rinominaProgetto(p) {
+    if (!p) return;
+    const nuovo = window.prompt(t("rename_prompt"), p.name || "");
+    if (nuovo === null) return;
+    const pulito = nuovo.trim();
+    if (!pulito || pulito === p.name) return;
+    const { error } = await sb.from("projects").update({ name: pulito }).eq("id", p.id);
+    if (error) { alert(error.message); return; }
+    showProjects();
+  }
+
+  async function buttaProgetto(p) {
+    if (!p) return;
+    if (!window.confirm(t("delete_confirm", p.name || ""))) return;
+    const { error } = await sb.from("projects").delete().eq("id", p.id);
+    if (error) { alert(error.message); return; }
+    // Il modello se ne va col progetto: 19 MB legati a una chiave che non
+    // esiste piu' resterebbero nel browser per sempre.
+    const dep = await deposito();
+    if (dep) {
+      try { await dep.butta(p.id); } catch (e) {}
+    }
+    showProjects();
   }
 
   let bootDone;
@@ -497,10 +738,19 @@
     window.__veritasProjectId = project.id;
     window.__veritasProjectType = project.project_type;
     window.__veritasProjectName = project.name;
+    window.__veritasProjectSimParams = project.sim_params || {};
+    window.__veritasProjectModello = modelloDichiarato(project);
     window.__veritasInitialNodes = project.nodes_config && project.nodes_config.length ? project.nodes_config : null;
     window.__veritasInitialCameras = project.camera_config && project.camera_config.length ? project.camera_config : null;
     window.__veritasPassengerScale = (project.sim_params && project.sim_params.passengerScale) || 0.82 /* scala umana: la mesh passeggero misura 2.08m ad altezza piena, quindi 0.82 la porta a ~1.70m. Il precedente 0.12 la rendeva alta 25cm: su un modello in scala reale 1:1 gli agenti erano grandi come una scarpa, di fatto invisibili, e non tornavano i confronti dimensionali. */
     window.__veritasAgentCount = (project.sim_params && project.sim_params.agentCount) || 28;
+    // Quando e' stato aperto l'ultima volta: e' meta' di quello che una riga
+    // dell'elenco deve dire, e prima erano venti date identiche.
+    if (window.__veritasSaveProject) {
+      window.__veritasSaveProject({}).then((r) => {
+        if (r && r.error) console.warn("[VERITAS progetto] apertura non annotata:", r.error);
+      });
+    }
     showSettingsScreen(project);
   }
 
@@ -586,8 +836,139 @@
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
+      // Il progetto si porta dietro il suo spazio: da qui in poi si rimette.
+      rimettiIlModello();
     };
   }
+
+  // ============================================================
+  // IL PROGETTO SI PORTA DIETRO IL SUO SPAZIO
+  //
+  // Il file non va sul server (deciso il 02/09): sta in IndexedDB, con la
+  // chiave del progetto. Qui lo si ritrova e lo si rimette in scena.
+  //
+  // ⚠️ Si rimette per LA STESSA STRADA DEL PULSANTE — `__veritasCaricaFile`,
+  // che e' la funzione che il pulsante di caricamento chiama — perche' quella
+  // strada passa dalla scala automatica. Mai infilando il file
+  // nell'`input[type=file]` con un `DataTransfer`: misurato il 01/09, il
+  // modello entra 7 volte piu' piccolo (20 × 11 m invece di 145 × 76) e da li'
+  // in poi sbaglia in silenzio tutto quello che viene dopo.
+  // ============================================================
+
+  function aspettaIlCaricatore() {
+    return new Promise((risolvi) => {
+      const scadenza = Date.now() + 60000;
+      (function guarda() {
+        // Il pulsante e' l'ultima cosa che la shell costruisce: se c'e' lui,
+        // la scena, i caricatori e la console ci sono gia'.
+        if (typeof window.__veritasCaricaFile === "function" &&
+            window.__veritasScene &&
+            document.getElementById("vaio-upload-btn")) {
+          risolvi(window.__veritasCaricaFile);
+          return;
+        }
+        if (Date.now() > scadenza) { risolvi(null); return; }
+        setTimeout(guarda, 250);
+      })();
+    });
+  }
+
+  async function rimettiIlModello() {
+    const dichiarato = window.__veritasProjectModello;
+    let file = fileDaMettereInScena;
+    fileDaMettereInScena = null;
+
+    const dep = await deposito();
+    if (!file && dep && window.__veritasProjectId) {
+      try {
+        const trovato = await dep.leggi(window.__veritasProjectId);
+        if (trovato && trovato.byte && (!dichiarato || dep.combacia(trovato, dichiarato))) {
+          file = new File([trovato.byte], trovato.nome || (dichiarato && dichiarato.nome) || "modello.glb",
+                          { type: trovato.tipo || "model/gltf-binary" });
+        }
+      } catch (e) {
+        console.warn("[VERITAS deposito] rilettura fallita:", e && e.message);
+      }
+    }
+
+    if (!file) {
+      // Nessuno spazio da rimettere. Se pero' il progetto SA quale file vuole,
+      // lo dice — invece di aprirsi vuoto e in silenzio.
+      if (dichiarato && dichiarato.nome) mostraMancaIlModello(dichiarato);
+      return;
+    }
+
+    console.log("[VERITAS deposito] rimetto in scena " + file.name + " (" +
+                Math.round(file.size / 1048576) + " MB) dal browser");
+    const carica = await aspettaIlCaricatore();
+    if (!carica) {
+      console.warn("[VERITAS deposito] il caricatore non e' arrivato: chiedo il file a mano");
+      mostraMancaIlModello(dichiarato || { nome: file.name, peso: file.size });
+      return;
+    }
+    try {
+      // `giaDepositato`: i byte sono gia' nel deposito, non si riscrivono.
+      await carica(file, { giaDepositato: true });
+    } catch (e) {
+      console.error("[VERITAS deposito] rimessa in scena fallita:", e);
+      mostraMancaIlModello(dichiarato || { nome: file.name, peso: file.size });
+    }
+  }
+
+  function mostraMancaIlModello(dichiarato) {
+    nascondiMancaIlModello();
+    const el = document.createElement("div");
+    el.id = "veritas-manca-modello";
+    el.innerHTML = `
+      <h3>${t("missing_model_title")}</h3>
+      <p>${t("missing_model_msg", esc(dichiarato.nome))}${
+        dichiarato.peso ? ` <span style="color:#64748b;">(${pesoInParole(dichiarato.peso)})</span>` : ""
+      }</p>
+      <div class="riga">
+        <button id="vmm-carica">${t("missing_model_btn")}</button>
+        <button class="chiudi" id="vmm-chiudi">${t("close_btn")}</button>
+      </div>
+    `;
+    document.body.appendChild(el);
+    el.querySelector("#vmm-chiudi").onclick = nascondiMancaIlModello;
+    el.querySelector("#vmm-carica").onclick = () => {
+      const bottone = document.getElementById("vaio-upload-btn");
+      if (bottone) bottone.click();
+      else alert(t("alert_load_glb_first"));
+    };
+  }
+
+  function nascondiMancaIlModello() {
+    const vecchio = document.getElementById("veritas-manca-modello");
+    if (vecchio) vecchio.remove();
+  }
+
+  // Chiamata dalla shell subito dopo che un file e' entrato in scena, da
+  // qualunque strada sia entrato (pulsante, trascinamento, rimessa in scena).
+  // E' il punto in cui un lavoro smette di essere «senza casa».
+  window.__veritasAttaccaModello = async function (file, opzioni) {
+    if (!file) return;
+    nascondiMancaIlModello();
+    if (!window.__veritasProjectId) return;
+    const modello = { nome: file.name, peso: file.size };
+    const cambiato = !window.__veritasProjectModello ||
+      window.__veritasProjectModello.nome !== modello.nome ||
+      window.__veritasProjectModello.peso !== modello.peso;
+    window.__veritasProjectModello = modello;
+    if (!(opzioni && opzioni.giaDepositato)) {
+      const dep = await deposito();
+      if (dep) {
+        try { await dep.salva(window.__veritasProjectId, file); }
+        catch (e) { console.warn("[VERITAS deposito] non tenuto:", e && e.message); }
+      }
+    }
+    // Il nome del file va anche sul server: e' l'unica cosa che permette a un
+    // altro browser di dire QUALE file chiedere.
+    if (cambiato || !(opzioni && opzioni.giaDepositato)) {
+      const { error } = await window.__veritasSaveProject({});
+      if (error) console.warn("[VERITAS progetto] nome del file non salvato:", error);
+    }
+  };
 
   // ============================================================
   // Report VERITAS: raccomandazioni calcolate DAL VERO OUTPUT della
@@ -1159,11 +1540,28 @@
     setTimeout(initPickerPanel, 400);
   };
 
+  // Salvare un progetto vuol dire salvare anche DI CHE SPAZIO PARLA.
+  //
+  // Il file non ci sta dentro e non ci deve stare (sta nel deposito del
+  // browser), ma il suo nome e il suo peso si': sono i due campi che
+  // permettono di riconoscere il file ritrovato e, quando non c'e', di dire
+  // quale chiedere. Stanno dentro `sim_params`, che e' gia' una colonna JSON —
+  // due campi non valgono una migrazione di schema.
+  //
+  // ⚠️ `sim_params` si FONDE, non si sostituisce: chi salva le tappe non deve
+  // cancellare il nome del file, e chi salva il nome del file non deve
+  // cancellare la scala dei passeggeri.
   window.__veritasSaveProject = async function (partial) {
     if (!window.__veritasProjectId) return { error: "Nessun progetto attivo" };
+    const dati = Object.assign({}, partial || {});
+    const params = Object.assign({}, window.__veritasProjectSimParams || {}, dati.sim_params || {});
+    if (window.__veritasProjectModello) params.modello = window.__veritasProjectModello;
+    params.ultimaApertura = new Date().toISOString();
+    dati.sim_params = params;
+    window.__veritasProjectSimParams = params;
     const { error } = await sb
       .from("projects")
-      .update(partial)
+      .update(dati)
       .eq("id", window.__veritasProjectId);
     return { error };
   };
@@ -13825,7 +14223,22 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   // resta un .glb, e soprattutto un .ply puo' essere due cose diverse - una
   // nuvola di punti classica o una scena di gaussiane - che vanno su strade
   // completamente diverse.
-  async function loadFile(file) {
+  // Un file che entra in scena appartiene al progetto aperto: si dice al
+  // progetto come si chiama e lo si tiene nel deposito del browser, cosi'
+  // riaprendo lo spazio c'e' ancora. Chiamata SOLO a caricamento riuscito:
+  // annunciare un modello che non e' entrato sarebbe una scheda bugiarda.
+  //
+  // `opzioni.giaDepositato` = sta rientrando dal deposito, i byte ci sono
+  // gia' e non si riscrivono 19 MB per niente.
+  function attaccaAlProgetto(file, opzioni) {
+    try {
+      if (typeof window.__veritasAttaccaModello === "function") {
+        window.__veritasAttaccaModello(file, opzioni || {});
+      }
+    } catch (e) { console.warn("[VERITAS deposito] aggancio al progetto fallito:", e && e.message); }
+  }
+
+  async function loadFile(file, opzioni) {
     const mb = file.size / (1024 * 1024);
     if (mb > MAX_UPLOAD_MB) { log("error", S.upload_toobig(mb.toFixed(0))); return; }
     const name = file.name || "model";
@@ -13871,13 +14284,25 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     // sono gia' stati buttati via, e da li' in poi si puo' solo misurare. Va
     // sulla sua strada perche' oltre alla geometria porta le stanze, i piani,
     // le porte e i dati per le normative. Vedi veritas_bim.js.
-    if (famiglia === "bim") { await loadBim(file, name); return; }
+    // ⚠️ Si aggancia SOLO se il modello e' davvero entrato in scena: loadBim
+    // puo' tornare indietro senza aver messo niente (IFC illeggibile, nessuna
+    // geometria disegnabile), e annunciare al progetto un file che non e'
+    // entrato lascerebbe una scheda bugiarda — il progetto direbbe «pronto»
+    // davanti a uno spazio vuoto, cioe' il difetto da cui si e' partiti.
+    if (famiglia === "bim") {
+      const prima = window.__veritasModelRoot;
+      await loadBim(file, name);
+      if (window.__veritasModelRoot && window.__veritasModelRoot !== prima) attaccaAlProgetto(file, opzioni);
+      return;
+    }
 
     // Gaussiane e nuvole vanno al caricatore splat, che le sa decodificare.
     if (famiglia === "splat" || famiglia === "nuvola") {
       if (typeof window.__veritasLoadSplatFile === "function") {
         log("assistant", S.upload_parsing(name));
-        window.__veritasLoadSplatFile(file);
+        // L'aggancio al progetto lo fa il modulo splat quando la nuvola e'
+        // davvero in scena: qui il caricamento e' appena partito.
+        window.__veritasLoadSplatFile(file, opzioni);
       } else {
         log("error", "Caricatore Gaussian Splat non pronto. Riprova fra qualche secondo.");
       }
@@ -13890,10 +14315,15 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     const url = URL.createObjectURL(file);
     const onError = (err) => { console.error("[VERITAS AI-OS] load error", ext, err); log("error", S.upload_error); try { URL.revokeObjectURL(url); } catch (e) {} };
     try {
-      if (ext === "fbx") fbxLoader.load(url, (obj) => { placeIntoScene(obj, name); URL.revokeObjectURL(url); }, undefined, onError);
-      else gltfLoader.load(url, (gltf) => { placeIntoScene(gltf.scene, name); URL.revokeObjectURL(url); }, undefined, onError);
+      if (ext === "fbx") fbxLoader.load(url, (obj) => { placeIntoScene(obj, name); URL.revokeObjectURL(url); attaccaAlProgetto(file, opzioni); }, undefined, onError);
+      else gltfLoader.load(url, (gltf) => { placeIntoScene(gltf.scene, name); URL.revokeObjectURL(url); attaccaAlProgetto(file, opzioni); }, undefined, onError);
     } catch (e) { onError(e); }
   }
+
+  // La strada del pulsante, aperta a chi deve rimettere in scena un modello
+  // che il progetto gia' aveva. ⚠️ E' l'UNICA strada consentita: passa dalla
+  // scala automatica. Vedi la trappola del `DataTransfer`, pagata il 01/09.
+  window.__veritasCaricaFile = loadFile;
 
   function buildUpload() {
     const wrap = document.createElement("div");
@@ -14151,7 +14581,7 @@ function showSplatNotice(html, ms) {
   setTimeout(() => notif.remove(), ms);
 }
 
-async function loadSplatFile(file) {
+async function loadSplatFile(file, opzioni) {
   const ext = fileExt(file.name);
   if (!SPLAT_EXTENSIONS.includes(ext)) {
     showSplatNotice('Formato non riconosciuto come Gaussian Splat: ' + ext);
@@ -14217,7 +14647,14 @@ async function loadSplatFile(file) {
       '<div style="margin-top:8px;font-size:11px;opacity:.8">' + critMsg + '</div>',
       7000
     );
-    if (window.__veritasSaveProject) { try { window.__veritasSaveProject(); } catch (e) {} }
+    // La nuvola e' in scena e analizzata: adesso il file appartiene al
+    // progetto — nome e peso sul server, byte nel deposito del browser — e il
+    // salvataggio delle tappe viene di conseguenza.
+    if (window.__veritasAttaccaModello) {
+      try { window.__veritasAttaccaModello(file, opzioni || {}); } catch (e) {}
+    } else if (window.__veritasSaveProject) {
+      try { window.__veritasSaveProject(); } catch (e) {}
+    }
   } catch (err) {
     console.error('[VAIO Splat] errore caricamento', err);
     showSplatNotice('Errore nel caricamento dello splat: ' + (err && err.message ? err.message : 'formato non valido'));
