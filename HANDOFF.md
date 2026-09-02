@@ -21,6 +21,8 @@
 | il progetto si porta dietro il suo spazio | ✅ **fatto e misurato** (`003c4a0`): riaperto un progetto, il modello e' tornato **da solo** dal browser, **147,3 × 82,2 m in pianta e 15,4 m di altezza** — cioe' dalla strada del pulsante, con la scala automatica |
 | la schermata d'apertura | ✅ **fatta** (`003c4a0`, `2fc7153`): ogni riga dice file, peso, quando e **se il modello c'e'**; una strada sola per entrare; si rinomina e si butta. Le righe vuote erano **175, non venti**, e **172** non hanno ne' modello ne' tappe |
 | l'interfaccia intera | 🔴 aperta il 02/09 — nuova sezione qui sotto |
+| gli ingressi arrivano al motore vero | ✅ **fatto e misurato** (`115dcab`): 10 profili di missione da 5 flussi, e col motore reale ACCETTATO i 28 passeggeri nascono **6 + 6 + 6 + 4 + 6** sui quattro accessi piu' la tappa Origine |
+| la barra di riproduzione | 🔴 **ferma a fotogramma 0 su 361** mentre la traiettoria ne ha 800 — nuova sezione qui sotto |
 
 👁️ **Visto a schermo da Raffaella, 02/09:** *«ho visto più flussi e passeggeri
 che arrivavano al terminal dall'aereo attraverso il tunnel (correttamente),
@@ -180,6 +182,76 @@ che e'», che e' la stessa regola del resto del progetto.
 
 Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
 di piano: e' il motivo per cui in pianta i nomi non compaiono.
+
+### ✅ GLI INGRESSI ARRIVANO AL MOTORE VERO — e la lezione che vale oltre oggi
+
+👁️ Raffaella, 02/09: *«rispetto a ieri abbiamo perso: un solo ingresso, non
+vede il parcheggio come accesso, non partono e non arrivano attraverso il
+tunnel. Oggi le vedo camminare in fila indiana, un comportamento sicuramente
+non umano.»*
+
+**Non era una regressione, ed e' stato misurato prima di toccare qualunque
+cosa.** Fra il commit in cui si vedevano i taxi (`6a75ddd`) e la testa di
+stamattina (`d21ac28`) il codice cambia di **zero righe**: due tentativi e i
+loro due annullamenti esatti, tutto il resto documento.
+
+⚠️ **Era la DOMANDA ZERO, e stavolta ci e' cascato il risultato invece della
+diagnosi.** Ieri Render dormiva e girava il generatore JS locale, che i flussi
+li usa. Oggi Render si e' svegliato, la sua traiettoria viene accettata, e **al
+motore vero i flussi non erano mai arrivati.**
+
+Misurato sulla pagina live, stesso modello e stesso progetto, spegnendo e
+riaccendendo il motore remoto senza toccare una riga:
+
+| motore reale | dove nascono i 28 passeggeri |
+|---|---|
+| spento | **14 punti** su tutti e quattro gli accessi + la tappa Origine |
+| acceso | **1 punto solo**: −55, −14 |
+
+**La causa:** `veritasNodesToGraph` costruisce il grafo per il Core Python
+dalle sole **tappe**. Gli ingressi misurati non sono tappe: vivono nei
+**flussi**. Con un solo gate la funzione ripiegava su otto profili
+`ingresso_v` che erano solo un ventaglio di otto punti a 1,2 m attorno alla
+prima tappa — otto file affiancate che partono dallo stesso posto e fanno lo
+stesso tronco. Da li' l'unico ingresso e la fila indiana.
+
+**Sistemato in `115dcab`:** ogni flusso diventa un profilo di missione con la
+sua entrata, il suo tronco e la sua uscita, presi da
+`window.__veritasFlussi.per` — **la stessa funzione del generatore locale**, e
+questa e' la parte che impedisce al difetto di tornare da un'altra porta: i due
+motori non possono piu' raccontare due edifici diversi. Il ventaglio non
+sparisce, si sposta: adesso e' **per flusso**, e le file sono tante quante
+bastano perche' ogni gruppo di agenti abbia il suo profilo.
+
+Esito misurato **col motore reale ACCETTATO**: 10 profili da 5 flussi, e i 28
+passeggeri nascono **6 all'Accesso 1, 6 all'Accesso 2, 6 all'Accesso 3 — quello
+dalla strada, i taxi —, 4 all'Accesso 4 da fuori, 6 alla tappa Origine**, su
+due quote (0,69 e 3,64 m).
+
+⚠️ **E una lezione sul log, che vale oltre oggi.** Il ponte stampava «posizioni
+inviate» prendendo i **primi quattro nodi del grafo**: erano sempre le stesse
+tappe nello stesso angolo, e dicevano la **identica cosa** sia quando le
+partenze erano una sola sia quando erano quattro. Un log che non distingue i
+due casi non e' una diagnostica, e' un rumore rassicurante. Adesso stampa **da
+dove parte ogni profilo di missione**.
+
+### 🔴 LA BARRA DI RIPRODUZIONE NON PARTE — misurato il 02/09
+
+Aperto il progetto col modello, premuto il **▶ PLAY** vero (quello del
+cartellino «Zone pronte», non la barra del bundle), e misurato subito dopo:
+`__veritasSimStarted` **true**, i 5 flussi **ci sono**, la traiettoria ha
+**800 fotogrammi** — e la barra a schermo resta su **«0.1s / 180s · FRAME
+0/361»**, con FLUSSO 0.000 e ATTIVI 0.
+
+E' quello che Raffaella ha chiamato «ora e' bloccato», ed e' un difetto **a
+valle** di tutto il resto: i dati della simulazione sono giusti e completi, e'
+la riproduzione che non li consuma. I 361 fotogrammi e i 180 secondi sono i
+numeri **del bundle**, non i nostri (800 fotogrammi): la barra sta ancora
+guardando la sua sequenza dimostrativa.
+
+⚠️ Da non confondere col difetto degli ingressi qui sopra: quello riguardava
+**dove nascono** i passeggeri, questo riguarda **se si muovono**. Sono due, e
+il secondo non e' stato toccato.
 
 ### 🔴 LA REVISIONE DELL'INTERFACCIA INTERA — chiesta da Raffaella il 02/09
 
