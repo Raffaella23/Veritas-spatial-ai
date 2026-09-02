@@ -22,7 +22,7 @@
 | la schermata d'apertura | ✅ **fatta** (`003c4a0`, `2fc7153`): ogni riga dice file, peso, quando e **se il modello c'e'**; una strada sola per entrare; si rinomina e si butta. Le righe vuote erano **175, non venti**, e **172** non hanno ne' modello ne' tappe |
 | l'interfaccia intera | 🔴 aperta il 02/09 — nuova sezione qui sotto |
 | gli ingressi arrivano al motore vero | ✅ **fatto e misurato** (`115dcab`): 10 profili di missione da 5 flussi, e col motore reale ACCETTATO i 28 passeggeri nascono **6 + 6 + 6 + 4 + 6** sui quattro accessi piu' la tappa Origine |
-| la barra di riproduzione | 🔴 **ferma a fotogramma 0 su 361** mentre la traiettoria ne ha 800 — nuova sezione qui sotto |
+| la barra di riproduzione | ✅ **fatto e misurato** (`9cc10bb`): da «0.1s / 180s · FRAME 0/361 · attivi 0» a **«6.6s / 400s · FRAME 13/800 · ATTIVI 28»**, e corre |
 
 👁️ **Visto a schermo da Raffaella, 02/09:** *«ho visto più flussi e passeggeri
 che arrivavano al terminal dall'aereo attraverso il tunnel (correttamente),
@@ -235,7 +235,7 @@ partenze erano una sola sia quando erano quattro. Un log che non distingue i
 due casi non e' una diagnostica, e' un rumore rassicurante. Adesso stampa **da
 dove parte ogni profilo di missione**.
 
-### 🔴 LA BARRA DI RIPRODUZIONE NON PARTE — misurato il 02/09
+### ✅ LA BARRA DI RIPRODUZIONE — chiusa il 02/09 (`9cc10bb`)
 
 Aperto il progetto col modello, premuto il **▶ PLAY** vero (quello del
 cartellino «Zone pronte», non la barra del bundle), e misurato subito dopo:
@@ -250,8 +250,41 @@ numeri **del bundle**, non i nostri (800 fotogrammi): la barra sta ancora
 guardando la sua sequenza dimostrativa.
 
 ⚠️ Da non confondere col difetto degli ingressi qui sopra: quello riguardava
-**dove nascono** i passeggeri, questo riguarda **se si muovono**. Sono due, e
-il secondo non e' stato toccato.
+**dove nascono** i passeggeri, questo riguarda **se si muovono**. Sono due
+difetti diversi, ed e' stato utile trattarli come due.
+
+**Le due cause, e nessuna delle due era la simulazione:**
+
+1. **la barra era stata messa in pausa da noi all'avvio** — apposta, e per una
+   ragione buona: senza quella pausa i passeggeri camminano sulle sei tappe
+   cablate dentro il bundle, di un aeroporto che non e' quello dell'utente,
+   prima ancora che un modello sia stato caricato. Il commento di quella pausa
+   diceva *«finche' non la riavvia l'utente dal bottone stesso o dal nostro
+   PLAY»*: **il nostro PLAY non l'ha mai riavviata.** Metteva a posto i dati,
+   toglieva il cartellino, e lasciava la barra ferma dov'era;
+2. **`traj.duration` restava a 180 s**, la lunghezza della sequenza
+   dimostrativa del bundle. `applyNodesToScene` sostituiva i fotogrammi e
+   lasciava la durata dov'era. La barra conta i fotogrammi dalla durata
+   (180 × 2 + 1 = **361**) davanti a 800 fotogrammi veri che arrivano a
+   **399,5 s**. Anche facendola ripartire, con la durata vecchia la corsa si
+   sarebbe fermata a meta' — e sarebbe sembrato un difetto ancora diverso.
+
+**Sistemato:** il PLAY fa ripartire la barra **dopo** `applyNodesToScene`, non
+prima (fatta ripartire prima correrebbe sui fotogrammi vecchi, cioe' su
+un'altra simulazione), e la durata si prende dai fotogrammi stessi invece che
+da un valore dichiarato.
+
+Il bottone si riconosce come quello della pausa, dalla geometria esatta
+dell'icona: il Play di lucide-react e' un solo
+`<polygon points="6 3 20 12 6 21 6 3">` senza rettangoli. E' **lo stesso
+bottone** che fa pausa, quindi quando lo mettiamo in pausa all'avvio ce lo
+teniamo. ⚠️ Prima di cliccare si guarda quale icona porta: se c'e' gia' la
+pausa la barra sta gia' correndo, e cliccarla la fermerebbe — lo stesso
+difetto al contrario.
+
+Esito misurato a schermo: da «0.1s / 180s · FRAME 0/361 · ATTIVI 0» a
+**«6.6s / 400s · FRAME 13/800 · ATTIVI 28»**, con l'icona di pausa sul
+bottone, cioe' in corsa.
 
 ### 🔴 LA REVISIONE DELL'INTERFACCIA INTERA — chiesta da Raffaella il 02/09
 
