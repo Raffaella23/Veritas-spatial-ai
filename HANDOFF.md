@@ -114,19 +114,44 @@ marcava sette, e sei erano pannelli e banconi interni — lunghi ma sottili.
 **52 muri in tutto il modello, che non chiudono nessuna cella**. Su uno spaccato
 il fuori lo dicono solo le cose che ci stanno.
 
-### Il lavoro numero uno adesso
+### Il lavoro numero uno adesso: IL PROGETTO SI PORTA DIETRO IL SUO SPAZIO
 
-**Il livello come campo della tappa** e i nomi accoppiati a parita' di piano: e'
-il motivo per cui in pianta i nomi non compaiono.
+Prima di tutto il resto, e per due ragioni che vanno nella stessa direzione: e'
+un buco di prodotto che si vede subito, ed e' quello che oggi ha reso ogni
+verifica a meta' — senza modello sulla pagina non si misura niente, e il giro di
+comprensione dura minuti.
 
-⚠️ **Un intoppo da sistemare, visto il 02/09:** aprendo un progetto dal
-selettore il suo modello **non si ricarica** — il caricatore automatico prova
-`./airport.glb`, `./Assets/models/airport.glb`, `./veritas_airport.glb`, tutti
-404, mentre il file nel repo si chiama `airport_foot_traffic.glb`. Ogni tanto il
-modello torna, ogni tanto no, e senza modello non si verifica niente sulla
-pagina. Nel frattempo si misura in locale sul GLB: **la parte JSON di un glTF
-porta gia' gli ingombri e le matrici dei nodi**, quindi non serve nemmeno three
-— lo script sta in `scratchpad/leggi_glb.mjs` e si rifa' in venti righe.
+Due meta', e la seconda e' una decisione di Raffaella perche' costa spazio:
+1. **il ritorno immediato**: la pagina ricorda l'ultimo modello aperto (in
+   locale, nel browser) e lo rimette quando si riapre lo stesso progetto. Non
+   costa niente e chiude il giro di verifica;
+2. **il progetto vero**: il file sta col progetto, e chi lo riapre da un'altra
+   macchina ritrova il suo edificio. Qui c'e' da decidere dove tenerlo e quanto
+   pesa (questo GLB e' 19 MB).
+
+Subito dopo: **il livello come campo della tappa** e i nomi accoppiati a parita'
+di piano: e' il motivo per cui in pianta i nomi non compaiono.
+
+### 🔴 UN PROGETTO SALVATO NON CONTIENE IL SUO MODELLO — misurato il 02/09
+
+Detto da Raffaella dopo aver guardato che cosa viene salvato davvero: **un
+progetto porta tappe, telecamere e parametri, e basta. Non c'e' nessun campo che
+dica quale file sia.**
+
+⚠️ Questo **cancella** la spiegazione scritta qui prima, ed era sbagliata: non e'
+il caricatore automatico che cerca tre nomi di file inesistenti
+(`./airport.glb`, `./Assets/models/airport.glb`, `./veritas_airport.glb` — quelli
+sono un residuo, e c'e' gia' del codice apposta che li spegne). **Il modello non
+torna perche' al progetto non e' mai stato attaccato.** Quando tornava, era la
+cache del browser, non il progetto: ecco perche' ogni tanto c'era e ogni tanto no.
+
+E non e' un fastidio da sviluppo. Un progetto di gemello digitale che non
+contiene il suo spazio non e' un progetto: si riapre e l'edificio non c'e'. Lo
+vede il primo cliente prima di noi.
+
+Nel frattempo, per misurare senza pagina: **la parte JSON di un glTF porta gia'
+gli ingombri e le matrici dei nodi**, quindi non serve nemmeno three — lo script
+sta in `scratchpad/leggi_glb.mjs` e si rifa' in venti righe.
 
 ---
 
