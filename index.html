@@ -860,9 +860,10 @@
       // Da qui "la simulazione parte da sola, prima ancora di caricare il
       // modello", segnalato il 18/08.
       //
-      // Ora si parte da un posto solo: il bottone ▶ PLAY di
-      // veritasShowPlayReady(), che compare quando c'e' un modello vero e le
-      // sue zone sono state assegnate. Un bottone che dice "apri" apre.
+      // Ora si parte da un posto solo: il bottone «▶ Avvia simulazione» di
+      // veritasMontaAvvioNellaBarra(), che sta dentro la barra in basso e
+      // compare quando lo spazio e' stato MISURATO davvero (modello caricato e
+      // navmesh costruita su di lui). Un bottone che dice "apri" apre.
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
@@ -6068,24 +6069,67 @@
   // si puo' rivedere/spostare i punti prima di avviare la simulazione.
   if (typeof window.__veritasSimStarted === "undefined") window.__veritasSimStarted = false;
 
-  function veritasShowPlayReady() {
+  // ============================================================
+  // IL ▶ CHE AVVIA STA NELLA BARRA, ACCANTO A QUELLO CHE FA SCORRERE
+  //
+  // Prima era un cartellino verde «✅ Zone pronte» appoggiato sopra il
+  // modello, e diceva una cosa falsa. 👁️ Raffaella, 02/09: *«esce
+  // immediatamente, credo si possa eliminare, e non e' veritiero»*. Aveva
+  // ragione, e la causa e' precisa: compariva appena c'erano due tappe, e
+  // all'apertura ce ne sono gia' sei — quelle cablate dentro il bundle, di un
+  // aeroporto che non e' quello dell'utente. Annunciava pronte delle zone che
+  // nessuno aveva misurato.
+  //
+  // Adesso due cose insieme:
+  //   1. UN POSTO SOLO PER FAR PARTIRE. Il bottone si monta dentro la barra in
+  //      basso, accanto al ▶ del bundle. Sono due gesti diversi e vicini: il
+  //      ▶ del bundle fa scorrere i fotogrammi, questo COSTRUISCE la
+  //      simulazione su questo spazio e poi la fa scorrere. Sopra il modello
+  //      non resta niente;
+  //   2. COMPARE SOLO QUANDO E' VERO. Non basta avere delle tappe: ci vuole un
+  //      modello E la navmesh costruita su di lui. La navmesh non puo'
+  //      esistere per le tappe demo, perche' si fa dalla geometria caricata:
+  //      e' la prova che lo spazio e' stato misurato davvero.
+  // ============================================================
+  function veritasSpazioMisurato() {
+    const nm = window.__veritasNavmeshEsito;
+    return !!(window.__veritasModelRoot && currentNodes && currentNodes.length >= 2 && nm && nm.ok);
+  }
+
+  function veritasMontaAvvioNellaBarra() {
     if (window.__veritasSimStarted) return;
-    if (document.getElementById("veritas-play-ready")) return;
-    const badge = document.createElement("div");
-    badge.id = "veritas-play-ready";
-    badge.style.cssText = "position:fixed;right:20px;bottom:96px;z-index:9000;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border:1px solid rgba(0,255,136,0.4);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;color:#cbd5e1;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
-    badge.innerHTML = '<span style="font-size:12px;">✅ Zone pronte</span><button id="veritas-play-ready-btn" style="background:#00ff88;color:#000;border:none;border-radius:8px;padding:8px 16px;font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap;">▶ PLAY</button>';
-    document.body.appendChild(badge);
-    document.getElementById("veritas-play-ready-btn").onclick = () => {
+    if (document.getElementById("veritas-avvia")) return;
+    if (!veritasSpazioMisurato()) return;
+    // Lo stesso bottone del bundle, qualunque icona porti adesso: e' il punto
+    // della barra accanto a cui vogliamo stare.
+    const vicino = veritasFindBundlePlayButton() || veritasFindBundlePauseButton()
+      || (veritasBundleTimelineBtn && document.contains(veritasBundleTimelineBtn) ? veritasBundleTimelineBtn : null);
+    if (!vicino || !vicino.parentElement) return;
+    const b = document.createElement("button");
+    b.id = "veritas-avvia";
+    b.type = "button";
+    b.title = "Costruisce la simulazione su questo spazio e la fa partire";
+    b.textContent = "▶ Avvia simulazione";
+    b.style.cssText = "margin-left:12px;background:#00ff88;color:#000;border:none;border-radius:8px;"
+      + "padding:8px 14px;font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap;"
+      + "font-family:'JetBrains Mono',monospace;flex:none;";
+    b.onclick = () => {
       window.__veritasSimStarted = true;
       veritasApplyPassengerScale(); // i gruppi possono essere nati prima del progetto
-      badge.remove();
+      b.disabled = true;
+      b.style.opacity = "0.6";
+      b.textContent = "▶ Avvio…";
       // ⚠️ La barra si fa ripartire DOPO, non prima: applyNodesToScene rifa'
       // i fotogrammi e la durata, e una barra fatta ripartire adesso
-      // correrebbe su quelli vecchi. Un bottone che dice «play» deve far
+      // correrebbe su quelli vecchi. Un bottone che dice «avvia» deve far
       // partire QUESTA simulazione, non quella di prima.
-      Promise.resolve(applyNodesToScene()).then(veritasResumeBundleTimeline);
+      Promise.resolve(applyNodesToScene()).then(() => {
+        veritasResumeBundleTimeline();
+        b.remove();
+      });
     };
+    vicino.parentElement.insertBefore(b, vicino.nextSibling);
+    console.log("[VERITAS] avvio simulazione montato nella barra di riproduzione");
   }
 
   // I passeggeri venivano animati dal bundle fin da subito (loop ambientale
@@ -6217,18 +6261,17 @@
 
   setInterval(() => {
     veritasAutoPauseBundleTimeline();
-    const badge = document.getElementById("veritas-play-ready");
+    const avvia = document.getElementById("veritas-avvia");
     if (window.__veritasSimStarted) {
-      if (badge) badge.remove();
+      if (avvia) avvia.remove();
       veritasSetPassengersVisible(true);
       return;
     }
     veritasSetPassengersVisible(false);
-    // Il badge deve comparire solo dopo che un vero modello .glb e' stato
-    // caricato e le sue zone auto-assegnate - non per i nodi demo/seed
-    // (currentNodes puo' gia' contenere placeholder di esempio prima che
-    // l'utente carichi qualcosa, vedi seedNodesIfNeeded()).
-    if (window.__veritasModelRoot && currentNodes && currentNodes.length >= 2 && !badge) veritasShowPlayReady();
+    // Si riprova a ogni giro perche' la barra e' del bundle: se React la
+    // ridisegna, il bottone se ne va con lei e va rimesso. `veritasSpazioMisurato`
+    // dice se e' il caso — e finche' non lo e', a schermo non compare niente.
+    veritasMontaAvvioNellaBarra();
   }, 800);
 
   // force: ricalcola i frame anche a simulazione non avviata. Serve al
@@ -13039,6 +13082,15 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     #vaio-status{display:flex;align-items:center;gap:7px;font-size:11px;color:#a1a1a6;margin-left:10px;padding-left:10px;border-left:1px solid rgba(255,255,255,.12);}
     #vaio-status .vdot{width:6px;height:6px;border-radius:50%;background:#8e8e93;transition:background .3s;flex-shrink:0;}
     #vaio-status.ok .vdot{background:#34c759;} #vaio-status.warm .vdot{background:#ff9f0a;} #vaio-status.off .vdot{background:#ff453a;}
+    /* 👁️ Raffaella, 02/09: «l'avviso in alto si sovrappone a dei tasti che non
+       si vedono e non so cosa siano». Erano le linguette del bundle sotto la
+       pillola: «Motore in risveglio (30-60s, piano gratuito)» scritto per
+       esteso la allarga fino a coprirle. Il pallino colorato resta sempre —
+       verde, arancio, rosso — e la frase si legge passandoci sopra, o dal
+       titolo del riquadro per chi non usa il mouse. L'informazione non si
+       perde: smette di stare davanti a qualcos'altro. */
+    #vaio-status-txt{display:none;}
+    #vaio-brand:hover #vaio-status-txt{display:inline;}
 
     #vaio-toolbar{display:flex;gap:8px;pointer-events:auto;}
     #vaio-toolbar button{background:rgba(14,14,16,.5);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
@@ -13201,7 +13253,11 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   let cadVisible = false;
 
   // Bottoni nativi che duplicano voci gia' presenti nella topbar.
-  const NATIVE_BUTTON_IDS = ["veritas-report-btn", "veritas-play-ready-btn"];
+  // ⚠️ Qui c'era anche "veritas-play-ready-btn", che pero' non era un bottone
+  // nativo del bundle: era il nostro PLAY, e finiva nascosto insieme ai
+  // doppioni. Adesso l'avvio sta nella barra in basso e si chiama
+  // "veritas-avvia": non e' un doppione di niente e non va nascosto.
+  const NATIVE_BUTTON_IDS = ["veritas-report-btn"];
 
   // Chrome del bundle da rimuovere: intestazione nativa (che si sovrapponeva
   // alla nostra topbar), overlay "trascina qui il GLB" (duplica il nostro
@@ -13669,15 +13725,20 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       const base = window.__veritasApiBase;
       const pill = byId("vaio-status"), txt = byId("vaio-status-txt");
       if (!pill || !txt) return;
-      if (!base) { pill.className = "off"; txt.textContent = S.status_off; return; }
+      // Il testo lo si legge passandoci sopra (vedi #vaio-status-txt nel CSS):
+      // il pallino resta sempre, e il titolo dice la stessa cosa a chi non
+      // usa il mouse. Scritto per esteso, quella riga allargava la pillola
+      // fino a coprire i tasti del bundle che ci stanno sotto.
+      const di = (t) => { txt.textContent = t; pill.title = t; };
+      if (!base) { pill.className = "off"; di(S.status_off); return; }
       try {
         const ctrl = new AbortController();
         const to = setTimeout(() => ctrl.abort(), 6000);
         const res = await fetch(base + "/health", { signal: ctrl.signal });
         clearTimeout(to);
-        if (res.ok) { pill.className = "ok"; txt.textContent = S.status_ok; }
-        else { pill.className = "warm"; txt.textContent = S.status_warm; }
-      } catch (e) { pill.className = "warm"; txt.textContent = S.status_warm; }
+        if (res.ok) { pill.className = "ok"; di(S.status_ok); }
+        else { pill.className = "warm"; di(S.status_warm); }
+      } catch (e) { pill.className = "warm"; di(S.status_warm); }
     }
     ping(); setInterval(ping, 25000);
   }
@@ -13749,7 +13810,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       // poi "rigenera". `vs-start-btn` apre soltanto lo spazio di lavoro e non
       // avvia niente: chiedere "avvia" e vedersi aprire un pannello sarebbe
       // una risposta che non risponde.
-      if (!clickIfExists("veritas-play-ready-btn")) { if (!clickIfExists("vp-regen")) log("system", S.no_model); }
+      if (!clickIfExists("veritas-avvia")) { if (!clickIfExists("vp-regen")) log("system", S.no_model); }
       return;
     }
     if (/\b(rigenera|regenerate|aggiorna simulazione)\b/.test(t)) {
