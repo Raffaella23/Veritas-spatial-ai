@@ -9,7 +9,7 @@
 
 **Il progetto adesso si porta dietro il suo spazio, i passeggeri entrano da
 tutti gli ingressi, e la simulazione corre.** Quattordici commit, tutti su
-`main`, testa **`f900f50`**.
+`main`, testa **`abaf293`**.
 
 | pezzo | stato |
 |---|---|
@@ -37,7 +37,7 @@ tutti gli ingressi, e la simulazione corre.** Quattordici commit, tutti su
 | `2406014` | l'elenco si può davvero ripulire, e il caricatore è uno solo |
 | `5983337` | l'inventario dell'interfaccia: sei voci guardate una per una |
 | `f900f50` | la finestra dell'occhio mostra, non chiacchiera; e tre avvisi diventano uno |
-| `(ultimo)` | i quattro numeri sono nostri e dicono perché non rispondono |
+| `abaf293` | i quattro numeri sono nostri e dicono perché non rispondono |
 
 ### Le cinque lezioni della sera, che valgono oltre stasera
 
