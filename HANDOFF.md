@@ -368,6 +368,56 @@ Le quattro cose da fare, in ordine:
 Semplificare qui non vuol dire togliere funzioni, vuol dire non mostrarle tutte
 nello stesso momento.
 
+#### L'inventario del 02/09 — sei voci guardate una per una
+
+👁️ Raffaella, riepilogando: *«con tutte le cautele, ma dobbiamo ripulire la UI
+e avere solo parti collegate e funzionanti»*. E' il criterio, ed e' piu' stretto
+di «semplificare»: **ogni cosa a schermo deve rispondere a una domanda che
+qualcuno si fa davvero, ed essere attaccata a qualcosa che funziona.** Una cosa
+che non risponde a niente non si abbellisce: si toglie.
+
+| | cosa | stato |
+|---|---|---|
+| 1 | l'elenco lunghissimo non si riusciva a ripulire | ✅ chiuso (`2406014`) — la cancellazione andava in una richiesta sola, indirizzo troppo lungo |
+| 2 | «carica il file» compariva due volte | ✅ chiuso (`2406014`) — uno solo per volta, quello che sta chiedendo |
+| 3 | **FLUSSO, TRANSITO, ATTIVI, SATURAZIONE restano sempre a zero** | 🔴 aperto |
+| 4 | **la pillola VERITAS copre ancora le linguette** | 🔴 aperto |
+| 5 | **i «pannelli avanzati»: iniziali, doppioni, o ornamentali** | 🔴 aperto |
+| 6 | **le domande dell'occhio in un riquadro di suo** | 🔴 aperto |
+
+**3 — i quattro riquadri a zero.** 👁️ *«a cosa servono, rimangono sempre
+così»*. Sono i KPI della simulazione, e restano a zero finche' nessun agente
+completa il percorso: il flusso e' «quanti arrivano al secondo», il transito e'
+la media di chi e' arrivato. A simulazione ferma, o nei primi secondi, sono
+onestamente zero. ⚠️ Ma **un numero che e' sempre zero non si distingue da un
+numero rotto**, ed e' il difetto: non dicono se sono zero perche' e' presto,
+perche' la simulazione non e' partita, o perche' non li sa calcolare. Devono
+dire **quale delle tre**.
+
+**4 — la sovrapposizione non e' finita.** La pillola adesso e' stretta (solo il
+pallino) ma sta ancora **sopra** la fila delle linguette del bundle: e' appesa a
+`top:16px`, la stessa riga. Ridurla e' servito, spostarla no: va **sotto** quella
+riga, o le linguette vanno spostate. ⚠️ Da misurare con la pagina davanti, non a
+occhio: sotto ci sono anche «GLOBAL · Top Down 80m» e «CONTROLLO · Dettaglio
+Varco», e spostando alla cieca si copre un'altra cosa.
+
+**5 — i pannelli avanzati.** Vanno guardati uno per uno e divisi in tre mucchi:
+quelli **iniziali** (nati da una sessione vecchia e mai piu' usati), i
+**doppioni** (la stessa cosa gia' raggiungibile altrove) e gli **ornamentali**
+(non attaccati a niente). I primi due si tolgono, il terzo si toglie o si
+collega. ⚠️ «Con cautela»: prima di togliere si guarda **chi lo chiama**, perche'
+un riquadro muto puo' essere l'unica strada verso una funzione viva.
+
+**6 — le domande dell'occhio non vanno in una finestra.** 👁️ *«queste domande in
+questa finestra sono inutili, e invece serve avere la chat con AI in linguaggio
+naturale funzionante»*. Oggi il riquadro «quello che vedo» fa domande
+(«GUARDA LA FIGURA: i nomi stanno sopra le cose giuste?») a cui **in quella
+finestra non si puo' rispondere**, e accanto dice «giro 1 · 0 scatole viste» e
+«il cervello non ha risposto: Failed to fetch». Sono una **conversazione**, e
+vanno nella chat — che pero' deve funzionare davvero, non essere un'altra
+casella muta. ⚠️ Questa non e' ripulitura: e' la chat interrogabile, e si appoggia
+al **taccuino** (punto 6 delle priorita'). Le due cose vanno insieme.
+
 ### 📌 LE PROVE VIAGGIANO COL RISULTATO — promesso in pubblico il 02/09
 
 Il 02/09 il risultato di oggi e' stato pubblicato, e un commento tecnico
