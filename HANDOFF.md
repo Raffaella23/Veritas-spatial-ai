@@ -1154,7 +1154,39 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    | 🟡 5 | l'evitamento vero fra le persone al posto del serpeggio finto |
    | 🟡 6 | il taccuino, cioè il referto interrogabile |
    | 🟠 7 | **la revisione dell'interfaccia intera** — pannelli laterali che si aprono a richiesta, comandi legati a quello che si sta facendo (dettaglio nel blocco del 02/09) |
-   | 🟠 8 | **il passeggero passa DENTRO il varco, non accanto** — le tappe si toccano, il filtro va attraversato (dettaglio nel blocco del 02/09) |
+   | ✅ 8 | il passeggero passa DENTRO il varco, non accanto — chiuso il 03/09, dettaglio nel blocco del giorno |
+   | 🔴 9 | **le zone riconosciute non seguono la forma intera, e i nomi si ripetono a metà** — vista il 03/09, dettaglio sotto |
+
+### 🔴 LE ZONE NON SEGUONO LA FORMA INTERA, I NOMI SI RIPETONO A META' — visto il 03/09
+
+👁️ Raffaella, controllando come il programma ha capito le zone: *«non sono
+messe alla perfezione, anche i nomi che ha dato spesso sono generici — ad
+esempio "attesa" è corretto, ma lo ha messo solo in corrispondenza di una
+delle sequenze di sedie, le altre no»*. Cioè: il tipo riconosciuto è giusto
+(sedute in fila → "Attesa"), ma quando nel modello ci sono **più aree
+separate** con la stessa funzione, il programma ne nomina solo una e lascia
+le altre senza nome — o le chiama in modo generico, non legato a cosa
+c'è davvero li'.
+
+**Cosa ha chiesto:** l'attribuzione delle zone deve o **seguire la forma
+di tutta l'area dedicata** (non fermarsi a un cluster e ignorare il resto
+della stessa area), oppure, se sono davvero aree separate, **ripetersi**:
+ogni area con la stessa funzione ha il suo nome (Attesa 1, Attesa 2...),
+non una sola battezzata e le altre mute.
+
+⚠️ Non ancora diagnosticato a livello di codice — solo visto a schermo.
+Prima di correggere va capito DOVE nella pipeline il nome smette di
+propagarsi: se in `veritas_cose.js` (`mucchi`/`posti`, che già raggruppa
+per vicinanza — vedi §4) o più a monte, in come i mucchi vengono poi
+etichettati.
+
+**E si lega alla chat.** 👁️ *«nella chat è proprio il luogo in cui l'AI deve
+chiarirsi eventuali dubbi — magari manda delle notifiche e l'utente
+risponde»*. Quando il programma non è sicuro (due aree potrebbero essere la
+stessa zona spezzata in due, o due zone davvero diverse) non deve
+indovinare in silenzio: deve **chiederlo**, nella chat, e la risposta di
+chi guarda corregge il risultato. È la stessa chat interrogabile del punto
+6 (il taccuino) — non una funzione a parte.
 
 1-bis. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
