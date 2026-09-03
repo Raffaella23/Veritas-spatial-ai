@@ -13463,7 +13463,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
     @media (max-width:640px){
       #vaio-console{bottom:104px;width:96vw;} #vaio-upload-wrap{bottom:104px;left:8px;}
-      #vaio-topbar{left:8px;right:8px;top:8px;flex-wrap:wrap;gap:8px;}
+      #vaio-topbar{left:8px;right:8px;flex-wrap:wrap;gap:8px;}
       #vaio-onboard{display:none;}
     }
   `;
@@ -13626,6 +13626,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       </div>
     `;
     root.appendChild(bar);
+    veritasPositionTopbar();
 
     function wireMenu(btnId, menuId) {
       const btn = byId(btnId), menu = byId(menuId);
@@ -13682,6 +13683,26 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       applyCadVisibility();
     };
   }
+
+  // La pillola VERITAS e' position:fixed sopra al canvas. Sotto i 1024px
+  // (breakpoint "lg" del bundle) spunta anche la sua fila nativa di tab
+  // telecamera (Global, Varco 3D, ...), in flusso normale in cima alla
+  // pagina: la pillola ci finiva sopra. Si misura l'altezza vera di quella
+  // fila invece di indovinare un numero fisso, perche' va su due righe
+  // sotto una certa larghezza e la soglia dipende da quanti preset ha il
+  // modello caricato.
+  function veritasPositionTopbar() {
+    const bar = byId("vaio-topbar");
+    if (!bar) return;
+    const camTabs = [...document.querySelectorAll("div")].find(
+      (d) => typeof d.className === "string" && d.className.includes("lg:hidden") && d.className.includes("flex-wrap")
+    );
+    const r = camTabs ? camTabs.getBoundingClientRect() : null;
+    bar.style.top = r && r.height > 0 ? r.bottom + 8 + "px" : "";
+  }
+  veritasPositionTopbar();
+  setInterval(veritasPositionTopbar, 1000);
+  window.addEventListener("resize", veritasPositionTopbar);
 
   // --- Vista in prima persona -------------------------------------------
   // Cosa vede l'agente con i propri occhi, non dall'alto. Va accanto ai
