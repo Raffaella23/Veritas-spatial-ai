@@ -2509,6 +2509,7 @@
         const from = posUsate[s], to = posUsate[s + 1];
         const via = findRoute(from, to); // array di posizioni intermedie + destinazione finale
         let prev = from;
+        const idxPrimaDiQuiTratto = expanded.length - 1, cumPrimaDiQuiTratto = cum;
         for (const wp of via) {
           for (const dp0 of densifySegment(prev, wp, MAX_SEG_LEN)) {
             const dp = snapToFloor(dp0);
@@ -2517,28 +2518,37 @@
             prev = dp;
           }
         }
-        // Senza soglia (nodo senza forma misurata) si tiene la vecchia prova
-        // approssimata: raggiunto il nodo, si conta come passato.
-        if (rawNodes[s + 1].type === "filtro" && !soglie[s + 1]) securityAt = cum;
-      }
-
-      // Con la soglia, la prova non e' "il percorso ha toccato il punto che
-      // ho scelto sopra" — quel punto e' solo dove si MIRA. La prova e' che
-      // il percorso disegnato abbia davvero INCROCIATO la soglia: si scandisce
-      // la spezzata gia' costruita e si cerca l'incrocio coi due capi. Trovato
-      // o no, sostituisce il valore approssimato per questa tappa: non si
-      // somma, e' la verita' su di lei.
-      for (let i = 0; i < rawNodes.length; i++) {
-        if (!soglie[i]) continue;
-        let percorsa = 0, trovato = null;
-        for (let k = 1; k < expanded.length; k++) {
-          const a = expanded[k - 1].pos, b = expanded[k].pos;
-          const segLen = Math.hypot(b[0] - a[0], b[2] - a[2]);
-          const t = segmentoIncrocia(a, b, soglie[i].capo1, soglie[i].capo2);
-          if (t !== null) { trovato = percorsa + t * segLen; break; }
-          percorsa += segLen;
+        if (rawNodes[s + 1].type === "filtro") {
+          const soglia = soglie[s + 1];
+          if (!soglia) {
+            // Senza soglia (nodo senza forma misurata) si tiene la vecchia
+            // prova approssimata: raggiunto il nodo, si conta come passato.
+            securityAt = cum;
+          } else {
+            // Con la soglia, la prova non e' "il percorso ha toccato il
+            // punto scelto sopra" — quel punto e' solo dove si MIRA. La
+            // prova e' che il TRATTO APPENA PERCORSO (l'arrivo a questo
+            // filtro, e solo quello) abbia davvero incrociato la soglia.
+            // ⚠️ Si guarda solo questo tratto, non l'intero percorso: la
+            //    soglia e' una retta bloccata a un segmento, ma resta pur
+            //    sempre una retta — un tratto lontano del cammino puo'
+            //    incrociarla per puro caso geometrico, senza che li' ci sia
+            //    nessun varco. Misurato il 03/09: cercando su tutto il
+            //    percorso, l'incrocio trovato per primo cadeva a meta'
+            //    dell'avvicinamento all'accoglienza, a undici metri dal
+            //    filtro vero — e l'agente, mandato a quella distanza
+            //    lungo il cammino, appariva teletrasportato altrove.
+            let percorsa = cumPrimaDiQuiTratto, trovato = null;
+            for (let k = idxPrimaDiQuiTratto + 1; k < expanded.length; k++) {
+              const a = expanded[k - 1].pos, b = expanded[k].pos;
+              const segLenLoc = Math.hypot(b[0] - a[0], b[2] - a[2]);
+              const t = segmentoIncrocia(a, b, soglia.capo1, soglia.capo2);
+              if (t !== null) { trovato = percorsa + t * segLenLoc; break; }
+              percorsa += segLenLoc;
+            }
+            securityAt = trovato;
+          }
         }
-        securityAt = trovato;
       }
 
       // Quali punti del percorso NON stanno su una superficie calpestabile.
