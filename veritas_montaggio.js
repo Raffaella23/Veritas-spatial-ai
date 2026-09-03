@@ -62,7 +62,10 @@ import "./veritas_manuale.js";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js";
-import { anteprima } from "./veritas_anteprima.js";
+// ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
+// esterno ha la sua cache, e senza numero nuovo arriva quello di prima
+// anche con index.html rinfrescato (trappola pagata il 02/09).
+import { anteprima } from "./veritas_anteprima.js?v=2";
 import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.

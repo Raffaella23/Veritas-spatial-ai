@@ -99,12 +99,26 @@ export function anteprima(doc, opz = {}) {
 
   const radice = doc.createElement("div");
   radice.id = "veritas-anteprima";
+  // ⚠️ DOVE STA, e perche' non e' un dettaglio.
+  //
+  // Stava in basso a destra (bottom:16) con z-index 99999: cioe' sopra la barra
+  // del tempo e sopra i quattro riquadri dei numeri, e sopra qualunque altra
+  // cosa. 👁️ Raffaella, 02/09: «il posizionamento deve essere
+  // controllato, non deve sovrapporsi ad altri elementi».
+  //
+  // La regola in questo progetto e' gia' scritta, in index.html accanto al
+  // dock: «i comandi stanno tutti a sinistra e i pannelli si aprono a destra».
+  // Questo e' un pannello, quindi sta nella colonna di destra sotto la barra
+  // dei comandi. E lo z-index scende da 99999 a 9100: sopra il pannello dei
+  // punti, sotto gli avvisi e sotto i dati di progetto. Rincorrere gli z-index
+  // e' come si e' arrivati a 99999.
   radice.style.cssText = [
-    "position:fixed", "right:16px", "bottom:16px", "width:520px", "z-index:99999",
+    "position:fixed", "right:16px", "top:64px", "width:min(440px,38vw)",
+    "max-height:calc(100vh - 96px)", "overflow:auto", "z-index:9100",
     "background:" + COLORI.sfondo, "color:" + COLORI.testo,
     "border:1px solid " + COLORI.bordo, "border-radius:10px",
     "font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace",
-    "box-shadow:0 8px 32px rgba(0,0,0,.5)", "overflow:hidden",
+    "box-shadow:0 8px 32px rgba(0,0,0,.5)",
   ].join(";");
 
   // --- intestazione, con apri/chiudi ---------------------------------------
@@ -160,7 +174,21 @@ export function anteprima(doc, opz = {}) {
   diario.style.cssText = "max-height:150px;overflow-y:auto;padding-top:6px;"
     + "border-top:1px solid " + COLORI.bordo + ";color:" + COLORI.tenue;
 
-  corpo.append(barraViste, tela, interruttori, diario);
+  // ⚠️ IL DIARIO NON SI APPENDE PIU', ed e' voluto.
+  //
+  // 👁️ Raffaella, 02/09: «le domande dell'occhio servono, ma
+  // l'utente non le deve vedere: un conto e' il dato che serve all'AI, un conto
+  // e' quello che facciamo vedere all'utente». Le domande sono il ragionamento
+  // in corso — «GUARDA LA FIGURA: i nomi stanno sopra le cose giuste?» — e in
+  // questa finestra non c'e' modo di rispondere: chi legge si confonde e basta.
+  //
+  // L'elemento resta VIVO e continua a ricevere tutto: chi scrive nel diario
+  // non cambia una riga, e da console si legge con
+  // `window.__veritasDiarioOcchio.textContent`. Cambia solo che non sta a
+  // schermo. Le immagini, gli interruttori e il selettore delle viste restano
+  // dov'erano: sono cio' che l'occhio VEDE, e quello si guarda.
+  corpo.append(barraViste, tela, interruttori);
+  if (typeof window !== "undefined") window.__veritasDiarioOcchio = diario;
   radice.append(testa, corpo);
   (doc.body || doc.documentElement).appendChild(radice);
   aggiornaScelta();

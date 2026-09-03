@@ -156,6 +156,7 @@
       empty_sweep: (n) => `${n} progetti senza spazio e senza tappe · buttali tutti`,
       empty_sweep_confirm: (n) => `Butto via ${n} progetti che non hanno né un modello né una tappa?\n\nQuelli con dentro qualcosa restano. Non si torna indietro.`,
       empty_sweep_progress: (f, n) => `buttati ${f} su ${n}…`,
+      delete_denied: "Il database non ha cancellato niente: mancano i permessi di cancellazione su questa tabella. Non è un problema della pagina — va aperto il permesso su Supabase.",
       type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
       type_sosta: "Sosta", type_destinazione: "Destinazione",
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
@@ -263,6 +264,7 @@
       empty_sweep: (n) => `${n} projects with no space and no points · delete them all`,
       empty_sweep_confirm: (n) => `Delete ${n} projects that have neither a model nor a point?\n\nThose with something in them stay. This cannot be undone.`,
       empty_sweep_progress: (f, n) => `deleted ${f} of ${n}…`,
+      delete_denied: "The database deleted nothing: this table has no delete permission. It is not a page problem — the permission has to be opened in Supabase.",
       type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
       type_sosta: "Sosta", type_destinazione: "Destination",
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
@@ -687,14 +689,28 @@
         let fatti = 0;
         for (let i = 0; i < ids.length; i += MAZZO) {
           const mazzo = ids.slice(i, i + MAZZO);
-          const { error: errScopa } = await sb.from("projects").delete().in("id", mazzo);
+          // ⚠️ `.select("id")` NON e' un vezzo: senza, una cancellazione che il
+          // database rifiuta per permessi torna indietro SENZA ERRORE e con
+          // zero righe toccate. Il codice diceva «fatto», l'elenco restava
+          // identico, e a schermo sembrava che il bottone non funzionasse —
+          // e' esattamente cosi' che questo difetto e' sopravvissuto a una
+          // correzione. Con `.select()` sappiamo quante ne sono uscite
+          // davvero, e se sono zero lo diciamo invece di far finta.
+          const { data: usciti, error: errScopa } = await sb
+            .from("projects").delete().in("id", mazzo).select("id");
           if (errScopa) {
             alert(errScopa.message);
             scopa.textContent = t("empty_sweep", vuoti.length - fatti);
             showProjects();
             return;
           }
-          fatti += mazzo.length;
+          if (!usciti || !usciti.length) {
+            alert(t("delete_denied"));
+            scopa.textContent = t("empty_sweep", vuoti.length - fatti);
+            showProjects();
+            return;
+          }
+          fatti += usciti.length;
           scopa.textContent = t("empty_sweep_progress", fatti, ids.length);
           if (dep) { for (const id of mazzo) { try { await dep.butta(id); } catch (e) {} } }
         }
@@ -771,8 +787,12 @@
   async function buttaProgetto(p) {
     if (!p) return;
     if (!window.confirm(t("delete_confirm", p.name || ""))) return;
-    const { error } = await sb.from("projects").delete().eq("id", p.id);
+    // Stessa ragione della cancellazione in blocco: senza `.select()` un
+    // rifiuto per permessi e' indistinguibile da un successo.
+    const { data: usciti, error } = await sb
+      .from("projects").delete().eq("id", p.id).select("id");
     if (error) { alert(error.message); return; }
+    if (!usciti || !usciti.length) { alert(t("delete_denied")); return; }
     // Il modello se ne va col progetto: 19 MB legati a una chiave che non
     // esiste piu' resterebbero nel browser per sempre.
     const dep = await deposito();
@@ -887,6 +907,10 @@
       overlay.classList.add("hidden");
       bootDone();
       injectReportButton();
+      // Da qui in poi lo stato del motore lo dice il pallino nella pillola, e
+      // basta: il cartellino del risveglio ha finito il suo lavoro.
+      spazioAperto = true;
+      veritasHideWakeBadge();
       // Il progetto si porta dietro il suo spazio: da qui in poi si rimette.
       rimettiIlModello();
     };
@@ -1510,12 +1534,26 @@
   // anche dopo che lo splash a schermo intero e' gia' sparito (login e
   // schermata impostazioni non devono restare bloccati in attesa del
   // motore reale).
+  // ⚠️ TRE VOCI PER LA STESSA COSA — adesso una.
+  //
+  // Lo stato del motore lo dicevano in tre: il pallino colorato nella pillola
+  // (sempre presente), questo cartellino al centro in alto, e il riquadro
+  // #veritas-bridge-status appoggiato a 420 px dal fondo, cioe' proprio sopra
+  // i quattro numeri. 👁️ Raffaella, 02/09: «duplicati».
+  //
+  // Chi resta e perche': il PALLINO, che c'e' sempre e non copre niente.
+  // Questo cartellino serve solo PRIMA che lo spazio di lavoro sia aperto,
+  // quando la pillola non esiste ancora: da quel momento in poi tace, anche
+  // se il motore va e viene.
+  let spazioAperto = false;
+
   function veritasHideWakeBadge() {
     const el = document.getElementById("veritas-wake-badge");
     if (el) el.style.display = "none";
   }
 
   function veritasWakeBadge(msg, color, dismissible) {
+    if (spazioAperto) { veritasHideWakeBadge(); return; }
     let el = document.getElementById("veritas-wake-badge");
     if (!el) {
       el = document.createElement("div");
@@ -5628,13 +5666,23 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "veritas-bridge-status";
-      el.style.cssText = "position:fixed;left:20px;bottom:420px;z-index:9500;max-width:300px;background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);";
+      // ⚠️ Stava a 420 px dal fondo, cioe' esattamente sopra i riquadri di
+      // flusso, transito, attivi e saturazione: un avviso che copre i numeri
+      // che si e' andati a guardare. Adesso sta al centro in alto, il posto
+      // che il cartellino del risveglio ha lasciato libero: sotto non c'e'
+      // niente, ed e' l'unico angolo dello schermo che non e' di nessuno.
+      el.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:9500;max-width:min(420px,86vw);background:rgba(8,10,15,0.92);backdrop-filter:blur(10px);border-radius:10px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,0.5);text-align:center;";
       document.body.appendChild(el);
     }
     el.style.border = "1px solid " + (color || "rgba(255,255,255,0.2)");
     el.style.color = color || "#cbd5e1";
     el.textContent = msg;
     el.style.display = "block";
+    // Sparisce sempre, non solo quando va bene. Lo stato che dura e' il
+    // pallino nella pillola; questo dice solo che qualcosa e' cambiato adesso,
+    // e un avviso di passaggio che resta a schermo diventa un doppione.
+    clearTimeout(el.__veritasTimer);
+    el.__veritasTimer = setTimeout(() => { el.style.display = "none"; }, 8000);
   }
 
   // IL CORPO: le posizioni pianificate passano dal motore fisico.
@@ -6374,6 +6422,36 @@
       // frame: chi non trova la propria viene saltato in silenzio.
       veritasEnsurePassengerPool(traj.frames);
       console.log("[VERITAS] Traiettoria aggiornata:", fresh.frames.length, "frame,", currentNodes.length, "punti.");
+
+      // ⚠️ PERCHE' I QUATTRO RIQUADRI RESTANO A ZERO — la misura che lo dice.
+      //
+      // 👁️ Raffaella, 02/09: «flusso e attivi rimangono sempre a zero anche
+      // alla fine della simulazione». Quei riquadri stanno nel blocco 3 e non
+      // si possono toccare, ma si puo' sapere che cosa gli stiamo dando: li'
+      // dentro il flusso e' «quanti ARRIVANO al secondo» e il transito e' la
+      // media di chi E' ARRIVATO. Se nella traiettoria nessun agente dichiara
+      // mai di essere arrivato, quei due numeri sono zero per costruzione, alla
+      // fine come all'inizio — e non e' un difetto della barra ne' dei riquadri.
+      // Questa riga conta gli stati una volta sola e lo dice per esteso, invece
+      // di lasciare l'unica prova a uno zero muto a schermo.
+      const conti = Object.create(null);
+      for (const f of fresh.frames) for (const a of (f.agents || [])) {
+        const st = a && a.state ? String(a.state).toUpperCase() : "(senza stato)";
+        conti[st] = (conti[st] || 0) + 1;
+      }
+      const arrivati = new Set();
+      for (const f of fresh.frames) for (const a of (f.agents || [])) {
+        if (a && String(a.state).toUpperCase() === "ARRIVED") arrivati.add(a.id);
+      }
+      console.log("[VERITAS numeri] stati nella traiettoria: "
+        + Object.keys(conti).map((k) => k + " " + conti[k]).join(", ")
+        + " — agenti che arrivano: " + arrivati.size);
+      if (!arrivati.size) {
+        console.warn("[VERITAS numeri] NESSUN agente dichiara di essere arrivato: "
+          + "flusso e transito restano a zero per costruzione, non per un difetto "
+          + "della barra. Il motore che ha prodotto questa traiettoria non marca "
+          + "l'arrivo.");
+      }
     } catch (e) {
       console.error("[VERITAS] Errore nella generazione della traiettoria:", e);
       veritasBridgeNotify("⚠ Errore nella generazione della simulazione: " + (e && e.message || e), "#ef4444");
@@ -13396,7 +13474,16 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
           <div id="vaio-layers-menu">
             <button id="vaio-layer-zones" class="on"><span>${S.layer_zones}</span><span class="chk"></span></button>
             <button id="vaio-layer-agents" class="on"><span>${S.layer_agents}</span><span class="chk"></span></button>
-            <button id="vaio-layer-advanced"><span>${S.layer_advanced}</span><span class="chk"></span></button>
+<!-- ⚠️ QUI C'ERA «Pannelli avanzati», ed e' stato tolto il 02/09.
+                 Non aggiungeva una funzione: ANNULLAVA UNA SCELTA. Quell'interruttore
+                 rimetteva in scena esattamente il chrome che questa shell era stata
+                 costruita per sostituire — l'intestazione originale del motore
+                 grafico, i pannelli laterali, l'invito al trascinamento — e li
+                 rimetteva SOPRA i nostri, che nel frattempo erano rimasti.
+                 👁️ Raffaella, 02/09: «i duplicati o i pannelli a scopo ornamentale
+                 vanno rimossi». Il codice che li nasconde resta dov'e' e continua a
+                 girare: quello che sparisce e' il modo di riaccenderli per sbaglio.
+                 I referti che stavano li' sotto si aprono da «Analysis / Report». -->
           </div>
         </div>
         <div class="vaio-menu-wrap">
@@ -13446,12 +13533,10 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       map.forEach((v) => { const g = v && v.group ? v.group : v; if (g) g.visible = !anyVisible; });
       byId("vaio-layer-agents").classList.toggle("on", !anyVisible);
     };
-    byId("vaio-layer-advanced").onclick = (e) => {
-      e.stopPropagation();
-      nativeVisible = !nativeVisible;
-      applyNativeVisibility();
-      byId("vaio-layer-advanced").classList.toggle("on", nativeVisible);
-    };
+    // (l'interruttore «Pannelli avanzati» non esiste piu': vedi il commento
+    //  nel menu qui sopra. `nativeVisible` resta false per sempre, e
+    //  applyNativeVisibility continua a tenere nascosto il chrome del motore
+    //  grafico a ogni rimonta di React.)
 
     byId("vaio-report-struct").onclick = (e) => { e.stopPropagation(); log("assistant", S.opening_report); if (!clickIfExists("vp-report")) log("system", S.no_model); };
     byId("vaio-report-sell").onclick = (e) => { e.stopPropagation(); log("assistant", S.opening_sellreport); if (!clickIfExists("veritas-report-btn")) log("system", S.no_model); };
@@ -26415,6 +26500,6 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js"></script>
+<script type="module" src="./veritas_montaggio.js?v=2"></script>
 </body>
 </html>
