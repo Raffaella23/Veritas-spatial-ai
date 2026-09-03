@@ -1,7 +1,141 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 02/09/2026, sera.** Questo è **l'unico documento di stato del
+> **Aggiornato il 03/09/2026, sera.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
+
+---
+
+## 🔴 LA SESSIONE DEL 03/09 È STATA RIPORTATA INDIETRO — leggere prima di tutto
+
+**Il codice in testa (`72457c7`) è di nuovo identico a ieri sera
+(`b8ef923`)**, verificato con un diff vuoto su `index.html` e
+`veritas_aspetto.js`. Tutto quello che è stato scritto oggi resta nella
+storia di git, commit per commit — niente è perso — ma **non è in testa,
+e non va ripreso senza rileggere questa sezione**.
+
+### Cosa è successo, in ordine
+
+Sei correzioni tentate oggi, sull'inventario del 02/09 e sul punto 8
+(il varco). Tre cose misurate a schermo **da me** durante il lavoro
+sembravano a posto. Poi Raffaella ha provato dal vivo e ha trovato:
+un pannello che si apre e si richiude da solo durante il caricamento
+(bloccato, a scatti), e passeggeri che al varco passano ancora di lato
+oltre che sotto. Verdetto suo: *«per quanto mi riguarda la sessione di
+oggi è fallimentare»*.
+
+| commit di oggi (nella storia, non in testa) | cosa faceva |
+|---|---|
+| `8ba35ef` | la pillola non copre più le linguette sotto i 1024px — **verificato a schermo, buono** |
+| `0293abe` | il pannello Punti entra nel sistema a fasi — **causa del difetto trovato da Raffaella** |
+| `5ef6cb1`, `6b0c6fa` | i quattro numeri KPI erano nascosti da `nativeTargets()` — **verificato a schermo, buono** |
+| `43cb387`, `af8ed48`, `c9fccc6` | il varco come soglia invece che punto, tre tentativi (due bachi trovati e corretti da me) — **logica giusta, risultato a schermo insufficiente** |
+| `590cb03` | **non toccato dal ripristino**: documenta il punto 9, il feedback di Raffaella sui nomi delle zone |
+| `8cd6f16` | la correzione del conflitto trovato su `0293abe` — arrivata **dopo** che la fiducia nella sessione era già finita |
+
+### La causa vera del pannello che sfarfallava — la lezione che vale di più
+
+`0293abe` aggiungeva il pannello Punti (`#veritas-picker-panel`) al
+sistema a fasi di `veritas_aspetto.js`, usando `va-fuori-fase`
+(opacità) per nasconderlo fuori da modello/analisi. **Non sapevo che
+quell'elemento aveva già un padrone**: `cadVisible` in `index.html`, E
+una funzione preesistente — `apriEditor()`, dentro un blocco `<script>`
+molto più in basso, scritta prima di oggi — che apre lo stesso pannello
+da sola non appena il riconoscimento delle zone finisce. Due sistemi
+indipendenti sullo stesso elemento, uno che gira ogni 700ms: il
+risultato è uno sfarfallio che si vede a schermo come "si blocca e va a
+scatti".
+
+**⚠️ La lezione: prima di dare a un elemento un secondo modo di
+nascondersi/mostrarsi, si cerca CHI ALTRO lo controlla già.** Non basta
+`grep` sul suo id per l'uso ovvio (il bottone che lo apre): va cercato
+anche in blocchi lontani, script separati, funzioni con nomi che non
+c'entrano a prima vista (`apriEditor`, non `qualcosaConPickerPanel`).
+`8cd6f16` aveva trovato la correzione giusta — un'azione sola sul bordo,
+non un possesso continuo — ma è arrivata dopo, e nel frattempo la fiducia
+nella sessione era già persa.
+
+### Il varco: la logica è giusta, il risultato visivo no
+
+I tre commit sul punto 8 fanno esattamente quello che l'ordine chiedeva
+— soglia misurata da `formaLungo`/`formaLargo`/`formaAngolo`, si mira a
+un punto SULLA soglia che sia calpestabile, la prova di attraversamento
+è la vicinanza del percorso vero alla soglia, non un incrocio in linea
+retta (che falliva quando l'ultimo tratto arriva parallelo, caso
+comune). **Testato con un test isolato in Node, fuori dal browser,
+sui numeri veri del modello — passa tutti i controlli** (si può
+riscrivere in cinque minuti: vedi il commit `c9fccc6` per il codice
+esatto delle tre funzioni pure).
+
+Ma Raffaella ha visto gente ancora di lato. La ragione, trovata dopo
+— **non ancora corretta**: `expandRoute` (in `index.html`, dentro il
+generatore JS locale) aggiunge a ogni agente in movimento un "serpeggio"
+laterale per sembrare più naturale (densità della folla, meandro,
+richiamo del gruppo — cercare `crowdFactor`, `lateral`, `meander` nella
+funzione che disegna i fotogrammi). **Quello scarto non si spegne vicino
+al varco**: anche quando il percorso di base attraversa la soglia
+esattamente, la figura resa a schermo può comunque scartare di lato di
+oltre un metro. La soglia è larga (`formaLungo`, qui 4,55 m) — lo
+scarto laterale può restare dentro quella misura e sembrare comunque
+"a fianco" del detector fisico vero, che nel modello è più stretto della
+zona funzionale intera.
+
+**Prossimo passo, non fatto oggi:** sopprimere (o ridurre fortemente) il
+serpeggio laterale quando l'agente è nell'intorno della soglia di un
+filtro — lo stesso raggio già usato per la tolleranza
+(`Math.max(0.6, formaLargo/2)`).
+
+### Due difetti trovati da Raffaella e VERIFICATI non essere di oggi
+
+Confrontato con un `git diff b8ef923 HEAD -- index.html
+veritas_aspetto.js`: solo `index.html` e `veritas_aspetto.js` sono
+cambiati oggi, e solo nelle righe della pillola/KPI/varco/fasi. Questi
+due NON sono stati toccati:
+
+- **Il pannello della chat/log (`#vaio-console`) appare enorme e quasi
+  vuoto** in certe condizioni. Il suo CSS/dimensionamento non è stato
+  toccato oggi — è preesistente, mai diagnosticato a fondo. Da guardare:
+  la sua altezza (`h:640px` misurato in una sessione precedente) non
+  sembra legata al contenuto reale.
+- **La finestra "quello che vedo" (`veritas_anteprima.js`, riga ~116)
+  usa `top:64px` fisso, non misurato** — la stessa famiglia di difetto
+  che la pillola aveva (§item 4 dell'inventario del 02/09, quello
+  corretto oggi in `8ba35ef` e poi tornato indietro col resto). Non è
+  stato toccato oggi: la sovrapposizione con le linguette in alto che
+  Raffaella ha fotografato è preesistente, dipende dalla larghezza dello
+  schermo in un modo mai misurato.
+
+Questi due vanno messi in cima alla prossima sessione, insieme al
+riordino dei pannelli — sono la stessa famiglia di problema.
+
+### Cosa terrei, e come riprenderei (non eseguito, solo scritto)
+
+1. **La pillola (`8ba35ef`) e i quattro numeri KPI (`5ef6cb1`+`6b0c6fa`)
+   sono verificati a schermo da me, isolatamente, e buoni.** Si possono
+   riapplicare (i diff sono in quei commit) — ma vanno riverificati di
+   nuovo dopo, dentro un giro COMPLETO (vedi punto 2), non da soli.
+2. **Prima di dichiarare chiuso qualsiasi pezzo, un giro intero e
+   continuo**: apri progetto → carica modello → lascia finire TUTTA
+   l'analisi (visibilità, accessibilità, affollamento, esodo, il
+   riconoscimento zone, l'eventuale apertura automatica dell'editor) →
+   avvia simulazione → guarda un paio di minuti. Oggi ogni pezzo è stato
+   verificato a sé, mai il giro intero: è esattamente lì, nell'intreccio
+   fra pezzi, che è saltato fuori il conflitto vero.
+3. **Prima di aggiungere un secondo controllo di visibilità a un
+   elemento, cercarne il primo** — non solo per id nel punto ovvio, in
+   tutto il file, con nomi di funzione che non contengono l'id
+   (`apriEditor` non parlava di `veritas-picker-panel` nel nome).
+4. **Per il riordino pannelli vero e proprio** (la richiesta di
+   Raffaella: niente sovrapposizioni, via le scritte non funzionali):
+   prima un CATALOGO — ogni pannello/overlay che esiste, chi lo apre,
+   chi lo chiude, chi altro lo tocca — scritto PRIMA di cambiare
+   codice, non scoperto un pezzo alla volta. Il pattern di oggi (tre
+   tentativi sul varco, un conflitto scoperto solo alla fine sul
+   pannello Punti) è quello da non ripetere: è costato la fiducia nella
+   sessione, non solo tempo.
+5. **Quando il browser di prova perde il modello o diventa inaffidabile,
+   è il segnale di fermarsi con le verifiche a schermo**, dirlo
+   esplicitamente, e non continuare a costruire sopra un risultato
+   "verificato solo nel codice" come se fosse "verificato".
 
 ---
 
