@@ -1,11 +1,110 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> **Aggiornato il 02/09/2026.** Questo è **l'unico documento di stato del
+> **Aggiornato il 02/09/2026, sera.** Questo è **l'unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
 
-## 🚩 SI RIPARTE DA QUI — 02/09/2026
+## 🚩 SI RIPARTE DA QUI — 02/09/2026, sera
+
+**Il progetto adesso si porta dietro il suo spazio, i passeggeri entrano da
+tutti gli ingressi, e la simulazione corre.** Quattordici commit, tutti su
+`main`, testa **`f900f50`**.
+
+| pezzo | stato |
+|---|---|
+| il progetto si porta dietro il suo modello | ✅ **misurato**: riaperto un progetto, il modello torna **da solo** dal browser, **147,3 × 82,2 m × 15,4 m** — cioè dalla strada del pulsante, con la scala automatica |
+| la schermata d'apertura | ✅ ogni riga dice file, peso, quando, e **se il modello c'è**; una strada sola per entrare; si rinomina e si butta |
+| gli ingressi arrivano al motore vero | ✅ **misurato**: 10 profili di missione da 5 flussi, e col motore reale ACCETTATO i 28 passeggeri nascono **6+6+6+4+6** sui quattro accessi più la tappa Origine |
+| la barra di riproduzione | ✅ **misurato**: da «0.1s / 180s · FRAME 0/361 · attivi 0» a **«6.6s / 400s · FRAME 13/800 · ATTIVI 28»**, e corre |
+| i quattro numeri | ✅ sono nostri e sanno dire **perché** non hanno una risposta |
+| l'interfaccia | 🟠 in corso — l'inventario è più giù, sei voci, due chiuse |
+| il livello come campo della tappa | ❌ non fatto — resta il punto 2 |
+| il passeggero attraversa il varco | 🔴 aperto il 02/09 — punto 8 |
+
+| commit | cosa |
+|---|---|
+| `6eb5f69` | le prove viaggiano col risultato: scritto il lavoro promesso in pubblico |
+| `003c4a0` | il progetto si porta dietro il suo spazio, e l'elenco lo dice |
+| `2fc7153` | le righe vuote si buttano in un colpo: erano 175, non venti |
+| `79f4955` | la revisione dell'interfaccia intera va in lista |
+| `115dcab` | al motore vero arrivano gli ingressi, non le sole tappe: un profilo per flusso |
+| `dac030c` | gli ingressi al motore vero, e il difetto che resta: la barra non parte |
+| `9cc10bb` | il PLAY fa ripartire la barra, e la durata la dicono i fotogrammi |
+| `e5a6e69` | la barra corre: 6.6s/400s, fotogramma 13 su 800, 28 attivi |
+| `5210b91` | un posto solo per far partire, e l'avviso smette di coprire i tasti |
+| `12c5088` | il metal detector si attraversa, non si sfiora: aperto il punto 8 |
+| `2406014` | l'elenco si può davvero ripulire, e il caricatore è uno solo |
+| `5983337` | l'inventario dell'interfaccia: sei voci guardate una per una |
+| `f900f50` | la finestra dell'occhio mostra, non chiacchiera; e tre avvisi diventano uno |
+| `(ultimo)` | i quattro numeri sono nostri e dicono perché non rispondono |
+
+### Le cinque lezioni della sera, che valgono oltre stasera
+
+1. **La domanda zero va fatta anche al RISULTATO, non solo alla diagnosi.**
+   👁️ *«rispetto a ieri abbiamo perso: un solo ingresso, camminano in fila
+   indiana»*. Fra il commit dei taxi (`6a75ddd`) e la testa del mattino
+   (`d21ac28`) il codice cambia di **zero righe**. Era cambiato **quale motore
+   risponde**: ieri Render dormiva e girava il generatore locale, che i flussi
+   li usa; oggi Render risponde, e **al motore vero i flussi non arrivavano
+   mai**. Il documento avvertiva di guardare quale motore gira prima di
+   *diagnosticare*: vale anche prima di dire «è peggiorato».
+2. **Un log che non distingue i due casi non è una diagnostica, è un rumore
+   rassicurante.** Il ponte stampava «posizioni inviate» prendendo i primi
+   quattro nodi del grafo: erano sempre le stesse tappe nello stesso angolo, e
+   dicevano l'identica cosa con una partenza sola o con quattro diverse. Adesso
+   stampa **da dove parte ogni profilo di missione**.
+3. **Un'operazione che non può dimostrare di aver fatto qualcosa non deve
+   dichiarare successo.** La cancellazione dei progetti falliva **due volte per
+   due cause diverse**: prima l'indirizzo troppo lungo (172 uuid in una
+   richiesta sola), poi il rifiuto per permessi, che PostgREST restituisce
+   **senza errore e con zero righe toccate**. Adesso si chiede indietro
+   `.select("id")` e si contano le righe uscite.
+4. **Uno zero che c'è sempre non si distingue da un numero rotto.** 👁️ E la
+   regola che ne è nata, che vale ovunque: **«quello che non sappiamo spiegare
+   non si deve vedere»**.
+5. **Non si rincorrono gli z-index.** Il pannello dell'occhio era arrivato a
+   `99999` e stava sopra tutto. La regola del progetto era già scritta accanto
+   al dock: **«i comandi stanno tutti a sinistra e i pannelli si aprono a
+   destra»**.
+
+### ⚠️ Trappole pagate stasera, da non ripercorrere
+
+- **`veritas_montaggio.js` non aveva `?v=`**, e nemmeno il suo `import` di
+  `veritas_anteprima.js`: un modulo esterno ha la sua cache e arriva quello di
+  prima anche con `index.html` rinfrescato. Adesso il tag porta `?v=2` e
+  l'import anche. **Si cambiano a ogni modifica di quei file.**
+- **Un tag `<script>` in più in cima sposta di uno l'indice di tutti i
+  blocchi** e il bundle React smette di essere il blocco 3: la ricetta di
+  verifica fallirebbe per sempre, e sarebbe un allarme finto. Il deposito si
+  carica **da dentro il blocco 2**, non con un tag nuovo.
+- **`veritas-play-ready-btn` stava nell'elenco `NATIVE_BUTTON_IDS`**, cioè fra
+  i «bottoni nativi del bundle da nascondere». Non era del bundle: era il
+  nostro PLAY, e finiva nascosto insieme ai doppioni.
+- **La finestra del browser dentro Claude riparte pulita**: la sessione
+  Supabase scade e da lì non si guida più la pagina. Le verifiche a schermo
+  vanno fatte **prima** che serva, o le fa Raffaella.
+- **Una query in console che stampa un oggetto intero esplode.** Successo di
+  nuovo con `window.__veritasFlussiCorrenti`: 2,8 milioni di caratteri. Si
+  proiettano solo i campi che servono.
+
+### Da dove si riparte, in ordine
+
+1. **Finire l'interfaccia** — l'inventario è nella sezione dedicata più giù,
+   sei voci: due chiuse, restano la riga in cima che si sovrappone (**va
+   misurata con la pagina davanti**), il pannello Punti dentro le fasi, e le
+   domande dell'occhio nella chat.
+2. **Il passeggero attraversa il varco** (punto 8): una tappa è un punto e il
+   percorso la sfiora; un varco è una **soglia**, e passarci accanto non è
+   passarci dentro.
+3. **Il livello come campo della tappa** (punto 2): è il motivo per cui in
+   pianta i nomi non compaiono.
+4. **Le prove viaggiano col risultato**: promesso in pubblico, sezione dedicata
+   più giù.
+
+---
+
+## 🚩 IL QUADRO DEL 02/09/2026 — mattina e pomeriggio
 
 **Gli ACCESSI ci sono, e i flussi nascono da loro.** Nove commit, tutti su
 `main`, testa `6a75ddd`.
@@ -380,10 +479,35 @@ che non risponde a niente non si abbellisce: si toglie.
 |---|---|---|
 | 1 | l'elenco lunghissimo non si riusciva a ripulire | ✅ chiuso (`2406014`) — la cancellazione andava in una richiesta sola, indirizzo troppo lungo |
 | 2 | «carica il file» compariva due volte | ✅ chiuso (`2406014`) — uno solo per volta, quello che sta chiedendo |
-| 3 | **FLUSSO, TRANSITO, ATTIVI, SATURAZIONE restano sempre a zero** | 🔴 aperto |
-| 4 | **la pillola VERITAS copre ancora le linguette** | 🔴 aperto |
-| 5 | **i «pannelli avanzati»: iniziali, doppioni, o ornamentali** | 🔴 aperto |
-| 6 | **le domande dell'occhio in un riquadro di suo** | 🔴 aperto |
+| 3 | FLUSSO, TRANSITO, ATTIVI, SATURAZIONE sempre a zero | ✅ chiuso — i quattro numeri sono **nostri** e dicono perché non rispondono |
+| 4 | **la pillola VERITAS copre ancora le linguette** | 🔴 aperto — l'unico che ha bisogno della pagina davanti |
+| 5 | i «pannelli avanzati» | ✅ chiuso (`f900f50`) — l'interruttore è stato tolto |
+| 6 | le domande dell'occhio in un riquadro di suo | 🟠 metà — il testo non si vede più e il pannello si è spostato; **la chat resta da fare** |
+
+**3 — com'è stato chiuso.** ⚠️ Quei riquadri stanno **nel blocco 3**, che per
+regola non si tocca mai: non si potevano correggere, si potevano solo
+sostituire. Lì dentro il flusso è «quanti **arrivano** al secondo» e il transito
+è la media di chi **è arrivato**: se la traiettoria non dichiara mai un arrivo,
+quei due numeri sono zero **per costruzione**, alla fine come all'inizio.
+Adesso i riquadri del bundle si nascondono e al loro posto, **nello stesso
+spazio**, vanno quattro numeri nostri con tre stati distinti — «non avviata»,
+«nessun arrivo», il numero — e sotto ognuno la riga che dice che cosa misura.
+⚠️ Se i riquadri del bundle non si trovano **non si mette niente**: sostituire o
+lasciare stare, mai affiancare due file di numeri.
+
+⚠️ E resta da capire **perché nessuno arriva**: a ogni traiettoria il log
+adesso conta gli stati e stampa quanti agenti raggiungono `ARRIVED`. Se sono
+zero lo dice per esteso. È la prima cosa da leggere alla prossima corsa.
+
+**6 — che cosa è stato fatto e che cosa no.** Il diario delle domande non si
+appende più al pannello ma **resta vivo** e riceve tutto
+(`window.__veritasDiarioOcchio`): le immagini, gli interruttori e il selettore
+delle viste restano, apri e chiudi restano. 👁️ Raffaella: *«un conto è il dato
+che serve all'AI, un conto è quello che facciamo vedere all'utente»*. Il
+pannello si è spostato dalla posizione in basso a destra — dove copriva la barra
+del tempo e i numeri, con `z-index:99999` — alla colonna di destra sotto la
+barra dei comandi, con `z-index:9100`. **La chat in linguaggio naturale resta da
+fare, e ha bisogno del taccuino.**
 
 **3 — i quattro riquadri a zero.** 👁️ *«a cosa servono, rimangono sempre
 così»*. Sono i KPI della simulazione, e restano a zero finche' nessun agente

@@ -6343,8 +6343,136 @@
     return true;
   }
 
+  // ============================================================
+  // I QUATTRO NUMERI DIVENTANO NOSTRI
+  //
+  // 👁️ Raffaella, 02/09: «flusso e attivi rimangono sempre a zero anche alla
+  // fine della simulazione», e poi la regola, che vale oltre questo caso:
+  // **«quello che non sappiamo spiegare non si deve vedere».**
+  //
+  // Perche' si sostituiscono invece di correggerli: quei riquadri stanno nel
+  // blocco 3, che per regola non si tocca mai. Li' dentro il flusso e' «quanti
+  // ARRIVANO al secondo» e il transito e' la media di chi E' ARRIVATO — quindi
+  // se la traiettoria non dichiara mai un arrivo restano zero per costruzione,
+  // alla fine come all'inizio. Uno zero che c'e' sempre e' esattamente il
+  // «numero finto» che questo progetto vieta: sembra misurato e non lo e'.
+  //
+  // Al loro posto, NELLO STESSO SPAZIO, quattro numeri che sanno dire perche'
+  // non hanno una risposta: «non avviata», «nessuno e' ancora arrivato».
+  //
+  // ⚠️ Se i riquadri del bundle non si trovano non si mette NIENTE: meglio i
+  // suoi che due file di numeri, o una riga nostra appoggiata sopra
+  // qualcos'altro. Sostituire o lasciare stare, mai affiancare.
+  // ============================================================
+  const ETICHETTE_BUNDLE = ["FLUSSO", "TRANSITO", "ATTIVI", "SATURAZIONE"];
+
+  // L'ancora e' il bottone «Esporta config nodi», che nel bundle e' scritto
+  // una volta sola per griglia: da li' si risale al riquadro che li contiene
+  // tutti. Il bundle lo disegna in due punti, quindi si tiene quello che ha
+  // accanto almeno tre delle quattro etichette.
+  function veritasGrigliaNumeriDelBundle() {
+    const bottoni = Array.from(document.querySelectorAll("#root button"))
+      .filter((b) => (b.textContent || "").includes("Esporta config nodi"));
+    for (const b of bottoni) {
+      const g = b.parentElement;
+      if (!g) continue;
+      const testo = (g.textContent || "").toUpperCase();
+      let quante = 0;
+      for (const et of ETICHETTE_BUNDLE) if (testo.includes(et)) quante++;
+      if (quante >= 3) return g;
+    }
+    return null;
+  }
+
+  // Che cosa sappiamo dire adesso. Tre stati, non uno zero.
+  function veritasStatoDeiNumeri() {
+    if (!window.__veritasSimStarted) return { stato: "ferma" };
+    const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+    if (!traj || !traj.frames || !traj.frames.length) return { stato: "vuota" };
+    const kpi = veritasComputeKpi(traj);
+    if (!kpi) return { stato: "vuota" };
+    return { stato: "viva", kpi };
+  }
+
+  function veritasCella(nome, valore, spiega, muto) {
+    return '<div style="border:1px solid rgba(255,255,255,.10);border-radius:12px;'
+      + 'padding:10px 12px;background:rgba(255,255,255,.03);min-width:0;">'
+      + '<div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;'
+      + 'color:#7c8798;margin-bottom:3px;">' + esc(nome) + '</div>'
+      + '<div style="font-family:\'JetBrains Mono\',monospace;font-size:' + (muto ? "12px" : "19px")
+      + ';color:' + (muto ? "#8592a6" : "#e4e9f2") + ';font-variant-numeric:tabular-nums;'
+      + 'line-height:1.25;">' + esc(valore) + '</div>'
+      + '<div style="font-size:10px;color:#66707f;margin-top:3px;line-height:1.35;">'
+      + esc(spiega) + '</div></div>';
+  }
+
+  function veritasNumeriHtml() {
+    const s = veritasStatoDeiNumeri();
+    if (s.stato === "ferma") {
+      const perche = "la simulazione non e' ancora stata avviata";
+      return veritasCella("Flusso", "non avviata", perche, true)
+        + veritasCella("Transito medio", "non avviata", perche, true)
+        + veritasCella("In cammino", "non avviata", perche, true)
+        + veritasCella("Saturazione", "non avviata", perche, true);
+    }
+    if (s.stato === "vuota") {
+      const perche = "nessuna traiettoria calcolata su questo spazio";
+      return veritasCella("Flusso", "non calcolabile", perche, true)
+        + veritasCella("Transito medio", "non calcolabile", perche, true)
+        + veritasCella("In cammino", "non calcolabile", perche, true)
+        + veritasCella("Saturazione", "non calcolabile", perche, true);
+    }
+    const k = s.kpi;
+    const nessunArrivo = !k.agenti_completati;
+    // ⚠️ Flusso e transito parlano solo di chi ARRIVA: senza arrivi non sono
+    // zero, sono senza risposta, e va detto invece di scrivere 0.000.
+    const senza = "nessuno e' ancora arrivato in fondo al percorso";
+    return veritasCella("Flusso",
+        nessunArrivo ? "nessun arrivo" : k.flusso_effettivo_p_s.toFixed(3) + " p/s",
+        nessunArrivo ? senza : "persone che completano il percorso, al secondo",
+        nessunArrivo)
+      + veritasCella("Transito medio",
+        nessunArrivo ? "nessun arrivo" : Math.round(k.tempo_transito_medio_s) + " s",
+        nessunArrivo ? senza : "quanto ci mette chi arriva, dall'ingresso alla meta",
+        nessunArrivo)
+      + veritasCella("In cammino", String(k.agenti_attivi),
+        "persone ancora in movimento all'ultimo fotogramma, su "
+          + (k.agenti_attivi + k.agenti_completati), false)
+      + veritasCella("Saturazione", k.saturazione_checkpoint_pct.toFixed(0) + "%",
+        "quota di tempo passata ferma in coda", false);
+  }
+
+  let vNumeriChiave = "";
+  function veritasNumeriNostri() {
+    const griglia = veritasGrigliaNumeriDelBundle();
+    if (!griglia) return;
+    for (const figlio of Array.from(griglia.children)) {
+      if (figlio.id !== "veritas-numeri") figlio.classList.add("vaio-native-hidden");
+    }
+    let nostri = document.getElementById("veritas-numeri");
+    if (!nostri || !griglia.contains(nostri)) {
+      nostri = document.createElement("div");
+      nostri.id = "veritas-numeri";
+      nostri.style.cssText = "grid-column:1/-1;display:grid;gap:8px;"
+        + "grid-template-columns:repeat(auto-fit,minmax(148px,1fr));"
+        + "font-family:Inter,system-ui,sans-serif;";
+      griglia.insertBefore(nostri, griglia.firstChild);
+      vNumeriChiave = "";
+    }
+    // Si ridisegna solo quando cambia qualcosa: i numeri riassumono l'intera
+    // corsa, non il fotogramma corrente, e ricalcolarli a ogni giro vorrebbe
+    // dire ripercorrere 800 fotogrammi per 28 persone ogni 800 ms.
+    const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+    const chiave = [!!window.__veritasSimStarted,
+                    traj && traj.frames ? traj.frames.length : -1].join("|");
+    if (chiave === vNumeriChiave) return;
+    vNumeriChiave = chiave;
+    nostri.innerHTML = veritasNumeriHtml();
+  }
+
   setInterval(() => {
     veritasAutoPauseBundleTimeline();
+    veritasNumeriNostri();
     // Il cartellino «manca lo spazio» puo' comparire PRIMA che la shell abbia
     // costruito il suo caricatore permanente: nasconderlo una volta sola non
     // basta, ricomparirebbe sotto. Si tiene il conto qui, dove si tengono gia'
