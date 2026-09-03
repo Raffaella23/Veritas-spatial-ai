@@ -155,6 +155,7 @@
       missing_model_btn: "Carica il file",
       empty_sweep: (n) => `${n} progetti senza spazio e senza tappe · buttali tutti`,
       empty_sweep_confirm: (n) => `Butto via ${n} progetti che non hanno né un modello né una tappa?\n\nQuelli con dentro qualcosa restano. Non si torna indietro.`,
+      empty_sweep_progress: (f, n) => `buttati ${f} su ${n}…`,
       type_origine: "Origine", type_accoglienza: "Accoglienza", type_filtro: "Filtro",
       type_sosta: "Sosta", type_destinazione: "Destinazione",
       panel_title: "Punti", label_placeholder: "Etichetta (es. Gate B2)",
@@ -261,6 +262,7 @@
       missing_model_btn: "Load the file",
       empty_sweep: (n) => `${n} projects with no space and no points · delete them all`,
       empty_sweep_confirm: (n) => `Delete ${n} projects that have neither a model nor a point?\n\nThose with something in them stay. This cannot be undone.`,
+      empty_sweep_progress: (f, n) => `deleted ${f} of ${n}…`,
       type_origine: "Origin", type_accoglienza: "Reception", type_filtro: "Screening",
       type_sosta: "Sosta", type_destinazione: "Destination",
       panel_title: "Points", label_placeholder: "Label (e.g. Gate B2)",
@@ -673,11 +675,29 @@
     if (scopa) {
       scopa.onclick = async () => {
         if (!window.confirm(t("empty_sweep_confirm", vuoti.length))) return;
-        scopa.textContent = t("saving");
         const ids = vuoti.map((p) => p.id);
-        const { error: errScopa } = await sb.from("projects").delete().in("id", ids);
-        if (errScopa) { alert(errScopa.message); scopa.textContent = t("empty_sweep", vuoti.length); return; }
-        if (dep) { for (const id of ids) { try { await dep.butta(id); } catch (e) {} } }
+        // ⚠️ NON in una richiesta sola. Un `.in("id", [...])` mette tutti gli
+        // id NELL'INDIRIZZO: 172 uuid sono circa 6.500 caratteri, l'indirizzo
+        // e' troppo lungo e la richiesta viene rifiutata prima ancora di
+        // arrivare al database. A schermo si vedeva solo che «non me lo fa
+        // fare» (Raffaella, 02/09). Si spezza in mazzi, e intanto si dice a
+        // che punto siamo: buttarne 172 non e' istantaneo e una riga ferma
+        // sembra di nuovo un difetto.
+        const MAZZO = 25;
+        let fatti = 0;
+        for (let i = 0; i < ids.length; i += MAZZO) {
+          const mazzo = ids.slice(i, i + MAZZO);
+          const { error: errScopa } = await sb.from("projects").delete().in("id", mazzo);
+          if (errScopa) {
+            alert(errScopa.message);
+            scopa.textContent = t("empty_sweep", vuoti.length - fatti);
+            showProjects();
+            return;
+          }
+          fatti += mazzo.length;
+          scopa.textContent = t("empty_sweep_progress", fatti, ids.length);
+          if (dep) { for (const id of mazzo) { try { await dep.butta(id); } catch (e) {} } }
+        }
         showProjects();
       };
     }
@@ -961,6 +981,16 @@
       </div>
     `;
     document.body.appendChild(el);
+    // ⚠️ UN SOLO «carica il file» per volta.
+    //
+    // Il cartellino dice su QUALE file lavora questo progetto e porta il suo
+    // bottone; la shell ne ha uno permanente, «⬆ Carica ambiente 3D». Con il
+    // cartellino aperto se ne vedevano due, uno sopra l'altro, che fanno la
+    // stessa identica cosa (Raffaella, 02/09: «carica file 2 volte, basta 1»).
+    // Finche' il cartellino chiede quel file, il richiamo e' uno solo: il suo.
+    // Chiuso il cartellino, quello permanente torna — serve per cambiare
+    // modello quando nessuno lo sta chiedendo.
+    mostraCaricatoreDellaShell(false);
     el.querySelector("#vmm-chiudi").onclick = nascondiMancaIlModello;
     el.querySelector("#vmm-carica").onclick = () => {
       const bottone = document.getElementById("vaio-upload-btn");
@@ -969,9 +999,15 @@
     };
   }
 
+  function mostraCaricatoreDellaShell(visibile) {
+    const wrap = document.getElementById("vaio-upload-wrap");
+    if (wrap) wrap.style.display = visibile ? "" : "none";
+  }
+
   function nascondiMancaIlModello() {
     const vecchio = document.getElementById("veritas-manca-modello");
     if (vecchio) vecchio.remove();
+    mostraCaricatoreDellaShell(true);
   }
 
   // Chiamata dalla shell subito dopo che un file e' entrato in scena, da
@@ -6261,6 +6297,11 @@
 
   setInterval(() => {
     veritasAutoPauseBundleTimeline();
+    // Il cartellino «manca lo spazio» puo' comparire PRIMA che la shell abbia
+    // costruito il suo caricatore permanente: nasconderlo una volta sola non
+    // basta, ricomparirebbe sotto. Si tiene il conto qui, dove si tengono gia'
+    // le altre cose che il bundle puo' ridisegnare sotto di noi.
+    mostraCaricatoreDellaShell(!document.getElementById("veritas-manca-modello"));
     const avvia = document.getElementById("veritas-avvia");
     if (window.__veritasSimStarted) {
       if (avvia) avvia.remove();
