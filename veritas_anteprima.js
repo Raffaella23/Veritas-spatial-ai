@@ -121,6 +121,28 @@ export function anteprima(doc, opz = {}) {
     "box-shadow:0 8px 32px rgba(0,0,0,.5)",
   ].join(";");
 
+  // ⚠️ QUEL 64px SOPRA E' UN VALORE DI PARTENZA, NON LA POSIZIONE.
+  //
+  // 64 era il bordo basso della pillola VERITAS quando la pillola stava a
+  // top:16. Ma sotto i 1024px il bundle mostra anche la sua fila di tab
+  // telecamera in cima alla pagina, la pillola scende sotto quella fila, e 64
+  // non e' piu' il bordo di niente: la finestra finisce sopra le linguette.
+  // Fotografato da Raffaella. Quindi si misura la pillola invece di
+  // indovinare - e' gia' lei a misurare la fila - con lo stesso schema di
+  // veritasPositionTopbar e veritasPositionChat in index.html: subito, poi
+  // ogni secondo e a ogni ridimensionamento.
+  const seguiLaPillola = () => {
+    if (!radice.isConnected) return;
+    const pillola = doc.getElementById("vaio-topbar");
+    const r = pillola ? pillola.getBoundingClientRect() : null;
+    const alto = r && r.height > 0 ? Math.round(r.bottom + 8) : 64;
+    radice.style.top = alto + "px";
+    radice.style.maxHeight = "calc(100vh - " + (alto + 32) + "px)";
+  };
+  seguiLaPillola();
+  setInterval(seguiLaPillola, 1000);
+  (doc.defaultView || window).addEventListener("resize", seguiLaPillola);
+
   // --- intestazione, con apri/chiudi ---------------------------------------
   const testa = doc.createElement("div");
   testa.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 10px;"
