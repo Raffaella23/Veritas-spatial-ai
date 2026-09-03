@@ -286,6 +286,29 @@ Esito misurato a schermo: da «0.1s / 180s · FRAME 0/361 · ATTIVI 0» a
 **«6.6s / 400s · FRAME 13/800 · ATTIVI 28»**, con l'icona di pausa sul
 bottone, cioe' in corsa.
 
+### 🔴 IL PASSEGGERO NON PASSA SEMPRE SOTTO IL METAL DETECTOR — visto il 02/09
+
+👁️ Raffaella, guardando la simulazione con gli ingressi a posto: *«i flussi
+funzionano quasi bene, potrebbero essere ancora più precisi: il passeggero non
+passa sempre sotto il metal detector»*.
+
+E' la prima cosa che si vede **dopo** che gli ingressi sono giusti, ed e' un
+difetto diverso da tutti quelli chiusi oggi: non riguarda **da dove** si parte
+ne' **se** ci si muove, riguarda **per dove si passa**.
+
+La causa sta nella natura della tappa: una tappa e' un **punto**, e il percorso
+la tocca passandole vicino. Un varco di controllo non e' un punto: e' una
+**soglia larga quanto il varco**, e passarci accanto non e' passarci dentro. Un
+referto che dice «tutti controllati» mentre a schermo qualcuno gira attorno al
+metal detector e' un numero che non regge alla prima domanda di chi legge.
+
+⚠️ Da non risolvere spostando la tappa a mano: vale su questo modello e si
+rompe sul successivo. La larghezza del varco e' gia' misurata (gli accessi
+portano `larghezza`, e la stessa misura la fa `veritas_navmesh.js` sui
+passaggi): la strada e' che una tappa di tipo **filtro** dichiari la sua
+soglia — due capi e un verso — e che il percorso ci passi **dentro**, non
+accanto.
+
 ### 🔴 LA REVISIONE DELL'INTERFACCIA INTERA — chiesta da Raffaella il 02/09
 
 Guardando la cattura dello spazio di lavoro aperto sul progetto «Aeroporto —
@@ -303,6 +326,27 @@ cosa deve dire quello che e', e deve stare dove serve.** Oggi lo spazio di
 lavoro apre tutto insieme e sopra il modello: il pannello dei punti, «quello che
 vedo», i dati di progetto, la barra di riproduzione, i comandi di vista. Il
 modello, che e' l'unica cosa che si deve guardare, resta sotto.
+
+✅ **Due pezzi gia' fatti il 02/09 (`5210b91`),** e sono l'esempio di come va
+fatto il resto:
+
+- **«✅ Zone pronte» non c'e' piu'.** 👁️ *«esce immediatamente, credo si possa
+  eliminare, e non e' veritiero»* — vero: compariva appena c'erano due tappe, e
+  all'apertura ce ne sono gia' sei, quelle cablate dentro il bundle. Ma non
+  bastava toglierlo, perche' portava **l'unico bottone che avvia davvero la
+  simulazione**. Quindi l'avvio si e' spostato **dentro la barra in basso**,
+  accanto al ▶ del bundle (un posto solo per far partire le cose), e compare
+  **solo quando lo spazio e' stato misurato davvero** — cioe' quando c'e' un
+  modello **e** la navmesh costruita su di lui, che per le tappe demo non puo'
+  esistere. ⚠️ Scoperto per strada: `veritas-play-ready-btn` stava
+  nell'elenco dei «bottoni nativi del bundle da nascondere». Non era del
+  bundle: era il nostro, e finiva nascosto insieme ai doppioni;
+- **l'avviso del motore non copre piu' i tasti.** 👁️ *«si sovrappone a dei
+  tasti che non si vedono e non so cosa siano»* — erano le linguette del bundle
+  sotto la pillola del marchio: «Motore in risveglio (30-60s, piano gratuito)»
+  scritto per esteso la allargava fino a coprirle. Resta il **pallino
+  colorato**, sempre; la frase si legge passandoci sopra. L'informazione non si
+  perde, smette di stare davanti a qualcos'altro.
 
 Le quattro cose da fare, in ordine:
 
@@ -936,6 +980,7 @@ risposta quando le zone lette sono almeno tre e hanno tutte la stessa funzione.
    | 🟡 5 | l'evitamento vero fra le persone al posto del serpeggio finto |
    | 🟡 6 | il taccuino, cioè il referto interrogabile |
    | 🟠 7 | **la revisione dell'interfaccia intera** — pannelli laterali che si aprono a richiesta, comandi legati a quello che si sta facendo (dettaglio nel blocco del 02/09) |
+   | 🟠 8 | **il passeggero passa DENTRO il varco, non accanto** — le tappe si toccano, il filtro va attraversato (dettaglio nel blocco del 02/09) |
 
 1-bis. **La fila unica `origine → accoglienza → filtro → sosta → destinazione`.**
    È l'ultimo aeroporto cablato: una scuola non ce l'ha, un ospedale nemmeno, e
