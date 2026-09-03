@@ -18620,8 +18620,10 @@ const VISIBILI = {
   ingresso: ["vaio-brand", "vaio-upload-wrap"],
   // Caricato un modello, l'invito al centro sparisce: ha finito il suo lavoro,
   // e da li' in poi coprirebbe la scena. Per cambiare modello c'e' la toolbar.
-  modello: ["vaio-brand", "vaio-toolbar", "va-rail"],
-  analisi: ["vaio-brand", "vaio-toolbar", "va-rail"],
+  // Il pannello Punti (i nodi/tappe) entra qui e non in ingresso: senza
+  // modello non c'e' niente su cui posizionare un punto.
+  modello: ["vaio-brand", "vaio-toolbar", "va-rail", "veritas-picker-panel"],
+  analisi: ["vaio-brand", "vaio-toolbar", "va-rail", "veritas-picker-panel"],
 };
 
 // Gli strati visivi, nell'ordine in cui hanno senso: prima capire lo spazio,
@@ -19121,7 +19123,16 @@ function applicaFase() {
   // va-dock-tab NON va in questa lista: da quando vive dentro il rail, la sua
   // visibilita' e' quella del rail. Elencandolo qui prendeva va-fuori-fase in
   // ogni fase, cioe' restava sempre invisibile e non cliccabile.
-  const tutti = ["vaio-brand", "vaio-toolbar", "vaio-upload-wrap", "va-rail"];
+  //
+  // veritas-picker-panel (il pannello Punti) ci entra: prima la sua visibilita'
+  // dipendeva solo da cadVisible (l'interruttore "Editor zone" dentro la
+  // toolbar), un sistema indipendente dalla fase. Tornando in ingresso -
+  // per esempio caricando un altro progetto - la toolbar spariva ma il
+  // pannello, se era rimasto aperto, restava a schermo senza piu' un
+  // interruttore raggiungibile per chiuderlo. va-fuori-fase si somma a
+  // vaio-hidden, non lo sostituisce: fuori da modello/analisi il pannello
+  // sparisce comunque, dentro resta cadVisible a decidere.
+  const tutti = ["vaio-brand", "vaio-toolbar", "vaio-upload-wrap", "va-rail", "veritas-picker-panel"];
   for (const id of tutti) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("va-fuori-fase", !ammessi.includes(id));
