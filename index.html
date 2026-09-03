@@ -2453,21 +2453,22 @@
       return migliore || centro;
     }
 
-    // Il percorso ha attraversato DAVVERO la soglia, o le e' solo passato
-    // vicino? Intersezione fra segmenti in pianta: si ignora la quota, un
-    // dislivello sotto un metro e' lo stesso piano per una persona che
-    // cammina. Ritorna quanto e' lungo il primo segmento (0..1) al punto
-    // d'incrocio, o null se i due segmenti non si toccano.
-    function segmentoIncrocia(p1, p2, q1, q2) {
-      const rx = p2[0] - p1[0], rz = p2[2] - p1[2];
+    // Quanto un punto sta lontano dalla soglia (in pianta, si ignora la
+    // quota). Non si chiede "il percorso l'ha attraversata in linea retta"
+    // — sbagliato: si MIRA proprio a un punto sulla soglia (vedi
+    // puntoSogliaCamminabile), quindi l'ultimo tratto arriva a quel punto e
+    // basta, non prosegue dall'altra parte. Chiedere un incrocio vero
+    // falliva ogni volta che l'ultimo tratto arrivava quasi parallelo alla
+    // soglia stessa — capitava spesso, perche' il corridoio davanti a un
+    // varco e' quasi sempre orientato come il varco. La prova giusta e' piu'
+    // semplice: quanto ci si e' avvicinati.
+    function distanzaDaSegmento(p, q1, q2) {
       const sx = q2[0] - q1[0], sz = q2[2] - q1[2];
-      const denom = rx * sz - rz * sx;
-      if (Math.abs(denom) < 1e-9) return null;
-      const dx = q1[0] - p1[0], dz = q1[2] - p1[2];
-      const t = (dx * sz - dz * sx) / denom;
-      const u = (dx * rz - dz * rx) / denom;
-      if (t < 0 || t > 1 || u < 0 || u > 1) return null;
-      return t;
+      const l2 = sx * sx + sz * sz;
+      let t = l2 > 1e-9 ? ((p[0] - q1[0]) * sx + (p[2] - q1[2]) * sz) / l2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const px = q1[0] + sx * t, pz = q1[2] + sz * t;
+      return Math.hypot(p[0] - px, p[2] - pz);
     }
 
     function expandRoute(rawNodes) {
@@ -2525,28 +2526,28 @@
             // prova approssimata: raggiunto il nodo, si conta come passato.
             securityAt = cum;
           } else {
-            // Con la soglia, la prova non e' "il percorso ha toccato il
-            // punto scelto sopra" — quel punto e' solo dove si MIRA. La
-            // prova e' che il TRATTO APPENA PERCORSO (l'arrivo a questo
-            // filtro, e solo quello) abbia davvero incrociato la soglia.
-            // ⚠️ Si guarda solo questo tratto, non l'intero percorso: la
-            //    soglia e' una retta bloccata a un segmento, ma resta pur
-            //    sempre una retta — un tratto lontano del cammino puo'
-            //    incrociarla per puro caso geometrico, senza che li' ci sia
-            //    nessun varco. Misurato il 03/09: cercando su tutto il
-            //    percorso, l'incrocio trovato per primo cadeva a meta'
-            //    dell'avvicinamento all'accoglienza, a undici metri dal
-            //    filtro vero — e l'agente, mandato a quella distanza
-            //    lungo il cammino, appariva teletrasportato altrove.
-            let percorsa = cumPrimaDiQuiTratto, trovato = null;
+            // Con la soglia, la prova e' quanto il TRATTO APPENA PERCORSO
+            // (l'arrivo a questo filtro, e solo quello — non l'intero
+            // percorso: un tratto lontano potrebbe passare vicino alla
+            // stessa retta per puro caso geometrico, misurato il 03/09)
+            // si e' avvicinato alla soglia. Non si chiede un incrocio in
+            // linea retta: si MIRA gia' a un punto sulla soglia, quindi
+            // l'ultimo passo del tratto arriva li' e si ferma, non
+            // prosegue dall'altra parte — un vero incrocio fallirebbe
+            // ogni volta che l'ultimo tratto arriva parallelo alla soglia,
+            // che e' il caso comune (il corridoio davanti a un varco e'
+            // quasi sempre orientato come il varco).
+            const tolleranza = Math.max(0.6, (rawNodes[s + 1].formaLargo || 0) / 2);
+            let percorsa = cumPrimaDiQuiTratto, migliorD = Infinity, migliorPercorsa = null;
+            let prevPt = expanded[idxPrimaDiQuiTratto].pos;
             for (let k = idxPrimaDiQuiTratto + 1; k < expanded.length; k++) {
-              const a = expanded[k - 1].pos, b = expanded[k].pos;
-              const segLenLoc = Math.hypot(b[0] - a[0], b[2] - a[2]);
-              const t = segmentoIncrocia(a, b, soglia.capo1, soglia.capo2);
-              if (t !== null) { trovato = percorsa + t * segLenLoc; break; }
-              percorsa += segLenLoc;
+              const b = expanded[k].pos;
+              percorsa += Math.hypot(b[0] - prevPt[0], b[2] - prevPt[2]);
+              const d = distanzaDaSegmento(b, soglia.capo1, soglia.capo2);
+              if (d < migliorD) { migliorD = d; migliorPercorsa = percorsa; }
+              prevPt = b;
             }
-            securityAt = trovato;
+            securityAt = migliorD <= tolleranza ? migliorPercorsa : null;
           }
         }
       }
