@@ -13521,14 +13521,21 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   function nativeTargets() {
     const out = [];
     document.querySelectorAll("aside").forEach((el) => {
+      if (root.contains(el)) return;
       // La griglia KPI del bundle e' un <aside> come gli altri, ma da quando
       // veritasNumeriNostri() ci pianta dentro #veritas-numeri non e' piu'
       // chrome da rimuovere: e' lo stesso spazio con dentro i numeri nostri.
-      // Senza questa eccezione l'observer sotto lo ri-nascondeva ad ogni
-      // giro (250ms), e i quattro riquadri restavano invisibili anche
-      // popolati bene: misurato il 03/09, a schermo largo (xl, >=1280px)
-      // dove il bundle passa dalla griglia mobile a questo aside.
-      if (!root.contains(el) && !el.querySelector("#veritas-numeri")) out.push(el);
+      // Non basta escluderla da qui in poi: all'avvio, prima che la
+      // simulazione parta e i numeri esistano, questo stesso aside veniva
+      // gia' marcato vaio-native-hidden come chrome puro - e quella classe
+      // non si toglie da sola. Va rimossa esplicitamente quando adottiamo
+      // lo spazio, non solo evitata da ora in poi. Misurato il 03/09, a
+      // schermo largo (xl, >=1280px, dove il bundle passa dalla griglia
+      // KPI mobile a questo aside): senza questo l'observer sotto lo
+      // ri-nascondeva ogni 250ms e i quattro riquadri restavano invisibili
+      // anche popolati bene.
+      if (el.querySelector("#veritas-numeri")) { el.classList.remove("vaio-native-hidden"); return; }
+      out.push(el);
     });
     NATIVE_SELECTORS.forEach((sel) => {
       document.querySelectorAll(sel).forEach((el) => { if (!root.contains(el)) out.push(el); });
