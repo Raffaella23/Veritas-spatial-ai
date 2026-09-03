@@ -2394,83 +2394,6 @@
       return pts;
     }
 
-    // ============================================================
-    // IL VARCO NON E' UN PUNTO — punto 8, aperto il 03/09.
-    //
-    // Una tappa e' un punto, e il percorso la tocca passandole vicino: per un
-    // filtro (metal detector, tornelli) non basta, perche' passarci ACCANTO
-    // non e' passarci DENTRO. Un varco di controllo e' una soglia larga
-    // quanto il varco: due capi e un verso — non un punto solo.
-    //
-    // Larghezza e verso non si inventano: la stessa geometria che disegna il
-    // volume azzurro del filtro sulla scena (box.rotation.y = -formaAngolo,
-    // box largo formaLungo sull'asse locale X — vedi piu' sotto, "IL VOLUME
-    // PRENDE LA FORMA DELLA ZONA") da' anche la soglia. Senza quella forma
-    // (un nodo creato a mano, per esempio, che la forma non ce l'ha) non si
-    // inventa niente: si torna al punto singolo, come prima del 03/09.
-    function sogliaFiltro(n) {
-      if (!n || n.type !== "filtro" || !n.pos) return null;
-      if (!(n.formaLungo > 0) || !(n.formaLargo > 0)) return null;
-      const th = typeof n.formaAngolo === "number" ? n.formaAngolo : 0;
-      const mezzo = n.formaLungo / 2;
-      const dx = mezzo * Math.cos(th), dz = mezzo * Math.sin(th);
-      return {
-        capo1: [n.pos[0] - dx, n.pos[1], n.pos[2] - dz],
-        capo2: [n.pos[0] + dx, n.pos[1], n.pos[2] + dz],
-      };
-    }
-
-    // Il punto sulla soglia da cui si passa davvero: il piu' vicino al
-    // centro che la navmesh riconosce come calpestabile. Il centro esatto
-    // puo' cadere dentro l'ingombro solido dell'apparecchio stesso (il metal
-    // detector), e allora la ricerca del cammino lo scarterebbe per conto
-    // suo, arrivando "il piu' vicino possibile" a un punto qualunque intorno
-    // — magari fuori dal varco, che e' esattamente il difetto visto il
-    // 02/09. Campionando SULLA soglia il punto scelto resta dentro il varco.
-    function puntoSogliaCamminabile(soglia) {
-      const centro = [
-        (soglia.capo1[0] + soglia.capo2[0]) / 2,
-        (soglia.capo1[1] + soglia.capo2[1]) / 2,
-        (soglia.capo1[2] + soglia.capo2[2]) / 2,
-      ];
-      const nmc = window.__veritasNavmesh;
-      if (!nmc || !nmc.stato()) return centro;
-      const CAMPIONI = 9;
-      let migliore = null, migliorD = Infinity;
-      for (let i = 0; i < CAMPIONI; i++) {
-        const t = i / (CAMPIONI - 1);
-        const p = [
-          soglia.capo1[0] + (soglia.capo2[0] - soglia.capo1[0]) * t,
-          soglia.capo1[1] + (soglia.capo2[1] - soglia.capo1[1]) * t,
-          soglia.capo1[2] + (soglia.capo2[2] - soglia.capo1[2]) * t,
-        ];
-        let ok = false;
-        try { ok = nmc.sulCamminoCorrente(p, [0.4, 0.8, 0.4]).ok; } catch (e) { ok = false; }
-        if (!ok) continue;
-        const d = Math.abs(t - 0.5);
-        if (d < migliorD) { migliorD = d; migliore = p; }
-      }
-      return migliore || centro;
-    }
-
-    // Quanto un punto sta lontano dalla soglia (in pianta, si ignora la
-    // quota). Non si chiede "il percorso l'ha attraversata in linea retta"
-    // — sbagliato: si MIRA proprio a un punto sulla soglia (vedi
-    // puntoSogliaCamminabile), quindi l'ultimo tratto arriva a quel punto e
-    // basta, non prosegue dall'altra parte. Chiedere un incrocio vero
-    // falliva ogni volta che l'ultimo tratto arrivava quasi parallelo alla
-    // soglia stessa — capitava spesso, perche' il corridoio davanti a un
-    // varco e' quasi sempre orientato come il varco. La prova giusta e' piu'
-    // semplice: quanto ci si e' avvicinati.
-    function distanzaDaSegmento(p, q1, q2) {
-      const sx = q2[0] - q1[0], sz = q2[2] - q1[2];
-      const l2 = sx * sx + sz * sz;
-      let t = l2 > 1e-9 ? ((p[0] - q1[0]) * sx + (p[2] - q1[2]) * sz) / l2 : 0;
-      t = Math.max(0, Math.min(1, t));
-      const px = q1[0] + sx * t, pz = q1[2] + sz * t;
-      return Math.hypot(p[0] - px, p[2] - pz);
-    }
-
     function expandRoute(rawNodes) {
       const MAX_SEG_LEN = 3.5; // metri: sopra questa lunghezza un tratto viene suddiviso
       // Aggancio della quota al pavimento vero.
@@ -2495,22 +2418,13 @@
         return p;
       };
 
-      // Le soglie dei filtri di questa fila di tappe, e dove mirare per
-      // passarci davvero dentro invece che vicino (vedi sogliaFiltro poco
-      // sopra). Senza forma misurata `soglie[i]` resta null e il nodo si
-      // comporta come prima: nessuna regressione sui modelli senza quella
-      // misura.
-      const soglie = rawNodes.map(sogliaFiltro);
-      const posUsate = rawNodes.map((n, i) => (soglie[i] ? puntoSogliaCamminabile(soglie[i]) : n.pos));
-
-      const expanded = [{ pos: snapToFloor(posUsate[0]) }];
+      const expanded = [{ pos: snapToFloor(rawNodes[0].pos) }];
       let securityAt = null, cum = 0;
-      if (rawNodes[0].type === "filtro" && !soglie[0]) securityAt = 0;
+      if (rawNodes[0].type === "filtro") securityAt = 0;
       for (let s = 0; s < rawNodes.length - 1; s++) {
-        const from = posUsate[s], to = posUsate[s + 1];
+        const from = rawNodes[s].pos, to = rawNodes[s + 1].pos;
         const via = findRoute(from, to); // array di posizioni intermedie + destinazione finale
         let prev = from;
-        const idxPrimaDiQuiTratto = expanded.length - 1, cumPrimaDiQuiTratto = cum;
         for (const wp of via) {
           for (const dp0 of densifySegment(prev, wp, MAX_SEG_LEN)) {
             const dp = snapToFloor(dp0);
@@ -2519,37 +2433,7 @@
             prev = dp;
           }
         }
-        if (rawNodes[s + 1].type === "filtro") {
-          const soglia = soglie[s + 1];
-          if (!soglia) {
-            // Senza soglia (nodo senza forma misurata) si tiene la vecchia
-            // prova approssimata: raggiunto il nodo, si conta come passato.
-            securityAt = cum;
-          } else {
-            // Con la soglia, la prova e' quanto il TRATTO APPENA PERCORSO
-            // (l'arrivo a questo filtro, e solo quello — non l'intero
-            // percorso: un tratto lontano potrebbe passare vicino alla
-            // stessa retta per puro caso geometrico, misurato il 03/09)
-            // si e' avvicinato alla soglia. Non si chiede un incrocio in
-            // linea retta: si MIRA gia' a un punto sulla soglia, quindi
-            // l'ultimo passo del tratto arriva li' e si ferma, non
-            // prosegue dall'altra parte — un vero incrocio fallirebbe
-            // ogni volta che l'ultimo tratto arriva parallelo alla soglia,
-            // che e' il caso comune (il corridoio davanti a un varco e'
-            // quasi sempre orientato come il varco).
-            const tolleranza = Math.max(0.6, (rawNodes[s + 1].formaLargo || 0) / 2);
-            let percorsa = cumPrimaDiQuiTratto, migliorD = Infinity, migliorPercorsa = null;
-            let prevPt = expanded[idxPrimaDiQuiTratto].pos;
-            for (let k = idxPrimaDiQuiTratto + 1; k < expanded.length; k++) {
-              const b = expanded[k].pos;
-              percorsa += Math.hypot(b[0] - prevPt[0], b[2] - prevPt[2]);
-              const d = distanzaDaSegmento(b, soglia.capo1, soglia.capo2);
-              if (d < migliorD) { migliorD = d; migliorPercorsa = percorsa; }
-              prevPt = b;
-            }
-            securityAt = migliorD <= tolleranza ? migliorPercorsa : null;
-          }
-        }
+        if (rawNodes[s + 1].type === "filtro") securityAt = cum;
       }
 
       // Quali punti del percorso NON stanno su una superficie calpestabile.
@@ -13579,7 +13463,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
     @media (max-width:640px){
       #vaio-console{bottom:104px;width:96vw;} #vaio-upload-wrap{bottom:104px;left:8px;}
-      #vaio-topbar{left:8px;right:8px;flex-wrap:wrap;gap:8px;}
+      #vaio-topbar{left:8px;right:8px;top:8px;flex-wrap:wrap;gap:8px;}
       #vaio-onboard{display:none;}
     }
   `;
@@ -13637,21 +13521,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   function nativeTargets() {
     const out = [];
     document.querySelectorAll("aside").forEach((el) => {
-      if (root.contains(el)) return;
-      // La griglia KPI del bundle e' un <aside> come gli altri, ma da quando
-      // veritasNumeriNostri() ci pianta dentro #veritas-numeri non e' piu'
-      // chrome da rimuovere: e' lo stesso spazio con dentro i numeri nostri.
-      // Non basta escluderla da qui in poi: all'avvio, prima che la
-      // simulazione parta e i numeri esistano, questo stesso aside veniva
-      // gia' marcato vaio-native-hidden come chrome puro - e quella classe
-      // non si toglie da sola. Va rimossa esplicitamente quando adottiamo
-      // lo spazio, non solo evitata da ora in poi. Misurato il 03/09, a
-      // schermo largo (xl, >=1280px, dove il bundle passa dalla griglia
-      // KPI mobile a questo aside): senza questo l'observer sotto lo
-      // ri-nascondeva ogni 250ms e i quattro riquadri restavano invisibili
-      // anche popolati bene.
-      if (el.querySelector("#veritas-numeri")) { el.classList.remove("vaio-native-hidden"); return; }
-      out.push(el);
+      if (!root.contains(el)) out.push(el);
     });
     NATIVE_SELECTORS.forEach((sel) => {
       document.querySelectorAll(sel).forEach((el) => { if (!root.contains(el)) out.push(el); });
@@ -13670,17 +13540,6 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     const btn = byId("vaio-cadtoggle");
     if (btn) btn.classList.toggle("active", cadVisible);
   }
-
-  // Ponte per veritas_aspetto.js: chiude il pannello Punti tornando in
-  // ingresso (nessun modello), riusando cadVisible invece di affiancargli
-  // una seconda classe. Un'azione sola, chiamata solo sul bordo
-  // fuori-modello→ingresso — MAI un enforcement continuo: quello litigherebbe
-  // con apriEditor() qui sotto, che apre lo stesso pannello da solo appena le
-  // zone sono riconosciute (vedi §"editor automatico" molto piu' in basso).
-  window.__veritasChiudiPuntiIngresso = function () {
-    cadVisible = false;
-    applyCadVisibility();
-  };
 
   function applyChrome() {
     applyNativeVisibility();
@@ -13767,7 +13626,6 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       </div>
     `;
     root.appendChild(bar);
-    veritasPositionTopbar();
 
     function wireMenu(btnId, menuId) {
       const btn = byId(btnId), menu = byId(menuId);
@@ -13824,26 +13682,6 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       applyCadVisibility();
     };
   }
-
-  // La pillola VERITAS e' position:fixed sopra al canvas. Sotto i 1024px
-  // (breakpoint "lg" del bundle) spunta anche la sua fila nativa di tab
-  // telecamera (Global, Varco 3D, ...), in flusso normale in cima alla
-  // pagina: la pillola ci finiva sopra. Si misura l'altezza vera di quella
-  // fila invece di indovinare un numero fisso, perche' va su due righe
-  // sotto una certa larghezza e la soglia dipende da quanti preset ha il
-  // modello caricato.
-  function veritasPositionTopbar() {
-    const bar = byId("vaio-topbar");
-    if (!bar) return;
-    const camTabs = [...document.querySelectorAll("div")].find(
-      (d) => typeof d.className === "string" && d.className.includes("lg:hidden") && d.className.includes("flex-wrap")
-    );
-    const r = camTabs ? camTabs.getBoundingClientRect() : null;
-    bar.style.top = r && r.height > 0 ? r.bottom + 8 + "px" : "";
-  }
-  veritasPositionTopbar();
-  setInterval(veritasPositionTopbar, 1000);
-  window.addEventListener("resize", veritasPositionTopbar);
 
   // --- Vista in prima persona -------------------------------------------
   // Cosa vede l'agente con i propri occhi, non dall'alto. Va accanto ai
@@ -18761,17 +18599,6 @@ const VISIBILI = {
   ingresso: ["vaio-brand", "vaio-upload-wrap"],
   // Caricato un modello, l'invito al centro sparisce: ha finito il suo lavoro,
   // e da li' in poi coprirebbe la scena. Per cambiare modello c'e' la toolbar.
-  //
-  // Il pannello Punti (i nodi/tappe) NON sta in questa lista, apposta: ha gia'
-  // il suo sistema di apertura/chiusura (cadVisible in index.html), e un
-  // pannello acceso da solo quando le zone vengono riconosciute
-  // (apriEditor(), altrove in index.html). Mettercelo dentro con
-  // va-fuori-fase — provato il 03/09 — apre due padroni sullo stesso
-  // elemento: durante il riconoscimento delle zone i due si contendevano la
-  // visibilita' e il pannello sfarfallava, apparendo "bloccato" e "a scatti".
-  // Il pezzo mancante (chiuderlo tornando in ingresso, che era il difetto
-  // vero da correggere) sta invece in applicaFase() qui sotto, come
-  // un'azione sola sul bordo, non un possesso continuo.
   modello: ["vaio-brand", "vaio-toolbar", "va-rail"],
   analisi: ["vaio-brand", "vaio-toolbar", "va-rail"],
 };
@@ -19264,8 +19091,6 @@ function vetrifica() {
   }
 }
 
-let ultimaFase = null;
-
 /** Mostra solo cio' che la fase prevede. */
 function applicaFase() {
   const zone = typeof window.__veritasGetNodes === "function"
@@ -19280,16 +19105,6 @@ function applicaFase() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("va-fuori-fase", !ammessi.includes(id));
   }
-  // Il pannello Punti resta fuori da questa lista (vedi il commento su
-  // VISIBILI piu' sopra): ha gia' un padrone, cadVisible. L'UNICA cosa che
-  // gli si chiede da qui e' di chiudersi tornando in ingresso — un'azione
-  // sola SUL BORDO (fase precedente diversa da ingresso, questa e' ingresso),
-  // non un possesso ripetuto a ogni giro: ripeterla ogni volta rifarebbe
-  // esattamente il conflitto con apriEditor() che l'ha causato il 03/09.
-  if (f === "ingresso" && ultimaFase !== "ingresso" && typeof window.__veritasChiudiPuntiIngresso === "function") {
-    window.__veritasChiudiPuntiIngresso();
-  }
-  ultimaFase = f;
   return f;
 }
 

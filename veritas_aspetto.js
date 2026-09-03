@@ -53,17 +53,6 @@ const VISIBILI = {
   ingresso: ["vaio-brand", "vaio-upload-wrap"],
   // Caricato un modello, l'invito al centro sparisce: ha finito il suo lavoro,
   // e da li' in poi coprirebbe la scena. Per cambiare modello c'e' la toolbar.
-  //
-  // Il pannello Punti (i nodi/tappe) NON sta in questa lista, apposta: ha gia'
-  // il suo sistema di apertura/chiusura (cadVisible in index.html), e un
-  // pannello acceso da solo quando le zone vengono riconosciute
-  // (apriEditor(), altrove in index.html). Mettercelo dentro con
-  // va-fuori-fase — provato il 03/09 — apre due padroni sullo stesso
-  // elemento: durante il riconoscimento delle zone i due si contendevano la
-  // visibilita' e il pannello sfarfallava, apparendo "bloccato" e "a scatti".
-  // Il pezzo mancante (chiuderlo tornando in ingresso, che era il difetto
-  // vero da correggere) sta invece in applicaFase() qui sotto, come
-  // un'azione sola sul bordo, non un possesso continuo.
   modello: ["vaio-brand", "vaio-toolbar", "va-rail"],
   analisi: ["vaio-brand", "vaio-toolbar", "va-rail"],
 };
@@ -556,8 +545,6 @@ function vetrifica() {
   }
 }
 
-let ultimaFase = null;
-
 /** Mostra solo cio' che la fase prevede. */
 function applicaFase() {
   const zone = typeof window.__veritasGetNodes === "function"
@@ -572,16 +559,6 @@ function applicaFase() {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("va-fuori-fase", !ammessi.includes(id));
   }
-  // Il pannello Punti resta fuori da questa lista (vedi il commento su
-  // VISIBILI piu' sopra): ha gia' un padrone, cadVisible. L'UNICA cosa che
-  // gli si chiede da qui e' di chiudersi tornando in ingresso — un'azione
-  // sola SUL BORDO (fase precedente diversa da ingresso, questa e' ingresso),
-  // non un possesso ripetuto a ogni giro: ripeterla ogni volta rifarebbe
-  // esattamente il conflitto con apriEditor() che l'ha causato il 03/09.
-  if (f === "ingresso" && ultimaFase !== "ingresso" && typeof window.__veritasChiudiPuntiIngresso === "function") {
-    window.__veritasChiudiPuntiIngresso();
-  }
-  ultimaFase = f;
   return f;
 }
 
