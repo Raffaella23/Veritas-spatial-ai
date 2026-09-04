@@ -5,6 +5,64 @@
 
 ---
 
+## 🔧 LA CATENA DELL'OCCHIO — cinque guasti in fila, 04/09/2026 sera
+
+Tutti trovati e corretti nella stessa sessione, uno dietro l'altro: ognuno
+nascondeva il successivo. Vale la pena leggerli in ordine, perché è il modo in
+cui questo programma si rompe.
+
+1. **`occhioSuTutteLeViste()` non la chiamava nessuno.** Due occorrenze in tutto
+   il repository: la definizione e un commento. Il rilevatore vedeva solo la
+   pianta. → collegata (`37e7664`), poi rimessa nel verso giusto su indicazione
+   di Raffaella — **l'occhio guarda per primo, il cervello valida** (`a9f0e08`).
+2. **Il documento lo dava per risolto.** Riga corretta e riaperta (`a6bbbc3`).
+3. **Due ordini contrari nello stesso file**, tutti e due con la ⚠️ e la data.
+   Ho seguito quello morto. → il vecchio cancellato, e la regola scritta:
+   *quando si decide, la nota vecchia si butta* (`1a2f479`).
+4. **`occhioLocale` partiva da `webgpu/q4f16`**, che non si apre — e il motore
+   ONNX si accende una volta sola per pagina, quindi il primo gradino bruciava
+   tutti gli altri. **Ogni accensione automatica moriva**, sempre, e subentrava
+   l'occhio di riserva. Le prove riuscite erano quelle in cui il formato glielo
+   passavo a mano. → `wasm/q8` in cima (`6a3bed7`).
+5. **Due stringhe spezzate su un a-capo vero**: `veritas_comprensione.js` non si
+   caricava affatto, `veritas_montaggio` moriva all'import, e **nessun giro di
+   comprensione partiva** — senza un solo errore visibile nell'interfaccia
+   (`2cc088c`).
+6. **E la comprensione era servita dalla cache**: unico modulo del progetto
+   importato **senza numero di versione**, quindi le modifiche non arrivavano
+   mai alla pagina viva e non lasciavano traccia (`02cd6a5`).
+
+### Cosa funziona adesso, verificato sulla pagina viva
+
+- **l'occhio si accende da solo**, a pagina ferma: `acceso a pagina ferma
+  (wasm/q8)`, e **regge** col modello dentro;
+- **è 19 volte più veloce**: lo sguardo sulla pianta è passato da **690 s a
+  36 s**, stesso risultato identico (4 nominati su 23, 78 battute);
+- **i fili sono accesi** e non rompono niente (deposito, cervello, analisi).
+
+### ⚠️ Cosa NON è ancora verificato, e va ripreso da lì
+
+Il giro con il rilevatore **sugli scorci** è partito ma **non ha ancora scritto
+la sua riga di log** (`[VERITAS occhio] ha guardato per primo N viste`). Al
+momento in cui questa sessione si chiude sta ancora girando: sono cinque
+immagini in fila, e nel frattempo `__veritasGuarda` rifà lo sguardo automatico
+sulla pianta ogni ~80 s **sullo stesso rilevatore**, quindi si mettono in coda.
+
+**Da fare per primo, alla ripresa:**
+
+1. aprire il progetto sulla pagina viva e cercare in console
+   `ha guardato per primo` oppure il nuovo avviso
+   `il rilevatore NON e' collegato a questo giro`. Una delle due righe c'è, e
+   dice da che parte andare;
+2. ⚠️ **guardare se `__veritasGuarda` automatico va tolto**: rifà lo sguardo
+   sulla pianta a ogni evento di modello caricato, in concorrenza con il giro
+   di comprensione, sullo stesso motore. Due padroni per un occhio solo;
+3. poi la domanda vera, quella per cui tutto questo è stato fatto: **con gli
+   scorci, l'occhio trova finalmente sedute e banconi?** Oggi sulla sola pianta
+   trovava 50 indizi d'imbarco, 23 di paesaggio, 7 scale e nessun arredo.
+
+---
+
 ## 🎬 IL VIAGGIO DENTRO IL PROGETTO — visione di prodotto, Raffaella 04/09/2026
 
 Nata da un problema pratico e diventata la direzione del prodotto. Il problema:

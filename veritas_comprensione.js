@@ -962,6 +962,11 @@ export async function comprendiGuardando(ctx) {
   //    del passo (0): «l'occhio guarda e dice cosa gli sembra; il cervello poi
   //    contesta con le misure».
   let testimoneOcchio = null;
+  // ⚠️ E SE NON C'E', LO DICE. Un ramo che si salta in silenzio e' come una
+  //    funzione mai chiamata: nessuno se ne accorge per settimane.
+  if (typeof ctx.rileva !== "function")
+    console.warn("[VERITAS occhio] il rilevatore NON e' collegato a questo giro: "
+      + "guarda solo il cervello, e la Regola 0 punto 2 non e' rispettata");
   if (typeof ctx.rileva === "function") {
     try {
       const visto = await occhioSuTutteLeViste(ctx, immagini, [], false);
