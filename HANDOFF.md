@@ -144,6 +144,59 @@ qualcuno, a un certo punto, lo ha staccato.
 
 ---
 
+## ⏱️ PERCHÉ L'OCCHIO È LENTO, E QUAL È L'UNICA LEVA — misurato il 04/09/2026
+
+Serve a decidere se `occhioSuTutteLeViste()` si può ricollegare (sezione sopra).
+Tutte le misure sulla pagina viva, una prova per pagina.
+
+### Le tre strade chiuse, con la prova
+
+| strada | esito | prova |
+|---|---|---|
+| **fili multipli** (`numThreads > 1`) | **impossibile** | `crossOriginIsolated: false`, `SharedArrayBuffer` non esiste. GitHub Pages non manda le intestazioni COOP/COEP. **12 processori inutilizzabili** |
+| **scheda video** (`webgpu/q4f16`) | **non si apre** | provata per PRIMA su pagina pulita, **col proxy** e **senza**: sempre `267935216`. Non era l'artefatto del motore già acceso |
+| **meno parole** | **non serve a niente** | 4 parole → **202,8 s**; 16 parole → **201,3 s**. Identico |
+
+⚠️ **La terza è la più importante, ed è controintuitiva.** Il costo non sta nel
+vocabolario: sta nel **guardare l'immagine**. OWLv2-base-patch16 macina la figura
+in migliaia di tessere e lo fa **una volta sola**, poi confrontare quattro parole
+o centocinquanta costa uguale. Quindi **restringere il vocabolario per andare più
+veloci è tempo perso** — e per fortuna, perché il vocabolario va allargato, non
+stretto.
+
+### Il numero da tenere
+
+**Circa 200 secondi per immagine** su questa macchina, a un filo solo (misurato
+su figura sintetica 1024×572; sulla pianta vera del progetto, 625 s e 690 s).
+
+Tredici immagini per giro — la pianta più dodici scorci — fanno **da 45 minuti a
+oltre due ore per giro**. Ecco perché ricollegare l'occhio agli scorci oggi lo
+renderebbe inutilizzabile, ed è quasi certamente il motivo per cui è stato
+staccato.
+
+### L'unica leva rimasta, e vale la pena provarla
+
+**Sbloccare i fili multipli con un service worker che aggiunge COOP/COEP.** È la
+tecnica nota per rendere una pagina *cross-origin isolated* su un hosting statico
+che non manda intestazioni: il service worker le inietta lui alle risposte. Da
+lì `SharedArrayBuffer` esiste, `numThreads` si può alzare, e i 12 processori
+entrano in gioco.
+
+Ordine di grandezza atteso: da ~200 s a **25–50 s per immagine**, cioè un giro
+completo su tredici viste in **5–10 minuti**. Da lì il ricollegamento ha senso.
+
+⚠️ Due cose da verificare prima di adottarla, e vanno misurate non ipotizzate:
+non deve rompere il caricamento del modello dal deposito (IndexedDB) né le
+chiamate al cervello su `localhost:1234` — un contesto isolato è più severo su
+tutto ciò che arriva da un'altra origine.
+
+**Seconda strada, più economica da provare:** `owlvit-base-patch32` invece di
+`owlv2-base-patch16`. Tessere quattro volte più grandi, quindi circa quattro
+volte meno lavoro. Con la libreria 4.x non si apriva; **con la 3.8.1 non è mai
+stato riprovato**.
+
+---
+
 ## 🔵 LA PROVA DEL PROCEDIMENTO — 04/09/2026, misurata sulla pagina viva
 
 Secondo giro d'occhio della giornata, con l'occhio acceso a pagina leggera.
