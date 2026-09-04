@@ -379,11 +379,33 @@ function telaDa(x) {
 //
 // Sovrascrivibile con window.__veritasOcchioTentativi.
 
+// ⚠️ MISURATO IL 04/09/2026, ED E' LA COSA PIU' IMPORTANTE DI QUESTA LISTA:
+//    DOPO IL PRIMO TENTATIVO, GLI ALTRI NON SONO PIU' UNA PROVA.
+//
+//    Il motore ONNX si accende una volta sola per pagina, e resta com'e'. Dal
+//    secondo tentativo in poi non si sta piu' provando quel formato: si sta
+//    ricevendo l'esito del primo, con il suo errore. Per questo la scala
+//    sembrava confermare se stessa — cinque righe identiche — e per questo la
+//    diagnosi del 04/09 mattina era sbagliata.
+//
+//    La prova pulita si fa in una PAGINA NUOVA, un tentativo per pagina. Fatta
+//    cosi' (su landing.html), il risultato e':
+//      wasm/q8       APRE
+//      webgpu/q4f16  non apre, errore numerico di memoria
+//    Nella pagina dell'applicazione, con webgpu provato per primo, wasm/q8
+//    falliva anche lui — cioe' il gradino buono veniva bruciato da quello
+//    provato prima.
+//
+//    Quindi in cima va quello che REGGE, non quello che sarebbe piu' veloce.
+//    Gli altri restano sotto, ma sapendo cosa valgono: sono una rete, non una
+//    misura. Chi vuole rimisurarli lo faccia in una pagina pulita, uno per
+//    pagina, altrimenti misura il primo cinque volte.
+
 const TENTATIVI = [
-  { device: "webgpu", dtype: "q4f16" },  // il piu' leggero, il piu' schizzinoso
+  { device: "wasm",   dtype: "q8" },     // MISURATO: e' quello che apre. Piu' lento, e va bene.
+  { device: "webgpu", dtype: "q4f16" },  // il piu' leggero e il piu' veloce, ma qui non si apre
   { device: "webgpu", dtype: "fp16" },
   { device: "webgpu", dtype: "q8" },
-  { device: "wasm",   dtype: "q8" },     // niente scheda video: piu' lento, piu' docile
   { device: "wasm",   dtype: "fp32" },   // nessuna compressione: l'ultima spiaggia
 ];
 
