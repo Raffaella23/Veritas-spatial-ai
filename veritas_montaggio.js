@@ -61,7 +61,7 @@ import "./veritas_manuale.js";
 //   node --check veritas_montaggio.js
 // ===========================================================================
 
-import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=1"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=2"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).

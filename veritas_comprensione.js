@@ -971,6 +971,13 @@ export async function comprendiGuardando(ctx) {
     try {
       const visto = await occhioSuTutteLeViste(ctx, immagini, [], false);
       if (visto && visto.testimonianza) testimoneOcchio = visto.testimonianza;
+      // ⚠️ Si lascia dove si puo' guardare. Quello che l'occhio vede negli
+      //    scorci e' l'unica risposta alla domanda «gli mancano le parole o
+      //    gli manca la vista?», e finora finiva dentro un prompt e spariva.
+      try {
+        window.__veritasTestimonianza = visto;
+        window.__veritasVisteOcchio = (visto && visto.viste) || [];
+      } catch (e) {}
       console.log("[VERITAS occhio] ha guardato per primo "
         + (1 + (ctx.scorci || []).length) + " viste col vocabolario intero"
         + (visto && visto.viste ? " — testimonianze da " + visto.viste.length + " scorci" : ""));
