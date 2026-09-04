@@ -105,6 +105,80 @@ geometria**: nessun secondo padrone aggiunto.
 `veritas_aspetto.js` **non è caricato da nessuno** — il codice vivo è la sua
 copia dentro `index.html` — ma si tiene allineato, come nel ripristino.
 
+### Catalogo, secondo pezzo: chi scrive le targhette delle zone
+
+Cercato per intero il 04/09, **prima** di toccare qualunque cosa, dopo che
+Raffaella ha detto: *«prima, nella figura 1 di 12, scriveva ingresso, check-in,
+sala d'attesa, e lo scriveva OGNI VOLTA che ce n'era una. Adesso mette la sala
+d'attesa una volta sola, e ogni volta che c'è una sala d'attesa non la
+riconosce. Quello che dovrebbe fare è riconoscere le funzioni e mettere dei
+cartellini con dei target più precisi, in maniera tale che il flusso vada
+esattamente lì.»*
+
+Le targhette non sono una cosa sola. Sono **due catene diverse che non si
+incontrano mai.**
+
+**Catena A — quello che l'occhio vede.** È la figura 1 di 12.
+
+| dove | cosa fa |
+|---|---|
+| `veritas_cose.js` | misura i mucchi di oggetti uguali (i `posti`). Solo geometria, nessun nome |
+| `veritas_riconosce.js` ~427 `abbina` | attacca a ogni mucchio la rilevazione che ci sta sopra meglio. **Nessun tetto**: la stessa parola può nominare quanti mucchi vuole |
+| `veritas_anteprima.js` ~274 | disegna `p.nome` accanto al punto, sulla pianta dall'alto |
+
+Qui la ripetizione **funziona gia'**: quattro sale d'attesa prendono quattro
+targhette, se il rilevatore restituisce quattro scatole.
+
+**Catena B — quello su cui cammina la gente.** Sono le tappe.
+
+| dove | cosa fa |
+|---|---|
+| `index.html` ~2833 `analyzeMesh` | **legge i NOMI DELLE MESH scritti dentro il file `.glb`**. Restituisce `{type, label, pos}`: niente ingombro, niente funzione |
+| `index.html` ~3994 | ogni nome cade nella zona piu' vicina, e `if (!etichette.has(migliore))` → **una sola targhetta per zona**, la prima che arriva |
+| `index.html` ~4221 | la zona senza targhetta riceve un `type` dedotto: dalle misure se ci sono, dalla sequenza tipica se no |
+| `index.html` ~4234 | la tappa nasce con `pos` = **baricentro della zona**, e `formaLungo`/`formaLargo`/`formaAngolo` = **ingombro della zona** |
+| `index.html` ~3708 `__veritasApplicaOcchi` | l'occhio **rinomina** le zone da quello che ha visto |
+
+⚠️ **E qui sta il difetto, ed e' piu' grosso di un tetto da alzare.**
+`__veritasApplicaOcchi` cambia **l'etichetta, non il `type`**. Sta scritto
+apposta a ~3940: *«Cambia l'etichetta, non il comportamento. Il vocabolario dei
+`type` resta intatto di proposito: ci si appoggiano il generatore di
+traiettorie, l'altezza dei marker e il grafo delle missioni, in una ventina di
+punti. Cambiarlo sarebbe un refactor, non una correzione.»*
+
+Quindi, misurato leggendo — non provato sulla pagina, che al 04/09 chiede di
+accedere:
+
+1. **Il flusso non cammina su quello che l'occhio ha visto.** Cammina sui nomi
+   scritti dentro il `.glb` da chi ha modellato lo spazio, piu' una deduzione.
+   L'occhio riscrive la targhetta sopra, e finisce li'.
+2. **Perciò una sola sala d'attesa.** Non perche' ci sia un tetto sul
+   riconoscimento, ma perche' nel file **una sola mesh** porta quel nome. Le
+   altre sale l'occhio le vede — e infatti compaiono nella figura 1 di 12 — ma
+   nella catena B non arrivano mai.
+3. **Perciò il varco e' largo 4,55 m.** La soglia si costruisce sull'ingombro
+   della ZONA, l'unica forma che la tappa si porta dietro. L'ingombro del metal
+   detector vero, che `abbina` aveva misurato, viene buttato nel passaggio dalla
+   catena A alla catena B.
+
+In una riga: **la targhetta e il bersaglio sono la stessa cosa, e oggi stanno in
+due catene diverse.** Il punto 8 (il varco), le targhette e «niente vocabolario
+scritto da noi» non sono tre lavori: sono uno.
+
+⚠️ **Contraddizione solo apparente con la correzione del 18/08** — quattro
+stanze chiamate tutte «Accettazione», illeggibili. Manca una distinzione, e va
+scritta prima di alzare qualunque tetto:
+
+- un nome **visto** si ripete quante volte serve: quattro sale d'attesa sono
+  quattro sale d'attesa;
+- un nome **dedotto** («e' la terza, quindi e' il controllo») non si ripete
+  mai, perche' e' un'ipotesi travestita da nome.
+
+🔴 **Quello che questo catalogo NON dice.** Se nella figura 1 di 12 oggi
+compaiano meno targhette di prima e' una **misura**, non una lettura: dipende da
+quante scatole restituisce il rilevatore su questo modello. Va guardata sulla
+pagina viva, e al 04/09 non e' stata guardata.
+
 ### Due trappole nuove, pagate il 04/09
 
 - **Gli screenshot del browser sono ridotti** (es. 800×636 per una finestra
