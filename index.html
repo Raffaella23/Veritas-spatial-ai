@@ -2,6 +2,31 @@
 <html lang="en">
 <head>
 
+<!--
+  ⚠ NON ALZARE LA VERSIONE DI @huggingface/transformers SENZA RIPROVARE L'OCCHIO.
+
+  Con la 4.2.0 — e anche 4.1.0, 4.0.1, 4.0.0 — NESSUN modello della famiglia OWL
+  si apre. Il motore ONNX di quelle versioni non ha l'operazione Cast(13) del
+  nodo `/class_head/Cast`:
+
+    su scheda video  ERROR_CODE 1  (il nodo non si assegna a nessun esecutore)
+    su processore    ERROR_CODE 9  (Could not find an implementation for Cast(13))
+
+  Misurato il 04/09/2026 IN PAGINA PULITA (nella pagina dell'applicazione il
+  motore resta acceso dal primo tentativo e falsa le prove che vengono dopo):
+  stesso identico nodo su owlv2-base-patch16-ensemble di Xenova, sulla stessa
+  esportazione di onnx-community, e perfino su owlvit-base-patch32 — cioe' non
+  e' il modello e non e' la compressione, e' la libreria.
+
+  Con la 3.8.1 quell'errore sparisce e OWLv2 si apre. Provato: si apre su
+  processore (wasm/q8); su scheda video (webgpu/q4f16) da' un errore numerico di
+  memoria, quindi la scala dei tentativi in veritas_montaggio.js scende da sola
+  fino a wasm/q8, che e' quello che regge.
+
+  Finche' questa riga dice 3.8.1, l'occhio vede. Con la 4.x l'occhio e' spento,
+  e con lui spariscono i nomi sulla pianta, il riconoscimento del metal detector
+  e il bersaglio del varco.
+-->
 <script type="importmap">
 {
   "imports": {
@@ -14,7 +39,7 @@
     "navcat": "https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/index.js",
     "navcat/blocks": "https://cdn.jsdelivr.net/npm/navcat@0.4.1/dist/blocks.js",
     "mathcat": "https://cdn.jsdelivr.net/npm/mathcat@0.0.12/dist/index.js",
-    "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js"
+    "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js"
   }
 }
 </script>
