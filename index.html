@@ -24636,6 +24636,37 @@ if (typeof window !== "undefined") {
     }, 3000);
     return out;
   };
+  // ⚠️ L'OCCHIO SI ACCENDE SUBITO, A PAGINA VUOTA — e non dopo il modello.
+  //
+  //    Misurato il 04/09/2026, quattro volte di fila sulla pagina viva:
+  //      pagina vuota, nessun progetto aperto  →  si apre in 3,6-7,9 s
+  //      dopo che il modello e' entrato        →  non si apre, e l'errore e' un
+  //                                               numero nudo (267935216,
+  //                                               272418864: eccezioni mai
+  //                                               tradotte, non quantita')
+  //
+  //    Non e' il modello a essere troppo grande: e' il momento a essere
+  //    sbagliato. Finche' l'accensione stava tre secondi DOPO il caricamento,
+  //    cadeva sempre nell'istante peggiore della vita della pagina, e ogni
+  //    volta si passava all'occhio di riserva senza che nessuno lo sapesse.
+  //
+  //    Acceso qui, all'avvio, l'occhio regge poi tutto il carico: verificato,
+  //    resta `pronto` con la scena 3D dentro e i 23 mucchi misurati.
+  //
+  //    ⚠️ Vale la regola del motore: quello che lo riguarda si decide PRIMA che
+  //       si accenda. Dopo, ogni prova misura il primo tentativo e non il
+  //       proprio.
+  setTimeout(function () {
+    if (_stato.fase !== "spento") return;
+    occhioLocale({}).then(function (r) {
+      console.log(r
+        ? "[VERITAS occhio] acceso a pagina leggera (" + _stato.device + "/" + _stato.dtype + ")"
+        : "[VERITAS occhio] non si e' acceso all'avvio: " + _stato.perche);
+    }).catch(function (e) {
+      console.warn("[VERITAS occhio] non si e' acceso all'avvio: " + ((e && e.message) || e));
+    });
+  }, 1200);
+
   console.log("[VERITAS occhio] pronto — window.__veritasGuarda()");
 }
 
