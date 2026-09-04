@@ -70,6 +70,171 @@ ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 ---
 
+## 🟢 LE 78 BUTTATE, GUARDATE UNA PER UNA — 04/09/2026, e non erano quello che sembravano
+
+Misurato sulla pagina viva, occhio acceso a pagina leggera (vedi sopra), stesso
+progetto «Aeroporto — banco di prova», stessi 23 mucchi.
+
+| | |
+|---|---|
+| rilevazioni | **82** |
+| mucchi nominati | **4 su 23** |
+| buttate | **78** |
+| tempo di uno sguardo | **625,6 s** (10 min 26 s), `wasm/q8`, `numThreads: 1` |
+
+**Tutte e 78 hanno lo stesso identico motivo: `battuta`.** Zero «sul vuoto»,
+zero «sfiorate», zero «troppo grandi».
+
+### Che vuol dire, e perché cambia tutto
+
+«Battuta» vuol dire: la rilevazione **aveva trovato un mucchio**, passava tutte
+e due le guardie, e ha solo perso il posto contro una migliore su quello stesso
+mucchio. Le misure lo dicono senza margine:
+
+- sovrapposizione col mucchio: **minima 0,444, mediana 1,00** (la soglia è 0,33);
+- ingrandimento: **mediana 0,1** — i riquadri sono *dieci volte più piccoli* del
+  mucchio su cui cadono (il limite è 4, e vale nell'altro verso).
+
+⚠️ **Quindi nessuna soglia è colpevole, e spostarle non recupera niente.** Non
+c'è nessuna rilevazione persa per una soglia: non ce n'è **neanche una**. Le tre
+strade scritte stamattina — tarare `SOVRAPPOSIZIONE_MINIMA`, tarare
+`INGRANDIMENTO_MAX` — sono **chiuse dalla misura**, non da un'opinione.
+
+### Dov'è il guasto vero: quattro mucchi che non sono mucchi
+
+I 4 nominati sono i 4 **più grandi**, e nient'altro:
+
+| area | nome dato | fiducia |
+|---|---|---|
+| **4.921,7 m²** | aereo | 0,590 |
+| 1.716,9 m² | land | 0,181 |
+| 541,0 m² | pista | 0,137 |
+| 186,4 m² | pista | 0,131 |
+
+I 19 senza nome stanno fra **1,4 e 258,5 m²**, e otto di loro sono identici
+(6,1 m² l'uno: una fila di qualcosa).
+
+Il meccanismo, per intero:
+
+1. `sovrapposizione()` divide per l'area **più piccola** fra le due. Un riquadro
+   piccolo che cade dentro l'ingombro di un mucchio gigante fa **1,00 ovunque
+   cada** — non sta indicando quel mucchio, ci sta solo dentro;
+2. il mucchio da 4.921,7 m² copre il **78% dei 6.339,57 m² navigabili**: in
+   pratica **qualunque cosa l'occhio veda in quell'edificio "sta sopra" quel
+   mucchio**;
+3. `INGRANDIMENTO_MAX` ferma il caso opposto (riquadro molto più grande del
+   mucchio) e lo dichiara di proposito, per non rompere il caso delle quaranta
+   sedie. **Nel verso che serve qui non c'è nessuna guardia**;
+4. risultato: 78 rilevazioni buone diventano «alternative» di quattro mucchi
+   enormi, e 19 mucchi veri non ricevono niente.
+
+E i nomi lo confermano: **aereo, land, pista, pista.** L'occhio sta nominando
+l'**esterno**, perché l'esterno è ciò che quei quattro ingombri contengono.
+
+⚠️ **La lettura di stamattina va corretta.** «78 buttate» non voleva dire
+«l'occhio e la geometria non si stanno parlando»: si parlano benissimo, e si
+parlano *troppo*. Il guasto sta a monte di tutti e due — **`veritas_cose.js`
+consegna quattro mucchi che non sono mucchi.** Un mucchio da 4.921,7 m² non è
+una cosa: è la scena.
+
+### Cosa fare, in questo ordine
+
+1. **guardare come nasce il mucchio da 4.921,7 m²** in `veritas_cose.js`. È lì
+   il collo di bottiglia. Finché un ingombro copre i tre quarti della pianta,
+   nessun occhio — né OWLv2 né il VLM — può nominare niente di preciso;
+2. **mettere la guardia che manca, nel verso che manca**: un mucchio non può
+   essere N volte più grande del riquadro che dice di nominarlo. ⚠️ Con
+   l'eccezione dichiarata: quando il mucchio è fatto di **molti pezzi della
+   taglia del riquadro** (le quaranta sedie) la cosa è giusta — e si distingue
+   con `quante` e `ingombroUno`, che `veritas_cose.js` **misura già**;
+3. **solo dopo**, i due occhi insieme. Resta la conclusione giusta, ma oggi non
+   è il primo lavoro: con quattro ingombri che si mangiano la pianta, far
+   guardare due occhi invece di uno cambia solo chi vince gli stessi quattro
+   posti. Il VLM ne nomina 16 su 23 **perché ha i riquadri larghi**, cioè per
+   il difetto opposto e per caso, non perché veda meglio.
+
+### Un numero da tenere d'occhio
+
+Uno sguardo intero costa **10 minuti e mezzo** con `numThreads: 1`. L'occhio è
+vivo ma lentissimo: prima di ripetere il giro conviene sapere quanto si aspetta.
+
+---
+
+## 🔴 `267935216` NON ERA UN TETTO DI MEMORIA — misurato il 04/09/2026, pomeriggio
+
+⚠️ **Questa sezione corregge la diagnosi n.3 scritta stamattina** («l'occhio non
+aveva dove stare», 255,5 MB). Il numero era vero; la lettura era sbagliata, e la
+correzione che ne è seguita — `wasm.proxy = true` — **non è quella che accende
+l'occhio.** Le misure sotto sono tutte della stessa macchina, dello stesso
+browser e dello stesso pomeriggio.
+
+### Come si è visto
+
+Il giro delle 11:47, senza toccare niente: OWLv2 **non si apre**, tutti e cinque
+i formati falliscono con lo stesso `267935216`, subentra la riserva e nomina
+**16 volumi su 23** (stamattina ne faceva 14). Alla stessa ora la pagina usava
+**147 MB di heap JavaScript su 4.192 disponibili**: il tetto della memoria JS non
+c'entra niente, ed è largo trenta volte quello che serve.
+
+Poi quattro prove, **una per pagina** come vuole la regola del motore:
+
+| pagina | proxy | esito | tempo | heap |
+|---|---|---|---|---|
+| `landing.html` (vuota) | acceso | **apre** | 4,3 s | 21 MB |
+| `landing.html` (vuota) | **spento** | **apre** | 4,5 s | 22 MB |
+| applicazione, **nessun progetto aperto** | spento | **apre** | 4,9 s | 42 MB |
+| applicazione **col modello dentro** | acceso | non apre | — | 178 MB |
+
+Due cose cadono insieme:
+
+1. **il proxy non è il discrimine.** Sulla pagina vuota l'occhio si apre
+   *anche senza*. La stanza sua non gli serviva;
+2. **la shell dell'applicazione non è il problema.** Con l'applicazione
+   caricata e nessun progetto aperto, l'occhio si apre in 4,9 secondi.
+
+Quello che rompe è **il modello dentro la pagina**: non l'app, non la libreria,
+non il formato.
+
+### E il numero, finalmente detto
+
+`267935216` **non è un messaggio**: è il valore grezzo di un'eccezione mai
+tradotta. Il codice scrive `(e && e.message ? e.message : e)`, e quando non c'è
+nessun `.message` stampa il numero nudo — che poi qualcuno legge come byte.
+Nella prova in cui il motore era già acceso in un altro modo, lo stesso punto ha
+detto la sua frase vera: **`worker not ready`**.
+
+⚠️ **Regola che ne esce, e vale ovunque:** un `catch` che stampa `e` quando
+manca `e.message` non sta riportando un errore, **sta nascondendo un errore
+dietro un numero** — e quel numero somiglia abbastanza a una quantità da farsi
+credere una misura per una giornata intera.
+
+### La strada che funziona, provata
+
+**L'occhio si accende quando la pagina è ancora leggera, e poi regge.** Provato
+in quest'ordine sulla pagina viva:
+
+1. applicazione aperta, nessun progetto: `occhioLocale({tentativi:[wasm/q8]})`
+   → **acceso in 3,95 s**, heap 64 MB;
+2. aperto il progetto, caricato il modello, partita l'analisi: l'occhio resta
+   **`pronto`, `wasm/q8`**, col modello dentro e 23 mucchi misurati.
+
+Cioè: **non è l'ordine delle cose ad essere impossibile, è l'ordine in cui le
+facciamo.** Oggi l'occhio si accende *tre secondi dopo* che il modello è
+entrato — cioè nel momento peggiore della vita della pagina. Va acceso
+**all'avvio**, quando non c'è ancora niente dentro, e tenuto acceso.
+
+### Due difetti minori visti di passaggio, misurati
+
+- `accendiOcchio` **non scrive `__veritasOcchioSorgente` quando l'occhio è già
+  pronto**: esce dalla scorciatoia in cima senza dire niente. Il log tace
+  proprio nel caso buono — ed è esattamente la lezione scritta stamattina
+  («quando c'è una riserva, il log deve dire sempre e a voce alta chi sta
+  lavorando davvero»), rimasta scoperta in questo punto;
+- il motore ONNX gira con **`numThreads: 1`**. Un filo solo: l'occhio è vivo ma
+  lentissimo su questo modello.
+
+---
+
 ## ✅ L'OCCHIO SI E' RIACCESO — 04/09/2026, verificato sulla pagina viva
 
 `[VERITAS montaggio] occhio pronto con wasm/q8`
