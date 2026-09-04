@@ -5,6 +5,87 @@
 
 ---
 
+## ✅ L'OCCHIO SI E' RIACCESO — 04/09/2026, verificato sulla pagina viva
+
+`[VERITAS montaggio] occhio pronto con wasm/q8`
+`[VERITAS occhio] 4 mucchi nominati su 23, 78 rilevazioni buttate (wasm/q8)`
+
+OWLv2 gira. Tre difetti in fila, ognuno nascosto dal precedente, e nessuno dei
+tre era dove sembrava.
+
+### 1. Non era il modello: era la libreria
+
+Con `@huggingface/transformers` 4.2.0 — e 4.1.0, 4.0.1, 4.0.0 — **nessun**
+modello della famiglia OWL si apre. Manca l'operazione `Cast(13)` del nodo
+`/class_head/Cast`: su scheda video `ERROR_CODE 1` (il nodo non si assegna a
+nessun esecutore), su processore `ERROR_CODE 9` (l'operazione non esiste).
+
+Provati, sempre lo stesso nodo: `owlv2-base-patch16-ensemble` di Xenova, la
+stessa esportazione rifatta da `onnx-community`, e perfino `owlvit-base-patch32`
+(la generazione precedente). Provati senza effetto anche l'ottimizzatore del
+grafo spento, il livello base, il provider dichiarato a mano, e il motore ONNX
+stabile 1.26.0 al posto della build di sviluppo che la 4.2.0 si porta dietro.
+
+**Correzione:** importmap a **3.8.1**. Il perche' e' scritto per esteso in un
+commento HTML sopra l'importmap, dove lo trovera' chi un giorno vorra' rialzarla.
+
+### 2. La scala dei tentativi era finta
+
+Il motore ONNX **si accende una volta sola per pagina e resta com'e'**. Dal
+secondo tentativo in poi non si prova quel formato: si riceve l'esito del primo.
+Per questo la scala dava cinque righe identiche e sembrava confermare se stessa.
+
+⚠️ **Regola generale di questa libreria, e vale per tutto:** quello che riguarda
+il motore si decide PRIMA che si accenda, e ogni prova fatta dopo misura il
+primo tentativo, non il proprio. Le prove pulite si fanno **una per pagina**
+(qui: `landing.html`, un contesto nuovo per ogni tentativo).
+
+**Correzione:** in cima ai `TENTATIVI` di `veritas_montaggio.js` va quello che
+REGGE (`wasm/q8`), non quello che sarebbe piu' veloce.
+
+### 3. L'occhio non aveva dove stare
+
+Riordinata la lista, l'errore diventava un numero nudo: **267935216**, che sono
+**255,5 MB** — il tetto di memoria del motore in WebAssembly. La prova sta nel
+confronto, non nel numero:
+
+| stesso formato, stessa libreria | esito |
+|---|---|
+| `landing.html`, pagina vuota | apre |
+| pagina dell'applicazione | 267935216 |
+
+Misurato sulla pagina dell'applicazione al momento del fallimento: **222 MB di
+heap gia' usati**, con la scena 3D e il modello dentro. Il tetto lo si tocca
+prima di cominciare.
+
+**Correzione:** `env.backends.onnx.wasm.proxy = true`, impostato **prima** della
+prima sessione. Il motore va in un lavoratore separato, con la sua memoria e il
+suo filo. Due cose in una: l'occhio trova lo spazio, **e la pagina smette di
+bloccarsi mentre lui carica** — gli scatti che Raffaella vedeva durante la
+simulazione erano anche questo (il 04/09 uno screenshot e' andato in timeout
+esattamente mentre l'occhio si accendeva).
+
+### 🟠 Quello che si vede adesso, e che prima non si poteva nemmeno vedere
+
+`4 mucchi nominati su 23, 78 rilevazioni buttate`.
+
+L'occhio vede, e vede parecchio: **78 rilevazioni buttate** vuol dire 78 riquadri
+che non stanno sopra nessun mucchio misurato, e che percio' `abbina` scarta —
+giustamente, perche' senza una misura sotto non reggerebbero un referto.
+
+Ma 4 su 23 e' poco, e il numero da guardare e' quel 78: **l'occhio e la geometria
+non si stanno parlando**. Puo' essere la soglia di sovrapposizione (0,33), puo'
+essere il limite di ingrandimento (4), puo' essere che i riquadri cadano su cose
+che `veritas_cose.js` non raccoglie in mucchi. E' il prossimo lavoro, ed e' il
+primo che si puo' fare **con l'occhio acceso**.
+
+Restano di conseguenza ancora aperti, ma adesso per una ragione diversa:
+- **una sola sala d'attesa** — l'occhio ora nomina, ma solo 4 volumi;
+- **il bersaglio del varco** (`d741aac`) — scritto e ancora mai entrato in gioco,
+  perche' serve che l'occhio nomini proprio il metal detector.
+
+---
+
 ## 🟢 IL GIRO INTERO DEL 04/09, GUARDATO DA SOLI — e cosa dice
 
 Chrome di Raffaella collegato per la prima volta: da qui in poi il giro lo fa
