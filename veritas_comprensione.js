@@ -946,6 +946,43 @@ export async function comprendiGuardando(ctx) {
   } catch (e) {
     conservaRisposta("sguardo", null, "l'occhio non ha risposto: " + ((e && e.message) || e));
   }
+  // --- (0-bis) L'ALTRO OCCHIO GUARDA LE STESSE IMMAGINI, E GUARDA PRIMA ----
+  //
+  // ⚠️ Deciso da Raffaella il 04/09, e corregge una gerarchia che si era
+  //    installata da sola: «non e' il cervello che comanda sull'occhio, casomai
+  //    il contrario. Va a validare quello che l'occhio ha visto.»
+  //
+  //    Qui sopra «occhio» indica il VLM. Il RILEVATORE (`ctx.rileva`, OWLv2) e'
+  //    l'altro occhio, e fino al 04/09 non veniva chiamato mai: in tutto il
+  //    repository `occhioSuTutteLeViste()` aveva DUE occorrenze, la definizione
+  //    e un commento. Il cervello aveva pianta + scorci, il rilevatore niente.
+  //
+  // ⚠️ LA RAGIONE PER CUI ERA STATO MESSO DIETRO NON ESISTE PIU', ed e' stata
+  //    misurata il 04/09. La nota del 25/08 diceva: 158 parole in 14 mazzetti
+  //    da 12, per 8 viste = 112 interrogazioni, e non ci si arrivava mai. Il
+  //    costo pero' non stava nelle PAROLE: stava nello SPEZZARLE in mazzetti,
+  //    perche' ogni mazzetto rifa' la parte cara, cioe' guardare la figura.
+  //    Misurato sulla stessa figura: 4 parole 201,3 s, 16 parole 201,3 s, tutte
+  //    e 158 in una chiamata sola 72,3 s coi fili accesi. Chiedere tutto in una
+  //    volta costa QUANTO chiedere quattro parole.
+  //
+  //    Quindi qui si chiede l'intero vocabolario, una chiamata per vista, e
+  //    l'occhio parla per primo — come dice la Regola 0 e come dice il commento
+  //    del passo (0): «l'occhio guarda e dice cosa gli sembra; il cervello poi
+  //    contesta con le misure».
+  let testimoneOcchio = null;
+  if (typeof ctx.rileva === "function") {
+    try {
+      const visto = await occhioSuTutteLeViste(ctx, immagini, [], false);
+      if (visto && visto.testimonianza) testimoneOcchio = visto.testimonianza;
+      console.log("[VERITAS occhio] ha guardato per primo "
+        + (1 + (ctx.scorci || []).length) + " viste col vocabolario intero"
+        + (visto && visto.viste ? " — testimonianze da " + visto.viste.length + " scorci" : ""));
+    } catch (e) {
+      console.warn("[VERITAS occhio] non ha guardato: " + ((e && e.message) || e));
+    }
+  }
+
   if (sguardo && typeof ctx.onGiro === "function") {
     ctx.onGiro({ giro: 0, passo: "sguardo", cosaE: sguardo.ipotesi,
                  fiducia: sguardo.quantoCiCrede, nominati: 0,
@@ -966,7 +1003,13 @@ export async function comprendiGuardando(ctx) {
   try {
     const viStudio = viste(1);
     rispostaStudio = await ctx.cervello(
-      promptStudio(viStudio.length, volumi.length, sguardoInParole(sguardo), misure),
+      // ⚠️ Al cervello arriva quello che hanno visto TUTTI E DUE gli occhi, e
+      //    il suo compito qui e' VALIDARLO contro le misure — non decidere al
+      //    posto loro (Raffaella, 04/09).
+      promptStudio(viStudio.length, volumi.length,
+        [sguardoInParole(sguardo), testimoneOcchio].filter(Boolean).join("
+
+"), misure),
       { immagine: ctx.pianta, immagini: viStudio, passo: "studio" });
   } catch (e) {
     conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
@@ -1167,14 +1210,13 @@ export async function comprendiGuardando(ctx) {
       //    difetto del 26/08, e il commento sopra `viste()` lo aveva perfino
       //    previsto («se questo si scollega, si torna al difetto del 26/08»).
       //
-      // ⚠️ SI CHIAMA QUI, E NON PRIMA, per la decisione del 25/08 scritta in
-      //    testa a questa funzione: il primo scambio va dal cervello
-      //    all'occhio. Chiedere 158 parole su tutte le viste prima che il
-      //    cervello parli faceva 112 interrogazioni e non ci si arrivava mai.
-      //    Qui si chiede `soloQueste`: le parole che il cervello ha appena
-      //    detto di cercare, sulle stesse identiche immagini che ha visto lui.
-      //    E' la seconda meta' di quella decisione — «l'occhio resta acceso e
-      //    continua a vedere tutte le viste» — quella mai collegata.
+      // ⚠️ QUESTO E' IL SECONDO SCAMBIO, NON IL PRIMO. Il rilevatore ha gia'
+      //    guardato per primo e libero al passo (0-bis), col vocabolario
+      //    intero: qui il cervello gli restituisce cosa e' rimasto in dubbio e
+      //    lui riapre gli occhi sulle stesse immagini con quella domanda in
+      //    testa. E' l'anello della Regola 0 punto 4 — «il cervello dice
+      //    all'occhio cosa cercare, l'occhio ricerca su tutte le viste» — e
+      //    non una gerarchia: i due si scambiano quello che trovano.
       //
       // ⚠️ PERCHE' ORA CI SI PUO' PERMETTERE: uno sguardo su una figura
       //    costava ~200 s a un filo solo, e cinque figure sarebbero state
