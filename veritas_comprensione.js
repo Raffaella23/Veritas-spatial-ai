@@ -1154,6 +1154,51 @@ export async function comprendiGuardando(ctx) {
       s2.attorno = [...new Set([...(sguardo ? sguardo.attorno : []), ...s2.attorno])];
       sguardo = s2;
       testimonianza = sguardoInParole(s2);
+
+      // --- E QUI IL RILEVATORE GUARDA LE STESSE IMMAGINI ------------------
+      //
+      // ⚠️ ERA SCOLLEGATO, e per settimane nessuno poteva accorgersene.
+      //    In questo file «occhio» ha finito per indicare il VLM — quello che
+      //    qui sopra guarda per primo. Il RILEVATORE vero (`ctx.rileva`,
+      //    OWLv2) non veniva chiamato mai: `occhioSuTutteLeViste()` era
+      //    scritta, giusta ed esportata, e in tutto il repository aveva DUE
+      //    occorrenze — la definizione e un commento. Zero chiamate.
+      //    Il cervello aveva pianta + scorci, il rilevatore niente: e' il
+      //    difetto del 26/08, e il commento sopra `viste()` lo aveva perfino
+      //    previsto («se questo si scollega, si torna al difetto del 26/08»).
+      //
+      // ⚠️ SI CHIAMA QUI, E NON PRIMA, per la decisione del 25/08 scritta in
+      //    testa a questa funzione: il primo scambio va dal cervello
+      //    all'occhio. Chiedere 158 parole su tutte le viste prima che il
+      //    cervello parli faceva 112 interrogazioni e non ci si arrivava mai.
+      //    Qui si chiede `soloQueste`: le parole che il cervello ha appena
+      //    detto di cercare, sulle stesse identiche immagini che ha visto lui.
+      //    E' la seconda meta' di quella decisione — «l'occhio resta acceso e
+      //    continua a vedere tutte le viste» — quella mai collegata.
+      //
+      // ⚠️ PERCHE' ORA CI SI PUO' PERMETTERE: uno sguardo su una figura
+      //    costava ~200 s a un filo solo, e cinque figure sarebbero state
+      //    diciassette minuti. Con `veritas_fili.js` la pagina usa otto
+      //    processori e uno sguardo costa 63-72 s: cinque figure stanno in sei
+      //    minuti, una volta sola per analisi (GIRI_MASSIMI = 2).
+      //
+      //    Dalla PIANTA escono posizioni, dagli SCORCI solo testimonianza:
+      //    quella divisione la fa gia' `occhioSuTutteLeViste` e non si tocca.
+      if (typeof ctx.rileva === "function" && s2.cose && s2.cose.length) {
+        try {
+          const visto = await occhioSuTutteLeViste(ctx, viGiro, s2.cose, true);
+          if (visto && visto.testimonianza)
+            testimonianza = testimonianza + "
+
+" + visto.testimonianza;
+          console.log("[VERITAS occhio] ha guardato " + (1 + (ctx.scorci || []).length)
+            + " viste cercando: " + s2.cose.slice(0, 6).join(", ")
+            + (visto && visto.viste ? " — testimonianze da " + visto.viste.length + " scorci" : ""));
+        } catch (e) {
+          // un rilevatore muto non ferma il cervello, ma lo si dice
+          console.warn("[VERITAS occhio] non ha guardato gli scorci: " + ((e && e.message) || e));
+        }
+      }
       giri[giri.length - 1].paroleChieste = s2.cose.slice(0, 6);
     } catch (e) {
       conservaRisposta("sguardo", null, "l'occhio non ha risposto: " + ((e && e.message) || e));
