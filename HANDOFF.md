@@ -5,6 +5,109 @@
 
 ---
 
+## 🟢 IL GIRO INTERO DEL 04/09, GUARDATO DA SOLI — e cosa dice
+
+Chrome di Raffaella collegato per la prima volta: da qui in poi il giro lo fa
+Claude, e Raffaella non fa piu' avanti e indietro. Finestra **1400×900**,
+progetto «Aeroporto — banco di prova», modello **gia' nel deposito di quel
+browser** (18,6 MB, «modello pronto in questo browser»: il deposito vuoto del
+giro precedente era quello dell'altro browser, non di questo). Analisi finita da
+sola, simulazione avviata e guardata fino a **97,1s / 400s, fotogramma 194 su
+800, 28 agenti**.
+
+Scala giusta: **6.339,57 m² navigabili**, 7 ambienti, 3 varchi reali, passaggio
+piu' stretto 0,50 m. E' il numero atteso (6.340), quindi niente trappola della
+scala.
+
+### ✅ I quattro numeri — CHIUSO
+
+Visti **con la simulazione che corre**, a 1400px, dentro il giro intero. Non
+«presenti»: **veri**.
+
+| | |
+|---|---|
+| Flusso | 0,058 p/s |
+| Transito medio | 301 s |
+| In cammino | 5 su 28 |
+| Saturazione | 2% |
+
+Il difetto del 04/09 mattina era il pannello «dati di progetto» aperto sopra:
+chiuso quello, i quattro riquadri stanno nella colonna di destra e si leggono
+per intero. Resta vero il punto 3 (riordino pannelli): un pannello che copre i
+numeri e' un difetto, anche se i numeri ci sono.
+
+### ✅ Il varco — CHIUSO, e non da quello che pensavo
+
+Contati sul percorso vero di tutti e 28 gli agenti, su 800 fotogrammi:
+
+- **28 su 28** arrivano sulla soglia (distanza massima dalla retta: 0,31 m);
+- lo scarto **dal centro** della soglia vale al massimo **0,64 m** su una soglia
+  larga 4,55 m, e **26 su 28** stanno entro mezzo metro.
+
+Cioe': la gente passa **in mezzo al varco**, non di lato. Lo ha chiuso lo
+spegnimento del serpeggio (`73342db`), da solo.
+
+⚠️ **Il bersaglio nuovo (`d741aac`) NON e' entrato in gioco in questa corsa.**
+Misurato: sul nodo filtro `bersaglio: false`, `origine: "nome+cose"`, e la
+soglia e' stata costruita con `fonte: "zona"` — 4,55 m, tolleranza 1,32 m.
+Perche' l'occhio non ha girato (sotto). Il bersaglio resta **scritto e non
+provato**: servira' quando l'occhio si accendera', e li' la soglia scendera' a
+circa un metro.
+
+### 🔴 I muri — APERTO, ma adesso e' un numero
+
+Campionando un fotogramma su dieci, 2.184 posizioni:
+
+| | |
+|---|---|
+| punti fuori dal cammino | 310 |
+| di cui su una scala/collegamento dichiarato (leciti) | 165 |
+| **fuori davvero** | **145, il 6,6%** |
+| agenti coinvolti | **22 su 28** |
+
+Non e' un caso isolato ne' un agente rotto: tocca quasi tutti. Il guardiano
+(«l'ultima parola ce l'ha il cammino») gira, e il 6,6% gli sfugge lo stesso.
+Prossimo passo del punto muri: capire se sfugge perche' il rientro non si
+applica a quei punti, o perche' il cammino li' e' bucato.
+
+### 🔴 PERCHE' UNA SOLA SALA D'ATTESA: l'occhio non si accende
+
+E' la scoperta del giro, ed e' una **misura**, non una lettura. Dalla console,
+in ordine:
+
+```
+[VERITAS zone] 7 nodi da 7 zone MISURATE (5 con nome dal modello, 2 dedotte dal flusso)
+[VERITAS occhi] Non ho potuto guardare lo spazio (il modello che vede non risponde (HTTP 400))
+[VERITAS montaggio] nessun formato di OWLv2 si apre — passo all'occhio di riserva
+[VERITAS montaggio] occhio di riserva: guarda qwen2.5-vl-7b-instruct — riquadri
+                    piu' larghi di OWLv2, non confrontabili con le sue misure
+```
+
+Quindi, in ordine di conseguenza:
+
+1. **OWLv2 non si carica.** Nessuno dei suoi formati si apre nel browser. E'
+   lui il rilevatore a vocabolario aperto — quello che dovrebbe trovare OGNI
+   sala d'attesa e OGNI metal detector.
+2. **L'occhio di riserva non lo sostituisce**: lo dice il messaggio stesso, i
+   suoi riquadri sono piu' larghi e non sono confrontabili con le misure. E il
+   primo occhio (LM Studio/Ollama) risponde **HTTP 400**.
+3. **Perciò le zone prendono il nome solo dai nomi delle mesh del `.glb`**: 5 su
+   7. Zero dall'occhio. Nella figura 1 di 12 non compare **nessun nome**, e le
+   spunte «punti/scatole/nomi» sono accese: non e' un problema di disegno.
+4. **Perciò una sola sala d'attesa** — nel file una sola mesh porta quel nome —
+   **e perciò il metal detector non viene riconosciuto**, quindi il bersaglio
+   di `d741aac` non ha niente da cui partire.
+
+**Non e' un difetto di logica. L'occhio non si accende, e tutto il resto e' la
+sua ombra.** Raffaella, 04/09: *«secondo me siamo un passo indietro»* — misurato,
+e' esattamente cosi', e il passo indietro e' questo.
+
+Da fare, in quest'ordine: far caricare OWLv2 (o dichiarare che su questo browser
+non si carica e dire cosa si usa al suo posto), poi rifare questo stesso giro e
+guardare se la figura 1 di 12 si riempie di nomi.
+
+---
+
 ## 🟢 QUELLO CHE È TORNATO IN TESTA — 04/09/2026
 
 Il ripristino del 03/09 (`72457c7`) aveva riportato il codice a `b8ef923`.
