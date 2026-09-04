@@ -24293,13 +24293,34 @@ async function occhioLocale(opz = {}) {
   const importa = opz.importa || (() => import("@huggingface/transformers"));
   _stato = { fase: "carico", device: null, perche: null };
 
-  let pipeline;
+  let pipeline, env;
   try {
-    ({ pipeline } = await importa());
+    ({ pipeline, env } = await importa());
   } catch (e) {
     _stato = { fase: "spento", device: null, perche: "libreria non caricata: " + (e && e.message) };
     return null;
   }
+
+  // ⚠️ L'OCCHIO VUOLE UNA STANZA SUA. Misurato il 04/09/2026 sulla pagina viva:
+  //    con la scena 3D caricata l'occhio non si apre e l'errore e' un numero
+  //    nudo, 267935216 -- che sono 255,5 MB, cioe' il tetto di memoria del
+  //    motore ONNX. Non e' un guasto: e' che quella memoria, nella pagina, non
+  //    c'e' piu'. Nella stessa identica prova fatta su una pagina vuota lo
+  //    stesso formato si apre senza un fiato.
+  //
+  //    `proxy` sposta il motore in un lavoratore separato, che ha la sua
+  //    memoria e il suo filo di esecuzione. Due cose in una: l'occhio trova lo
+  //    spazio, e la pagina smette di bloccarsi mentre lui carica -- gli scatti
+  //    che si vedevano durante la simulazione erano anche questo.
+  //
+  //    ⚠️ VA MESSO PRIMA che venga creata la prima sessione. Dopo non serve a
+  //       niente: il motore si accende una volta sola per pagina e resta com'e'
+  //       (stessa regola per cui la scala dei tentativi conta solo al primo
+  //       gradino -- vedi TENTATIVI in veritas_montaggio.js).
+  try {
+    if (env && env.backends && env.backends.onnx && env.backends.onnx.wasm)
+      env.backends.onnx.wasm.proxy = true;
+  } catch (e) { /* se la libreria cambia forma non ci si ferma per questo */ }
 
   const tentativi = opz.tentativi || [
     { device: "webgpu", dtype: "q4f16" },
