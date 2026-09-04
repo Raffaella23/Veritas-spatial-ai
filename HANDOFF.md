@@ -70,6 +70,110 @@ ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 ---
 
+## 🔵 LA PROVA DEL PROCEDIMENTO — 04/09/2026, misurata sulla pagina viva
+
+Secondo giro d'occhio della giornata, con l'occhio acceso a pagina leggera.
+**Riproduzione esatta del primo**: 82 rilevazioni, 4 mucchi nominati su 23, 78
+buttate, tutte `battuta`. Tempo di uno sguardo: **690 s** (11 min 30 s).
+
+Poi la misura nuova: **dove cadono gli 82 indizi rispetto agli ambienti veri.**
+Fatta interamente dalla console, senza toccare il codice, perché la pagina
+espone già tutto: `window.__veritasPercezione` porta la griglia delle etichette
+(`labels`, `grid.minX/minZ/w/h/cellSize`) e assegnare un punto a un ambiente è
+una lettura di cella.
+
+### 1. Quali contenitori dà l'architettura, davvero
+
+| livello | quota | ambienti | com'è fatto |
+|---|---|---|---|
+| terra | 0,77 m | **1 solo** | **5.261 m², 134,8 × 39,0 m**, luce libera fino a 22,3 m |
+| sopra | 3,64 m | 6 | 942 m² + cinque da 44, 31, 27, 23, 12 m² — lunghi 4–8 m, larghi 1,5–2,5 m |
+
+⚠️ **A terra c'è UN ambiente solo, lungo 135 metri.** Il motore non sbaglia: è
+un edificio a pianta libera e la segmentazione fonde ciò che è separato da
+aperture larghe. I tre varchi misurati (1,00 / 1,41 / 2,69 m) stanno **tutti al
+livello di sopra**.
+
+Le cinque stanzine a quota 3,64 sono in fila lungo x ≈ −90: per forma e per
+quota sono **i pontili d'imbarco** — e infatti «pontile d'imbarco» è la parola
+più frequente dell'occhio.
+
+⚠️ **Questo corregge l'ordine di lavoro scritto due ore fa.** «Dare all'occhio i
+contenitori veri» **da solo non guadagna niente**: a terra il contenitore è uno.
+È esattamente quello che Raffaella aveva descritto guardando un GLB nuovo:
+*«ho guardato prima l'architettura, non mi era molto chiaro a cosa servissero
+gli spazi»*. **Il passo 2 non è un affinamento: è il lavoro principale.**
+
+### 2. Dove cadono gli 82 indizi
+
+| dove | quanti |
+|---|---|
+| nell'unico ambiente di terra | **62** |
+| fuori da qualsiasi ambiente calpestabile (sul piazzale) | **16** |
+| solo nelle stanzine di sopra (pontili) | **4** |
+
+### 3. E qui la risposta alla domanda vera: gli oggetti tagliano l'ambiente?
+
+**Sì.** Gli 82 indizi stanno in **28 punti distinti**, e non sono sparsi:
+
+| fascia lungo i 135 m | indizi | parole prevalenti |
+|---|---|---|
+| −97 … −87 | **31** | aereo ×7, pontile d'imbarco ×6, gate d'imbarco ×6 |
+| −87 … −77 | 8 | pontile ×3, aereo ×2 |
+| −77 … −67 | **21** | pontile ×4, aereo ×4, gate ×3 |
+| −67 … −57 | 4 | **scala ×2, scale ×2** |
+| −57 … −47 | 10 | sky ×2, skyscraper ×1, gate ×1 |
+| −27 … +23 | 8 | land, pista, earth, bacheca |
+
+Due grappoli densi sul lato dei pontili, **un gruppetto di sole scale staccato**,
+e una coda rada verso il piazzale. **Il procedimento di Raffaella regge sulla
+misura: gli arredi disegnano confini che i muri non hanno.**
+
+### 4. E il difetto che si vede altrettanto bene: il vocabolario
+
+Le 82 rilevazioni, per famiglia:
+
+| famiglia | quanti |
+|---|---|
+| imbarco (pontile, gate, aereo) | **50** |
+| paesaggio visto dall'alto (cielo, terra, pista, pali) | **23** |
+| collegamento verticale (scala) | 7 |
+| altro (furgoni, cofano) | 2 |
+
+⚠️ **Sono quasi tutte parole da fotografia aerea.** `sky`, `earth`, `land`,
+`pista`, `skyscraper`: l'occhio guarda una **pianta ortografica dall'alto** e
+risponde come se fosse una **ripresa satellitare**. Di arredo interno non c'è
+quasi niente — **nessuna seduta, nessun bancone, nessun check-in**, una sola
+bacheca in tutto l'aeroporto.
+
+È la conferma misurata dell'intuizione di Raffaella: *«all'occhio mancano delle
+informazioni, deve avere un vocabolario visivo adeguato»*. Due cause distinte,
+tutte e due vere:
+
+1. **la lista è chiusa** — OWLv2 è a vocabolario aperto ma gli passiamo ~150
+   parole fisse, e niente gli dice che *bracciolo*, *sedia*, *seduta* e
+   *poltrona* sono la stessa famiglia;
+2. **l'immagine è una pianta** — dall'alto un sedile è un rettangolino, e le
+   parole che vincono sono quelle del paesaggio. Le sedute non si riconoscono
+   guardando da sopra: si riconoscono **di taglio**, ed è la Regola 0 punto 3
+   («si gira il modello fra le mani») che oggi, per l'occhio, non è rispettata:
+   la pianta è l'unica vista da cui l'occhio ricava POSIZIONI.
+
+### 5. Da fare, in questo ordine
+
+1. **allargare il vocabolario dell'occhio all'arredo**, con le famiglie:
+   chiedere insieme *seat / chair / bench / sofa / armchair* e trattarle come
+   una cosa sola. È il punto 1 di Raffaella, e costa poco: è una lista;
+2. **far vedere all'occhio anche gli scorci per il RICONOSCIMENTO**, tenendo la
+   pianta come unica fonte di posizione (Regola 0, il confine è già scritto);
+3. **raggruppare gli indizi in pianta** dentro l'ambiente unico, e da ogni
+   grappolo far nascere una zona con il nome che gli indizi dicono. I grappoli
+   ci sono già e si misurano: 28 punti, tre addensamenti netti;
+4. i 16 indizi che cadono fuori da ogni ambiente calpestabile vanno dichiarati
+   **esterni**, non buttati: dicono dov'è il piazzale.
+
+---
+
 ## 🟣 DA DOVE NASCE UNA ZONA — deciso da Raffaella il 04/09/2026
 
 Domanda posta a Raffaella (architetto, storica dell'arte) dopo la misura delle
