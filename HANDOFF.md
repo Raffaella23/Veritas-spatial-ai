@@ -1,7 +1,179 @@
 # HANDOFF.md — VERITAS Spatial AI
 
+> ⛔ **PRIMA DI TOCCARE QUALUNQUE COSA, LEGGI «LE DIRETTIVE DEL 04/09/2026»
+> QUI SOTTO.** Sono decisioni già prese: non si ricavano dal codice, non si
+> reinterpretano. Un commento nel codice che le contraddice è vecchio, e va
+> cancellato — non seguito.
+>
 > **Aggiornato il 04/09/2026.** Questo è **l’unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
+
+---
+
+# ⛔ LE DIRETTIVE DEL 04/09/2026 — NON SI PERDONO E NON SI RIDISCUTONO
+
+> Raffaella, 04/09/2026: *«mi raccomando trecento volte: deve essere chiaro che
+> le direttive che abbiamo stabilito oggi non si devono perdere più.»*
+
+**Questa sezione sta in cima al documento e ci resta.** Chi apre una chat nuova
+legge PRIMA questa, poi il resto. Nessuna di queste decisioni si ricava di nuovo
+dal codice, si mette ai voti o si «interpreta»: sono già state prese, e ognuna è
+costata una giornata.
+
+⚠️ **Se un commento nel codice dice il contrario di una di queste righe, il
+commento è vecchio e va cancellato** — non seguito. È successo oggi, ed è costato
+un giro intero (vedi la direttiva 3).
+
+---
+
+## 1. Prima il recinto, poi il significato
+
+L'architettura dà i **contenitori**, gli oggetti danno la **funzione**.
+
+> *«Ho guardato prima l'architettura, non mi era molto chiaro a cosa servissero
+> gli spazi; poi guardando con più attenzione ho visto dove erano le sedute,
+> dove erano i check-in, e quindi ho ipotizzato la zonazione.»*
+
+Gli arredi **suddividono** dentro un ambiente, non lo creano. Ma in pianta libera
+i muri non bastano: il confine fra attesa e check-in **lo disegnano gli arredi**.
+
+## 2. L'occhio guarda per primo, il cervello valida
+
+> *«Non è il cervello che comanda sull'occhio, casomai il contrario: va a
+> validare quello che l'occhio ha visto.»*
+
+Hanno **la stessa importanza** e vedono **le stesse immagini** (Regola 0 punto
+2). Il cervello contesta con le misure; non decide al posto dell'occhio.
+
+## 3. Quando si decide, la nota vecchia si CANCELLA
+
+> *«Quando decidiamo delle cose elimina questi vecchi codici che vengono sempre
+> a rompere le scatole.»*
+
+Una nota superata **non è storia: è un'istruzione ancora in vigore** per chi la
+legge senza sapere che è morta. Si conserva il **fatto misurato**, si butta la
+**prescrizione**. La ⚠️ è un ordine: un ordine morto si toglie. Vale anche per le
+righe «corretto» di questo documento — si verificano contando le **chiamate**,
+non l'esistenza di una funzione.
+
+## 4. Sulle scelte di impianto si CHIEDE a Raffaella
+
+> *«Abbi dubbi e chiedi di più a me.»*
+
+Chi comanda su chi, in che ordine avvengono le cose, da cosa nasce una zona:
+**si chiede**, anche se il codice sembra dire già la risposta. Misurare e
+verificare resta compito di chi lavora; **scegliere l'impianto no**.
+
+## 5. Si parla da architetto, non da programmatore
+
+> *«Sei troppo tecnico, non riesco a seguirti. Vedo delle zone messe meglio, però
+> non so dirne sì e no.»*
+
+I guasti si raccontano **in metri quadri e in spazi**, e quando c'è di mezzo una
+geometria **si disegna in scala** e si manda il disegno. Si chiude sempre con una
+domanda a cui si può rispondere **guardando il modello**. I nomi delle funzioni
+stanno nell'HANDOFF, non nei messaggi.
+
+## 6. Il vocabolario è ENCICLOPEDICO: deve riconoscere tutto
+
+> *«Io gli darei il vocabolario della Treccani, cioè dare l'enciclopedia da
+> capire come conoscenze, così non ci sbagliamo di voler riconoscere il metal
+> detector: deve riconoscere tutto.»*
+
+⚠️ **Non si sceglie a mano che cosa il programma deve saper riconoscere.**
+Scegliere una lista è già decidere che tipo di edificio ci si aspetta — è la
+Regola 0-bis portata alle sue conseguenze. Il rilevatore è **a vocabolario
+aperto**: va usato aperto.
+
+📌 Misurato il 04/09, e toglie l'unica obiezione che c'era: **le parole non
+costano.** 4 parole 201,3 s, 16 parole 201,3 s, tutte e 158 in una chiamata sola
+72,3 s. Si paga il **guardare la figura**, una volta sola. Quindi un vocabolario
+enorme costa quanto uno piccolo — a patto di chiederlo **in una chiamata sola,
+mai spezzato in mazzetti**.
+
+## 7. Riconoscere serve ad AGIRE, non a mettere targhette
+
+> *«Sono sedute: questo cosa implica? Implica che, ovunque sia nel suo percorso,
+> l'avatar lì si può fermare. Il check-in è chiuso, si siede; poi si mette in
+> fila. Sta aspettando che si apra il gate: si siede. Come fanno le persone.»*
+
+⚠️ **È il punto che tiene insieme tutto il prodotto.** Il layer semantico non
+finisce sull'etichetta: arriva al **comportamento degli agenti**. «Sedute» vuol
+dire *ci si può fermare e attendere*; «banco di accettazione» vuol dire *lì si fa
+la fila*; «varco» vuol dire *si passa uno per volta*. La comprensione **abilita
+un repertorio di comportamenti**, e la simulazione deve usarlo.
+
+Ne discende che la sequenza dev'essere naturale: aspetta seduto → il check-in
+apre → si alza → si mette in fila → passa. **Fluida, come fanno le persone.**
+
+## 8. Avatar realistici e camminate diversificate — e non è estetica
+
+> *«Quegli omini sono brutti brutti. Se facciamo la cosa da cinema dobbiamo
+> mettere avatar più realistici, animazioni di camminata diversificate.
+> Altrimenti tutto quello che stiamo ipotizzando, che ci piace tantissimo, non
+> riusciamo a farlo.»*
+
+Discende dalla 7: se il comportamento diventa ricco (sedersi, alzarsi, accodarsi,
+aspettare) **serve un corpo capace di mostrarlo**. Sagome rigide tutte uguali
+rendono invisibile proprio la cosa che abbiamo costruito. Servono: avatar
+credibili, camminate diverse per passo, velocità e postura, varietà di figure
+(età, corporature, bagagli, gruppi che camminano insieme).
+
+## 9. Il viaggio dentro il progetto
+
+> *«Sarebbe il cinema, sarebbe effetto wow. […] Vorrei attivare la vista
+> attraverso i passeggeri: mentre cammini ti vedi crescere le cose attorno.
+> Davanti l'immagine che si compone, e sotto solamente una riga di chat in cui
+> scrivere — anzi, il microfono, uno scambio immediato. L'esperienza utente è un
+> viaggio dentro il progetto, con l'AI che dà un superpotere alla percezione
+> dell'architetto.»*
+
+⚠️ **La messa in scena la guida lo STATO VERO, mai un effetto.** La drammaturgia
+è già nei dati: il vuoto misurato, le masse senza nome, gli indizi che si
+accendono uno alla volta, i nomi che si posano con la fiducia che sale.
+
+⚠️ **Niente Gaussian Splat** per rappresentare la comprensione: l'occhio non
+produce punti 3D, e costruirci uno splat sarebbe disegnare *un'immagine della
+comprensione al posto della comprensione*. Il modello vero c'è già: si accende
+lui, progressivamente.
+
+## 10. Si può rendere bella la RAPPRESENTAZIONE, mai la CONCLUSIONE
+
+La linea che separa il «wow» onesto dalla bugia: un avatar bello non afferma
+niente di falso sullo spazio; un nome inventato sì. Sulle persone e sulla scena
+l'aspetto è libero. Sulla comprensione si mostra **solo ciò che è misurato**.
+
+---
+
+## 📋 I DUE LAVORI APERTI, in quest'ordine
+
+### A — Togliere il doppione che rallenta tutto
+
+`window.__veritasGuarda` riparte **da solo a ogni evento di modello caricato**
+(misurato: ogni ~80 s) e rifà lo sguardo sulla pianta **sullo stesso rilevatore**
+che il giro di comprensione sta usando. Due padroni per un occhio solo: si
+mettono in coda, e il giro completo ci ha messo **venti minuti invece di
+cinque**. Correzione piccola e sicura, da fare per prima.
+
+### B — Far discriminare gli indizi
+
+Oggi il giro nomina **18 volumi su 23**, ma **14 si chiamano «sala d'attesa»**
+(parcheggio ×2, terminal ×1, piazzale ×1). Vede sedute dappertutto: ricco ma non
+discriminante. **Non è una zonazione, è un'etichetta ripetuta.**
+
+Serve, nell'ordine:
+
+1. il **vocabolario enciclopedico** della direttiva 6 — chiesto in una chiamata
+   sola, mai spezzato;
+2. gli indizi che **tagliano** l'ambiente unico in zone distinte (direttiva 1,
+   passo 3): dove finisce l'attesa e comincia il check-in lo dicono gli arredi;
+3. e da lì il **repertorio di comportamenti** della direttiva 7 — sedersi,
+   alzarsi, accodarsi — con gli avatar della direttiva 8 che lo rendono visibile.
+
+⚠️ Domanda ancora aperta per Raffaella, **da non decidere al posto suo**: in una
+pianta libera, sedute in due punti distanti venti metri sono **una** sala
+d'attesa o **due** zone? E cosa lo decide — la distanza, un passaggio in mezzo,
+il fatto che guardino cose diverse?
 
 ---
 
