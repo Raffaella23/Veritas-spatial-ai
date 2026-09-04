@@ -70,6 +70,121 @@ ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 ---
 
+## 🟣 DA DOVE NASCE UNA ZONA — deciso da Raffaella il 04/09/2026
+
+Domanda posta a Raffaella (architetto, storica dell'arte) dopo la misura delle
+78 buttate: **guardando una pianta che non hai mai visto, da cosa parti per dire
+«qui c'è una sala d'attesa, lì il check-in»? Dal vuoto, dagli oggetti, o da tutti
+e due — e in quest'ultimo caso, chi decide il confine?**
+
+Risposta, con un GLB nuovo e meno ricco di indizi, aperto apposta:
+
+> «Guardandolo, ovviamente **ho guardato prima l'architettura**, non mi era molto
+> chiaro a cosa servissero gli spazi, **poi guardando con più attenzione ho visto
+> dove erano le sedute, dove erano i check-in** e quindi **ho ipotizzato la
+> zonazione**. Il procedimento, se deve seguire un aggiornamento umano, penso che
+> dovrebbe essere questo.»
+
+### La regola che ne esce, ed è d'ora in poi il verso giusto
+
+**Prima il recinto, poi il significato.**
+
+1. **L'architettura dà i CONTENITORI.** Il vuoto in cui si cammina, i muri, le
+   strettoie, i varchi: da qui nascono gli ambienti. Non dagli oggetti.
+2. **Gli oggetti danno la FUNZIONE.** Dentro un contenitore già disegnato, le
+   sedute dicono «attesa», i banconi dicono «check-in». Sono **indizi che si
+   sommano**, non perimetri.
+3. **Da soli i contenitori non bastano** — e lo dice Raffaella per prima: guardata
+   la sola architettura, «non mi era molto chiaro a cosa servissero gli spazi».
+   In un terminal a pianta libera il confine fra attesa e check-in **non è un
+   muro**: lo disegnano gli arredi. Quindi gli oggetti **suddividono** dentro
+   l'ambiente, ma non lo **creano**.
+
+⚠️ **Questa regola era già nel codice, scritta in `veritas_cose.js`, e non la
+stiamo rispettando:**
+
+> «UN POSTO NON E' UNA STANZA, e questo modulo non le inventa. […] le stanze NON
+> nascono raggruppando oggetti: nascono dallo SPAZIO LIBERO (il piano 3, che qui
+> c'e' gia' — navmesh e asse mediale), e gli oggetti ci vengono assegnati dentro
+> con un legame di appartenenza. Il piano 2 non deve costruire il piano 4: deve
+> dargli le cose da assegnare.»
+
+### Cosa vuol dire, misurato su questo modello
+
+- gli **ambienti dallo spazio esistono già**: su «Aeroporto — banco di prova» il
+  motore ne misura **7**, separati da **3 varchi reali**, su 6.339,57 m²
+  navigabili. Sono i contenitori del punto 1, e sono **già calcolati**;
+- gli **indizi esistono già**: l'occhio, quando si accende, restituisce **82
+  rilevazioni** sulla pianta, con posizione in metri;
+- **quello che manca è il punto 2**: nessuno assegna le 82 rilevazioni ai 7
+  ambienti. All'occhio vengono dati i **23 grappoli di oggetti** (`posti`) come
+  se fossero zone, e gli si chiede di nominare quelli.
+
+Cioè: **stiamo chiedendo all'occhio il passo 2 senza avergli dato il passo 1.**
+E i 23 grappoli non sono contenitori: uno solo copriva il 78% della pianta
+(vedi la sezione sulle 78 buttate).
+
+### L'ordine di lavoro che ne discende
+
+1. **dare all'occhio i contenitori veri**: gli ambienti misurati dallo spazio,
+   non i grappoli di oggetti;
+2. **assegnare le rilevazioni al contenitore che le contiene**, e nominare ogni
+   ambiente **contando gli indizi** che ci cadono dentro — che è il meccanismo
+   che Raffaella descrive da sempre e che la Regola 0-bis già impone (il nome
+   viene da cosa si vede, non dal codice);
+3. **poi** suddividere dentro l'ambiente, dove gli arredi disegnano confini che
+   i muri non hanno (attesa vs check-in in pianta libera);
+4. la correzione al raggruppamento degli oggetti (guardia sul rapporto di
+   taglia, vedi le 78 buttate) resta utile **al punto 3**, non al punto 1.
+
+### ⚠️ Un tentativo fatto e RIMESSO A POSTO, perché serve saperlo
+
+Prima che Raffaella decidesse l'ordine qui sopra, era stata scritta e misurata
+la guardia mancante in `mucchiPerScatola`: sopra i 100 m² di impronta, due cose
+si uniscono solo se stanno entro 8 volte l'una dall'altra.
+
+**Sul banco offline funzionava, e bene:** da 23 posti (il più grande 4.875 m²
+con 1.072 oggetti) a 41 posti, da 18 a 36 di taglia da stanza, e il posto più
+grande sceso a 3.656 m² con 24 oggetti — la fabbrica raggruppata con sé stessa.
+
+**Ma rompe quattro prove esistenti**, e non prove qualsiasi: quelle che
+impediscono a una tappa di posarsi **sulla folla** invece che sugli arredi
+(«un arredo e duecento comparse passava INTERO, e il suo baricentro era il
+baricentro della folla — circolarità pura»). Col rapporto di taglia i due
+banconi si staccano dalle 120 comparse e, essendo **solo due**, non arrivano al
+minimo di tre oggetti: spariscono. Un difetto scambiato con un altro.
+
+**Quindi è stata rimessa a posto**, non forzata. Chi riprenderà il punto 3 sappia
+tre cose: la guardia è giusta nel principio, il banco offline per misurarla è
+descritto qui sotto, e il prezzo da risolvere è che una cosa piccola oggi
+sopravvive solo perché una grande se la porta dietro.
+
+**Il banco offline** (ricostruisce i 23 posti veri senza browser, in due secondi
+invece di dieci minuti): si legge il `.glb` del progetto, si costruisce
+l'inventario che `veritas_cose` si aspetta — `centro`, `ingombro`,
+`ingombroLocale`, `nVertici`, `nTriangoli`, `materiale`, tutti ricavabili dal
+solo pezzo JSON del file — e si chiamano `cose()` e `posti()`. La scala si
+ritrova per tentativi: a **7,30 m per unità** il modello dell'aeroporto
+riproduce **23 posti** con **1,3%** di scarto sulle aree vere, e le aree dalla
+seconda in giù coincidono esatte (1.716,9 / 541 / 258,5 / 186,4 / 121,4 / 72,7
+/ 29,6 / 12,8 / 8,8 / 8,3). È il modo più economico che abbiamo per provare
+qualunque modifica al piano 2.
+
+
+### Due osservazioni di Raffaella da non perdere, tutte e due misurate vere
+
+- **«il cervello a volte prende il sopravvento sull'occhio».** Misurato il
+  04/09: con l'occhio acceso si nominano **4 zone su 23**; con l'occhio spento e
+  il solo cervello, **16 su 23**. E il programma, se l'occhio c'è, **dà la
+  precedenza all'occhio** — cioè preferisce sistematicamente chi nomina meno;
+- **«all'occhio manca un vocabolario visivo adeguato».** OWLv2 è descritto in
+  questo stesso documento come «il rilevatore a **vocabolario aperto**», ma noi
+  gli passiamo una **lista chiusa di ~150 parole**, sempre la stessa. Il
+  vocabolario aperto lo stiamo usando chiuso. E niente gli dice che *bracciolo*,
+  *sedia*, *seduta* e *poltrona* parlano della stessa famiglia.
+
+---
+
 ## 🟢 LE 78 BUTTATE, GUARDATE UNA PER UNA — 04/09/2026, e non erano quello che sembravano
 
 Misurato sulla pagina viva, occhio acceso a pagina leggera (vedi sopra), stesso
