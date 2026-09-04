@@ -78,6 +78,44 @@ che li mette in scena; la vista in prima persona agganciata a un agente; il
 microfono (Web Speech, la parte facile); e l'interfaccia ridotta a **immagine +
 una riga di chat**.
 
+### 🧍 GLI OMINI SONO BRUTTI — e nel prodotto del «viaggio» non possono restarlo
+
+Raffaella, 04/09/2026, subito dopo aver approvato l'ordine di lavoro:
+
+> «Quegli omini sono brutti brutti. Cioè, se facciamo la cosa da cinema — dal
+> fatto che ci viene a chiamare la Apple e dice aiutami — dobbiamo mettere degli
+> **avatar più realistici**, delle **animazioni di camminata diversificate**.
+> Là dobbiamo fare veramente effetto super wow.»
+>
+> «Ho il terrore che si perda.»
+
+**Non è un capriccio estetico, ed è bene dirlo qui.** La vista dal passeggero è
+il cuore dell'esperienza: **si guarda il mondo dagli occhi di uno di loro, e li
+si vede camminare attorno.** Se le figure sono sagome rigide tutte uguali,
+l'illusione crolla nel primo secondo — e con lei crolla la cosa per cui questo
+prodotto varrebbe qualcosa.
+
+**Cosa serve, in ordine di resa:**
+
+1. **avatar credibili** al posto delle sagome attuali;
+2. **camminate diversificate** — passo, velocità, postura diversi da persona a
+   persona. Una folla in cui tutti camminano identici è più falsa di una folla
+   di sagome: l'occhio umano vede la ripetizione prima di vedere la forma;
+3. **varietà nelle figure** — età, corporature, bagagli, gruppi che camminano
+   insieme. È anche una questione di verità del modello: un aeroporto non è
+   fatto di ventotto cloni.
+
+⚠️ **E qui la regola del cinema vale al contrario, e va detta.** Sulla
+COMPRENSIONE non si aggiungono effetti: si mostra solo ciò che è misurato. Sulle
+PERSONE invece l'aspetto è libero — un avatar bello non afferma niente di falso
+sullo spazio, mentre un nome inventato sì. La linea è questa: **si può rendere
+bella la rappresentazione, mai la conclusione.**
+
+📌 Va fatto **con la scena** (punto 2 dell'ordine di lavoro), non prima: è lì che
+si vede. Ma va deciso adesso, perché condiziona come si costruisce la vista in
+prima persona.
+
+
 ### ⚠️ La domanda di ordine, che è di Raffaella e non è tecnica
 
 Costruire la messa in scena **adesso** — su una comprensione che oggi nomina 4
