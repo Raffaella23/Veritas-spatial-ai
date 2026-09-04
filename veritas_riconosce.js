@@ -469,12 +469,72 @@ export function abbina(posti, rilevazioni, opz = {}) {
     };
   });
 
+  // ⚠️ PERCHE' una rilevazione viene buttata. Il conteggio nudo non basta:
+  //    «78 buttate» puo' voler dire quattro guasti diversi, e tre di loro NON
+  //    si curano toccando le soglie.
+  //      sul vuoto     — il riquadro non tocca nessun mucchio. O l'occhio si e'
+  //                      sbagliato, o `veritas_cose.js` non raccoglie in mucchi
+  //                      quella cosa. Nessuna soglia la recupera.
+  //      sfiorata      — tocca un mucchio ma sotto SOVRAPPOSIZIONE_MINIMA. E'
+  //                      l'unico caso in cui la soglia c'entra davvero, e
+  //                      `sovrapposizioneMax` dice di quanto si e' mancato.
+  //      troppo grande — combacia, ma il riquadro supera INGRANDIMENTO_MAX
+  //                      volte il mucchio: sta indicando la stanza, non la cosa.
+  //      battuta       — era una candidata buona e ha perso il mucchio contro
+  //                      una migliore. NON e' un guasto e non va corretta:
+  //                      gonfia il conteggio senza che manchi niente.
+  //    Si guardano PRIMA di spostare qualunque numero.
+  const scarti = nominanti.filter((r) => !usate.has(r)).map((r) => {
+    const areaR = areaDi(r.mondo);
+    const cx = (r.mondo.min[0] + r.mondo.max[0]) / 2;
+    const cz = (r.mondo.min[2] + r.mondo.max[2]) / 2;
+    let sMax = 0, vicino = null, candidata = false, oltreIngombro = false;
+    // ⚠️ Due «piu' vicini» diversi, e servono tutti e due: `vicino` e' quello
+    //    che si sovrappone di piu' (e su una buttata «sul vuoto» non esiste),
+    //    `accanto` e' quello che sta a meno metri. E' `accanto` a dire se un
+    //    riquadro sul vuoto e' caduto a mezzo metro da un mucchio — allora la
+    //    cosa c'e' e non combacia — o a trenta, e allora indica qualcosa che
+    //    `veritas_cose.js` non ha raccolto in nessun mucchio.
+    let dMin = Infinity, accanto = null;
+    for (const p of (posti || [])) {
+      const d = Math.hypot(p.centro[0] - cx, p.centro[2] - cz);
+      if (d < dMin) { dMin = d; accanto = p; }
+      const s = sovrapposizione(p.ingombro, r.mondo);
+      if (s > sMax) { sMax = s; vicino = p; }
+      if (s < minSovr) continue;
+      if (areaR > maxIngr * areaDi(p.ingombro)) { oltreIngombro = true; continue; }
+      candidata = true;
+    }
+    const rif = vicino || accanto;
+    return {
+      motivo: candidata ? "battuta" : oltreIngombro ? "troppo grande"
+        : sMax <= 0 ? "sul vuoto" : "sfiorata",
+      nome: r.voce ? r.voce.nome : (r.label || "?"),
+      score: +r.score.toFixed(3),
+      sovrapposizioneMax: +sMax.toFixed(3),
+      areaRiquadro: +areaR.toFixed(1),
+      // dove sta il riquadro, in metri di mondo: serve a capire se le buttate
+      // cadono tutte nella stessa zona o sono sparse
+      dove: [+cx.toFixed(1), +cz.toFixed(1)],
+      distanza: dMin === Infinity ? null : +dMin.toFixed(1),
+      vicinoForma: rif ? (rif.forma || null) : null,
+      vicinoArea: rif ? +areaDi(rif.ingombro).toFixed(1) : null,
+      ingrandimento: rif ? +(areaR / areaDi(rif.ingombro)).toFixed(1) : null,
+    };
+  });
+  const scartatePerMotivo = scarti.reduce((a, s) => {
+    a[s.motivo] = (a[s.motivo] || 0) + 1; return a;
+  }, {});
+
   return {
     posti: fuori,
     senzaNome: fuori.filter((p) => !p.nome).length,
     // quante rilevazioni non hanno trovato nessun mucchio sotto: e' il numero
     // che dice quanto l'occhio e la geometria si stanno parlando
-    scartate: nominanti.filter((r) => !usate.has(r)).length,
+    scartate: scarti.length,
+    // ...e queste dicono PERCHE', una per una
+    scarti,
+    scartatePerMotivo,
     persone: persone.length,
   };
 }
@@ -793,6 +853,23 @@ if (typeof window !== "undefined") {
     console.log("[VERITAS occhio] " + r.nominati + " mucchi nominati su " + r.posti.length
       + ", " + r.scartate + " rilevazioni buttate, " + r.rinominate + " tappe rinominate"
       + " (" + stato().device + "/" + stato().dtype + ")");
+    // ⚠️ Le buttate dicono da sole di che guasto si tratta: si stampa la
+    //    ripartizione, non il numero nudo. `window.__veritasScarti` le tiene
+    //    tutte, una per una, per guardarle senza rifare il giro.
+    window.__veritasScarti = r.scarti || [];
+    const perMotivo = r.scartatePerMotivo || {};
+    const righe = Object.keys(perMotivo).sort((a, b) => perMotivo[b] - perMotivo[a])
+      .map((k) => perMotivo[k] + " " + k);
+    if (righe.length)
+      console.log("[VERITAS occhio] delle buttate: " + righe.join(", ")
+        + " — window.__veritasScarti per vederle una per una");
+    const sfiorate = (r.scarti || []).filter((s) => s.motivo === "sfiorata")
+      .map((s) => s.sovrapposizioneMax).sort((a, b) => b - a);
+    if (sfiorate.length)
+      console.log("[VERITAS occhio] le sfiorate mancano la soglia "
+        + SOVRAPPOSIZIONE_MINIMA + ": la migliore sta a " + sfiorate[0]
+        + ", la mediana a " + sfiorate[Math.floor(sfiorate.length / 2)]);
+
     if (typeof window.__veritasAnnounce === "function")
       try { window.__veritasAnnounce(racconta(r)); } catch (e) {}
     return r;

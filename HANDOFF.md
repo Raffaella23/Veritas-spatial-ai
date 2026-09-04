@@ -5,6 +5,71 @@
 
 ---
 
+## 🧭 IL SETTING DI LAVORO — com'è fatto il banco, misurato il 04/09/2026
+
+Questa sezione non racconta il progetto: dice **dove si lavora e con che cosa**.
+È la prima cosa che si perde cambiando chat, ed è quella che costa di più
+ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
+
+**Il codice**
+- repository `Raffaella23/Veritas-spatial-ai`, ramo `main`, testa **`764c0cb`**;
+- copia di lavoro: **`C:\Users\ciani\OneDrive\Desktop\VERITAS\temp-repo`**.
+  La cartella `Veritas-spatial-ai` che le sta accanto è un clone rotto e vuoto:
+  non è mai stata il repo di lavoro, e chi ci parte non trova niente;
+- `index.html` (2 MB) **è generato**: la fonte unica sono i moduli `veritas_*.js`
+  in radice, e `python banco/reinlina.py <modulo.js> <__veritasX>` ne rigenera il
+  blocco inline (§13.2). Toccare solo il modulo lascia il programma com'era;
+  toccare solo `index.html` fa divergere i gemelli — errore già pagato due volte.
+
+**La pagina viva**
+- è **https://raffaella23.github.io/Veritas-spatial-ai/**, e GitHub Pages serve
+  l'`index.html` **committato su `main`**.
+  ⚠️ **Conseguenza dura: una modifica in locale non esiste per la pagina viva
+  finché non è spinta.** Non si verifica sul vivo quello che non si è spinto;
+- Chrome di Raffaella è collegato (**Browser 1**,
+  `f2588450-f46e-4a5d-9e8a-f83f49599d7a`) e il giro lo fa Claude da solo: aprire
+  il progetto **«Aeroporto — banco di prova»**, poi **«Apri lo spazio di lavoro»**;
+- il modello da 18,6 MB è **già nel deposito di quel browser**.
+
+**⚠️ Due strade che sembrano equivalenti e non lo sono**
+- **`file://` non si apre.** Il tool di navigazione storpia lo schema
+  (`file:///C:/...` diventa `https://file///C:/...`) e si finisce su una pagina
+  di errore di Chrome. Misurato il 04/09;
+- **un server locale non è un ripiego valido.** Il deposito è IndexedDB
+  **legato all'indirizzo**: su `localhost` il modello non c'è, e in più la
+  schermata d'apertura chiede il login Supabase, che Claude non può fare.
+  Quindi il giro si fa **sulla pagina viva**, non altrove.
+
+**Le maniglie che la pagina espone** (verificate in console sul vivo)
+- `window.__veritasGuarda(opz)` — e **`opz.rileva` è iniettabile**: si può
+  incartare il rilevatore vero e catturare le rilevazioni grezze **senza
+  spingere niente**. È la via per guardare dentro l'occhio a costo zero;
+- `window.__veritasRiconosce` = `{ VOCABOLARIO, ADE20K_150, AGGIUNTE,
+  SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
+  piantaInTela, vocabolarioPer, scatolaInMondo, abbina, riconosci, occhioLocale,
+  stato, racconta }`;
+- l'esito dell'ultimo sguardo sta in `window.__veritasVisto`; i mucchi misurati
+  in `window.__veritasCoseTrovate`; la scena in `window.THREE`,
+  `window.__veritasRenderer`, `window.__veritasModelRoot`, `window.__veritasVista`.
+
+**Il cervello locale**
+- porta **1234** in ascolto sulla macchina (`127.0.0.1:1234`): è il modello
+  locale di cui parla la sezione dei modelli. Il nome vero si chiede a
+  `/models` — `cfg.model` è un segnaposto.
+
+**Le prove**
+- `node --test veritas_riconosce.test.mjs` — ⚠️ **rotta da prima, e non per
+  colpa di chi la trova**: alla riga 264 legge `O.default.FUNZIONI`, che
+  `veritas_occhi.js` non esporta più (tolto di proposito, vedi il commento alla
+  riga 55). Il file **esplode lì**, quindi tutte le prove che stanno sotto —
+  comprese quelle sull'occhio spento — **non girano da giorni**;
+- `banco/occhio.mjs` prova il giro intero con un rilevatore **finto**, ricavato
+  dai mucchi già misurati. Serve a vedere se il programma usa il modulo, **non**
+  a misurare quanto l'occhio vero aggancia: per costruzione le sue scatole
+  combaciano, e le buttate sarebbero zero. Gira solo su Linux con Playwright.
+
+---
+
 ## ✅ L'OCCHIO SI E' RIACCESO — 04/09/2026, verificato sulla pagina viva
 
 `[VERITAS montaggio] occhio pronto con wasm/q8`
