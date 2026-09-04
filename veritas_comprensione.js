@@ -998,9 +998,7 @@ export async function comprendiGuardando(ctx) {
       //    il suo compito qui e' VALIDARLO contro le misure — non decidere al
       //    posto loro (Raffaella, 04/09).
       promptStudio(viStudio.length, volumi.length,
-        [sguardoInParole(sguardo), testimoneOcchio].filter(Boolean).join("
-
-"), misure),
+        [sguardoInParole(sguardo), testimoneOcchio].filter(Boolean).join("\n\n"), misure),
       { immagine: ctx.pianta, immagini: viStudio, passo: "studio" });
   } catch (e) {
     conservaRisposta("studio", null, "il cervello non ha risposto: " + ((e && e.message) || e));
@@ -1221,9 +1219,7 @@ export async function comprendiGuardando(ctx) {
         try {
           const visto = await occhioSuTutteLeViste(ctx, viGiro, s2.cose, true);
           if (visto && visto.testimonianza)
-            testimonianza = testimonianza + "
-
-" + visto.testimonianza;
+            testimonianza = testimonianza + "\n\n" + visto.testimonianza;
           console.log("[VERITAS occhio] ha guardato " + (1 + (ctx.scorci || []).length)
             + " viste cercando: " + s2.cose.slice(0, 6).join(", ")
             + (visto && visto.viste ? " — testimonianze da " + visto.viste.length + " scorci" : ""));
