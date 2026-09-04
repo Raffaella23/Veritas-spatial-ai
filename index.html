@@ -27,6 +27,10 @@
   e con lui spariscono i nomi sulla pianta, il riconoscimento del metal detector
   e il bersaglio del varco.
 -->
+<!-- I FILI: rende la pagina cross-origin isolated, cosi' il motore di visione
+     puo' usare piu' di un processore. Misurato il 04/09: 3,2 volte piu' veloce
+     (uno sguardo da 201 s a 63 s). Si spegne aprendo la pagina con ?nocoi. -->
+<script src="veritas_fili.js"></script>
 <script type="importmap">
 {
   "imports": {
@@ -24378,8 +24382,28 @@ async function occhioLocale(opz = {}) {
   //       (stessa regola per cui la scala dei tentativi conta solo al primo
   //       gradino -- vedi TENTATIVI in veritas_montaggio.js).
   try {
-    if (env && env.backends && env.backends.onnx && env.backends.onnx.wasm)
+    if (env && env.backends && env.backends.onnx && env.backends.onnx.wasm) {
       env.backends.onnx.wasm.proxy = true;
+
+      // ⚠️ I FILI. Misurato il 04/09/2026 sulla stessa macchina, stessa figura,
+      //    stesso formato:
+      //
+      //      un filo solo   16 parole 201,3 s   158 parole ~690 s
+      //      otto fili      16 parole  63,4 s   158 parole   72,3 s
+      //
+      //    Tre volte e mezzo, e non e' una taratura: e' che i dodici processori
+      //    prima stavano fermi. Il motore puo' usarli solo se la pagina e'
+      //    `crossOriginIsolated`, e su GitHub Pages lo diventa grazie a
+      //    `veritas_fili.js` — senza quello questa riga non fa niente di male,
+      //    semplicemente non serve a niente.
+      //
+      //    ⚠️ Otto e non dodici: oltre gli otto il guadagno si appiattisce e la
+      //    macchina resta senza fiato per il resto (la scena 3D, la fisica).
+      //    Come il proxy, va deciso PRIMA che il motore si accenda.
+      if (typeof self !== "undefined" && self.crossOriginIsolated)
+        env.backends.onnx.wasm.numThreads =
+          Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2)));
+    }
   } catch (e) { /* se la libreria cambia forma non ci si ferma per questo */ }
 
   const tentativi = opz.tentativi || [
