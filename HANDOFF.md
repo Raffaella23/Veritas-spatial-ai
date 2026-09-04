@@ -70,6 +70,80 @@ ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 ---
 
+## 🔴 L'OCCHIO NON GUARDA GLI SCORCI — e il documento diceva di sì. 04/09/2026
+
+Segnalato da Raffaella, verificato nel codice: **`occhioSuTutteLeViste()` non è
+chiamata da nessuna parte.**
+
+```
+grep -rn "occhioSuTutteLeViste" .   →  2 occorrenze
+  veritas_comprensione.js:715   la definizione
+  veritas_comprensione.js:884   un commento
+```
+
+Zero chiamate. La funzione è scritta per intero, è giusta, è esportata, e porta
+in testa «⚠️ Deciso da Raffaella il 26/08». Fa esattamente quello che deve: la
+pianta dà le POSIZIONI, gli scorci danno la TESTIMONIANZA.
+
+Nel giro vero (`comprendiGuardando`, righe 872–1165) le viste del mazzetto
+vanno a **`ctx.cervello`** — il VLM. `ctx.rileva`, cioè l'occhio, **in tutta
+quella funzione non compare mai**. Quindi OWLv2 ha guardato **solo la pianta
+ortografica dall'alto**, in ogni giro fatto finora.
+
+⚠️ **E il codice lo aveva previsto**, nel commento che sta appena sopra il punto
+dove si preparano le viste:
+
+> «REGOLA 0 PUNTO 2 — LE STESSE IMMAGINI PER TUTTI E DUE. […] **Se questo si
+> scollega, si torna al difetto del 26/08: il cervello con gli scorci e l'occhio
+> con la sola pianta.**»
+
+Si è scollegato.
+
+### ⚠️ E QUESTO DOCUMENTO DICEVA DI NO
+
+Alla riga «il cervello riceveva pianta + scorci, l'occhio solo la pianta» questo
+HANDOFF elenca il difetto **fra quelli corretti**, con `occhioSuTutteLeViste()`
+come rimedio. **La riga è falsa dal punto in cui la funzione si è scollegata**, e
+per questo il difetto non risultava aperto a nessuno che leggesse il documento.
+
+**Regola che ne esce:** una riga «corretto» che nomina una funzione va verificata
+contando le CHIAMATE, non l'esistenza. Una funzione giusta che nessuno invoca è
+identica a una funzione che non c'è — con l'aggravante che il documento la
+protegge.
+
+### Perché conta, e perché spiega il vocabolario da foto aerea
+
+Le 82 rilevazioni misurate oggi sono quasi tutte parole di paesaggio (`sky`,
+`earth`, `land`, `pista`) o di esterno (aereo, pontile, gate). Nessuna seduta,
+nessun bancone. Ora si sa il perché, e non è solo la lista chiusa: **dall'alto
+un sedile è un rettangolino**. Le sedute si riconoscono di taglio, cioè
+**proprio negli scorci che l'occhio non ha mai visto**.
+
+Raffaella, 04/09: *«io darei comunque tutte le parole possibili al mio alunno,
+ma gli darei anche in mano il modellino e glielo farei girare fra le mani»*.
+Servono tutte e due, e oggi non c'è né l'una né l'altra.
+
+### ⚠️ Ma non si ricollega prima di averlo reso veloce
+
+Misurato due volte oggi: **uno sguardo sulla sola pianta costa 625 s e 690 s** —
+undici minuti e mezzo — con `numThreads: 1`, un filo solo. Le viste sono dodici
+più la pianta: ricollegare adesso vorrebbe dire **oltre due ore per un giro**,
+cioè renderlo inutilizzabile. È anche la spiegazione più probabile del perché
+qualcuno, a un certo punto, lo ha staccato.
+
+**Ordine obbligato:**
+
+1. **rendere veloce l'occhio** — più fili (`numThreads`), o WebGPU se si apre a
+   pagina leggera, o meno parole per gli scorci (sulla testimonianza non serve
+   tutto il vocabolario). Bersaglio: sotto il minuto per vista;
+2. **ricollegare `occhioSuTutteLeViste()`** nel giro di `comprendiGuardando`,
+   dove oggi va solo il cervello;
+3. **allargare il vocabolario all'arredo**, con le famiglie (seduta / sedia /
+   panca / poltrona / bracciolo come una cosa sola);
+4. e solo dopo rimisurare quante zone su 23 prendono un nome.
+
+---
+
 ## 🔵 LA PROVA DEL PROCEDIMENTO — 04/09/2026, misurata sulla pagina viva
 
 Secondo giro d'occhio della giornata, con l'occhio acceso a pagina leggera.
@@ -3270,7 +3344,7 @@ Misurato il 26/08: il codice faceva tre cose diverse da questa.
 | era | è |
 |---|---|
 | `comprendi()` chiamava lo studio e **ritornava**; il giro occhio↔cervello partiva solo **se lo studio falliva** — due strade alternative, mai insieme | un anello solo |
-| il cervello riceveva pianta **+ scorci**, l'occhio **solo la pianta**: gli si chiedeva «trovi un banco?» sul pavimento mentre il banco stava in uno scorcio che non ha mai visto | `occhioSuTutteLeViste()` — l'occhio guarda esattamente le immagini che vanno al cervello |
+| ⚠️ **RIAPERTO IL 04/09 — la funzione c'è e non la chiama nessuno, vedi la sezione in testa.** il cervello riceveva pianta **+ scorci**, l'occhio **solo la pianta**: gli si chiedeva «trovi un banco?» sul pavimento mentre il banco stava in uno scorcio che non ha mai visto | `occhioSuTutteLeViste()` — l'occhio guarda esattamente le immagini che vanno al cervello |
 | studio → assegnazione → fine: **un solo scambio**, e se restavano volumi senza nome nessuno tornava a guardare | il cervello chiede altre parole, l'occhio le cerca su **tutte** le viste al giro dopo, si riassegna, fino a `GIRI_MASSIMI` |
 
 ⚠️ **Sulla pianta** le rilevazioni diventano **posizioni** (proiezione
