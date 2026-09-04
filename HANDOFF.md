@@ -5,6 +5,92 @@
 
 ---
 
+## 🎬 IL VIAGGIO DENTRO IL PROGETTO — visione di prodotto, Raffaella 04/09/2026
+
+Nata da un problema pratico e diventata la direzione del prodotto. Il problema:
+**l'occhio impiega da sei a quindici minuti per guardare tutte le viste.**
+Raffaella: *«per un quarto d'ora un utente attaccato allo schermo non mi sembra
+una cosa plausibile… non possiamo tenere una persona appesa per quindici
+minuti.»*
+
+E la risposta non è accorciare l'attesa: è **mostrarla**.
+
+> «Io nella mia fantasia avevo immaginato la composizione di un'immagine unica,
+> in tempo reale, che mostrava come l'intelligenza ricostruiva ciò che vedeva.
+> Chiamiamolo uno screensaver, ma in realtà era **la finestra dell'occhio**. Si
+> potrebbe generare in prima battuta immediatamente, non appena ci sono le prime
+> coordinate, in maniera meno definita, ma poi pian piano che vengono effettuati
+> gli altri giri viene a completarsi.»
+>
+> «Sarebbe il cinema, sarebbe effetto wow. […] Vorrei attivare la vista
+> attraverso i passeggeri, chi percorre lo spazio: **mentre cammini ti vedi
+> crescere le cose attorno.**»
+>
+> «Deve avere questa immagine fantascientifica davanti a sé che si compone, e
+> sotto solamente una linea di chat in cui scrivere. […] Io attiverei proprio il
+> linguaggio naturale col microfono, uno scambio immediato.»
+>
+> «L'esperienza utente è **un viaggio all'interno del progetto**, accompagnato
+> dall'AI che attribuisce un layer semantico e di comprensione: **un superpotere
+> alla percezione del tecnico, dell'architetto.**»
+
+### ⚠️ La regola che tiene in piedi tutta l'idea
+
+**La messa in scena la guida lo STATO VERO, mai un effetto.** La drammaturgia
+non va aggiunta: c'è già nei dati, ed è già una sequenza a certezza crescente.
+
+- il vuoto in cui si cammina — misurato in pochi secondi;
+- le masse senza nome — *«qui c'è qualcosa, non so ancora cosa»*;
+- gli indizi che si accendono **uno alla volta**, man mano che ogni vista finisce,
+  nel punto misurato;
+- i nomi che si posano sui volumi mentre il cervello valida, con l'intensità che
+  segue la fiducia. Un nome incerto resta pallido, e con la domanda accanto.
+
+⚠️ **Se l'animazione la guidasse un effetto invece dello stato, avremmo
+costruito una bugia bellissima** — la stessa merce avariata dei KPI finti, ma con
+il budget del marketing dietro. Questo prodotto vale perché non finge: la
+tensione del film deve venire da «non lo so ancora» che diventa «adesso lo so, e
+ti dico quanto».
+
+⚠️ **Il Gaussian Splat NON è il meccanismo giusto**, anche se la libreria è già
+montata. L'occhio non produce punti tridimensionali: produce riquadri su una
+pianta che diventano coordinate. Costruirci uno splat vorrebbe dire disegnare
+**un'immagine della comprensione al posto della comprensione**. Il modello 3D
+c'è già ed è quello vero: si accende lui, progressivamente.
+
+### La vista dal passeggero è onesta di natura
+
+Camminando, si accende quello che è stato capito **dove sei**. Non è un
+espediente: è la rivelazione nello spazio — la comprensione compare dove il corpo
+la incontra. E dove non c'è niente resta grigio, **e quel grigio è
+un'informazione**, non un buco.
+
+### Cosa esiste già, e cosa manca
+
+**C'è già** (non da inventare, da mettere in scena): la scena 3D col modello, le
+camere, i 28 agenti che camminano su 800 fotogrammi, il cono visivo e il calcolo
+di cosa si vede da un punto (`veritas_visibility.js`, `veritas_visuale.js`), la
+chat col cervello, il flusso di dati progressivo descritto qui sopra, e perfino
+il motore per gli splat.
+
+**Manca**: gli eventi «una vista è finita» esposti mentre l'occhio gira; la regia
+che li mette in scena; la vista in prima persona agganciata a un agente; il
+microfono (Web Speech, la parte facile); e l'interfaccia ridotta a **immagine +
+una riga di chat**.
+
+### ⚠️ La domanda di ordine, che è di Raffaella e non è tecnica
+
+Costruire la messa in scena **adesso** — su una comprensione che oggi nomina 4
+zone su 23 — oppure **prima** portare la comprensione a un punto che meriti di
+essere mostrato?
+
+A favore dell'adesso: la scena renderebbe i difetti **visibili in tre secondi**
+invece che in una giornata di misure (il blocco unico da 4.921 m² si sarebbe
+visto subito), ed è l'unico pezzo che si può far vedere a qualcuno.
+A favore del prima: un wow su una comprensione debole è un wow che mente.
+
+---
+
 ## ✂️ QUANDO SI DECIDE, LA NOTA VECCHIA SI CANCELLA — regola di Raffaella, 04/09/2026
 
 > «Quando decidiamo delle cose elimina questi vecchi codici che vengono sempre a
