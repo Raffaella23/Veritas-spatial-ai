@@ -2410,6 +2410,46 @@
     // inventa niente: si torna al punto singolo, come prima del 03/09.
     function sogliaFiltro(n) {
       if (!n || n.type !== "filtro" || !n.pos) return null;
+
+      // ⚠️ PRIMA L'OGGETTO, POI L'AMBITO.
+      //
+      //    `formaLungo`/`formaLargo`/`formaAngolo` descrivono TUTTO l'ambito
+      //    dei controlli: una fila intera sotto un unico volume allungato, ed
+      //    e' giusto cosi' -- e' come e' stato chiesto il 30/08 per disegnarlo.
+      //    Come SOGLIA DA ATTRAVERSARE pero' quella forma e' larga 4,55 m,
+      //    mentre il metal detector vero e' molto piu' stretto: si mira al
+      //    centro dell'ambito e ci si passa accanto. Raffaella, 04/09: «non
+      //    tutti passano correttamente attraverso il metal detector».
+      //
+      //    Quando l'occhio ha riconosciuto l'oggetto, il suo ingombro MISURATO
+      //    e' la soglia giusta. Il volume disegnato non cambia di un
+      //    centimetro: cambia solo dove si mira.
+      const b = n.bersaglio;
+      if (b && b.centro && b.ingombro && b.ingombro.min && b.ingombro.max) {
+        const larX = b.ingombro.max[0] - b.ingombro.min[0];
+        const larZ = b.ingombro.max[2] - b.ingombro.min[2];
+        if (larX > 0.05 && larZ > 0.05) {
+          // Si attraversa il lato stretto, quindi la soglia corre lungo il
+          // lato lungo. L'ingombro e' allineato agli assi e non porta un
+          // angolo: il verso e' uno dei due. E' meno fine dell'angolo misurato
+          // della zona, ma su un oggetto largo un metro un verso sbagliato
+          // sposta di centimetri, non di metri -- mentre la zona sbagliava di
+          // metri anche col verso giusto.
+          const lungoX = larX >= larZ;
+          const mezzo = Math.max(0.3, (lungoX ? larX : larZ) / 2);
+          const dx = lungoX ? mezzo : 0, dz = lungoX ? 0 : mezzo;
+          return {
+            capo1: [b.centro[0] - dx, n.pos[1], b.centro[2] - dz],
+            capo2: [b.centro[0] + dx, n.pos[1], b.centro[2] + dz],
+            profondo: Math.max(0.3, lungoX ? larZ : larX),
+            fonte: "occhio",
+          };
+        }
+      }
+
+      // Senza oggetto riconosciuto si torna esattamente a com'era: la forma
+      // della zona. Nessuna regressione sui modelli su cui l'occhio non ha
+      // nominato niente.
       if (!(n.formaLungo > 0) || !(n.formaLargo > 0)) return null;
       const th = typeof n.formaAngolo === "number" ? n.formaAngolo : 0;
       const mezzo = n.formaLungo / 2;
@@ -2417,6 +2457,8 @@
       return {
         capo1: [n.pos[0] - dx, n.pos[1], n.pos[2] - dz],
         capo2: [n.pos[0] + dx, n.pos[1], n.pos[2] + dz],
+        profondo: n.formaLargo,
+        fonte: "zona",
       };
     }
 
@@ -2538,7 +2580,11 @@
             // ogni volta che l'ultimo tratto arriva parallelo alla soglia,
             // che e' il caso comune (il corridoio davanti a un varco e'
             // quasi sempre orientato come il varco).
-            const tolleranza = Math.max(0.6, (rawNodes[s + 1].formaLargo || 0) / 2);
+            // La tolleranza esce dalla STESSA soglia che si sta provando --
+            // l'oggetto se c'e', la zona se no. Prima leggeva sempre la zona:
+            // con la soglia stretta di un oggetto sarebbe rimasta larga come
+            // l'ambito, e avrebbe contato per «passato» chi passa di fianco.
+            const tolleranza = Math.max(0.6, (soglia.profondo || 0) / 2);
             let percorsa = cumPrimaDiQuiTratto, migliorD = Infinity, migliorPercorsa = null;
             let prevPt = expanded[idxPrimaDiQuiTratto].pos;
             for (let k = idxPrimaDiQuiTratto + 1; k < expanded.length; k++) {
@@ -3682,6 +3728,10 @@
       n.label = nuova;
       n.funzione = a.funzione;
       n.fuori = a.fuori;
+      // Il bersaglio misurato dell'oggetto riconosciuto. Non e' una posizione:
+      // `n.pos` resta dov'era. E' la forma vera a cui mirare quando questa
+      // tappa e' un varco da attraversare (vedi sogliaFiltro in expandRoute).
+      if (a.bersaglio) n.bersaglio = a.bersaglio;
       // Chi ha guardato TUTTE le viste non deve essere riscritto da chi ne ha
       // vista una sola. La fonte e' dichiarata da chi chiama, non dedotta.
       n.origine = esito.fonte === "comprensione" ? "comprensione" : "occhi";
@@ -24399,6 +24449,17 @@ if (typeof window !== "undefined") {
         // sa leggere: sotto la soglia bassa non scavalca una misura.
         sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),
         nome: p.nome,
+        // ⚠️ L'INGOMBRO DELL'OGGETTO, che fin qui si buttava.
+        //    Il nome dell'occhio arrivava alla tappa, la MISURA dell'oggetto
+        //    no: restava nella catena della pianta e non passava mai di qua.
+        //    Serve per una cosa sola, ma decisiva: la soglia di un varco. La
+        //    forma della zona descrive tutto l'ambito dei controlli (4,55 m),
+        //    l'oggetto e' molto piu' stretto, e la differenza e' la gente che
+        //    passa di lato. Il DOVE della tappa non si tocca: questo e' un
+        //    bersaglio a cui mirare, non una posizione da riscrivere.
+        bersaglio: (p.ingombro && p.centro)
+          ? { centro: p.centro.slice(), ingombro: { min: p.ingombro.min.slice(), max: p.ingombro.max.slice() } }
+          : null,
       });
     });
     r.rinominate = assegnate.length && typeof window.__veritasApplicaOcchi === "function"
