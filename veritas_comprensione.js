@@ -909,24 +909,15 @@ export async function comprendiGuardando(ctx) {
   const giriMassimi = ctx.giriMassimi || GIRI_MASSIMI;
   const posti = ctx.posti;
 
-  // ⚠️ L'ORDINE: IL CERVELLO PARLA PER PRIMO. Misurato sul modello vero il
-  //    26/08. Nel primo giro del circuito l'occhio guardava per primo, e
-  //    guardava tutte le viste con l'elenco intero del vocabolario: 158 parole
-  //    in 14 mazzetti da 12, per 8 viste = 112 interrogazioni PRIMA che il
-  //    cervello dicesse una parola. Non ci arrivava mai: il log si fermava su
-  //    «ha trovato 0 cose su 12 chieste», ripetuto, e lo studio non partiva.
-  //
-  //    Non e' solo un problema di costo: e' proprio la strada dichiarata morta
-  //    il 25/08. Chiedere «trovi un banco? trovi una sedia?» dodici parole alla
-  //    volta non funziona, e col VLM di riserva funziona ancora meno — i suoi
-  //    riquadri sono piu' larghi e non confrontabili, e infatti alcuni mazzetti
-  //    tornano perfino con JSON malformato.
-  //
-  //    Quindi il primo scambio va DAL CERVELLO ALL'OCCHIO: una domanda sola
-  //    («che posto e', come funziona»), con tutte le immagini. L'occhio resta
-  //    acceso e continua a vedere tutte le viste — quella regola non si tocca —
-  //    ma gli si chiede SOLO quello che il cervello ha detto di cercare.
-  //    Da 112 domande a una manciata.
+  // ⚠️ UNA SOLA CHIAMATA PER VISTA, MAI IL VOCABOLARIO SPEZZATO.
+  //    Misurato il 04/09/2026 sulla stessa figura: 4 parole 201,3 s, 16 parole
+  //    201,3 s, tutte e 158 in una chiamata sola 72,3 s (coi fili accesi).
+  //    Chiedere tutto in una volta costa QUANTO chiedere quattro parole: si
+  //    paga il guardare la figura, non le parole. Spezzare il vocabolario in
+  //    mazzetti da dodici moltiplica il costo per il numero di mazzetti — e' il
+  //    disastro del 26/08 (112 interrogazioni per giro, «ha trovato 0 cose su
+  //    12 chieste» ripetuto e lo studio che non partiva), e la colpa era del
+  //    frazionamento, non dell'ordine.
 
   // --- (0) LO SGUARDO — l'occhio guarda per primo, libero, senza elenco -----
   //

@@ -5,6 +5,51 @@
 
 ---
 
+## ✂️ QUANDO SI DECIDE, LA NOTA VECCHIA SI CANCELLA — regola di Raffaella, 04/09/2026
+
+> «Quando decidiamo delle cose elimina questi vecchi codici che vengono sempre a
+> rompere le scatole.»
+
+**Il caso che l'ha fatta nascere, lo stesso giorno.** In `veritas_comprensione.js`
+stava un commento del 25-26/08 intitolato **«L'ORDINE: IL CERVELLO PARLA PER
+PRIMO»**. Era vero quando fu scritto: chiedere 158 parole in 14 mazzetti da 12,
+su 8 viste, faceva 112 interrogazioni e lo studio non partiva mai.
+
+Diciotto righe più sotto, nello stesso file, stava il commento opposto —
+**«L'ORDINE E' QUESTO E NON SI GIRA: l'occhio guarda e dice cosa gli sembra; il
+cervello poi contesta con le misure»** — che è la Regola 0.
+
+Il file conteneva **due ordini contrari**, tutti e due con la ⚠️ e la data. Chi
+è arrivato dopo (Claude, il 04/09) ha seguito quello sbagliato e ha collegato il
+rilevatore **dietro** il cervello, passandogli solo le parole che il cervello gli
+dava. Raffaella l'ha ribaltato in una riga: *«non è il cervello che comanda
+sull'occhio, casomai il contrario: va a validare quello che l'occhio ha visto»*.
+
+**E la nota vecchia era anche già falsa nei fatti**, misurati poche ore prima: il
+costo non stava nelle parole ma nello **spezzarle**. 4 parole 201,3 s, 16 parole
+201,3 s, tutte e 158 in una chiamata sola 72,3 s. La ragione per cui il cervello
+era stato messo davanti non esisteva più da mesi, e nessuno l'aveva cancellata.
+
+### La regola
+
+**Quando una decisione ne sostituisce un'altra, la vecchia si CANCELLA — non si
+lascia accanto alla nuova.** Vale per i commenti nel codice e per le sezioni di
+questo documento.
+
+- ⚠️ **Una nota superata non è storia: è un'istruzione ancora in vigore** per chi
+  la legge senza sapere che è morta. Costa più di un difetto, perché il difetto
+  almeno si vede;
+- si conserva il **fatto misurato** («spezzare il vocabolario moltiplica il
+  costo»), che resta vero; si butta la **prescrizione** («quindi il cervello va
+  davanti»), che non lo è più;
+- se la storia serve davvero, va in una riga sola, al passato, e senza ⚠️: la
+  ⚠️ è un ordine, e un ordine morto va tolto;
+- **vale anche per le righe «corretto» di questo documento**: una riga che dà per
+  risolto un difetto va verificata, e se non regge si RIAPRE, non si affianca.
+  Vedi `occhioSuTutteLeViste()`, data per collegata e mai chiamata.
+
+---
+
 ## 🧭 IL SETTING DI LAVORO — com'è fatto il banco, misurato il 04/09/2026
 
 Questa sezione non racconta il progetto: dice **dove si lavora e con che cosa**.
