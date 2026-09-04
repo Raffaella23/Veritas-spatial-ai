@@ -24663,17 +24663,29 @@ if (typeof window !== "undefined") {
   //       l'apertura. Accende solo la copia che sta su `window.__veritasRiconosce`,
   //       perche' e' quella che `veritas_montaggio.js` poi usa davvero
   //       («accendo l'occhio gia' montato nella pagina»).
-  setTimeout(function () {
+  //    ⚠️ E SI ASPETTA CHE LA PAGINA SIA FERMA, non solo vuota. Misurato il
+  //       04/09, stessa pagina senza nessun progetto aperto:
+  //         2,5 s dopo l'avvio  →  non si apre (267935216 / 269045048 /
+  //                                272418864), e fallisce sia con un filo solo
+  //                                sia con otto: NON sono i fili
+  //         8-15 s dopo `load`  →  si apre in 3,6-7,9 s, sempre
+  //       A due secondi e mezzo la pagina sta ancora tirando su three.js, la
+  //       fisica, il lettore IFC e l'autenticazione: e' l'istante piu'
+  //       affollato della sua vita, non il piu' libero. «Pagina leggera» vuol
+  //       dire FERMA, e il momento si aspetta — non si indovina.
+  function accendiQuandoEFerma() {
     if (_stato.fase !== "spento") return;
     if (!window.__veritasRiconosce || window.__veritasRiconosce.occhioLocale !== occhioLocale) return;
     occhioLocale({}).then(function (r) {
       console.log(r
-        ? "[VERITAS occhio] acceso a pagina leggera (" + _stato.device + "/" + _stato.dtype + ")"
+        ? "[VERITAS occhio] acceso a pagina ferma (" + _stato.device + "/" + _stato.dtype + ")"
         : "[VERITAS occhio] non si e' acceso all'avvio: " + _stato.perche);
     }).catch(function (e) {
       console.warn("[VERITAS occhio] non si e' acceso all'avvio: " + ((e && e.message) || e));
     });
-  }, 2500);
+  }
+  if (document.readyState === "complete") setTimeout(accendiQuandoEFerma, 8000);
+  else window.addEventListener("load", function () { setTimeout(accendiQuandoEFerma, 8000); });
 
   console.log("[VERITAS occhio] pronto — window.__veritasGuarda()");
 }
