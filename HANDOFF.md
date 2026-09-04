@@ -5,6 +5,67 @@
 
 ---
 
+## ✅ L'OCCHIO HA GUARDATO DI TAGLIO — 18 volumi su 23. 04/09/2026, sera
+
+**Primo giro completo con il rilevatore collegato agli scorci.** Misurato sulla
+pagina viva, progetto «Aeroporto — banco di prova».
+
+```
+19:28:56  [VERITAS occhio] ha guardato per primo 5 viste col vocabolario intero
+                           — testimonianze da 4 scorci
+19:30:46  [VERITAS cervello] studio — entrata 5551 (era 3734: dentro c'è la
+                           testimonianza dell'occhio)
+          → 18 volumi nominati su 23, fiducia 70%
+```
+
+| chi guardava | volumi nominati su 23 | che nomi |
+|---|---|---|
+| occhio sulla sola **pianta** | **4** | aereo, land, pista, pista |
+| solo il **cervello** (riserva VLM) | 14–16 | misti |
+| **occhio sugli scorci + cervello che valida** | **18** | **sala d'attesa, parcheggio, terminal, piazzale** |
+
+### ⚠️ La risposta alla domanda del vocabolario, e non è quella che sembrava
+
+Raffaella aveva posto due ipotesi: *«all'occhio mancano le parole»* e *«gli darei
+in mano il modellino e glielo farei girare»*. **La misura dice che era la
+seconda.**
+
+Le parole delle sedute **c'erano già tutte** — `chair`, `seat`, `armchair`,
+`sofa`, `bench`, `stool`, `cushion`, `swivel chair`, tutte legate alla funzione
+«sosta»; e `counter`, `desk`, `booth` all'«accoglienza». Non ne mancava
+nessuna. Mancava la **vista**: dall'alto un sedile è un quadratino di venti
+centimetri, e le uniche cose vere in una pianta ortografica sono cielo, terra e
+pista. Di taglio, negli scorci, le sedute si vedono — e infatti **«sala
+d'attesa» compare per la prima volta.**
+
+📌 Conseguenza pratica: **non serve allargare il vocabolario per adesso.** Serve
+che l'occhio veda. Il punto 1 dell'ordine di lavoro è già risolto da un
+collegamento, non da una lista.
+
+### ⚠️ E la metà scomoda: 14 nomi su 18 sono lo stesso nome
+
+| nome | quante volte |
+|---|---|
+| sala d'attesa | **14** |
+| parcheggio | 2 |
+| terminal | 1 |
+| piazzale | 1 |
+
+Vede sedute **dappertutto**. È un riconoscimento ricco ma **non discriminante**:
+non è una zonazione, è un'etichetta ripetuta quattordici volte. E si lega
+direttamente a quello che era già stato misurato stamattina — i 23 «posti» sono
+grappoli di arredo, non ambienti, e uno solo copriva il 78% della pianta.
+
+**Quindi il prossimo lavoro è il punto 3 di Raffaella, e adesso ha i dati per
+essere fatto:** dentro l'unico ambiente misurato dallo spazio, sono gli arredi a
+dover tracciare i confini fra attesa, check-in e controllo — e per farlo servono
+grappoli **distinti**, non un'unica etichetta spalmata.
+
+La domanda che il programma pone da solo, ed è onesta: *«Ho assegnato 18 volumi
+su 23. Su questi ho un dubbio: cosa c'è sopra questo volume?»*
+
+---
+
 ## 🔧 LA CATENA DELL'OCCHIO — cinque guasti in fila, 04/09/2026 sera
 
 Tutti trovati e corretti nella stessa sessione, uno dietro l'altro: ognuno
