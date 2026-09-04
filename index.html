@@ -24656,8 +24656,16 @@ if (typeof window !== "undefined") {
   //    ⚠️ Vale la regola del motore: quello che lo riguarda si decide PRIMA che
   //       si accenda. Dopo, ogni prova misura il primo tentativo e non il
   //       proprio.
+  //    ⚠️ E UNA COPIA SOLA ACCENDE. Questa pagina carica DUE volte questo
+  //       codice: il blocco dentro `index.html` e il modulo in radice. Senza
+  //       guardia partirebbero due accensioni e resterebbero due modelli di
+  //       visione in memoria, che e' esattamente il carico che fa fallire
+  //       l'apertura. Accende solo la copia che sta su `window.__veritasRiconosce`,
+  //       perche' e' quella che `veritas_montaggio.js` poi usa davvero
+  //       («accendo l'occhio gia' montato nella pagina»).
   setTimeout(function () {
     if (_stato.fase !== "spento") return;
+    if (!window.__veritasRiconosce || window.__veritasRiconosce.occhioLocale !== occhioLocale) return;
     occhioLocale({}).then(function (r) {
       console.log(r
         ? "[VERITAS occhio] acceso a pagina leggera (" + _stato.device + "/" + _stato.dtype + ")"
@@ -24665,7 +24673,7 @@ if (typeof window !== "undefined") {
     }).catch(function (e) {
       console.warn("[VERITAS occhio] non si e' acceso all'avvio: " + ((e && e.message) || e));
     });
-  }, 1200);
+  }, 2500);
 
   console.log("[VERITAS occhio] pronto — window.__veritasGuarda()");
 }
