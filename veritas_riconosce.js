@@ -688,9 +688,26 @@ export async function occhioLocale(opz = {}) {
     }
   } catch (e) { /* se la libreria cambia forma non ci si ferma per questo */ }
 
+  // ⚠️ IN CIMA VA QUELLO CHE REGGE, NON QUELLO CHE SAREBBE PIU' VELOCE.
+  //
+  //    Il motore ONNX si accende UNA VOLTA SOLA per pagina e resta com'e': dal
+  //    secondo tentativo in poi non si prova quel formato, si riceve l'esito
+  //    del primo. Quindi una lista che comincia con un formato che non si apre
+  //    non e' una scala di ripieghi: e' un guasto secco, e i tentativi
+  //    successivi ne sono solo l'eco.
+  //
+  //    Qui la lista cominciava da `webgpu/q4f16`, che su questo modello NON si
+  //    apre — provato il 04/09/2026 per primo, su pagina pulita, col proxy e
+  //    senza: sempre lo stesso errore. Cosi' ogni accensione automatica moriva,
+  //    e ogni volta si passava all'occhio di riserva. Le prove che riuscivano
+  //    erano quelle in cui il formato veniva passato a mano.
+  //
+  //    La stessa correzione era gia' stata fatta nella lista di
+  //    `veritas_montaggio.js` e non era mai arrivata qui: due liste, una
+  //    corretta e una no.
   const tentativi = opz.tentativi || [
-    { device: "webgpu", dtype: "q4f16" },
-    { device: "wasm", dtype: "q8" },
+    { device: "wasm", dtype: "q8" },       // MISURATO: e' quello che apre
+    { device: "wasm", dtype: "fp32" },     // nessuna compressione: l'ultima spiaggia
   ];
   let detector = null, usato = null, ultimo = null;
   for (const t of tentativi) {
