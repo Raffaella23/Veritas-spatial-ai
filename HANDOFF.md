@@ -144,6 +144,56 @@ qualcuno, a un certo punto, lo ha staccato.
 
 ---
 
+## ✅ I FILI SONO ACCESI — 04/09/2026, verificato sulla pagina viva
+
+La leva descritta nella sezione qui sotto è stata provata, misurata e collegata.
+`veritas_fili.js` è un service worker che aggiunge alla pagina le due
+intestazioni che GitHub Pages non manda; da lì la pagina è *cross-origin
+isolated* e il motore di visione può usare più di un processore.
+
+### Quanto ha guadagnato
+
+| stessa macchina, stessa figura, stesso formato | 1 filo | **8 fili** |
+|---|---|---|
+| uno sguardo, 16 parole | 201,3 s | **63,4 s** |
+| uno sguardo, tutte e 158 le parole | ~690 s | **72,3 s** |
+| apertura dell'occhio | 5,4 s | 6,5 s |
+
+**3,2 volte.** Un giro su tutte e tredici le viste (pianta più dodici scorci)
+passa da **oltre due ore a circa un quarto d'ora**. Da adesso ricollegare
+`occhioSuTutteLeViste()` ha senso: era quello il blocco.
+
+### Che non abbia rotto niente, verificato col progetto aperto
+
+- **deposito**: il modello da 18,6 MB ritrovato in IndexedDB, 23 mucchi misurati;
+- **cervello**: «ponte al modello locale pronto — `http://localhost:1234/v1`»;
+- **analisi identica**: 6.339,57 m² navigabili, 7 ambienti, 2 livelli;
+- **visitatore nuovo**: cancellata la registrazione e ricaricato — la pagina si
+  è riaccesa da sola, ricaricando **una volta** (segno in `sessionStorage`), ed è
+  tornata isolata;
+- **l'occhio dell'applicazione** si apre con `numThreads: 8`, `proxy: true`,
+  pronto in 7,9 s.
+
+⚠️ **Si sceglie `credentialless` e non `require-corp`**: con `require-corp` ogni
+risorsa da un'altra origine dovrebbe dichiararsi, e qui ne arrivano parecchie che
+non lo fanno — jsdelivr, sparkjs.dev, Supabase, `localhost:1234`. Si
+spegnerebbe mezzo programma per accendere i fili.
+
+⚠️ **Otto fili e non dodici**: oltre gli otto il guadagno si appiattisce e la
+macchina resta senza fiato per la scena 3D e la fisica.
+
+⚠️ **Come si spegne**, se un giorno desse noia: aprire la pagina con **`?nocoi`**
+in coda all'indirizzo, oppure `window.__veritasFiliSpegni()` dalla console.
+
+### Una conferma arrivata di lato
+
+Il programma applica al modello dell'aeroporto **scala 7,3×**. Il banco offline
+descritto più sopra l'aveva ricavata **per tentativi, a 7,30**, prima di sapere
+questo numero. Le due strade misurano la stessa cosa e danno lo stesso valore:
+il banco è affidabile.
+
+---
+
 ## ⏱️ PERCHÉ L'OCCHIO È LENTO, E QUAL È L'UNICA LEVA — misurato il 04/09/2026
 
 Serve a decidere se `occhioSuTutteLeViste()` si può ricollegare (sezione sopra).
