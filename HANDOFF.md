@@ -115,8 +115,8 @@ riconosce. Quello che dovrebbe fare è riconoscere le funzioni e mettere dei
 cartellini con dei target più precisi, in maniera tale che il flusso vada
 esattamente lì.»*
 
-Le targhette non sono una cosa sola. Sono **due catene diverse che non si
-incontrano mai.**
+Le targhette non sono una cosa sola: sono **due catene diverse**. Una porta i
+nomi, e si incontrano. L'altra porta i bersagli, e non si incontrano mai.
 
 **Catena A — quello che l'occhio vede.** È la figura 1 di 12.
 
@@ -139,31 +139,54 @@ targhette, se il rilevatore restituisce quattro scatole.
 | `index.html` ~4234 | la tappa nasce con `pos` = **baricentro della zona**, e `formaLungo`/`formaLargo`/`formaAngolo` = **ingombro della zona** |
 | `index.html` ~3708 `__veritasApplicaOcchi` | l'occhio **rinomina** le zone da quello che ha visto |
 
-⚠️ **E qui sta il difetto, ed e' piu' grosso di un tetto da alzare.**
-`__veritasApplicaOcchi` cambia **l'etichetta, non il `type`**. Sta scritto
-apposta a ~3940: *«Cambia l'etichetta, non il comportamento. Il vocabolario dei
-`type` resta intatto di proposito: ci si appoggiano il generatore di
-traiettorie, l'altezza dei marker e il grafo delle missioni, in una ventina di
-punti. Cambiarlo sarebbe un refactor, non una correzione.»*
+🔴 **CORREZIONE, scritta un'ora dopo il resto di questa sezione, prima di
+scriverci codice sopra.** La prima stesura diceva che `__veritasApplicaOcchi`
+«cambia l'etichetta, non il `type`», e che quindi il flusso non cammina mai su
+quello che l'occhio ha visto. **È falso**, e l'errore veniva da un commento letto
+fuori dal suo posto: quello a ~3940 parla del `LESSICO_ZONE` — le parole di
+dominio, «Accettazione» su un aeroporto, «Biglietteria» su un museo — e dice che
+resta intatto l'ELENCO dei valori di `type`, non che i tipi non si riassegnino.
 
-Quindi, misurato leggendo — non provato sulla pagina, che al 04/09 chiede di
-accedere:
+Quello che il codice fa davvero, letto riga per riga a ~3660-3695:
 
-1. **Il flusso non cammina su quello che l'occhio ha visto.** Cammina sui nomi
-   scritti dentro il `.glb` da chi ha modellato lo spazio, piu' una deduzione.
-   L'occhio riscrive la targhetta sopra, e finisce li'.
-2. **Perciò una sola sala d'attesa.** Non perche' ci sia un tetto sul
-   riconoscimento, ma perche' nel file **una sola mesh** porta quel nome. Le
-   altre sale l'occhio le vede — e infatti compaiono nella figura 1 di 12 — ma
-   nella catena B non arrivano mai.
-3. **Perciò il varco e' largo 4,55 m.** La soglia si costruisce sull'ingombro
-   della ZONA, l'unica forma che la tappa si porta dietro. L'ingombro del metal
-   detector vero, che `abbina` aveva misurato, viene buttato nel passaggio dalla
-   catena A alla catena B.
+- `__veritasApplicaOcchi` **assegna eccome** il tipo — `n.type = a.tipo || n.type`
+  — e con lui `n.label`, `n.funzione`, `n.origine`.
+- Ha una **scala di precedenza dichiarata, e funziona**: il BIM batte tutti; un
+  nome letto su una mesh (`nome+misura`) non viene riscritto dall'occhio che ha
+  guardato una vista sola, ma **viene riscritto** dal circuito completo
+  (`fonte === "comprensione"`); e la Regola 0-bis e' rispettata fino in fondo —
+  un nome VISTO batte le parole di dominio scelte prima di guardare.
+- Esiste gia' una **rete di unicita'** che numera i doppioni: quattro sale
+  d'attesa diventano «sala d'attesa 2, 3, 4», non una sola.
 
-In una riga: **la targhetta e il bersaglio sono la stessa cosa, e oggi stanno in
-due catene diverse.** Il punto 8 (il varco), le targhette e «niente vocabolario
-scritto da noi» non sono tre lavori: sono uno.
+Perciò la sala d'attesa nominata una volta sola **non e' spiegata da questa
+lettura**. Puo' essere la precedenza (`nome+misura` che blocca un occhio a una
+vista sola), puo' essere il rilevatore che restituisce una scatola sola, puo'
+essere l'assegnazione che a quelle zone non arriva. Sono tre cose diverse, si
+distinguono **solo guardando la pagina viva**, e finche' non e' misurato non ci
+si scrive codice sopra.
+
+⚠️ **Quello che invece resta vero, ed e' il difetto vero.** L'occhio non tocca
+**mai** il DOVE. Sta scritto a ~3498: *«gli occhi spostano le etichette, mai i
+punti.»* Quindi:
+
+- la tappa nasce, e resta, col **baricentro della zona** (~4234);
+- `formaLungo`/`formaLargo`/`formaAngolo` sono l'ingombro **della zona**,
+  misurato dalle celle calpestabili di tutto l'ambito funzionale (~16660) —
+  ed e' una scelta voluta, chiesta il 30/08 per disegnare tutta la fila dei
+  controlli sotto un unico volume allungato;
+- `expandRoute` costruisce la **soglia del varco da quei tre numeri**.
+
+Da cui i 4,55 m: la soglia e' larga quanto l'AMBITO DEI CONTROLLI, non quanto il
+metal detector. L'ingombro dell'oggetto vero, che `abbina` aveva misurato nella
+catena A, alla catena B non arriva mai.
+
+**Sono due cose diverse e vanno tenute separate:** il VOLUME che si disegna resta
+l'ambito funzionale — 30/08, e va bene cosi'; la SOGLIA che si attraversa deve
+essere l'oggetto riconosciuto. Oggi sono lo stesso numero, ed e' per questo che
+si passa di lato.
+
+In una riga: **la targhetta l'occhio la scrive gia'; il bersaglio no.**
 
 ⚠️ **Contraddizione solo apparente con la correzione del 18/08** — quattro
 stanze chiamate tutte «Accettazione», illeggibili. Manca una distinzione, e va
