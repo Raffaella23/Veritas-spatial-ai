@@ -84,6 +84,67 @@ Restano di conseguenza ancora aperti, ma adesso per una ragione diversa:
 - **il bersaglio del varco** (`d741aac`) — scritto e ancora mai entrato in gioco,
   perche' serve che l'occhio nomini proprio il metal detector.
 
+### 🔴 «Tre giorni fa occhio e cervello si parlavano. Che cosa e' successo?»
+
+Domanda di Raffaella, 04/09, dopo che l'occhio si e' riacceso. La risposta e'
+scomoda e sta nei numeri **della stessa giornata**, misurati a due ore di
+distanza sullo stesso identico modello.
+
+**Non si e' rotto niente. Il collegamento c'era davvero, e c'e' ancora.** Solo
+che a nominare non era OWLv2: era **l'occhio di riserva**, il VLM.
+
+| giro del 04/09 | chi guardava | volumi nominati |
+|---|---|---|
+| ore 10:20 — OWLv2 spento, riserva accesa | `qwen2.5-vl-7b-instruct` | **14 su 23** |
+| ore 11:16 — OWLv2 acceso (dopo la correzione) | `owlv2` wasm/q8 | **4 su 23**, 78 rilevazioni buttate |
+
+Dal log delle 10:20, prima di qualunque correzione di oggi:
+
+```
+✅ Ho capito lo spazio: aeroporto (modello completo). Fiducia 72%,
+   dopo 2 giri fra occhio e cervello.
+   giro 1: 0 nominati, 23 senza nome, fiducia 95%
+   giro 2: 14 nominati, 9 senza nome, fiducia 72%
+3 tappe su 19 rinominate dopo la comprensione
+   (12 tappe nuove nate dai volumi capiti che non ne avevano una)
+```
+
+Il circuito occhio-cervello **funzionava**, e funzionava perche' il ripiego
+copriva OWLv2 da chissa' quanto. La riga «nessun formato di OWLv2 si apre —
+passo all'occhio di riserva» c'era, ma sotto c'era anche un risultato buono, e
+quindi non sembrava un guasto.
+
+⚠️ **E qui la conseguenza da guardare in faccia: la correzione di oggi, da sola,
+peggiora il riconoscimento su questo modello.** OWLv2 si apre, ha la precedenza,
+e nomina 4 volumi dove la riserva ne nominava 14. Non e' un errore della
+correzione — l'errore vero era che OWLv2 fosse spento e nessuno lo sapesse — ma
+il risultato a schermo, oggi, e' peggiore.
+
+Perche' 78 buttate: OWLv2 da' riquadri STRETTI, e `abbina` tiene solo cio' che
+sta sopra un mucchio misurato (sovrapposizione minima 0,33, ingrandimento
+massimo 4). Il VLM da' riquadri LARGHI — cosa che il codice gia' dichiara come
+un difetto — e proprio per questo ne aggancia di piu'. Il piu' preciso aggancia
+meno: e' l'opposto di quello che ci si aspetta, ed e' il nodo da sciogliere.
+
+**Il prossimo lavoro non e' scegliere fra i due occhi: e' farli lavorare
+insieme, e misurarli sullo stesso modello.** Chi vede stretto dice DOVE con
+precisione; chi vede largo aggancia di piu'. Le strade da provare, in ordine di
+costo:
+
+1. tarare `SOVRAPPOSIZIONE_MINIMA` e `INGRANDIMENTO_MAX` sui riquadri stretti —
+   sono due numeri, e oggi sono tarati sull'unico occhio che funzionava;
+2. non fermarsi al primo occhio che si apre: farli guardare tutti e due e
+   tenere, per ogni mucchio, la rilevazione migliore, **dichiarando da quale
+   occhio viene** (`provenienza` c'e' gia');
+3. guardare le 78 buttate una per una prima di toccare qualunque soglia — dicono
+   se cadono sul vuoto o su cose che `veritas_cose.js` non raccoglie in mucchi.
+
+⚠️ **E la lezione di metodo, che vale piu' del resto:** un ripiego che funziona
+bene nasconde il guasto che copre. Per due settimane il circuito «funzionava» e
+nessuno poteva sapere che l'occhio buono era spento. Quando c'e' una riserva, il
+log deve dire **sempre e a voce alta** chi sta lavorando davvero — non solo
+quando va male.
+
 ---
 
 ## 🟢 IL GIRO INTERO DEL 04/09, GUARDATO DA SOLI — e cosa dice
