@@ -1,16 +1,16 @@
 # HANDOFF.md — VERITAS Spatial AI
 
-> ⛔ **PRIMA DI TOCCARE QUALUNQUE COSA, LEGGI «LE DIRETTIVE DEL 04/09/2026»
+> ⛔ **PRIMA DI TOCCARE QUALUNQUE COSA, LEGGI «LE DIRETTIVE DEL 04-05/09/2026»
 > QUI SOTTO.** Sono decisioni già prese: non si ricavano dal codice, non si
 > reinterpretano. Un commento nel codice che le contraddice è vecchio, e va
 > cancellato — non seguito.
 >
-> **Aggiornato il 04/09/2026.** Questo è **l’unico documento di stato del
+> **Aggiornato il 05/09/2026.** Questo è **l’unico documento di stato del
 > progetto.** Non ce ne sono altri, e non se ne creano altri.
 
 ---
 
-# ⛔ LE DIRETTIVE DEL 04/09/2026 — NON SI PERDONO E NON SI RIDISCUTONO
+# ⛔ LE DIRETTIVE DEL 04-05/09/2026 — NON SI PERDONO E NON SI RIDISCUTONO
 
 > Raffaella, 04/09/2026: *«mi raccomando trecento volte: deve essere chiaro che
 > le direttive che abbiamo stabilito oggi non si devono perdere più.»*
@@ -145,96 +145,263 @@ l'aspetto è libero. Sulla comprensione si mostra **solo ciò che è misurato**.
 
 ---
 
-## 📋 I DUE LAVORI APERTI, in quest'ordine
+## 11. Il cartellino dice un COMPORTAMENTO, non il nome di una stanza
 
-### A — Togliere il doppione che rallenta tutto
+> *«Ho spiegato che il cartellino va ovunque, ma sostanzialmente indica il fatto
+> che l'avatar si siede. Quindi indica un comportamento.»*
 
-`window.__veritasGuarda` riparte **da solo a ogni evento di modello caricato**
-(misurato: ogni ~80 s) e rifà lo sguardo sulla pianta **sullo stesso rilevatore**
-che il giro di comprensione sta usando. Due padroni per un occhio solo: si
-mettono in coda, e il giro completo ci ha messo **venti minuti invece di
-cinque**. Correzione piccola e sicura, da fare per prima.
+Che «sedute» compaia in quattordici posti **non è un difetto**: in quattordici
+posti ci si siede davvero. Il difetto era leggerlo come nome di ambiente. «Sala
+d'attesa» descrive una stanza; «ci si siede» descrive un'azione — e noi
+scrivevamo il secondo e leggevamo il primo.
 
-### B — Far discriminare gli indizi
+## 12. Il registro comportamentale: invarianti che portano il peso, posture poche apposta
 
-Oggi il giro nomina **18 volumi su 23**, ma **14 si chiamano «sala d'attesa»**
-(parcheggio ×2, terminal ×1, piazzale ×1). Vede sedute dappertutto: ricco ma non
-discriminante. **Non è una zonazione, è un'etichetta ripetuta.**
+> *«Se tu dentro l'AI metti una serie di regole, di invarianti comportamentali,
+> più dei modelli specifici a cui attingere in funzione dell'oggetto che sta
+> analizzando, allora può darsi che ce la caviamo.»*
+>
+> *«Quanti sono i comportamenti umani? Non possiamo metterli tutti. Mettiamo le
+> animazioni base, poi vediamo.»*
 
-Serve, nell'ordine:
+Come *Idle* e *Walk* in un motore di gioco: non descrivono una situazione,
+descrivono **come sta il corpo**. Quattro posture — **seduto, in piedi,
+sdraiato, passa** — e i passaggi fra loro. Quello che si moltiplica è **quando**
+si cambia posizione e **che cosa** si ha davanti, non il numero delle voci.
 
-1. il **vocabolario enciclopedico** della direttiva 6 — chiesto in una chiamata
-   sola, mai spezzato;
-2. gli indizi che **tagliano** l'ambiente unico in zone distinte (direttiva 1,
-   passo 3): dove finisce l'attesa e comincia il check-in lo dicono gli arredi;
-3. e da lì il **repertorio di comportamenti** della direttiva 7 — sedersi,
-   alzarsi, accodarsi — con gli avatar della direttiva 8 che lo rendono visibile.
+⚠️ **I «modelli specifici» sono la porta da cui rientra il tipo di edificio.**
+Se scriviamo «in aeroporto: siedi, poi il banco, poi il varco», abbiamo
+riscritto in verbi l'elenco cancellato il 30/08 — e sarebbe invisibile: un museo
+simulerebbe lo stesso, solo sbagliato. Le invarianti portano il peso, i modelli
+specifici restano sottili. **Se la tabella delle posture arriva a venti righe,
+dentro ci è rientrato l'aeroporto.**
 
-⚠️ Domanda ancora aperta per Raffaella, **da non decidere al posto suo**: in una
-pianta libera, sedute in due punti distanti venti metri sono **una** sala
-d'attesa o **due** zone? E cosa lo decide — la distanza, un passaggio in mezzo,
-il fatto che guardino cose diverse?
+⚠️ E l'**ordine** delle tappe non si scrive: **si legge dalla pianta.**
+Camminando dall'ingresso alla destinazione, gli oggetti si incontrano nell'ordine
+in cui l'architetto li ha messi. Così il secondo modello non chiede una seconda
+tabella, né il terzo una terza.
+
+## 13. Se non si mette a fuoco non si vede — e allora si inventa
+
+> *«Avevo già chiesto che negli scorci prospettici ci fossero delle zoommate,
+> perché visto sempre da lontano non si capisce niente, specialmente se ci sono
+> molti dettagli. Avevo chiesto un'autofit, la capacità di mettere a fuoco.»*
+>
+> *«Questa aula a gradoni io non l'ho vista da nessuna parte.»*
+
+📌 Misurato il 05/09 sulla pagina viva, col modello intero nel riquadro: la
+telecamera sta a **136 m**, inquadra **126 m** dentro 768 pixel, cioè **6 pixel
+al metro**. Un aereo lungo 40 m è 243 pixel; un bancone 18; **una seduta larga
+55 cm è 3,3 pixel**.
+
+⚠️ **I grattacieli e le aule a gradoni non sono parole sbagliate nel
+vocabolario: sono quello che tre pixel *sembrano*** a un modello a vocabolario
+aperto a cui si fanno 176 domande e che deve rispondere qualcosa. Il rimedio non
+è togliere parole — sarebbe la direttiva 6 violata — **è avvicinare la
+telecamera.**
 
 ---
 
-## ✅ L'OCCHIO HA GUARDATO DI TAGLIO — 18 volumi su 23. 04/09/2026, sera
+## 📋 I LAVORI APERTI, in quest'ordine
 
-**Primo giro completo con il rilevatore collegato agli scorci.** Misurato sulla
-pagina viva, progetto «Aeroporto — banco di prova».
+### A — Il gate da 5.261 m² *(il più grosso che resta)*
 
-```
-19:28:56  [VERITAS occhio] ha guardato per primo 5 viste col vocabolario intero
-                           — testimonianze da 4 scorci
-19:30:46  [VERITAS cervello] studio — entrata 5551 (era 3734: dentro c'è la
-                           testimonianza dell'occhio)
-          → 18 volumi nominati su 23, fiducia 70%
-```
+Le tappe che il programma disegna sul modello prendono la forma della zona che
+crede di aver capito. Misurato il 05/09, sette tappe: cinque sensate (da 12 a
+44 m²) e due enormi —
 
-| chi guardava | volumi nominati su 23 | che nomi |
-|---|---|---|
-| occhio sulla sola **pianta** | **4** | aereo, land, pista, pista |
-| solo il **cervello** (riserva VLM) | 14–16 | misti |
-| **occhio sugli scorci + cervello che valida** | **18** | **sala d'attesa, parcheggio, terminal, piazzale** |
-
-### ⚠️ La risposta alla domanda del vocabolario, e non è quella che sembrava
-
-Raffaella aveva posto due ipotesi: *«all'occhio mancano le parole»* e *«gli darei
-in mano il modellino e glielo farei girare»*. **La misura dice che era la
-seconda.**
-
-Le parole delle sedute **c'erano già tutte** — `chair`, `seat`, `armchair`,
-`sofa`, `bench`, `stool`, `cushion`, `swivel chair`, tutte legate alla funzione
-«sosta»; e `counter`, `desk`, `booth` all'«accoglienza». Non ne mancava
-nessuna. Mancava la **vista**: dall'alto un sedile è un quadratino di venti
-centimetri, e le uniche cose vere in una pianta ortografica sono cielo, terra e
-pista. Di taglio, negli scorci, le sedute si vedono — e infatti **«sala
-d'attesa» compare per la prima volta.**
-
-📌 Conseguenza pratica: **non serve allargare il vocabolario per adesso.** Serve
-che l'occhio veda. Il punto 1 dell'ordine di lavoro è già risolto da un
-collegamento, non da una lista.
-
-### ⚠️ E la metà scomoda: 14 nomi su 18 sono lo stesso nome
-
-| nome | quante volte |
+| tappa | superficie |
 |---|---|
-| sala d'attesa | **14** |
-| parcheggio | 2 |
-| terminal | 1 |
-| piazzale | 1 |
+| una «sosta» | 942 m² |
+| il **gate** (destinazione) | **5.261 m²** |
 
-Vede sedute **dappertutto**. È un riconoscimento ricco ma **non discriminante**:
-non è una zonazione, è un'etichetta ripetuta quattordici volte. E si lega
-direttamente a quello che era già stato misurato stamattina — i 23 «posti» sono
-grappoli di arredo, non ambienti, e uno solo copriva il 78% della pianta.
+Il gate è **più grande di tutto l'ambito misurato** (4.921 m²): il programma ha
+deciso che il gate è l'aeroporto intero, e lo disegna sopra il modello. È quella
+lastra che copre la vista quando `Spatial Layers → Zone` è acceso — **non è un
+guasto grafico, è il difetto disegnato in scala 1:1.**
 
-**Quindi il prossimo lavoro è il punto 3 di Raffaella, e adesso ha i dati per
-essere fatto:** dentro l'unico ambiente misurato dallo spazio, sono gli arredi a
-dover tracciare i confini fra attesa, check-in e controllo — e per farlo servono
-grappoli **distinti**, non un'unica etichetta spalmata.
+Il registro delle posture non lo guarisce: anche con le posture perfette, un
+gate grande quanto l'aeroporto resta sbagliato.
 
-La domanda che il programma pone da solo, ed è onesta: *«Ho assegnato 18 volumi
-su 23. Su questi ho un dubbio: cosa c'è sopra questo volume?»*
+### B — Il comportamento arriva alle gambe
+
+Le posture sono nel registro (direttiva 12) ma **nessuno le legge ancora**. Dei
+cinque verbi della direttiva 7 — *aspetta seduto → il check-in apre → si alza →
+si mette in fila → passa* — il programma ne sa fare **uno: cammina**. Non c'è
+nessuno che si siede, nessuno che si alza, e l'attesa è un tempo senza spazio:
+dieci persone che aspettano stanno tutte nello stesso punto, una dentro l'altra.
+
+Oggi un avatar è **una capsula che urta i muri**: niente ossa, niente scheletro,
+nessuna animazione. Per farlo sedere serve un corpo vero — cioè la direttiva 8.
+
+⚠️ **Domanda ancora aperta per Raffaella, da non decidere al posto suo: cosa fa
+ALZARE l'avatar?** Nel programma non esiste nessun orologio. Le tre strade danno
+tre aeroporti diversi:
+
+- **l'orario del volo** — la sala si svuota a ondate, ma ogni avatar deve avere
+  un volo addosso;
+- **la fila che ha davanti** — la sala respira in continuo, non serve nessun
+  orario, ed è l'unica delle tre che si autoregola sull'affollamento;
+- **la sua pazienza** — la sala cola lentamente, ed è ciò che il vecchio motore
+  Python già faceva.
+
+📌 E c'è un pezzo che il programma sa già fare e che qui torna utile: sa
+calcolare **che cosa vede chi è seduto**, con l'occhio a 1,20 m. Se uno si alza
+perché vede aprirsi il banco, le sedute che *non* vedono il banco non sono la
+stessa sala d'attesa di quelle che lo vedono — e sarebbe un confine misurato.
+
+### C — Il primo piano va verificato sul vivo
+
+Il meccanismo è collegato e spinto (§ più sotto), ma **il giro con i primi piani
+non è ancora stato letto fino in fondo**: la pagina si è bloccata mentre l'occhio
+macinava. Da fare per primo alla ripresa, ed è mezz'ora:
+
+1. aprire il progetto sulla pagina viva e leggere in console
+   `mi avvicino a N grappoli di arredo: da X a Y pixel al metro`;
+2. poi `window.__veritasTestimonianza.viste` — le righe che cominciano con
+   **`primo piano:`** sono quelle nuove;
+3. **la domanda per cui tutto questo è stato fatto: in quelle righe compaiono
+   `chair`, `bench`, `seat`, `counter`?** Se sì, la catena è chiusa e si può
+   passare ad A. Se no, il difetto non era la distanza e va detto.
+
+---
+
+## ✅ 23 VOLUMI SU 23, E LE QUATTORDICI SI SONO ROTTE — 05/09/2026
+
+**Misurato sulla pagina viva**, progetto «Aeroporto — banco di prova», dopo aver
+marcato le parole di luogo.
+
+| | prima (04/09) | dopo (05/09) |
+|---|---|---|
+| volumi nominati | 18 su 23 | **23 su 23** |
+| «sala d'attesa» | **14** | **6** |
+| nomi diversi | 4 | **8** |
+| l'occhio a guardare | ~20 min | **1 min 53 s** |
+
+I nomi: sala d'attesa 6, area di accoglienza 3, area di destinazione 3, area di
+parcheggio 3, area di sosta 3, area di distribuzione 2, area di servizio 2,
+esterno 1.
+
+E il meccanismo si vede all'opera: **sulla pianta l'occhio ha riconosciuto 12
+parole di luogo e le ha messe da parte** — nove volte «gate d'imbarco», due
+«building», una «aula a gradoni». Nove nomi di gate che prima si sarebbero
+spalmati sui volumi, e non ci sono andati.
+
+### Perché le quattordici c'erano, e non era il vocabolario
+
+Fra le parole che si chiedono all'occhio ce n'erano **sette che nominano un
+luogo invece di un oggetto**, e quattro le avevamo scritte noi: *una sala
+d'attesa con file di sedute*, *un varco di controllo*, *un'aula a gradoni*, *un
+gate d'imbarco* (più `building`, `house`, `field` dalla lista pubblicata).
+
+Il registro dichiara dal 30/08: **non si chiede per tipo di edificio, si chiede
+per oggetto.** Quelle sette lo violavano. Chiedevamo all'occhio *«vedi una sala
+d'attesa?»* a uno che vede sedute dappertutto, e ha risposto di sì quattordici
+volte. **Non ha sbagliato lui: era sbagliata la domanda.**
+
+Adesso sono marcate `luogo` e non nominano — come le persone, che si riconoscono
+apposta per poterle mettere da parte. **Restano nel vocabolario e si continuano a
+chiedere** (direttiva 6: il vocabolario non si pota); quello che l'occhio vede
+esce in `window.__veritasLuoghiVisti`, con una riga in console.
+
+---
+
+## 🔭 LA MESSA A FUOCO — 05/09/2026, e la catena non è ancora chiusa
+
+Chiesto da Raffaella (direttiva 13) e collegato lo stesso giorno.
+
+**Com'era.** `scorciTreQuarti` inquadrava sempre il modello intero: 6 pixel al
+metro, una seduta 3,3 pixel. Il commento nel codice diceva che gli scorci
+inquadravano «una porzione del modello invece dell'edificio intero» — **non era
+vero, e non lo era mai stato.**
+
+**Com'è adesso.** `scorciTreQuarti` accetta un bersaglio e ci mette a fuoco
+sopra (`distanzaPerInquadrare`). `grappoliDaInquadrare` raggruppa gli arredi già
+misurati per vicinanza — **non uno per oggetto**: in questo aeroporto ci sono 31
+gruppi di sedute, e una fotografia per ciascuno moltiplicherebbe il costo per il
+numero degli arredi. `scorciRavvicinati` fa uno scorcio per grappolo, a **18
+gradi** di elevazione e non 35: dall'alto un sedile è un quadratino, di taglio si
+vede lo schienale.
+
+Ogni scorcio porta con sé `pixelPerMetro` fino alla testimonianza che va al
+cervello: senza, «ho visto un grattacielo» e «ho visto una panca» pesano uguale.
+
+### Tre difetti trovati subito dopo averlo collegato, e corretti
+
+Il meccanismo funzionava; il criterio no. Vale la pena leggerli, perché sono il
+modo in cui si sbaglia un primo piano:
+
+1. **il grappolo cresceva senza fine.** Un pezzo tira l'altro, e si arrivava a un
+   grappolo solo da **103 × 39 m con 1520 pezzi**, 5,5 pixel al metro — cioè
+   esattamente l'inquadratura da cui volevamo scappare. Ora c'è un tetto
+   (`latoMax`, 20 m);
+2. **i sei primi piani non contenevano nessuna seduta.** Ordinando per numero di
+   pezzi finivano tutti su ammassi di volumi e cose appese, che sono i più
+   numerosi. Ora si ordina per **arredi** — le forme che implicano un
+   comportamento. È il criterio giusto anche in principio: ci si avvicina dove il
+   corpo può fare qualcosa;
+3. **i primi piani non arrivavano mai all'occhio.** All'occhio vanno solo le
+   prime `VISTE_PER_GIRO` (quattro) dell'elenco: accodati dopo i campi larghi,
+   non gli arrivavano MAI. Ora si **alternano**.
+
+⚠️ **Quello che ancora NON è verificato** è se, con i primi piani, l'occhio trovi
+davvero sedute e banconi. Vedi il lavoro C qui sopra: è la domanda per cui tutta
+questa catena è stata costruita, e finché non è letta sul vivo **non si dà per
+risolta** (regola del 04/09: una riga «corretto» si verifica contando le
+chiamate, non l'esistenza).
+
+---
+
+## 🪑 IL REGISTRO DELLE POSTURE — 05/09/2026
+
+Il registro delle funzioni aveva **una voce sola, «sosta», che faceva il lavoro
+di cinque comportamenti diversi**: sedersi su una panca, guardare un quadro in
+piedi, stare sdraiati in un letto, mangiare, giocare. Un quadro e una panca
+dicevano al programma la stessa parola. *(Lo dice anche la descrizione della
+categoria: «dove si sta fermi: seduti, in attesa, a guardare, a consumare, ad
+acquistare» — cinque verbi in una riga.)*
+
+`POSTURA_DI` **si aggiunge e non sostituisce**: la funzione dice a che cosa serve
+la zona ed è letta da chi ordina le tappe del viaggio; la postura dice cosa fa
+l'avatar. Cambiare la prima avrebbe rotto il percorso.
+
+  su 176 parole: **13 seduto, 36 in piedi, 12 passa, 6 sdraiato, 109 nessuna.**
+
+Le 109 senza postura non sono un buco: davanti a un aereo o a una pista il corpo
+non fa niente di particolare, e il programma lo dichiara invece di inventarsi un
+gesto.
+
+📌 **Il registro degli oggetti resta minuscolo, e agnostico.** Non cinque parole
+nuove per ogni edificio: due colonne — *che postura permette* e *che cosa si
+guarda da lì*. Un banco di chiesa: seduto, fronte all'altare. Un banco di scuola:
+seduto, fronte alla lavagna. Un letto d'ospedale: sdraiato. **Stesse due colonne,
+e nessuno scrive mai «chiesa», «scuola», «ospedale».** La seconda colonna — il
+**fronte** — regala il taglio fra le zone: le sedute girate verso i banchi non
+sono la stessa sala d'attesa di quelle girate verso i gate.
+
+---
+
+## 🪑 DOVE SONO LE SEDUTE, MISURATE — 05/09/2026
+
+Non una sala: **cinque famiglie**, distanti fra loro da 20 a 63 metri. In tutto
+**31 gruppi di sedute e 6 banconi**.
+
+| famiglia | dove | quanto dista dai banchi di accettazione |
+|---|---|---|
+| **ovest** — file lunghe 3,3 m, girate lungo z | x ≈ −77 | **63 m** |
+| **centro** — due isole | x ≈ −60 | 47 m |
+| **mezzo** — quattro isole quadrate | x ≈ −41 | 27 m |
+| **est** — una corsa lunga 11,8 m | x = +16,5 | 30 m |
+| isolata | x = −94,6 | — |
+
+⚠️ **La famiglia più grande ha un suo bancone a 2 metri** e i banchi di
+accettazione veri a 63. Non sta aspettando il check-in: sta aspettando quella
+cosa lì. Chiesto a Raffaella cosa siano quei due banconi piccoli — **domanda
+ancora senza risposta.**
+
+📌 E le sedute **non sono tutte girate nella stessa direzione** (verificato da
+Raffaella sul modello): il fronte esiste ed è misurabile. È il materiale per il
+taglio fra le zone.
 
 ---
 
@@ -465,6 +632,58 @@ questo documento.
 
 ---
 
+## 📦 A OGNI SPINTA PARTONO TRE PUBBLICAZIONI — 05/09/2026
+
+Scoperto da Raffaella, verificato sull'API di GitHub. **Ogni `git push` su `main`
+ne fa partire tre**, non una:
+
+```
+2026-09-05T06:45  github-pages             <- la pagina viva che usiamo
+2026-09-05T06:44  Production               <- Vercel
+2026-09-05T06:44  main - veritas-core-api  <- Render
+```
+
+⚠️ **Non lo si vede lavorando, e costa.** Vercel conserva il risultato di ogni
+pubblicazione passata e non ne cancella mai nessuna da sola. Nel repo c'è
+`airport_foot_traffic.glb` da **19 MB**, e Vercel se ne tiene una copia **a ogni
+pubblicazione**: bastano poche centinaia di spinte per riempire i 10 GB del
+piano gratuito. Il 04/09 sono arrivati al 100%.
+
+📌 **Non arriva nessuna bolletta.** Sul piano gratuito, a spazio pieno, non parte
+più una pubblicazione nuova — non si paga niente.
+
+### Cosa si è deciso, e perché così
+
+> Raffaella, 05/09: *«se serve per farlo vedere a qualcuno io non lo toglierei,
+> lascerei magari l'ultima versione, e la pubblicazione automatica la attiviamo
+> solo se ci serve»*.
+
+Quindi **`vercel.json` in radice**, con `git.deploymentEnabled: false`. La scelta
+sta **nel repo e non in un pannello**: un interruttore premuto dentro
+l'interfaccia di Vercel non lascia traccia qui, e fra un mese nessuno saprebbe
+più perché le pubblicazioni si sono fermate.
+
+- l'ultima versione pubblicata **resta in linea** e si può far vedere a qualcuno:
+  disattivare le pubblicazioni automatiche non cancella niente;
+- **GitHub Pages continua come prima** — è la pagina viva su cui si verifica, e
+  non c'entra con questo limite;
+- **Render continua come prima** — è gratis e si riaddormenta da solo.
+
+### Per riaccenderla, quando serve
+
+Si mette `true` al posto di `false` in `vercel.json` e si spinge; oppure una
+pubblicazione a mano da Vercel. **Poi si rimette `false`**, se no si torna
+esattamente qui.
+
+### ⚠️ Quello che resta da fare a mano, e non può farlo Claude
+
+Il collegamento a Vercel che Claude ha **legge e pubblica, ma non cancella**: le
+pubblicazioni vecchie deve toglierle Raffaella, e finché non lo fa i 10 GB
+restano pieni. Su Vercel → progetto → *Deployments* → tre puntini → *Delete*,
+tenendo le ultime due.
+
+---
+
 ## 🧭 IL SETTING DI LAVORO — com'è fatto il banco, misurato il 04/09/2026
 
 Questa sezione non racconta il progetto: dice **dove si lavora e con che cosa**.
@@ -472,7 +691,7 @@ Questa sezione non racconta il progetto: dice **dove si lavora e con che cosa**.
 ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 **Il codice**
-- repository `Raffaella23/Veritas-spatial-ai`, ramo `main`, testa **`764c0cb`**;
+- repository `Raffaella23/Veritas-spatial-ai`, ramo `main`, testa **`e5fa6f6`** (05/09/2026);
 - copia di lavoro: **`C:\Users\ciani\OneDrive\Desktop\VERITAS\temp-repo`**.
   La cartella `Veritas-spatial-ai` che le sta accanto è un clone rotto e vuoto:
   non è mai stata il repo di lavoro, e chi ci parte non trova niente;
@@ -591,16 +810,11 @@ più la pianta: ricollegare adesso vorrebbe dire **oltre due ore per un giro**,
 cioè renderlo inutilizzabile. È anche la spiegazione più probabile del perché
 qualcuno, a un certo punto, lo ha staccato.
 
-**Ordine obbligato:**
-
-1. **rendere veloce l'occhio** — più fili (`numThreads`), o WebGPU se si apre a
-   pagina leggera, o meno parole per gli scorci (sulla testimonianza non serve
-   tutto il vocabolario). Bersaglio: sotto il minuto per vista;
-2. **ricollegare `occhioSuTutteLeViste()`** nel giro di `comprendiGuardando`,
-   dove oggi va solo il cervello;
-3. **allargare il vocabolario all'arredo**, con le famiglie (seduta / sedia /
-   panca / poltrona / bracciolo come una cosa sola);
-4. e solo dopo rimisurare quante zone su 23 prendono un nome.
+Fatto, in quest'ordine, fra il 04 e il 05/09: l'occhio e' stato reso veloce (i
+fili), `occhioSuTutteLeViste()` e' stata ricollegata, e si e' rimisurato — 23
+volumi su 23. Il punto 3 di allora, «allargare il vocabolario all'arredo», **non
+serviva**: le parole c'erano gia' tutte. Mancava prima la vista di taglio, poi la
+distanza (vedi LA MESSA A FUOCO, 05/09).
 
 ---
 
