@@ -259,6 +259,33 @@ e nell'HANDOFF. Sullo schermo va lo spettacolo.
 
 ---
 
+## 16. L'identita' e' EIDETICA, e va dentro la piattaforma
+
+> Raffaella, 05/09/2026, consegnando il logo: *«questa e' la nostra identita',
+> questo e' il logo da inserire nella piattaforma. Dobbiamo pensare a una
+> schermata di caricamento iniziale, pochi secondi, quelli che servono per il
+> caricamento — pero' questa deve entrare fissa da qualche parte nella UI.»*
+
+**EIDETICA — *the intelligence layer for space*.** Un occhio con le ali, iride a
+rete di punti su gradiente blu → viola → magenta → arancio.
+
+📌 **Il marchio dice il prodotto, e non e' un caso:** un occhio che *guarda*, ali
+che dicono *ci si muove attorno per capire*, e un'iride fatta di **punti
+collegati** invece che di una pupilla — cioe' la comprensione che si compone. E'
+la direttiva 9 disegnata.
+
+⚠️ **UNA SCHERMATA DI CARICAMENTO NON PUO' ASPETTARE CHE UN FILE SI CARICHI.**
+Se il logo dell'attesa fosse il PNG, nei primi secondi — proprio quelli che deve
+coprire — non ci sarebbe niente. Quindi l'animazione d'attesa si disegna
+**dentro la pagina, in SVG**: pesa nulla, parte al primo fotogramma, scala su
+qualunque schermo. Il PNG resta il logo fisso nell'interfaccia.
+
+⚠️ **E la barra non mente.** Una barra che corre da sola mentre non sta
+succedendo niente e' la stessa merce avariata dei KPI finti, in piccolo. O mostra
+un avanzamento misurato, o non mostra una percentuale.
+
+---
+
 ## 📋 I LAVORI APERTI, in quest'ordine
 
 
@@ -326,6 +353,22 @@ macinava. Da fare per primo alla ripresa, ed è mezz'ora:
 3. **la domanda per cui tutto questo è stato fatto: in quelle righe compaiono
    `chair`, `bench`, `seat`, `counter`?** Se sì, la catena è chiusa e si può
    passare ad A. Se no, il difetto non era la distanza e va detto.
+
+### D — L'identita' EIDETICA nella piattaforma *(in parallelo, come la 15)*
+
+1. **il file del logo**: Raffaella lo salva in `Assets/eidetica-logo.png` — ⚠️ e
+   lo deve fare lei, il file arriva dalla chat e Claude non puo' scriverlo;
+2. **la schermata di caricamento**: prima versione gia' disegnata in
+   `banco/eidetica_caricamento.svg` — occhio, ali, e i punti dell'iride che si
+   accendono **uno alla volta**, che e' letteralmente cio' che il programma sta
+   facendo mentre si aspetta. Va portata **inline dentro `index.html`**, in cima
+   al `<body>`, e tolta quando la scena e' pronta;
+3. **il logo fisso nella UI**: dove, lo decide Raffaella. Oggi in alto a sinistra
+   c'e' la scritta «VERITAS» con il pallino di stato — quello e' il posto
+   naturale, ma **si chiede** (direttiva 4);
+4. ⚠️ **e resta aperta la domanda dei nomi**: la piattaforma sullo schermo dice
+   «VERITAS», il marchio dice «EIDETICA». Sono due nomi o uno? Non si decide al
+   posto suo.
 
 ---
 
