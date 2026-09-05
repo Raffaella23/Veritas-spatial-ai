@@ -728,7 +728,11 @@ Questa sezione non racconta il progetto: dice **dove si lavora e con che cosa**.
 ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
 
 **Il codice**
-- repository `Raffaella23/Veritas-spatial-ai`, ramo `main`, testa **`e5fa6f6`** (05/09/2026);
+- repository `Raffaella23/Veritas-spatial-ai`, ramo `main`, ramo `main`.
+  ⚠️ **Il numero della testa non si scrive qui**: e' vero per un commit solo, e
+  poi mente in silenzio a chiunque apra il documento — che e' esattamente il
+  difetto contro cui serve la regola del 04/09. La testa buona e' sempre
+  l'ultima spinta: `git log --oneline -1`;
 - copia di lavoro: **`C:\Users\ciani\OneDrive\Desktop\VERITAS\temp-repo`**.
   La cartella `Veritas-spatial-ai` che le sta accanto è un clone rotto e vuoto:
   non è mai stata il repo di lavoro, e chi ci parte non trova niente;
