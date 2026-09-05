@@ -61,11 +61,11 @@ import "./veritas_manuale.js";
 //   node --check veritas_montaggio.js
 // ===========================================================================
 
-import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=3"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=4"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=4";
+import { anteprima } from "./veritas_anteprima.js?v=5";
 import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=1";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.
@@ -633,6 +633,38 @@ window.__veritasComprendi = async function (opz = {}) {
         if (scorci.length) log("guardo il modello da " + scorci.length + " punti di vista oltre alla pianta");
       } catch (e) {
         log("non sono riuscito a girare il modello: " + ((e && e.message) || e));
+      }
+    }
+
+    // ⚠️ E POI CI SI AVVICINA — chiesto da Raffaella il 05/09/2026.
+    //
+    //    Gli scorci qui sopra guardano il modello INTERO, e vanno benissimo
+    //    per capire che cos'e' l'edificio: gli aerei, le banchine, le corsie.
+    //    Ma sono sei pixel al metro, e a sei pixel al metro una seduta e' una
+    //    macchia di tre pixel: da li' non e' mai uscito un arredo, e sono
+    //    usciti invece i grattacieli e le aule a gradoni.
+    //
+    //    Questi si avvicinano ai grappoli di arredo gia' MISURATI, uno per
+    //    grappolo e non uno per oggetto. Il costo cresce col numero dei
+    //    grappoli, che sono pochi, non col numero degli arredi, che sono
+    //    tanti.
+    if (typeof vista.scorciRavvicinati === "function") {
+      try {
+        const vicini = vista.scorciRavvicinati(
+          THREE, rend, radice, trovate.posti, opz.ravvicinati || {}) || [];
+        if (vicini.length) {
+          const fitto = vicini.map((v) => v.pixelPerMetro)
+            .filter((n) => typeof n === "number");
+          log("mi avvicino a " + vicini.length + " grappoli di arredo: da "
+            + Math.min.apply(null, fitto) + " a " + Math.max.apply(null, fitto)
+            + " pixel al metro, dove il modello intero ne da' 6");
+          scorci = scorci.concat(vicini);
+        } else {
+          // ⚠️ Un ramo che si salta in silenzio non esiste per nessuno.
+          log("nessun grappolo di arredo da inquadrare da vicino");
+        }
+      } catch (e) {
+        log("non sono riuscito ad avvicinarmi: " + ((e && e.message) || e));
       }
     }
 

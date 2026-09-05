@@ -11959,12 +11959,63 @@ function mondoAPixel(inq, x, z) {
   return [px, py];
 }
 
+/**
+ * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
+ * Logica pura, provabile in node.
+ */
+function raddrizza(pixel, larghezza, altezza) {
+  const fuori = new Uint8Array(pixel.length);
+  const riga = larghezza * 4;
+  for (let y = 0; y < altezza; y++) {
+    fuori.set(pixel.subarray((altezza - 1 - y) * riga, (altezza - y) * riga), y * riga);
+  }
+  return fuori;
+}
+
 /** Area a terra di un pixel, in m². Serve a convertire i conteggi in misure. */
 function areaPixel(inq) {
   return inq.metriPerPixel * inq.metriPerPixel;
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Quanti scorci servono — cresce con la complessità del modello, non fisso
+// ---------------------------------------------------------------------------
+
+/**
+ * Densita' di mesh sulla pianta: quante mesh distinte per m2 di ingombro.
+ *
+ * Perche' questa e non altro: e' esattamente il caso che ha bloccato il primo
+ * giro (banco, sedute, muretto - tre oggetti diversi sulla stessa impronta a
+ * terra) e non richiede nulla che il resto del file non calcoli gia'
+ * (bounding box). Un container vuoto ha densita' bassa; un terminal pieno di
+ * arredi ravvicinati ce l'ha alta.
+ */
+function densitaMesh(numeroMesh, ingombro) {
+  const largoM = ingombro.max[0] - ingombro.min[0];
+  const profM = ingombro.max[2] - ingombro.min[2];
+  const area = Math.max(1, largoM * profM);
+  return numeroMesh / area;
+}
+
+/**
+ * Da densita' a numero di scorci a tre quarti.
+ *
+ * Logica pura, testabile in node. I due capi non sono arbitrari: sotto 4 non
+ * si gira davvero il modello fra le mani (resta sempre un lato cieco); sopra
+ * 9 il costo verso il cervello cresce senza che l'occhio impari qualcosa di
+ * nuovo, perche' dopo il quarto-quinto lato le facce iniziano a ripetersi.
+ * Le due soglie di densita' sono una prima taratura, non una misura: vanno
+ * riviste guardando il pannello su modelli reali di complessita' diversa.
+ */
+function numeroScorci(densita) {
+  const MIN = 4, MAX = 9;
+  const D_BASSA = 0.02, D_ALTA = 0.30;
+  const d = densita || 0;
+  const t = Math.max(0, Math.min(1, (d - D_BASSA) / (D_ALTA - D_BASSA)));
+  return Math.round(MIN + t * (MAX - MIN));
+}
+
 // La resa vera e propria — richiede three e un renderer
 // ---------------------------------------------------------------------------
 
@@ -12144,148 +12195,21 @@ function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
   return { pixel: raddrizza(pixel, inq.larghezza, inq.altezza), ...inq, quotaPavimento: quotaPav };
 }
 
-
-function raddrizza(pixel, larghezza, altezza) {
-  const fuori = new Uint8Array(pixel.length);
-  const riga = larghezza * 4;
-  for (let y = 0; y < altezza; y++) {
-    fuori.set(pixel.subarray((altezza - 1 - y) * riga, (altezza - y) * riga), y * riga);
-  }
-  return fuori;
-}
-
-function densitaMesh(numeroMesh, ingombro) {
-  const largoM = ingombro.max[0] - ingombro.min[0];
-  const profM = ingombro.max[2] - ingombro.min[2];
-  const area = Math.max(1, largoM * profM);
-  return numeroMesh / area;
-}
-
-function numeroScorci(densita) {
-  // ⚠️ 29/08: QUATTRO, fissi. Con la pianta fanno cinque immagini, chiesto da
-  //    Raffaella. Prima erano da 4 a 9 secondo la densita' di mesh, e su questo
-  //    modello uscivano 7 (piu' la pianta: 8 in una telefonata sola).
-  //
-  //    Il conto che conta non e' quante immagini mandiamo, ma quanti pixel
-  //    utili arrivano su ogni cosa da riconoscere. Un modello che vede NON
-  //    ingrandisce: riceve la figura ferma e la guarda com'e'. Quello che sta
-  //    piccolo nel riquadro, per lui non esiste. Meglio quattro inquadrature
-  //    piene che nove mezze vuote — e quattro giri di 90 gradi coprono comunque
-  //    tutti i lati.
-  return 4;
-}
-
-// Quanto lontano deve stare la telecamera perche' il modello RIEMPIA il
-// riquadro, da questa direzione.
-//
-// ⚠️ 29/08. Prima la distanza era fissa — `diagonale * 0.8` — uguale per tutte
-//    le viste e cieca alla forma. Su un modello lungo e piatto (147 x 82 x 15 m)
-//    metà riquadro restava vuoto, e la roba da riconoscere finiva in pochi
-//    pixel. Qui si proiettano gli otto spigoli dell'ingombro sugli assi della
-//    telecamera e si chiede la distanza minima che li fa entrare tutti: cambia
-//    a ogni angolo, com'e' giusto, perche' di taglio il modello e' stretto e di
-//    fronte e' largo.
-//
-//    `margine` lascia un filo di respiro ai bordi; `mz` (la meta' della
-//    profondita') si somma perche' la distanza si misura dal CENTRO e lo
-//    spigolo piu' vicino non deve finire dietro la lente.
-//
-//    Se qualcosa va storto torna null e chi chiama usa la distanza di prima:
-//    una vista un po' larga e' meglio di nessuna vista.
-// Quanto e' LARGO, ALTO e PROFONDO il modello visto da questa direzione.
-// Serve a due cose insieme: dare all'immagine la forma giusta e piazzare la
-// telecamera. Prima era murato dentro `distanzaCheRiempie`.
-function estensioneInCamera(THREE, scatola, centro, dir) {
-  const avanti = dir.clone().normalize();              // dal centro verso la camera
-  let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
-  if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);   // camera a picco
-  destra.normalize();
-  const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
-  const p = new THREE.Vector3();
-  let mx = 0, my = 0, mz = 0;
-  for (let i = 0; i < 8; i++) {
-    p.set(i & 1 ? scatola.max.x : scatola.min.x,
-          i & 2 ? scatola.max.y : scatola.min.y,
-          i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
-    mx = Math.max(mx, Math.abs(p.dot(destra)));
-    my = Math.max(my, Math.abs(p.dot(su)));
-    mz = Math.max(mz, Math.abs(p.dot(avanti)));
-  }
-  return { mx, my, mz };
-}
-
-// La FORMA del riquadro, presa dal modello invece che decisa a priori.
-//
-// ⚠️ 29/08, e nasce da un'obiezione di Raffaella che era giusta. Nello scorcio
-//    l'aeroporto stava in una striscia orizzontale con meta' riquadro nero
-//    sopra e sotto. Non era lontano: il riquadro era QUADRATO (768x768) e il
-//    modello e' lungo e basso (147 x 82 x 15 m). Il nero non era spazio intorno
-//    all'oggetto, era la forma sbagliata dell'immagine.
-//
-//    Il tentativo precedente — ritagliare l'ingombro e inquadrare solo il
-//    costruito — curava il sintomo buttando via il soggetto: i due tubi
-//    d'imbarco sono ingressi veri e il parcheggio e' una delle cose da
-//    riconoscere. Tolto, e non va rimesso.
-//
-//    Qui l'immagine prende la proporzione del modello visto da li': larga e
-//    bassa di fronte, piu' raccolta di taglio. I pixel finiscono sul soggetto e
-//    NIENTE resta fuori.
-//
-//    Il lato lungo resta 1024 (LATO_MASSIMO in veritas_montaggio.js), quindi
-//    un'immagine larga e bassa pesa MENO di una quadrata: meno riquadro vuoto
-//    da far leggere al modello, che e' anche meno tempo e meno memoria.
-function formaDelRiquadro(mx, my, latoLungo) {
-  const L = latoLungo || 1024;
-  let r = (my > 1e-6) ? (mx / my) : 1;
-  r = Math.max(0.5, Math.min(2.6, r));                 // niente strisce estreme
-  const larghezza = r >= 1 ? L : Math.round(L * r);
-  const altezza   = r >= 1 ? Math.round(L / r) : L;
-  return { larghezza: Math.max(64, larghezza), altezza: Math.max(64, altezza), rapporto: r };
-}
-
-function distanzaCheRiempie(THREE, scatola, centro, dir, fovGradi, aspetto, margine) {
-  try {
-    const tV = Math.tan((fovGradi * Math.PI / 180) / 2);
-    const tH = tV * (aspetto || 1);
-    if (!(tV > 0) || !(tH > 0)) return null;
-
-    // ⚠️ 29/08, secondo giro. Prima era
-    //        d = max(my/tV, mx/tH) + mz
-    //    cioe' la meta' della profondita' sommata per prudenza, perche' lo
-    //    spigolo piu' vicino non finisse dietro la lente. Su un modello lungo
-    //    147 m visto di PUNTA quel termine vale ~73 m e spinge la telecamera
-    //    settanta metri piu' indietro del necessario: dall'alto l'inquadratura
-    //    era piena, di lato il terminal restava un francobollo. Segnalato da
-    //    Raffaella guardando lo scorcio 3 a 180 gradi.
-    //
-    //    Qui il conto e' esatto, spigolo per spigolo. Uno spigolo a distanza
-    //    `pz` dal centro verso la telecamera, spostato di `px` di lato, entra
-    //    nel campo se  (d - pz) * tH >= |px|,  cioe'  d >= pz + |px| / tH.
-    //    La distanza buona e' la piu' grande di queste otto (per otto spigoli,
-    //    orizzontale e verticale): la piu' piccola che li fa entrare tutti.
-    //    Niente prudenza sommata, niente spigoli tagliati.
-    const avanti = dir.clone().normalize();
-    let destra = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), avanti);
-    if (destra.lengthSq() < 1e-6) destra.set(1, 0, 0);
-    destra.normalize();
-    const su = new THREE.Vector3().crossVectors(avanti, destra).normalize();
-    const p = new THREE.Vector3();
-    let d = 0, mzMax = 0;
-    for (let i = 0; i < 8; i++) {
-      p.set(i & 1 ? scatola.max.x : scatola.min.x,
-            i & 2 ? scatola.max.y : scatola.min.y,
-            i & 4 ? scatola.max.z : scatola.min.z).sub(centro);
-      const px = p.dot(destra), py = p.dot(su), pz = p.dot(avanti);
-      d = Math.max(d, pz + Math.abs(px) / tH, pz + Math.abs(py) / tV);
-      mzMax = Math.max(mzMax, pz);
-    }
-    d *= (margine || 1.06);
-    // La lente non deve mai finire dentro il modello.
-    d = Math.max(d, mzMax * 1.05 + 0.5);
-    return isFinite(d) && d > 0 ? d : null;
-  } catch (e) { return null; }
-}
-
+/**
+ * Guarda il modello INTERO da piu' punti di vista in prospettiva, a tre
+ * quarti - come lo si girerebbe fra le mani. A differenza di
+ * piantaDelPavimento (una pianta dall'alto, ortografica, dove l'altezza non
+ * esiste) qui la telecamera vede l'altezza: l'unica cosa che separa un banco
+ * da un muretto.
+ *
+ * Sempre e solo sul modello intero, mai zummato su un singolo oggetto: su
+ * un'architettura complessa (aeroporto, museo) centrare la telecamera volume
+ * per volume moltiplica il costo con il numero di arredi. Il numero di
+ * scorci invece si adatta - poche fotografie per un modello semplice, di
+ * piu' per uno complesso - vedi numeroScorci().
+ *
+ * @returns {Array<{pixel:Uint8Array, larghezza, altezza, azimuth, elevazioneGradi}>}
+ */
 function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   if (!THREE || !renderer || !radice) return [];
   radice.updateMatrixWorld(true);
@@ -12299,75 +12223,39 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const densita = densitaMesh(numeroMesh, ingombro);
   const n = opzioni.numeroScorci || numeroScorci(densita);
 
-  const centro = scatola.getCenter(new THREE.Vector3());
+  // ⚠️ SI PUO' METTERE A FUOCO. Chiesto da Raffaella il 05/09/2026: «avevo
+  //    chiesto un'autofit, la capacita' di mettere a fuoco — visto sempre da
+  //    lontano non si capisce niente, specialmente se ci sono molti dettagli».
+  //
+  //    MISURATO LO STESSO GIORNO sul banco di prova, col modello intero nel
+  //    riquadro: la telecamera sta a 136 m e inquadra 126 m dentro 768 pixel,
+  //    cioe' SEI PIXEL AL METRO. Un aereo lungo 40 m e' 243 pixel; un bancone
+  //    lungo 3 m e' 18 pixel; una seduta larga 55 cm e' TRE PIXEL E MEZZO.
+  //
+  //    Di li' non puo' nascere nessun arredo, e nascono invece i grattacieli
+  //    e le aule a gradoni: non sono parole sbagliate nel vocabolario, sono
+  //    quello che tre pixel SEMBRANO a un modello a cui si fanno 176 domande
+  //    e che deve rispondere qualcosa. Il rimedio non e' togliere parole:
+  //    e' avvicinare la telecamera.
+  const inquadra = opzioni.bersaglio
+    ? new THREE.Box3(new THREE.Vector3().fromArray(opzioni.bersaglio.min),
+                     new THREE.Vector3().fromArray(opzioni.bersaglio.max))
+    : scatola;
+  const centro = inquadra.getCenter(new THREE.Vector3());
+  const dimInq = inquadra.getSize(new THREE.Vector3());
   const diagonale = scatola.getSize(new THREE.Vector3()).length();
-  const distanza = opzioni.distanza || diagonale * 0.8;
+  const fovGradi = opzioni.fovGradi || 50;
+  // Sul modello intero resta la distanza di sempre, che e' tarata e funziona;
+  // su un bersaglio piu' piccolo si calcola perche' lo RIEMPIA.
+  const distanza = opzioni.distanza
+    || (opzioni.bersaglio
+        ? distanzaPerInquadrare([dimInq.x, dimInq.y, dimInq.z], fovGradi, opzioni.margine)
+        : diagonale * 0.8);
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
   const elevRad = elevazioneGradi * Math.PI / 180;
+
   const larghezza = opzioni.larghezza || 768;
   const altezza = opzioni.altezza || 768;
-
-  // --- LE PORZIONI -------------------------------------------------------
-  // ⚠️ Fino al 29/08 ogni scorcio inquadrava il MODELLO INTERO, e il conto non
-  //    tornava: 147 metri di edificio dentro 768 puntini fanno 20 cm per
-  //    puntino. Una sedia sta in tre puntini, una persona in due. Non e' che
-  //    si vedono male — non ci sono, e nessun modello che guarda potra' mai
-  //    riconoscerle. Chiesto da Raffaella il 30/08: «devono essere zoomate,
-  //    altrimenti non capira' mai».
-  //
-  //    Ora ogni vista inquadra una PORZIONE, e le porzioni messe insieme
-  //    coprono TUTTO. Questo e' il punto che distingue questa correzione dal
-  //    tentativo sbagliato del 29/08 (`ingombroDelGrosso`, tolto in cd4a9b5):
-  //    li' si ritagliava via il contorno, e con il contorno se ne andavano i
-  //    due tubi d'imbarco — che sono ingressi veri — e il parcheggio, che e'
-  //    una delle cose da riconoscere. Qui non si butta niente: si guarda la
-  //    stessa roba, un pezzo per volta.
-  //
-  //    Il resto del modello resta nella scena e si vede sullo sfondo: una
-  //    porzione inquadrata dentro il suo contesto non viene scambiata per un
-  //    edificio intero.
-  //
-  //    Quante porzioni NON e' un numero scritto a mano (Regola 0 punto 3): si
-  //    ricava dal lato massimo leggibile. Su 147x82 m con latoMassimo 40 la
-  //    griglia viene 4x3 = 12 porzioni da 36,8x27,3 m, cioe' 4,8 cm per
-  //    puntino invece di 19: una sedia passa da 3 puntini a 9, una macchina a
-  //    una sessantina.
-  const dimX = scatola.max.x - scatola.min.x;
-  const dimZ = scatola.max.z - scatola.min.z;
-  const latoMassimo = opzioni.latoMassimo != null ? opzioni.latoMassimo : 40;
-  const porzioniMax = opzioni.porzioniMassime || opzioni.numeroScorci || 12;
-  let colonne = Math.max(1, Math.ceil(dimX / latoMassimo));
-  let righe = Math.max(1, Math.ceil(dimZ / latoMassimo));
-  // Si toglie sempre dal lato piu' affollato, cosi' le porzioni restano il
-  // piu' possibile quadrate invece di diventare strisce.
-  while (colonne * righe > porzioniMax && (colonne > 1 || righe > 1)) {
-    if (colonne >= righe && colonne > 1) colonne--; else if (righe > 1) righe--; else colonne--;
-  }
-  const totalePorzioni = Math.max(1, colonne * righe);
-
-  // ⚠️ L'ALTEZZA DELLA PORZIONE, E PERCHE' LA PRIMA VERSIONE ERA VUOTA.
-  //    Il 30/08 Raffaella ha aperto l'anteprima e ha visto «scorcio 4 — 90°»
-  //    quasi nero: una striscia di pavimento in basso e sopra il vuoto.
-  //
-  //    Il motivo era un mio commento sbagliato, scritto poche ore prima:
-  //    «l'altezza resta INTERA: si taglia in pianta, mai in alzato». Sembra
-  //    prudente, e invece e' il difetto. Il modello e' alto 15,4 m, ma quei
-  //    15,4 m sono le CODE DEGLI AEREI, che stanno in due porzioni su dodici.
-  //    In tutte le altre dentro c'e' un pavimento alto due metri. La camera
-  //    riempiva il riquadro con una scatola di 36x27x15, dentro cui la roba
-  //    vera occupava un decimo dell'altezza: schiacciata in fondo, e nove
-  //    decimi di nero mandati al cervello come se fossero informazione.
-  //
-  //    Ora l'altezza di ogni porzione la dicono i PEZZI che ci stanno dentro,
-  //    non il modello intero. Le scatole si prendono una volta sola qui: 2400
-  //    pezzi per 12 porzioni sono 29.000 confronti, cioe' niente.
-  const pezzi = [];
-  radice.traverse(function (o) {
-    if (!o || !o.isMesh || !o.geometry) return;
-    const b = new THREE.Box3().setFromObject(o);
-    if (b.isEmpty()) return;
-    pezzi.push(b);
-  });
 
   const scena = new THREE.Scene();
   scena.background = null;
@@ -12376,126 +12264,57 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
 
   const risultati = [];
-  let saltate = 0;
   try {
     scena.add(radice);
-    const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
+    const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace || undefined,
+    });
+    const cam = new THREE.PerspectiveCamera(fovGradi, larghezza / altezza, 0.05, distanza * 3 + diagonale);
     const bersaglioPrec = renderer.getRenderTarget();
 
-    for (let i = 0; i < totalePorzioni; i++) {
-      const azimuth = (i / totalePorzioni) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
-      const dir = new THREE.Vector3(
-        Math.cos(elevRad) * Math.cos(azimuth),
-        Math.sin(elevRad),
-        Math.cos(elevRad) * Math.sin(azimuth),
-      );
-      // La porzione di questo giro: si taglia in pianta, e l'altezza la
-      // dicono i pezzi che ci stanno dentro (vedi il commento sopra).
-      const col = i % colonne, rig = Math.floor(i / colonne);
-      const x0 = scatola.min.x + dimX * (col / colonne);
-      const x1 = scatola.min.x + dimX * ((col + 1) / colonne);
-      const z0 = scatola.min.z + dimZ * (rig / righe);
-      const z1 = scatola.min.z + dimZ * ((rig + 1) / righe);
-
-      let yGiu = Infinity, ySu = -Infinity, dentro = 0;
-      for (let k = 0; k < pezzi.length; k++) {
-        const b = pezzi[k];
-        if (b.max.x < x0 || b.min.x > x1 || b.max.z < z0 || b.min.z > z1) continue;
-        dentro++;
-        if (b.min.y < yGiu) yGiu = b.min.y;
-        if (b.max.y > ySu) ySu = b.max.y;
-      }
-      // Una porzione senza niente dentro non si manda: e' un riquadro nero, e
-      // un riquadro nero non e' un'informazione, e' una domanda sprecata a un
-      // modello che ne ha poche. Quante se ne saltano lo dice il log.
-      if (!dentro) { saltate++; continue; }
-      // Un pavimento perfettamente piatto darebbe altezza zero e la camera
-      // finirebbe dentro al modello: due metri di minimo, che e' una persona.
-      if (!isFinite(yGiu)) { yGiu = scatola.min.y; ySu = scatola.max.y; }
-      if (ySu - yGiu < 2) ySu = yGiu + 2;
-
-      const sotto = new THREE.Box3(new THREE.Vector3(x0, yGiu, z0),
-                                   new THREE.Vector3(x1, ySu, z1));
-      const cSotto = sotto.getCenter(new THREE.Vector3());
-      // La distanza si ricalcola a ogni angolo: il modello riempie il riquadro
-      // sia visto di taglio sia visto di fronte. Se il conto non riesce, resta
-      // quella fissa di prima.
-      // La forma del riquadro cambia a ogni angolo, perche' cambia la sagoma:
-      // di fronte il modello e' lungo e basso, di taglio piu' raccolto.
-      const est = estensioneInCamera(THREE, sotto, cSotto, dir);
-      const forma = opzioni.quadrato ? { larghezza, altezza }
-                  : formaDelRiquadro(est.mx, est.my, Math.max(larghezza, altezza));
-      const W = forma.larghezza, H = forma.altezza;
-      cam.aspect = W / H;
-      const dist = (opzioni.distanza ? distanza
-                   : distanzaCheRiempie(THREE, sotto, cSotto, dir, cam.fov,
-                                        cam.aspect, opzioni.margine)) || distanza;
+    for (let i = 0; i < n; i++) {
+      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
       cam.position.set(
-        cSotto.x + dist * dir.x,
-        cSotto.y + dist * dir.y,
-        cSotto.z + dist * dir.z,
+        centro.x + distanza * Math.cos(elevRad) * Math.cos(azimuth),
+        centro.y + distanza * Math.sin(elevRad),
+        centro.z + distanza * Math.cos(elevRad) * Math.sin(azimuth),
       );
       cam.up.set(0, 1, 0);
-      cam.lookAt(cSotto);
-      cam.far = dist * 2 + diagonale;   // niente si taglia via dietro
+      cam.lookAt(centro);
       cam.updateProjectionMatrix();
       cam.updateMatrixWorld(true);
 
-      const bersaglio = new THREE.WebGLRenderTarget(W, H, {
-        minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
-        format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
-        colorSpace: THREE.SRGBColorSpace || undefined,
-      });
-      const pixel = new Uint8Array(W * H * 4);
+      const pixel = new Uint8Array(larghezza * altezza * 4);
       renderer.setRenderTarget(bersaglio);
       renderer.setClearColor(0x000000, 0);
       renderer.clear();
       renderer.render(scena, cam);
-      renderer.readRenderTargetPixels(bersaglio, 0, 0, W, H, pixel);
-      try { bersaglio.dispose(); } catch (e) {}
-      // ⚠️ Si raddrizza QUI: chi trasforma i pixel in immagine li copia cosi'
-      //    come sono, e senza questo giro lo scorcio arriva al cervello
-      //    capovolto — errore silenzioso, risposta plausibile e sbagliata.
-      // La porzione viaggia INSIEME all'immagine: chi la riceve deve sapere che
-      // sta guardando un pezzo, non l'edificio. Un edificio tagliato a meta'
-      // senza etichetta diventa mezzo edificio (HANDOFF, fronte 4).
-      const latoM = Math.max(x1 - x0, z1 - z0);
-      risultati.push({ pixel: raddrizza(pixel, W, H),
-                       larghezza: W, altezza: H, azimuth, elevazioneGradi, densita, numeroMesh,
-                       porzione: { indice: i + 1, totale: totalePorzioni,
-                                   colonna: col + 1, colonne, riga: rig + 1, righe,
-                                   larghezzaM: x1 - x0, profonditaM: z1 - z0,
-                                   altezzaM: ySu - yGiu, pezziDentro: dentro,
-                                   cmPerPunto: latoM * 100 / Math.max(W, H) } });
+      renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
+
+      // ⚠️ SI RADDRIZZA QUI, ALLA FONTE. `readRenderTargetPixels` restituisce la
+      //    riga 0 in fondo; chi trasforma questi pixel in immagine
+      //    (`piantaInTela`) li copia cosi' come sono. Senza questo giro lo
+      //    scorcio arriva al cervello CAPOVOLTO — e un modello che guarda un
+      //    edificio a testa in giu' non sbaglia in modo rumoroso: risponde una
+      //    cosa plausibile e sbagliata, che e' il difetto peggiore.
+      //    La pianta invece NON si tocca: li' la riga 0 in fondo e' l'origine
+      //    di `pixelAMondo`, e raddrizzarla specchierebbe tutte le posizioni.
+      // ⚠️ OGNI SCORCIO PORTA QUANTO E' FITTO. `pixelPerMetro` dice in un
+      //    numero solo se in quella figura un arredo si puo' vedere o no:
+      //    sotto una decina di pixel al metro una seduta e' una macchia, e
+      //    qualunque parola l'occhio ci metta sopra e' un'ipotesi sul rumore.
+      risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
+                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
+                       etichetta: opzioni.etichetta || null,
+                       pixelPerMetro: +(altezza / (2 * distanza
+                         * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
     }
-    // Le misure vere di CIO' CHE PARTE, non di cio' che il pannello mostra: il
-    // pannello incornicia l'anteprima in un riquadro fisso, quindi il nero che
-    // si vede li' non dice niente sull'immagine spedita. Segnalato da Raffaella
-    // il 29/08 — «gli scorci non sono cambiati» — e senza questa riga nessuno
-    // dei due poteva stabilirlo guardando.
-    try {
-      console.log("[VERITAS scorci] " + risultati.length + " viste, misure vere: "
-        + risultati.map((v) => Math.round(v.azimuth * 180 / Math.PI) + "\u00b0: "
-                             + v.larghezza + "x" + v.altezza).join("  \u00b7  "));
-      // La riga che dice se l'occhio puo' vedere qualcosa. Il numero che conta
-      // e' i CENTIMETRI PER PUNTO: sopra i 10 cm una sedia non esiste.
-      const p0 = risultati.length ? risultati[0].porzione : null;
-      if (p0) console.log("[VERITAS scorci] porzioni: griglia " + p0.colonne + "x" + p0.righe
-        + " = " + p0.totale + " viste, ognuna copre " + p0.larghezzaM.toFixed(1) + "x"
-        + p0.profonditaM.toFixed(1) + " m \u2014 " + p0.cmPerPunto.toFixed(1)
-        + " cm per punto (modello intero: " + dimX.toFixed(1) + "x" + dimZ.toFixed(1)
-        + " m, " + (Math.max(dimX, dimZ) * 100 / Math.max(larghezza, altezza)).toFixed(1) + " cm)");
-      if (saltate) console.log("[VERITAS scorci] " + saltate + " porzioni saltate perche' vuote"
-        + " (riquadri neri: non si mandano)");
-      const alt = risultati.map((v) => v.porzione && v.porzione.altezzaM)
-                           .filter((a) => typeof a === "number");
-      if (alt.length) console.log("[VERITAS scorci] altezza inquadrata per porzione: da "
-        + Math.min.apply(null, alt).toFixed(1) + " a " + Math.max.apply(null, alt).toFixed(1)
-        + " m (il modello intero e' alto " + (scatola.max.y - scatola.min.y).toFixed(1)
-        + " m: inquadrare tutta quell'altezza su ogni porzione mandava riquadri quasi vuoti)");
-    } catch (e) {}
     renderer.setRenderTarget(bersaglioPrec);
+    try { bersaglio.dispose(); } catch (e) {}
   } finally {
+    // Il modello TORNA dov'era, sempre - stessa regola di piantaDelPavimento.
     if (genitore) {
       if (indice >= 0) genitore.children.splice(indice, 0, radice);
       else genitore.add(radice);
@@ -12505,231 +12324,123 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
     }
     rimetti();
   }
+
   return risultati;
 }
 
-// Comando di prova, da console: __veritasProvaScorci()
-// Disegna gli scorci in una striscia in fondo allo schermo, cosi' si GUARDA
-// cosa vedrebbe l'occhio. Si chiude cliccandola.
-window.__veritasProvaScorci = function (opz = {}) {
-  const THREE = window.THREE, rend = window.__veritasRenderer, radice = window.__veritasModelRoot;
-  if (!THREE || !rend || !radice) { console.warn('[VERITAS scorci] manca il modello caricato'); return null; }
-  const scorci = scorciTreQuarti(THREE, rend, radice, opz);
-  if (!scorci.length) { console.warn('[VERITAS scorci] nessuno scorcio'); return null; }
-  const vecchia = document.getElementById('veritas-scorci');
-  if (vecchia) vecchia.remove();
-  const box = document.createElement('div');
-  box.id = 'veritas-scorci';
-  box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;display:flex;gap:4px;overflow-x:auto;background:#111;padding:4px;cursor:pointer';
-  box.title = 'clicca per chiudere';
-  box.onclick = () => box.remove();
-  for (const s of scorci) {
-    const c = document.createElement('canvas');
-    c.width = s.larghezza; c.height = s.altezza;
-    c.style.cssText = 'height:180px;width:auto;background:#222';
-    const ctx = c.getContext('2d');
-    const img = ctx.createImageData(s.larghezza, s.altezza);
-    // Gia' raddrizzati alla fonte da scorciTreQuarti: qui si copiano e basta.
-    img.data.set(s.pixel);
-    ctx.putImageData(img, 0, 0);
-    box.appendChild(c);
-  }
-  document.body.appendChild(box);
-  const d = scorci[0];
-  console.log('[VERITAS scorci] ' + scorci.length + ' scorci — ' + d.numeroMesh +
-              ' mesh, densita ' + d.densita.toFixed(3) + ' mesh/m2');
-  return scorci;
-};
 
-window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
+/**
+ * La distanza a cui una scatola RIEMPIE l'inquadratura.
+ *
+ * Si usa la sfera che contiene la scatola: e' un po' larga per una scatola
+ * lunga e stretta, ma non taglia mai niente da nessun angolo di ripresa — e
+ * un arredo tagliato a meta' e' peggio di un arredo un po' piu' piccolo.
+ */
+function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15) {
+  const d = dimensioni || [0, 0, 0];
+  const raggio = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 2;
+  const semiFov = Math.max(1e-3, (fovGradi * Math.PI / 180) / 2);
+  return Math.max(0.5, (raggio / Math.sin(semiFov)) * (margine || 1.15));
+}
 
-// LA VISTA HA LA PRECEDENZA.
-//
-// Guardare una pianta renderizzata funziona qualunque sia l'origine del
-// colore: materiale, texture, atlas, colori per vertice, gaussiane. Leggere
-// material.color funziona solo nel primo caso - misurato sul modello di prova,
-// 33 materiali su 89 hanno una texture e su quelli si legge bianco.
-//
-// I colori dei punti restano come RIPIEGO, per quando non c'e' un renderer
-// (prove headless) o la resa fallisce. Meglio una lettura parziale dichiarata
-// che nessuna lettura.
-// La lettura si fa DOPO che tutto si e' assestato.
-//
-// Il caricamento non e' un evento solo: si analizza, si scopre che il modello
-// non e' in metri, si riscala di 6x e si RIANALIZZA. Leggendo alla prima
-// chiamata si guarda un modello che vale un sesto del vero, e ogni area in m2
-// esce sbagliata di 36 volte - un numero dall'aria credibile e completamente
-// falso, cioe' il tipo di difetto peggiore per uno strumento che deve reggere
-// un confronto normativo.
-//
-// Misurato: la pianta veniva renderizzata a 20,2 x 11,25 m su un edificio che
-// ne misura 121 x 67,6.
-//
-// Con l'attesa, ogni nuova chiamata annulla quella pendente: in una raffica
-// analisi -> riscalo -> rianalisi vince l'ultima, che e' l'unica giusta.
-let attesaLettura = null;
-window.__veritasLeggiSegnaletica = function (punti, colori) {
-  // NON si legge piu' qui, e non si aspetta piu' un secondo e mezzo sperando
-  // che nel frattempo tutto si sia assestato. Un'attesa non e' un ordine: e'
-  // una scommessa su quanto ci mette il computer.
-  //
-  // Si dichiara solo che una passata di analisi si e' conclusa senza
-  // correzioni. Se e' la prima pulita, la sequenza fa partire misura e
-  // giudizio, in quest'ordine. Altrimenti non succede niente e si aspetta la
-  // passata buona.
-  if (attesaLettura) { clearTimeout(attesaLettura); attesaLettura = null; }
-  if (typeof window.__veritasPassataConclusa !== "function") {
-    // Senza sequenza (prove isolate) si legge subito, come prima.
-    return window.__veritasLeggiSegnaleticaOra(punti, colori);
-  }
-  // Non si legge piu' da qui: il confine di una passata non e' questo aggancio,
-  // che scatta a meta' del lavoro, ma __veritasOnModelLoaded - vedi sotto.
-  return null;
-};
+/**
+ * I grappoli di arredo su cui vale la pena avvicinarsi.
+ *
+ * ⚠️ NON UNO PER OGGETTO. Centrare la telecamera arredo per arredo
+ *    moltiplicherebbe il costo con il numero degli arredi — in questo
+ *    aeroporto sono 31 gruppi di sedute soltanto. Si raggruppa per
+ *    VICINANZA: quello che sta insieme si guarda insieme, e una fotografia
+ *    sola lo copre.
+ *
+ * ⚠️ E si scartano gli ingombri grandi: un volume lungo venticinque metri
+ *    non e' un arredo, e' l'ambiente che lo contiene. Avvicinarsi a quello
+ *    riporterebbe l'inquadratura esattamente da dove siamo partiti.
+ */
+function grappoliDaInquadrare(posti, opz = {}) {
+  const raggio = opz.raggio != null ? opz.raggio : 8;
+  const maxLato = opz.maxLato != null ? opz.maxLato : 25;
+  const bordo = opz.bordo != null ? opz.bordo : 1.5;
+  const quanti = opz.quanti != null ? opz.quanti : 6;
 
-// IL CONFINE VERO DI UNA PASSATA.
-//
-// Mi ero attaccato all'aggancio della segnaletica, ma quello scatta dentro
-// extractNavigablePoints, cioe' a meta': la decisione sulla scala arriva dopo.
-// E soprattutto la SECONDA passata non passa affatto di li' - il riscalo
-// richiama __veritasOnModelLoaded, che puo' seguire un'altra strada. Risultato
-// misurato: la sequenza restava ferma su "ambiente, 1 passata" per sempre.
-//
-// __veritasOnModelLoaded e' invece il punto da cui l'analisi RIPARTE ogni
-// volta, qualunque strada prenda dopo. Una sua chiamata = una passata.
-(function agganciaPassate(tentativo) {
-  tentativo = tentativo || 0;
-  const orig = window.__veritasOnModelLoaded;
-  if (typeof orig !== "function") {
-    if (tentativo < 20) setTimeout(() => agganciaPassate(tentativo + 1), 400);
-    return;
-  }
-  if (orig.__veritasSequenziata) return;
-  const avvolta = function (radice) {
-    const seq = window.__veritasSequenza;
-    if (seq && seq.fase === "attesa" && typeof window.__veritasModelloEntrato === "function")
-      window.__veritasModelloEntrato((radice && radice.name) || "spazio caricato");
-    let esito;
-    try { esito = orig.apply(this, arguments); } finally {
-      // Il rinvio a zero non e' un'attesa a tempo - non e' una scommessa su
-      // quanto ci mette il computer - ma la garanzia di riprendere quando il
-      // lavoro sincrono in corso, compresa la decisione sulla scala, e' finito.
-      setTimeout(() => {
-        const corr = window.__veritasCorrezioneApplicata || null;
-        window.__veritasCorrezioneApplicata = null;
-        if (typeof window.__veritasPassataConclusa === "function")
-          window.__veritasPassataConclusa(corr);
-      }, 0);
+  const cose = [];
+  for (const p of posti || [])
+    for (const c of (p.cose || [])) {
+      if (!c || !c.centro || !c.ingombro || !c.ingombro.min || !c.ingombro.max) continue;
+      const lx = c.ingombro.max[0] - c.ingombro.min[0];
+      const lz = c.ingombro.max[2] - c.ingombro.min[2];
+      if (lx > maxLato || lz > maxLato) continue;
+      cose.push(c);
     }
-    return esito;
-  };
-  avvolta.__veritasSequenziata = true;
-  window.__veritasOnModelLoaded = avvolta;
-  console.log("[VERITAS sequenza] aggancio alle passate attivo");
-})();
+  if (!cose.length) return [];
 
-window.__veritasLeggiSegnaleticaOra = function (punti, colori) {
-  const S = window.__veritasSegnaletica;
-  if (!S) return null;
-  try {
-    const rend = window.__veritasRenderer, radice = window.__veritasModelRoot;
-    if (rend && radice && THREE) {
-      const quota = punti && punti.length ? S.quotaPavimento(punti) : null;
-      const pianta = piantaDelPavimento(THREE, rend, radice,
-        { quotaPavimento: quota, punti: punti });
-      if (pianta) {
-        const r = S.leggiSegnaleticaDaPianta(pianta);
-        window.__veritasUltimaPianta = pianta;
-        if (r && r.famiglie.length) return window.__veritasRaccontaSegnaletica(r);
-        // La pianta non ha trovato niente: puo' essere vero (pavimento
-        // neutro) oppure la resa e' andata storta. Si prova comunque il
-        // ripiego, e se anche quello tace allora davvero non c'e' niente.
-        console.log('[VERITAS vista] la pianta non mostra segnaletica, provo i materiali');
+  const grappoli = [];
+  for (const c of cose) {
+    let dentro = null;
+    for (const g of grappoli) {
+      const dx = Math.max(g.min[0] - c.centro[0], 0, c.centro[0] - g.max[0]);
+      const dz = Math.max(g.min[2] - c.centro[2], 0, c.centro[2] - g.max[2]);
+      if (Math.sqrt(dx * dx + dz * dz) <= raggio) { dentro = g; break; }
+    }
+    if (!dentro) {
+      dentro = { min: c.ingombro.min.slice(), max: c.ingombro.max.slice(),
+                 pezzi: 0, forme: {} };
+      grappoli.push(dentro);
+    } else {
+      for (let i = 0; i < 3; i++) {
+        dentro.min[i] = Math.min(dentro.min[i], c.ingombro.min[i]);
+        dentro.max[i] = Math.max(dentro.max[i], c.ingombro.max[i]);
       }
     }
-  } catch (e) { console.warn('[VERITAS vista] resa della pianta fallita', e); }
-  try {
-    return window.__veritasRaccontaSegnaletica(S.leggiSegnaletica(punti, colori));
-  } catch (e) { console.warn('[VERITAS segnaletica] anche il ripiego fallisce', e); return null; }
-};
-console.log('[VERITAS vista] pronta — la pianta renderizzata ha la precedenza');
-
-// LA CATENA: dopo il caricamento le analisi partono da sole.
-//
-// Percezione, normative, affollamento ed esodo esistevano gia' e funzionavano,
-// ma ognuna aspettava un comando scritto a mano. Misurato dopo un caricamento:
-// "percezione: ha misurato? nessuno stato". Sei strumenti in attesa, non un
-// cervello: chi apre un modello per la prima volta non sa nemmeno che esistano.
-//
-// Qui NON si reimplementa nessuna analisi: si eseguono gli STESSI comandi che
-// l'utente scriverebbe, attraverso __veritasRunCommand. E' l'unico modo per
-// non avere due strade che divergono - la catena automatica e il comando
-// manuale devono dare per forza lo stesso risultato, perche' sono lo stesso
-// codice.
-//
-// Le analisi sono distanziate perche' ognuna disegna sul modello e alcune sono
-// pesanti: lanciarle insieme bloccherebbe la pagina proprio mentre l'utente
-// guarda il modello comparire.
-const CATENA = [
-  ["visibilita", "cosa si vede da dove"],
-  ["accessibilita", "cosa vede chi sta seduto"],
-  ["affollamento", "densita' e livello di servizio"],
-  ["esodo", "vie di fuga e distanze reali"],
-];
-
-window.__veritasCatenaAnalisi = function (forza) {
-  const radice = window.__veritasModelRoot;
-  if (!radice) return false;
-  if (typeof window.__veritasRunCommand !== "function") {
-    console.warn("[VERITAS catena] __veritasRunCommand non disponibile");
-    return false;
+    dentro.pezzi += (c.quante || 1);
+    const f = c.forma || 'senza forma';
+    dentro.forme[f] = (dentro.forme[f] || 0) + 1;
   }
-  if (!radice.userData) radice.userData = {};
-  // Una volta per modello. Il caricamento fa scattare piu' analisi (riscalo e
-  // rianalisi), e senza guardia la catena ripartirebbe a ogni giro.
-  if (radice.userData.__veritasCatenaFatta && !forza) return false;
-  radice.userData.__veritasCatenaFatta = true;
 
-  if (typeof window.__veritasApriReferto === "function" && !window.__veritasReferto)
-    window.__veritasApriReferto(radice.name || "spazio caricato");
-  try {
-    const M = window.__veritasMemoria, R = window.__veritasReferto;
-    if (M && R) {
-      const zone = (window.__veritasGetNodes && window.__veritasGetNodes()) || [];
-      M.deposita(R, "zone", zone.length, { sorgente: "misura", da: "analisi strutturale" });
-    }
-  } catch (e) {}
-  console.log("[VERITAS catena] avvio", CATENA.length, "analisi automatiche");
-  if (typeof window.__veritasAnnounce === "function") {
-    window.__veritasAnnounce("Sto guardando lo spazio: visibilita', accessibilita', " +
-      "affollamento e vie di esodo. Te li racconto man mano.");
+  return grappoli
+    .sort((a, b) => b.pezzi - a.pezzi)
+    .slice(0, quanti)
+    .map((g) => ({
+      min: [g.min[0] - bordo, g.min[1], g.min[2] - bordo],
+      max: [g.max[0] + bordo, g.max[1] + bordo, g.max[2] + bordo],
+      pezzi: g.pezzi,
+      etichetta: Object.keys(g.forme).sort((a, b) => g.forme[b] - g.forme[a])
+        .slice(0, 3).map((k) => k + ' x' + g.forme[k]).join(', '),
+    }));
+}
+
+/**
+ * Gli scorci RAVVICINATI: uno per grappolo di arredo, messo a fuoco.
+ *
+ * ⚠️ L'ELEVAZIONE E' BASSA APPOSTA. Dall'alto un sedile e' un quadratino;
+ *    di taglio si vede lo schienale, ed e' cosi' che una seduta si
+ *    riconosce. E' la stessa ragione per cui gli scorci esistono: 18 gradi,
+ *    non 35.
+ *
+ * ⚠️ Da queste figure si prende SOLO LA TESTIMONIANZA, mai una posizione.
+ *    Sono prospettive: un riquadro qui dentro non ha un corrispondente a
+ *    terra, e convertirlo produrrebbe coordinate credibili e sbagliate.
+ */
+function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) {
+  const grappoli = grappoliDaInquadrare(posti, opzioni);
+  const fuori = [];
+  for (let i = 0; i < grappoli.length; i++) {
+    const g = grappoli[i];
+    const viste = scorciTreQuarti(THREE, renderer, radice, {
+      ...opzioni,
+      bersaglio: { min: g.min, max: g.max },
+      numeroScorci: opzioni.scorciPerGrappolo || 1,
+      elevazioneGradi: opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 18,
+      // ogni grappolo si guarda da un lato diverso: se fossero tutti dallo
+      // stesso azimuth, meta' degli arredi resterebbe sempre dietro a qualcosa
+      azimuthIniziale: (i / Math.max(1, grappoli.length)) * Math.PI * 2,
+      etichetta: 'grappolo di ' + g.pezzi + ' pezzi (' + g.etichetta + ')',
+    });
+    for (const v of viste) fuori.push(v);
   }
-  CATENA.forEach(([comando, cosa], i) => {
-    setTimeout(() => {
-      try {
-        console.log("[VERITAS catena] " + (i + 1) + "/" + CATENA.length + " " + comando + " - " + cosa);
-        if (typeof window.__veritasSottoAnalisi === "function")
-          window.__veritasSottoAnalisi(comando, () => window.__veritasRunCommand(comando));
-        else window.__veritasRunCommand(comando);
-      } catch (e) {
-        // Una che fallisce non deve fermare le altre: meglio tre analisi su
-        // quattro, dichiarando quale e' saltata, che nessuna.
-        console.warn("[VERITAS catena] '" + comando + "' non riuscita", e);
-      }
-    }, 1500 * (i + 1));
-  });
-  // A catena finita il sistema dice cosa ha capito. Un'analisi automatica che
-  // non si dichiara e' indistinguibile da una che non e' partita.
-  setTimeout(() => {
-    if (typeof window.__veritasRaccontaReferto === "function") window.__veritasRaccontaReferto();
-    if (typeof window.__veritasSequenzaConclusa === "function") window.__veritasSequenzaConclusa();
-  }, 1500 * (CATENA.length + 1) + 1500);
-  window.__veritasCatenaUltima = Date.now();
-  return true;
-};
-console.log("[VERITAS catena] pronta — window.__veritasCatenaAnalisi()");
-
-
+  return fuori;
+}
+window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
+  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati };
 </script>
 <script type="module">
 // veritas_percorso.js — da ambienti misurati a tappe di un percorso.
@@ -27291,6 +27002,6 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=7"></script>
+<script type="module" src="./veritas_montaggio.js?v=8"></script>
 </body>
 </html>

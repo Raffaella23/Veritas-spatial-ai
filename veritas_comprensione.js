@@ -744,8 +744,17 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
     }
     const gradi = typeof scorci[i].azimuth === "number"
       ? Math.round(scorci[i].azimuth * 180 / Math.PI) : null;
+    // ⚠️ LA TESTIMONIANZA DICE ANCHE QUANTO ERA FITTA LA FIGURA. Senza,
+    //    «ho visto un grattacielo» e «ho visto una panca» pesano uguale — e
+    //    il primo veniva da sei pixel al metro, il secondo da settanta.
+    //    Il cervello deve poterlo sapere per contestare.
     fuori.viste.push({
-      vista: "scorcio " + (i + 1) + (gradi == null ? "" : " a " + gradi + " gradi"),
+      vista: (scorci[i].etichetta ? "primo piano: " + scorci[i].etichetta
+                                  : "scorcio " + (i + 1))
+        + (gradi == null ? "" : " a " + gradi + " gradi")
+        + (scorci[i].pixelPerMetro ? " (" + scorci[i].pixelPerMetro
+                                     + " pixel al metro)" : ""),
+      pixelPerMetro: scorci[i].pixelPerMetro || null,
       cose: [...conta.entries()].map(([label, quante]) => ({ cosa: label, quante })),
     });
   }

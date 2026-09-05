@@ -347,9 +347,34 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const densita = densitaMesh(numeroMesh, ingombro);
   const n = opzioni.numeroScorci || numeroScorci(densita);
 
-  const centro = scatola.getCenter(new THREE.Vector3());
+  // ⚠️ SI PUO' METTERE A FUOCO. Chiesto da Raffaella il 05/09/2026: «avevo
+  //    chiesto un'autofit, la capacita' di mettere a fuoco — visto sempre da
+  //    lontano non si capisce niente, specialmente se ci sono molti dettagli».
+  //
+  //    MISURATO LO STESSO GIORNO sul banco di prova, col modello intero nel
+  //    riquadro: la telecamera sta a 136 m e inquadra 126 m dentro 768 pixel,
+  //    cioe' SEI PIXEL AL METRO. Un aereo lungo 40 m e' 243 pixel; un bancone
+  //    lungo 3 m e' 18 pixel; una seduta larga 55 cm e' TRE PIXEL E MEZZO.
+  //
+  //    Di li' non puo' nascere nessun arredo, e nascono invece i grattacieli
+  //    e le aule a gradoni: non sono parole sbagliate nel vocabolario, sono
+  //    quello che tre pixel SEMBRANO a un modello a cui si fanno 176 domande
+  //    e che deve rispondere qualcosa. Il rimedio non e' togliere parole:
+  //    e' avvicinare la telecamera.
+  const inquadra = opzioni.bersaglio
+    ? new THREE.Box3(new THREE.Vector3().fromArray(opzioni.bersaglio.min),
+                     new THREE.Vector3().fromArray(opzioni.bersaglio.max))
+    : scatola;
+  const centro = inquadra.getCenter(new THREE.Vector3());
+  const dimInq = inquadra.getSize(new THREE.Vector3());
   const diagonale = scatola.getSize(new THREE.Vector3()).length();
-  const distanza = opzioni.distanza || diagonale * 0.8;
+  const fovGradi = opzioni.fovGradi || 50;
+  // Sul modello intero resta la distanza di sempre, che e' tarata e funziona;
+  // su un bersaglio piu' piccolo si calcola perche' lo RIEMPIA.
+  const distanza = opzioni.distanza
+    || (opzioni.bersaglio
+        ? distanzaPerInquadrare([dimInq.x, dimInq.y, dimInq.z], fovGradi, opzioni.margine)
+        : diagonale * 0.8);
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
   const elevRad = elevazioneGradi * Math.PI / 180;
 
@@ -370,7 +395,7 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
       colorSpace: THREE.SRGBColorSpace || undefined,
     });
-    const cam = new THREE.PerspectiveCamera(50, larghezza / altezza, 0.05, distanza * 3 + diagonale);
+    const cam = new THREE.PerspectiveCamera(fovGradi, larghezza / altezza, 0.05, distanza * 3 + diagonale);
     const bersaglioPrec = renderer.getRenderTarget();
 
     for (let i = 0; i < n; i++) {
@@ -400,8 +425,15 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       //    cosa plausibile e sbagliata, che e' il difetto peggiore.
       //    La pianta invece NON si tocca: li' la riga 0 in fondo e' l'origine
       //    di `pixelAMondo`, e raddrizzarla specchierebbe tutte le posizioni.
+      // ⚠️ OGNI SCORCIO PORTA QUANTO E' FITTO. `pixelPerMetro` dice in un
+      //    numero solo se in quella figura un arredo si puo' vedere o no:
+      //    sotto una decina di pixel al metro una seduta e' una macchia, e
+      //    qualunque parola l'occhio ci metta sopra e' un'ipotesi sul rumore.
       risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
-                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh });
+                       larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
+                       etichetta: opzioni.etichetta || null,
+                       pixelPerMetro: +(altezza / (2 * distanza
+                         * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
     }
     renderer.setRenderTarget(bersaglioPrec);
     try { bersaglio.dispose(); } catch (e) {}
@@ -420,4 +452,116 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   return risultati;
 }
 
-export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti };
+
+/**
+ * La distanza a cui una scatola RIEMPIE l'inquadratura.
+ *
+ * Si usa la sfera che contiene la scatola: e' un po' larga per una scatola
+ * lunga e stretta, ma non taglia mai niente da nessun angolo di ripresa — e
+ * un arredo tagliato a meta' e' peggio di un arredo un po' piu' piccolo.
+ */
+export function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15) {
+  const d = dimensioni || [0, 0, 0];
+  const raggio = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 2;
+  const semiFov = Math.max(1e-3, (fovGradi * Math.PI / 180) / 2);
+  return Math.max(0.5, (raggio / Math.sin(semiFov)) * (margine || 1.15));
+}
+
+/**
+ * I grappoli di arredo su cui vale la pena avvicinarsi.
+ *
+ * ⚠️ NON UNO PER OGGETTO. Centrare la telecamera arredo per arredo
+ *    moltiplicherebbe il costo con il numero degli arredi — in questo
+ *    aeroporto sono 31 gruppi di sedute soltanto. Si raggruppa per
+ *    VICINANZA: quello che sta insieme si guarda insieme, e una fotografia
+ *    sola lo copre.
+ *
+ * ⚠️ E si scartano gli ingombri grandi: un volume lungo venticinque metri
+ *    non e' un arredo, e' l'ambiente che lo contiene. Avvicinarsi a quello
+ *    riporterebbe l'inquadratura esattamente da dove siamo partiti.
+ */
+export function grappoliDaInquadrare(posti, opz = {}) {
+  const raggio = opz.raggio != null ? opz.raggio : 8;
+  const maxLato = opz.maxLato != null ? opz.maxLato : 25;
+  const bordo = opz.bordo != null ? opz.bordo : 1.5;
+  const quanti = opz.quanti != null ? opz.quanti : 6;
+
+  const cose = [];
+  for (const p of posti || [])
+    for (const c of (p.cose || [])) {
+      if (!c || !c.centro || !c.ingombro || !c.ingombro.min || !c.ingombro.max) continue;
+      const lx = c.ingombro.max[0] - c.ingombro.min[0];
+      const lz = c.ingombro.max[2] - c.ingombro.min[2];
+      if (lx > maxLato || lz > maxLato) continue;
+      cose.push(c);
+    }
+  if (!cose.length) return [];
+
+  const grappoli = [];
+  for (const c of cose) {
+    let dentro = null;
+    for (const g of grappoli) {
+      const dx = Math.max(g.min[0] - c.centro[0], 0, c.centro[0] - g.max[0]);
+      const dz = Math.max(g.min[2] - c.centro[2], 0, c.centro[2] - g.max[2]);
+      if (Math.sqrt(dx * dx + dz * dz) <= raggio) { dentro = g; break; }
+    }
+    if (!dentro) {
+      dentro = { min: c.ingombro.min.slice(), max: c.ingombro.max.slice(),
+                 pezzi: 0, forme: {} };
+      grappoli.push(dentro);
+    } else {
+      for (let i = 0; i < 3; i++) {
+        dentro.min[i] = Math.min(dentro.min[i], c.ingombro.min[i]);
+        dentro.max[i] = Math.max(dentro.max[i], c.ingombro.max[i]);
+      }
+    }
+    dentro.pezzi += (c.quante || 1);
+    const f = c.forma || 'senza forma';
+    dentro.forme[f] = (dentro.forme[f] || 0) + 1;
+  }
+
+  return grappoli
+    .sort((a, b) => b.pezzi - a.pezzi)
+    .slice(0, quanti)
+    .map((g) => ({
+      min: [g.min[0] - bordo, g.min[1], g.min[2] - bordo],
+      max: [g.max[0] + bordo, g.max[1] + bordo, g.max[2] + bordo],
+      pezzi: g.pezzi,
+      etichetta: Object.keys(g.forme).sort((a, b) => g.forme[b] - g.forme[a])
+        .slice(0, 3).map((k) => k + ' x' + g.forme[k]).join(', '),
+    }));
+}
+
+/**
+ * Gli scorci RAVVICINATI: uno per grappolo di arredo, messo a fuoco.
+ *
+ * ⚠️ L'ELEVAZIONE E' BASSA APPOSTA. Dall'alto un sedile e' un quadratino;
+ *    di taglio si vede lo schienale, ed e' cosi' che una seduta si
+ *    riconosce. E' la stessa ragione per cui gli scorci esistono: 18 gradi,
+ *    non 35.
+ *
+ * ⚠️ Da queste figure si prende SOLO LA TESTIMONIANZA, mai una posizione.
+ *    Sono prospettive: un riquadro qui dentro non ha un corrispondente a
+ *    terra, e convertirlo produrrebbe coordinate credibili e sbagliate.
+ */
+export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) {
+  const grappoli = grappoliDaInquadrare(posti, opzioni);
+  const fuori = [];
+  for (let i = 0; i < grappoli.length; i++) {
+    const g = grappoli[i];
+    const viste = scorciTreQuarti(THREE, renderer, radice, {
+      ...opzioni,
+      bersaglio: { min: g.min, max: g.max },
+      numeroScorci: opzioni.scorciPerGrappolo || 1,
+      elevazioneGradi: opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 18,
+      // ogni grappolo si guarda da un lato diverso: se fossero tutti dallo
+      // stesso azimuth, meta' degli arredi resterebbe sempre dietro a qualcosa
+      azimuthIniziale: (i / Math.max(1, grappoli.length)) * Math.PI * 2,
+      etichetta: 'grappolo di ' + g.pezzi + ' pezzi (' + g.etichetta + ')',
+    });
+    for (const v of viste) fuori.push(v);
+  }
+  return fuori;
+}
+export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
+  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati };
