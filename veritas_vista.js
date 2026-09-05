@@ -400,10 +400,31 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
 
     for (let i = 0; i < n; i++) {
       const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      // ⚠️ L'ALTEZZA COMANDA SULL'ANGOLO, quando viene dichiarata.
+      //
+      //    Un angolo non basta a dire dove sta l'occhio: dipende da quanto
+      //    si e' lontani. Misurato il 05/09 sul banco di prova — con
+      //    l'elevazione a 18 gradi e un grappolo di 23 m da inquadrare, la
+      //    distanza necessaria e' 36,6 m e la telecamera finisce a 16,4 m
+      //    d'altezza. L'edificio ne e' alto 15,4: guardava da SOPRA IL
+      //    TETTO. Piu' vicina di prima, ma sempre dall'alto — e dall'alto
+      //    un sedile torna a essere un quadratino.
+      //
+      //    Con `altezzaTelecamera` si dichiara la quota assoluta e
+      //    l'inquadratura resta la stessa: cambia solo dove si mette
+      //    l'occhio sulla sfera di quel raggio.
+      const altezza = opzioni.altezzaTelecamera != null
+        ? opzioni.altezzaTelecamera
+        : centro.y + distanza * Math.sin(elevRad);
+      const dislivello = altezza - centro.y;
+      // il raggio orizzontale che resta, tenuta ferma la distanza: se la
+      // quota chiesta e' piu' alta della distanza stessa, non si va sotto
+      // mezzo metro dal bersaglio.
+      const raggio = Math.sqrt(Math.max(0.25, distanza * distanza - dislivello * dislivello));
       cam.position.set(
-        centro.x + distanza * Math.cos(elevRad) * Math.cos(azimuth),
-        centro.y + distanza * Math.sin(elevRad),
-        centro.z + distanza * Math.cos(elevRad) * Math.sin(azimuth),
+        centro.x + raggio * Math.cos(azimuth),
+        altezza,
+        centro.z + raggio * Math.sin(azimuth),
       );
       cam.up.set(0, 1, 0);
       cam.lookAt(centro);
@@ -432,6 +453,7 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
                        larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
                        etichetta: opzioni.etichetta || null,
+                       altezzaTelecamera: +altezza.toFixed(2),
                        pixelPerMetro: +(altezza / (2 * distanza
                          * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
     }
@@ -566,7 +588,33 @@ export function grappoliDaInquadrare(posti, opz = {}) {
  *    Sono prospettive: un riquadro qui dentro non ha un corrispondente a
  *    terra, e convertirlo produrrebbe coordinate credibili e sbagliate.
  */
+/**
+ * L'altezza a cui si taglia una pianta, in metri sopra il pavimento.
+ *
+ * ⚠️ NON E' UN NUMERO SCELTO A CASO, e' la convenzione del disegno di
+ *    architettura. Raffaella, 05/09/2026: «la telecamera si deve
+ *    posizionare di regola per l'architettura. Si va a sezionare a un
+ *    metro e dieci, perche' di solito a quell'altezza tu hai
+ *    praticamente in sezione le finestre, le porte, gli scorci».
+ *
+ *    A 1,10 m si taglia dove l'edificio dice qualcosa: davanzali,
+ *    maniglie, banconi, schienali. Piu' in alto si vedono i tetti degli
+ *    arredi; piu' in basso solo gambe.
+ */
+export const ALTEZZA_SEZIONE = 1.10;
+
+/**
+ * Gli scorci RAVVICINATI: uno per grappolo di arredo, messo a fuoco e
+ * messo alla quota giusta.
+ *
+ * ⚠️ L'ALTEZZA SI MISURA DAL PAVIMENTO DI QUEL GRAPPOLO, non dal fondo
+ *    del modello. Un edificio ha piu' livelli, e a ogni livello si deve
+ *    poter guardare: il pavimento su cui l'arredo APPOGGIA e' il fondo
+ *    del suo ingombro — un arredo non galleggia, ed e' la stessa idea
+ *    con cui `veritas_cose.js` separa i mucchi piano per piano.
+ */
 export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) {
+
   const grappoli = grappoliDaInquadrare(posti, opzioni);
   const fuori = [];
   for (let i = 0; i < grappoli.length; i++) {
@@ -576,6 +624,10 @@ export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) 
       bersaglio: { min: g.min, max: g.max },
       numeroScorci: opzioni.scorciPerGrappolo || 1,
       elevazioneGradi: opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 18,
+      // il pavimento di QUESTO grappolo, piu' l'altezza di sezione
+      altezzaTelecamera: opzioni.altezzaTelecamera != null
+        ? opzioni.altezzaTelecamera
+        : g.min[1] + (opzioni.altezzaSezione != null ? opzioni.altezzaSezione : ALTEZZA_SEZIONE),
       // ogni grappolo si guarda da un lato diverso: se fossero tutti dallo
       // stesso azimuth, meta' degli arredi resterebbe sempre dietro a qualcosa
       azimuthIniziale: (i / Math.max(1, grappoli.length)) * Math.PI * 2,
@@ -586,4 +638,5 @@ export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) 
   return fuori;
 }
 export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
-  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO };
+  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
+  ALTEZZA_SEZIONE };

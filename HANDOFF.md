@@ -202,6 +202,32 @@ telecamera.**
 
 ---
 
+## 14. La telecamera si posiziona per regola d'architettura: sezione a 1,10 m
+
+> *«La telecamera si deve posizionare di regola per l'architettura, ci si regola
+> cosi'. Si va a sezionare a un metro e dieci, perche' di solito a quell'altezza
+> tu hai praticamente in sezione le finestre, le porte, gli scorci.»*
+>
+> *«E se si tratta di un edificio multipiano, bisogna avere la possibilita' di
+> guardare a ogni livello, a ogni piano: l'altezza della telecamera viene
+> dettata in funzione di questi parametri.»*
+
+A 1,10 m si taglia **dove l'edificio dice qualcosa**: davanzali, maniglie,
+banconi, schienali. Piu' in alto si vedono i tetti degli arredi; piu' in basso
+solo gambe.
+
+⚠️ **L'altezza non si deduce da un angolo.** Misurato il 05/09: 18 gradi di
+elevazione su un grappolo di 23 m mettono la telecamera a **16,4 m** — sopra il
+tetto di un edificio alto 15,4. Si dichiara la QUOTA, e l'angolo viene di
+conseguenza.
+
+📌 **E la quota si conta dal pavimento di QUEL livello**, non dal fondo del
+modello. La macchina c'e' gia' e non se ne scrive una seconda: `quotePavimento`
+misura le quote di calpestio da dove gli oggetti appoggiano — *un arredo non
+galleggia* — ed e' la stessa con cui i mucchi sono gia' separati piano per piano.
+
+---
+
 ## 📋 I LAVORI APERTI, in quest'ordine
 
 ### A — Il gate da 5.261 m² *(il più grosso che resta)*

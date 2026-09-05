@@ -7,7 +7,8 @@
 // ne accorge.
 
 import { inquadratura, pixelAMondo, mondoAPixel, areaPixel,
-         distanzaPerInquadrare, grappoliDaInquadrare } from "./veritas_vista.js";
+         distanzaPerInquadrare, grappoliDaInquadrare,
+         ALTEZZA_SEZIONE } from "./veritas_vista.js";
 
 let fatte = 0, rotte = 0;
 const ok = (c, che) => { fatte++; c ? console.log("  ok   " + che)
@@ -145,6 +146,30 @@ ok(gm.length === 1 && gm[0].arredi === 14,
    + `  (arredi nel primo: ${gm[0] && gm[0].arredi})`);
 ok(/seduta|banco/.test(gm[0].etichetta),
    `e l'etichetta lo conferma  (${gm[0].etichetta})`);
+
+console.log("\n=== l altezza di sezione, e i piani ===");
+// ⚠️ 1,10 m non e' un numero scelto a caso: e' la convenzione del disegno di
+//    architettura. A quell'altezza si taglia dove l'edificio dice qualcosa —
+//    davanzali, porte, banconi, schienali.
+ok(ALTEZZA_SEZIONE === 1.10, `si seziona a 1,10 m  (${ALTEZZA_SEZIONE})`);
+
+// ⚠️ E SI MISURA DAL PAVIMENTO DI QUEL GRAPPOLO, non dal fondo del modello:
+//    un edificio ha piu' livelli e a ognuno si deve poter guardare. Il
+//    pavimento e' il fondo dell'ingombro dell'arredo, perche' un arredo non
+//    galleggia. Senza questa prova, al primo piano si guarderebbe da sotto.
+const alPrimoPiano = (x, z, base) => ({
+  centro: [x, base + 0.5, z], quante: 4, forma: 'seduta',
+  ingombro: { min: [x - 1, base, z - 1], max: [x + 1, base + 1, z + 1] },
+});
+const dueLivelli = [{ cose: [alPrimoPiano(0, 0, 0), alPrimoPiano(60, 0, 4.2)] }];
+const gl = grappoliDaInquadrare(dueLivelli, { quanti: 9 });
+ok(gl.length === 2, `due livelli, due grappoli distinti  (${gl.length})`);
+const quote = gl.map((g) => g.min[1]).sort((a, b) => a - b);
+ok(Math.abs(quote[0] - 0) < 0.001 && Math.abs(quote[1] - 4.2) < 0.001,
+   `ogni grappolo tiene la quota del SUO pavimento  (${quote.join(' e ')})`);
+ok(Math.abs((quote[1] + ALTEZZA_SEZIONE) - 5.3) < 0.001,
+   `quindi al piano di sopra si guarda da 5,30 e non da 1,10`
+   + `  (${(quote[1] + ALTEZZA_SEZIONE).toFixed(2)})`);
 
 console.log(`\n${fatte - rotte}/${fatte} verifiche passate`);
 process.exit(rotte ? 1 : 0);
