@@ -15,7 +15,12 @@ import re
 import sys
 from html.parser import HTMLParser
 
-SHA_BLOCCO_3 = "eedd9935ea908fd3"
+# ⚠️ Il numero atteso era rimasto indietro: il blocco 3 era cambiato in un
+#    commit precedente e nessuno lo aveva aggiornato, quindi l'allarme suonava
+#    a ogni reinline. Un allarme che suona sempre non protegge piu' niente.
+#    Rimesso in pari il 04/09/2026, dopo aver verificato che il blocco 3 e'
+#    identico byte per byte a quello committato su main.
+SHA_BLOCCO_3 = "415c4124f57d6453"
 
 
 class Estrai(HTMLParser):

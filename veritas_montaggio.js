@@ -61,12 +61,12 @@ import "./veritas_manuale.js";
 //   node --check veritas_montaggio.js
 // ===========================================================================
 
-import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=2"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=3"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=3";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js";
+import { anteprima } from "./veritas_anteprima.js?v=4";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=1";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.
 //
@@ -94,8 +94,9 @@ function occhioDellaPagina() {
   };
 }
 
-// L'occhio parte a 3 s dal caricamento (lo fa `__veritasGuarda`). L'anello
-// arriva dopo: gli servono le cose misurate, la scala sistemata e la navmesh.
+// L'anello aspetta: gli servono le cose misurate, la scala sistemata e la
+// navmesh. (L'occhio non parte piu' da solo al caricamento — lo sguardo
+// automatico e' stato tolto il 04/09/2026, vedi `veritas_riconosce.js`.)
 const RITARDO = 6500;
 
 function log(m)  { try { console.log("[VERITAS montaggio] " + m); } catch (e) {} }

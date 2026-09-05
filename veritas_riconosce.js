@@ -165,6 +165,66 @@ const FUNZIONE_DI = Object.freeze({
   field: "origine", "swimming pool": "origine",
 });
 
+// ---------------------------------------------------------------------------
+// LA POSTURA — che cosa fa il CORPO davanti a questo oggetto
+// ---------------------------------------------------------------------------
+//
+// Deciso da Raffaella il 04/09/2026: *«mettiamo le animazioni base, poi
+// vediamo»* — come in un motore di gioco, dove Idle e Walk non descrivono una
+// situazione ma COME STA IL CORPO.
+//
+// ⚠️ LA FUNZIONE DICE A CHE COSA SERVE LA ZONA, LA POSTURA DICE COSA FA
+//    L'AVATAR. Sono due cose diverse e non si sostituiscono. `FUNZIONE_DI`
+//    resta com'e' ed e' letta da chi ordina le tappe del percorso: cambiarla
+//    romperebbe il viaggio. Questa tabella si AGGIUNGE, e parla al corpo.
+//
+// ⚠️ PERCHE' SERVIVA, misurato il 04/09: nel registro delle funzioni una
+//    voce sola, «sosta», faceva il lavoro di cinque comportamenti diversi —
+//    sedersi su una panca, guardare un quadro in piedi, stare sdraiati in un
+//    letto, mangiare, giocare. Un quadro e una panca dicevano al programma la
+//    STESSA parola. Da li' nascevano i quattordici volumi chiamati tutti
+//    «sala d'attesa»: non era l'occhio che non discriminava, era il registro
+//    che aveva una parola sola dove ne servivano cinque.
+//
+// ⚠️ LE POSTURE SONO POCHE APPOSTA, E NON DIVENTANO MOLTE. I comportamenti
+//    umani sono infiniti; le posture no. Quello che si moltiplica e' QUANDO si
+//    cambia posizione e CHE COSA si ha davanti, non il numero delle voci qui
+//    sotto. Se un giorno questa tabella arriva a venti righe, vuol dire che
+//    dentro ci e' rientrato il tipo di edificio — che e' esattamente cio' che
+//    la Regola 0-bis vieta.
+//
+//    seduto    ci si sta sopra, e ci si puo' fermare a lungo
+//    sdraiato  idem, ma orizzontale: degenza, riposo
+//    in piedi  ci si ferma davanti, senza sedersi: si guarda, si compra, si
+//              e' ricevuti da qualcuno
+//    passa     non ci si ferma: si attraversa, e uno per volta
+//
+// ⚠️ Chi non ha postura non e' un errore: e' un oggetto davanti al quale il
+//    corpo non fa niente di particolare (un'automobile, una pista). L'avatar
+//    ci passa accanto, e il programma lo dice invece di inventarsi un gesto.
+const POSTURA_DI = Object.freeze({
+  // ci si siede
+  chair: "seduto", armchair: "seduto", seat: "seduto", sofa: "seduto",
+  bench: "seduto", stool: "seduto", ottoman: "seduto", grandstand: "seduto",
+  toilet: "seduto",
+  // ci si sta sdraiati
+  bed: "sdraiato", cradle: "sdraiato",
+  // ci si presenta a qualcuno: si sta in piedi, e si fa la fila
+  counter: "in piedi", countertop: "in piedi", desk: "in piedi",
+  booth: "in piedi", buffet: "in piedi", bar: "in piedi",
+  // ci si ferma davanti e si guarda
+  painting: "in piedi", sculpture: "in piedi", case: "in piedi",
+  poster: "in piedi", stage: "in piedi", "bulletin board": "in piedi",
+  // ci si sta davanti e si fa qualcosa con le mani
+  "arcade machine": "in piedi", "pool table": "in piedi",
+  refrigerator: "in piedi", stove: "in piedi", oven: "in piedi", food: "in piedi",
+  sink: "in piedi", shower: "in piedi", washer: "in piedi", wardrobe: "in piedi",
+  "conveyer belt": "in piedi",
+  // non ci si ferma: si attraversa
+  door: "passa", "screen door": "passa", stairs: "passa", stairway: "passa",
+  escalator: "passa", step: "passa", path: "passa", bridge: "passa",
+});
+
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
 // piu' onesto di una traduzione inventata, e succede solo per gli oggetti che
 // non diventano mai il nome di una zona.
@@ -221,69 +281,69 @@ const NOME_IT = Object.freeze({
 //    significano niente.
 export const AGGIUNTE = Object.freeze([
   // --- accoglienza: il punto in cui qualcuno ti riceve ---------------------
-  { chiedi: "a reception desk", nome: "banco di accoglienza", funzione: "accoglienza",
+  { chiedi: "a reception desk", postura: "in piedi", nome: "banco di accoglienza", funzione: "accoglienza",
     domini: "*", perche: "«counter» c'e', ma non dice che dietro ci sta una persona che riceve" },
-  { chiedi: "a check-in counter", nome: "banchi di accettazione", funzione: "accoglienza",
+  { chiedi: "a check-in counter", postura: "in piedi", nome: "banchi di accettazione", funzione: "accoglienza",
     domini: "*", perche: "accettazione: aeroporto, ospedale, albergo, fiera" },
-  { chiedi: "a ticket desk", nome: "biglietteria", funzione: "accoglienza",
+  { chiedi: "a ticket desk", postura: "in piedi", nome: "biglietteria", funzione: "accoglienza",
     domini: "*", perche: "museo, teatro, stadio, stazione: la funzione e' la stessa" },
-  { chiedi: "a self service kiosk", nome: "chioschi", funzione: "accoglienza",
+  { chiedi: "a self service kiosk", postura: "in piedi", nome: "chioschi", funzione: "accoglienza",
     domini: "*", perche: "il totem di servizio, diverso da «booth»" },
-  { chiedi: "a waiting room with rows of seats", nome: "sala d'attesa", funzione: "sosta",
+  { chiedi: "a waiting room with rows of seats", postura: "seduto", nome: "sala d'attesa", funzione: "sosta",
     domini: "*", perche: "le sedute in fila si vedono, ma nessun termine ADE20K le lega all'attesa" },
 
   // --- controlli: dove si passa uno per volta ------------------------------
-  { chiedi: "a security checkpoint", nome: "varco di controllo", funzione: "filtro",
+  { chiedi: "a security checkpoint", postura: "passa", nome: "varco di controllo", funzione: "filtro",
     domini: "*", perche: "aeroporti, tribunali, stadi, ospedali: il filtro obbligato non e' in ADE20K" },
-  { chiedi: "a metal detector", nome: "metal detector", funzione: "filtro",
+  { chiedi: "a metal detector", postura: "passa", nome: "metal detector", funzione: "filtro",
     domini: "*", perche: "e' l'oggetto che si vede in pianta, e non solo in aeroporto" },
-  { chiedi: "a turnstile", nome: "tornelli", funzione: "filtro",
+  { chiedi: "a turnstile", postura: "passa", nome: "tornelli", funzione: "filtro",
     domini: "*", perche: "il filtro dei musei e dei trasporti, assente da ADE20K" },
 
   // --- cura: ospedali, cliniche, ambulatori, infermerie --------------------
-  { chiedi: "a hospital bed", nome: "letti di degenza", funzione: "sosta",
+  { chiedi: "a hospital bed", postura: "sdraiato", nome: "letti di degenza", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «bed», ma non distingue un letto di casa da uno di reparto" },
-  { chiedi: "a hospital stretcher", nome: "barelle", funzione: "sosta",
+  { chiedi: "a hospital stretcher", postura: "sdraiato", nome: "barelle", funzione: "sosta",
     domini: "*", perche: "dice che li' passano lettighe, quindi il passaggio dev'essere largo" },
-  { chiedi: "a wheelchair", nome: "sedie a rotelle", funzione: null,
+  { chiedi: "a wheelchair", postura: "seduto", nome: "sedie a rotelle", funzione: null,
     domini: "*", perche: "non implica una funzione, ma cambia le larghezze che servono" },
-  { chiedi: "a medical examination table", nome: "lettino da visita", funzione: "sosta",
+  { chiedi: "a medical examination table", postura: "sdraiato", nome: "lettino da visita", funzione: "sosta",
     domini: "*", perche: "l'oggetto che distingue un ambulatorio da un ufficio" },
-  { chiedi: "a medical imaging machine", nome: "apparecchiature diagnostiche", funzione: "sosta",
+  { chiedi: "a medical imaging machine", postura: "sdraiato", nome: "apparecchiature diagnostiche", funzione: "sosta",
     domini: "*", perche: "macchinari ingombranti e fissi: vincolano la stanza attorno" },
-  { chiedi: "a nurses station", nome: "postazione infermieri", funzione: "accoglienza",
+  { chiedi: "a nurses station", postura: "in piedi", nome: "postazione infermieri", funzione: "accoglienza",
     domini: "*", perche: "il presidio di reparto, che non e' ne' un banco ne' un ufficio" },
 
   // --- didattica: scuole, universita', sale corsi --------------------------
-  { chiedi: "rows of school desks", nome: "banchi scolastici", funzione: "sosta",
+  { chiedi: "rows of school desks", postura: "seduto", nome: "banchi scolastici", funzione: "sosta",
     domini: "*", perche: "«desk» e «table» non dicono che sono in file rivolte da una parte" },
-  { chiedi: "a whiteboard or blackboard", nome: "lavagna", funzione: "sosta",
+  { chiedi: "a whiteboard or blackboard", postura: "in piedi", nome: "lavagna", funzione: "sosta",
     domini: "*", perche: "l'oggetto che orienta l'aula e ne indica il fronte" },
-  { chiedi: "a lecture hall with tiered seating", nome: "aula a gradoni", funzione: "sosta",
+  { chiedi: "a lecture hall with tiered seating", postura: "seduto", nome: "aula a gradoni", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «grandstand», che non e' la stessa cosa di un'aula" },
-  { chiedi: "a row of lockers", nome: "armadietti", funzione: "servizio",
+  { chiedi: "a row of lockers", postura: "in piedi", nome: "armadietti", funzione: "servizio",
     domini: "*", perche: "scuole, palestre, piscine, depositi: assente da ADE20K" },
-  { chiedi: "a laboratory bench", nome: "banconi da laboratorio", funzione: "sosta",
+  { chiedi: "a laboratory bench", postura: "in piedi", nome: "banconi da laboratorio", funzione: "sosta",
     domini: "*", perche: "distingue un laboratorio da un'aula normale" },
 
   // --- esposizione e vendita ----------------------------------------------
-  { chiedi: "a museum display case", nome: "vetrine espositive", funzione: "sosta",
+  { chiedi: "a museum display case", postura: "in piedi", nome: "vetrine espositive", funzione: "sosta",
     domini: "*", perche: "ADE20K ha «case», generico: qui la funzione e' precisa" },
-  { chiedi: "supermarket shelving aisles", nome: "scaffalature", funzione: "sosta",
+  { chiedi: "supermarket shelving aisles", postura: "in piedi", nome: "scaffalature", funzione: "sosta",
     domini: "*", perche: "le corsie di vendita si leggono in pianta come file parallele" },
-  { chiedi: "a checkout counter with cash register", nome: "casse", funzione: "sosta",
+  { chiedi: "a checkout counter with cash register", postura: "in piedi", nome: "casse", funzione: "sosta",
     domini: "*", perche: "il punto di pagamento: e' un filtro, e fa coda" },
 
   // --- trasporto: bagagli e mezzi -----------------------------------------
-  { chiedi: "a baggage carousel", nome: "nastro bagagli", funzione: "servizio",
+  { chiedi: "a baggage carousel", postura: "in piedi", nome: "nastro bagagli", funzione: "servizio",
     domini: "*", perche: "ADE20K ha «conveyer belt», qui e' piu' preciso" },
-  { chiedi: "a luggage trolley", nome: "carrelli", funzione: null,
+  { chiedi: "a luggage trolley", postura: null, nome: "carrelli", funzione: null,
     domini: "*", perche: "non implica una funzione, ma dice che li' si trascina qualcosa" },
 
   // --- le uniche due che restano legate a un dominio -----------------------
-  { chiedi: "a jet bridge", nome: "pontile d'imbarco", funzione: "destinazione",
+  { chiedi: "a jet bridge", postura: "passa", nome: "pontile d'imbarco", funzione: "destinazione",
     domini: "aeroporto", perche: "fuori da un aeroporto non esiste: il punto in cui il cammino finisce" },
-  { chiedi: "an airport departure gate", nome: "gate d'imbarco", funzione: "destinazione",
+  { chiedi: "an airport departure gate", postura: "in piedi", nome: "gate d'imbarco", funzione: "destinazione",
     domini: "aeroporto", perche: "idem: la meta di chi parte, e non significa niente altrove" },
 ]);
 
@@ -300,6 +360,7 @@ export const VOCABOLARIO = Object.freeze(
     termine: t,
     nome: NOME_IT[t] || t,
     funzione: FUNZIONE_DI[t] || null,
+    postura: POSTURA_DI[t] || null,
     domini: "*",
     fonte: "ADE20K-150",
     controprova: t === "person",
@@ -801,9 +862,12 @@ export function piantaInTela(pianta, doc) {
 // 8. Si aggancia da solo
 // ---------------------------------------------------------------------------
 //
-// L'occhio e' SEMPRE ACCESO — deciso da Raffaella il 19/08/2026. Ogni modello
-// caricato viene guardato, senza chiedere. Il modello di visione si scarica una
-// volta e resta nella cache del browser.
+// L'occhio e' SEMPRE ACCESO: si accende da solo a pagina ferma e resta pronto,
+// e il modello di visione si scarica una volta e resta nella cache del browser.
+//
+// ⚠️ Ma non guarda piu' da solo a ogni modello caricato: quella riga del
+//    19/08/2026 e' stata sostituita il 04/09 (vedi la nota in fondo a questa
+//    sezione). A guardare la pianta e' il giro di comprensione.
 //
 // ⚠️ Si guarda DOPO che le cose sono state misurate: senza i mucchi non c'e'
 //    niente da nominare, e una rilevazione senza una misura sotto viene
@@ -881,6 +945,19 @@ if (typeof window !== "undefined") {
         // sa leggere: sotto la soglia bassa non scavalca una misura.
         sicurezza: p.fiducia >= 0.35 ? "alta" : (p.fiducia >= 0.2 ? "media" : "bassa"),
         nome: p.nome,
+        // ⚠️ L'INGOMBRO DELL'OGGETTO, che fin qui si buttava.
+        //    Il nome dell'occhio arrivava alla tappa, la MISURA dell'oggetto
+        //    no: restava nella catena della pianta e non passava mai di qua.
+        //    Serve per una cosa sola, ma decisiva: la soglia di un varco. La
+        //    forma della zona descrive tutto l'ambito dei controlli (4,55 m),
+        //    l'oggetto e' molto piu' stretto, e la differenza e' la gente che
+        //    passa di lato. Il DOVE della tappa non si tocca: questo e' un
+        //    bersaglio a cui mirare, non una posizione da riscrivere.
+        // ⚠️ Scritto il 04/09 (d741aac) DENTRO index.html e mai qui: il
+        //    reinline lo cancellava. Riportato nella fonte unica il 04/09 sera.
+        bersaglio: (p.ingombro && p.centro)
+          ? { centro: p.centro.slice(), ingombro: { min: p.ingombro.min.slice(), max: p.ingombro.max.slice() } }
+          : null,
       });
     });
     r.rinominate = assegnate.length && typeof window.__veritasApplicaOcchi === "function"
@@ -912,21 +989,24 @@ if (typeof window !== "undefined") {
     return r;
   };
 
-  const precedente = window.__veritasOnModelLoaded;
-  window.__veritasOnModelLoaded = function () {
-    let out;
-    try { out = precedente ? precedente.apply(this, arguments) : undefined; }
-    catch (e) { console.error("[VERITAS occhio] errore nel passo precedente:", e); }
-    // Molto dopo gli altri: servono la scala sistemata, le cose misurate e la
-    // navmesh. Se qualcosa non c'e' ancora, `__veritasGuarda` lo dice e non
-    // rompe niente.
-    setTimeout(function () {
-      window.__veritasGuarda().catch(function (e) {
-        console.warn("[VERITAS occhio] non ha guardato:", e && e.message ? e.message : e);
-      });
-    }, 3000);
-    return out;
-  };
+  // ⚠️ NIENTE SGUARDO AUTOMATICO A OGNI MODELLO CARICATO. Tolto il 04/09/2026.
+  //
+  //    Qui stava un aggancio a `__veritasOnModelLoaded` che 3 s dopo ogni
+  //    segnale rifaceva lo sguardo sulla pianta. Il segnale pero' non arriva
+  //    una volta sola: si ripete (misurato: ogni ~80 s), e lo sguardo ripartiva
+  //    ogni volta sullo STESSO rilevatore che il giro di comprensione sta
+  //    usando. Due padroni per un occhio solo: le chiamate si accodano, e il
+  //    giro completo ci ha messo venti minuti invece di cinque.
+  //
+  //    E ne partivano DUE per evento, non uno: questa pagina carica questo
+  //    codice due volte (il blocco dentro `index.html` e il modulo in radice) e
+  //    qui non c'era la guardia che protegge l'accensione qui sotto.
+  //
+  //    Non si perde niente. La pianta la guarda gia' `occhioSuTutteLeViste()`
+  //    dentro il giro di comprensione, che parte da solo a modello nuovo
+  //    (`veritas_montaggio.js`, una volta per modello, con la guardia) ed e'
+  //    l'unico che di quello sguardo ha bisogno. `__veritasGuarda` resta la
+  //    maniglia: si chiama a mano, e guarda UNA volta.
   // ⚠️ L'OCCHIO SI ACCENDE SUBITO, A PAGINA VUOTA — e non dopo il modello.
   //
   //    Misurato il 04/09/2026, quattro volte di fila sulla pagina viva:
@@ -982,7 +1062,7 @@ if (typeof window !== "undefined") {
 }
 
 export default {
-  VOCABOLARIO, ADE20K_150, AGGIUNTE,
+  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,
