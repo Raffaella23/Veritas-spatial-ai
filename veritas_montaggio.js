@@ -65,7 +65,7 @@ import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=4"   
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=5";
+import { anteprima } from "./veritas_anteprima.js?v=6";
 import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=1";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.
@@ -658,7 +658,19 @@ window.__veritasComprendi = async function (opz = {}) {
           log("mi avvicino a " + vicini.length + " grappoli di arredo: da "
             + Math.min.apply(null, fitto) + " a " + Math.max.apply(null, fitto)
             + " pixel al metro, dove il modello intero ne da' 6");
-          scorci = scorci.concat(vicini);
+          // ⚠️ SI ALTERNANO, NON SI ACCODANO. All'occhio arrivano solo le
+          //    prime VISTE_PER_GIRO di questo elenco (quattro): messi in
+          //    coda, i primi piani non gli arrivavano MAI — misurato sulla
+          //    pagina viva il 05/09, testimonianza fatta di soli aerei e
+          //    pontili a sei pixel al metro. Alternati, ogni mazzetto porta
+          //    all'occhio sia il campo largo che dice cos'e' l'edificio sia
+          //    il primo piano che dice cosa c'e' dentro.
+          const misti = [];
+          for (let i = 0; i < Math.max(scorci.length, vicini.length); i++) {
+            if (i < vicini.length) misti.push(vicini[i]);
+            if (i < scorci.length) misti.push(scorci[i]);
+          }
+          scorci = misti;
         } else {
           // ⚠️ Un ramo che si salta in silenzio non esiste per nessuno.
           log("nessun grappolo di arredo da inquadrare da vicino");

@@ -116,5 +116,35 @@ const tanti = [{ cose: Array.from({ length: 40 }, (_, k) => cosa(k * 30, 0, 2, 4
 ok(grappoliDaInquadrare(tanti).length === 6, `di tanti grappoli se ne guardano sei  (${grappoliDaInquadrare(tanti).length})`);
 ok(grappoliDaInquadrare(tanti, { quanti: 3 }).length === 3, "e il tetto si puo' cambiare");
 
+// ⚠️ IL TETTO ALLA CRESCITA. Misurato sulla pagina viva il 05/09: senza,
+//    un pezzo tirava l'altro e i sei primi piani diventavano UN grappolo
+//    solo da 103 x 39 m con 1520 pezzi dentro, a cinque pixel e mezzo al
+//    metro — cioe' l'inquadratura da cui volevamo scappare.
+const catena = [{ cose: Array.from({ length: 30 }, (_, k) => cosa(k * 5, 0, 2, 2, 'seduta')) }];
+const gc = grappoliDaInquadrare(catena);
+ok(gc.every((x) => x.max[0] - x.min[0] <= 25),
+   `una catena di arredi a 5 m l'uno dall'altro NON diventa un grappolo unico`
+   + `  (il piu' lungo: ${Math.max(...gc.map((x) => Math.round(x.max[0] - x.min[0])))} m)`);
+ok(gc.length > 1, `e infatti sono piu' d'uno  (${gc.length})`);
+ok(grappoliDaInquadrare(catena, { latoMax: 8 }).every((x) => x.max[0] - x.min[0] <= 13),
+   "e il tetto si puo' stringere");
+
+// ⚠️ CI SI AVVICINA DOVE C'E' UN ARREDO. Misurato lo stesso giorno: ordinando
+//    per numero di pezzi, i sei primi piani finivano tutti su ammassi di
+//    volumi e cose appese e NESSUNO conteneva una seduta — cioe' proprio la
+//    cosa per cui ci si avvicina.
+const misto = [{ cose: [
+  cosa(0, 0, 3, 500, 'volume'),
+  cosa(3, 0, 3, 400, 'appeso'),
+  cosa(80, 0, 3, 12, 'seduta'),
+  cosa(83, 0, 2, 2, 'banco'),
+] }];
+const gm = grappoliDaInquadrare(misto, { quanti: 1 });
+ok(gm.length === 1 && gm[0].arredi === 14,
+   `un grappolo con 14 arredi batte uno con 900 pezzi senza arredi`
+   + `  (arredi nel primo: ${gm[0] && gm[0].arredi})`);
+ok(/seduta|banco/.test(gm[0].etichetta),
+   `e l'etichetta lo conferma  (${gm[0].etichetta})`);
+
 console.log(`\n${fatte - rotte}/${fatte} verifiche passate`);
 process.exit(rotte ? 1 : 0);

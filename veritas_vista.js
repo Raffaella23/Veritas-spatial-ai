@@ -480,11 +480,15 @@ export function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15)
  *    non e' un arredo, e' l'ambiente che lo contiene. Avvicinarsi a quello
  *    riporterebbe l'inquadratura esattamente da dove siamo partiti.
  */
+export const FORME_ARREDO = Object.freeze(['seduta', 'banco']);
+
 export function grappoliDaInquadrare(posti, opz = {}) {
-  const raggio = opz.raggio != null ? opz.raggio : 8;
+  const raggio = opz.raggio != null ? opz.raggio : 6;
   const maxLato = opz.maxLato != null ? opz.maxLato : 25;
+  const latoMax = opz.latoMax != null ? opz.latoMax : 20;
   const bordo = opz.bordo != null ? opz.bordo : 1.5;
   const quanti = opz.quanti != null ? opz.quanti : 6;
+  const arredo = new Set(opz.formeArredo || FORME_ARREDO);
 
   const cose = [];
   for (const p of posti || [])
@@ -503,11 +507,21 @@ export function grappoliDaInquadrare(posti, opz = {}) {
     for (const g of grappoli) {
       const dx = Math.max(g.min[0] - c.centro[0], 0, c.centro[0] - g.max[0]);
       const dz = Math.max(g.min[2] - c.centro[2], 0, c.centro[2] - g.max[2]);
-      if (Math.sqrt(dx * dx + dz * dz) <= raggio) { dentro = g; break; }
+      if (Math.sqrt(dx * dx + dz * dz) > raggio) continue;
+      // ⚠️ IL GRAPPOLO NON PUO' CRESCERE OLTRE MISURA, o non e' piu' un primo
+      //    piano. Senza questo tetto un pezzo tira l'altro e in un edificio
+      //    fitto di arredi si arriva a un grappolo solo grande quanto
+      //    l'edificio: misurato sul banco il 05/09, 103 x 39 m con 1520
+      //    pezzi dentro, cinque pixel e mezzo al metro — cioe' esattamente
+      //    l'inquadratura da cui volevamo scappare.
+      const nx = Math.max(g.max[0], c.ingombro.max[0]) - Math.min(g.min[0], c.ingombro.min[0]);
+      const nz = Math.max(g.max[2], c.ingombro.max[2]) - Math.min(g.min[2], c.ingombro.min[2]);
+      if (nx > latoMax || nz > latoMax) continue;
+      dentro = g; break;
     }
     if (!dentro) {
       dentro = { min: c.ingombro.min.slice(), max: c.ingombro.max.slice(),
-                 pezzi: 0, forme: {} };
+                 pezzi: 0, arredi: 0, forme: {} };
       grappoli.push(dentro);
     } else {
       for (let i = 0; i < 3; i++) {
@@ -516,17 +530,25 @@ export function grappoliDaInquadrare(posti, opz = {}) {
       }
     }
     dentro.pezzi += (c.quante || 1);
+    if (arredo.has(c.forma)) dentro.arredi += (c.quante || 1);
     const f = c.forma || 'senza forma';
     dentro.forme[f] = (dentro.forme[f] || 0) + 1;
   }
 
+  // ⚠️ CI SI AVVICINA DOVE C'E' UN ARREDO, non dove ci sono piu' pezzi.
+  //    Misurato il 05/09: ordinando per numero di pezzi i sei primi piani
+  //    finivano tutti su ammassi di volumi e di cose appese, e NESSUNO
+  //    conteneva una seduta — cioe' proprio la cosa per cui ci si avvicina.
+  //    L'arredo e' quello che implica un comportamento (ci si siede, si fa
+  //    la fila): e' li' che vale la pena spendere una fotografia.
   return grappoli
-    .sort((a, b) => b.pezzi - a.pezzi)
+    .sort((a, b) => (b.arredi - a.arredi) || (b.pezzi - a.pezzi))
     .slice(0, quanti)
     .map((g) => ({
       min: [g.min[0] - bordo, g.min[1], g.min[2] - bordo],
       max: [g.max[0] + bordo, g.max[1] + bordo, g.max[2] + bordo],
       pezzi: g.pezzi,
+      arredi: g.arredi,
       etichetta: Object.keys(g.forme).sort((a, b) => g.forme[b] - g.forme[a])
         .slice(0, 3).map((k) => k + ' x' + g.forme[k]).join(', '),
     }));
@@ -564,4 +586,4 @@ export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) 
   return fuori;
 }
 export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
-  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati };
+  distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO };
