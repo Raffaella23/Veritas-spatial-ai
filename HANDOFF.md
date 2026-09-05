@@ -228,7 +228,44 @@ galleggia* — ed e' la stessa con cui i mucchi sono gia' separati piano per pia
 
 ---
 
+## 15. La finestra spettacolo va in PARALLELO, non dopo
+
+> *«Io vorrei che questa verifica andasse in parallelo sul discorso cinema: man
+> mano che fai la verifica, io la voglio vedere. Sono l'utente che vuole vedere
+> cosa vedi, in maniera spettacolarizzata. Questo e' marketing, te lo dico. Tu
+> fatti i tuoi conti a parte, ma io voglio la finestra spettacolo con gli
+> effetti: l'architettura che si costruisce a pezzettini, con i cartellini che
+> vengono messi dopo.»*
+
+⚠️ **Non e' una fase successiva, ed e' il punto della direttiva.** Ogni verifica
+dell'occhio e' gia' uno spettacolo che sta girando: sono minuti in cui una cosa
+guarda un edificio e lo capisce a pezzi. Finora quei minuti erano un'attesa muta
+e il risultato arrivava tutto insieme. **Mentre si misura, si mostra.**
+
+⚠️ **E qui gli effetti SONO ammessi** — perche' stanno sulla RAPPRESENTAZIONE,
+non sulla conclusione (direttiva 10). L'architettura che compare a pezzi, i
+cartellini che si posano dopo, l'intensita' che segue la fiducia: e' *come* si
+mostra, non *cosa* si afferma. I numeri restano quelli misurati, e un nome
+incerto resta pallido con la sua domanda accanto.
+
+📌 **Il gancio c'e' gia'**: l'evento `veritas:vista` sulla finestra, acceso il
+05/09. Ogni vista si annuncia appena finita, con cosa ha visto e quanto era
+fitta la figura. La regia si attacca li' e non deve mettere le mani dentro il
+giro dell'occhio.
+
+⚠️ E vale la divisione del lavoro che Raffaella ha detto in chiaro: **i conti si
+fanno a parte.** Le misure, i pixel al metro, le prove — quelle restano nel log
+e nell'HANDOFF. Sullo schermo va lo spettacolo.
+
+---
+
 ## 📋 I LAVORI APERTI, in quest'ordine
+
+
+> ⚠️ **PRIMA DI TUTTO, E IN PARALLELO A TUTTO: la finestra spettacolo**
+> (direttiva 15). Non si aspetta che la comprensione sia finita per farla
+> vedere: ogni giro di verifica qui sotto e' gia' il filmato. Chi riprende
+> costruisce la regia **mentre** fa le verifiche, non dopo.
 
 ### A — Il gate da 5.261 m² *(il più grosso che resta)*
 
