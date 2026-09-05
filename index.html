@@ -81,12 +81,12 @@
        Il movimento: le ali si aprono dal centro verso fuori (e' il file vero,
        scoperto progressivamente), poi il marchio respira. Nessun effetto che
        affermi qualcosa: e' solo il modo in cui compare. -->
-  <div id="veritas-boot-splash" style="position:fixed;inset:0;z-index:99999;background:#ffffff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;color:#16183A;transition:opacity 0.5s ease;">
+  <div id="veritas-boot-splash" style="position:fixed;inset:0;z-index:99999;background:#fafbfa;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;color:#16183A;transition:opacity 0.5s ease;">
     <div style="animation:eidetica-respiro 3.4s ease-in-out 1.2s infinite;">
       <img src="./Assets/Eidetica%20_logo_colorato.png" alt="EIDETICA — the intelligence layer for space"
            style="display:block;width:min(78vw,460px);height:auto;animation:eidetica-ali 1.15s cubic-bezier(.22,.9,.25,1) both;">
     </div>
-    <div id="veritas-boot-splash-msg" style="font-size:11.5px;color:#6b6f8a;max-width:340px;text-align:center;line-height:1.6;padding:0 20px;margin-top:6px;opacity:0;animation:eidetica-entra 0.6s ease 1.0s forwards;">Avvio in corso...</div>
+    <div id="veritas-boot-splash-msg" style="font-size:11.5px;color:#94a3b8;max-width:340px;text-align:center;line-height:1.6;padding:7px 16px;margin-top:6px;background:#16183A;border-radius:9px;opacity:0;animation:eidetica-entra 0.6s ease 1.0s forwards;">Avvio in corso...</div>
     <div style="width:150px;height:3px;border-radius:2px;background:#ECEAF6;margin-top:22px;overflow:hidden;opacity:0;animation:eidetica-entra 0.6s ease 1.1s forwards;">
       <div style="width:40%;height:100%;border-radius:2px;background:linear-gradient(90deg,#2E5BFF,#7B2FF7,#E0219A,#FF9A1F);animation:eidetica-barra 1.6s ease-in-out infinite;"></div>
     </div>
@@ -109,6 +109,12 @@
       0%   { transform: translateX(-110%); }
       100% { transform: translateX(310%); }
     }
+    /* ⚠️ LA RIGA DI STATO STA SU UNA PASTIGLIA SCURA, e non e' un vezzo: chi
+       la scrive (`veritasSetSplashMsg`) le passa dei COLORI che significano
+       qualcosa — verde quando il motore fisico e' pronto, grigio mentre si
+       aspetta. Erano scelti per il fondo nero di prima; sul chiaro il verde
+       sparirebbe, e con lui l'informazione. La pastiglia li tiene leggibili
+       senza toccare chi li decide. */
     @media (prefers-reduced-motion: reduce) {
       #veritas-boot-splash *, #veritas-boot-splash { animation: none !important; opacity: 1 !important; clip-path: none !important; }
     }
