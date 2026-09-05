@@ -60,13 +60,59 @@
        cosi' invece di vedere l'app "gia' accesa" con dati demo si vede
        chiaramente che sta partendo, incluso il risveglio del motore fisico
        reale (Render, piano gratuito, puo' richiedere fino a 60s). -->
-  <div id="veritas-boot-splash" style="position:fixed;inset:0;z-index:99999;background:#05070a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;color:#e2e8f0;transition:opacity 0.4s ease;">
-    <div style="width:44px;height:44px;border:3px solid rgba(0,255,136,0.15);border-top-color:#00ff88;border-radius:50%;animation:veritas-boot-spin 0.9s linear infinite;margin-bottom:22px;"></div>
-    <div style="font-size:15px;font-weight:bold;letter-spacing:0.05em;margin-bottom:10px;">VERITAS SPATIAL AI</div>
-    <div id="veritas-boot-splash-msg" style="font-size:11.5px;color:#94a3b8;max-width:340px;text-align:center;line-height:1.6;padding:0 20px;">Avvio in corso...</div>
-    <button id="veritas-boot-splash-skip" style="display:none;margin-top:22px;background:transparent;border:1px solid rgba(255,255,255,0.18);color:#94a3b8;border-radius:8px;padding:8px 16px;font-size:11px;cursor:pointer;font-family:inherit;">Continua senza motore reale &rarr;</button>
+  <!-- ═══ LA SCHERMATA D'ATTESA — EIDETICA ═══════════════════════════════
+       Visibile SUBITO, senza un filo di JavaScript: e' il primo elemento del
+       corpo, quindi si disegna appena il browser ha letto le prime righe.
+
+       ⚠️ NON E' UNA SECONDA SCHERMATA. Ha gli stessi tre identificativi di
+          prima (`veritas-boot-splash`, `-msg`, `-skip`) e la pilota lo stesso
+          codice di sempre, piu' sotto: cambia il vestito, non il meccanismo.
+          Scriverne una seconda vorrebbe dire due schermate che divergono alla
+          prima modifica.
+
+       ⚠️ IL MARCHIO NON SI RIDISEGNA, SI USA. Raffaella, 05/09: «cercare di
+          farlo uguale al logo, perche' altrimenti perde». Un ridisegno e' una
+          copia, e una copia perde. Quindi l'animazione sta SOPRA il file vero.
+
+       ⚠️ IL FONDO E' BIANCO perche' il logo e' su bianco. Su fondo scuro si
+          vedrebbe il suo rettangolo bianco attorno. Il giorno che arriva una
+          versione con lo sfondo trasparente, si puo' tornare scuri.
+
+       Il movimento: le ali si aprono dal centro verso fuori (e' il file vero,
+       scoperto progressivamente), poi il marchio respira. Nessun effetto che
+       affermi qualcosa: e' solo il modo in cui compare. -->
+  <div id="veritas-boot-splash" style="position:fixed;inset:0;z-index:99999;background:#ffffff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;color:#16183A;transition:opacity 0.5s ease;">
+    <div style="animation:eidetica-respiro 3.4s ease-in-out 1.2s infinite;">
+      <img src="./Assets/Eidetica%20_logo_colorato.png" alt="EIDETICA — the intelligence layer for space"
+           style="display:block;width:min(78vw,460px);height:auto;animation:eidetica-ali 1.15s cubic-bezier(.22,.9,.25,1) both;">
+    </div>
+    <div id="veritas-boot-splash-msg" style="font-size:11.5px;color:#6b6f8a;max-width:340px;text-align:center;line-height:1.6;padding:0 20px;margin-top:6px;opacity:0;animation:eidetica-entra 0.6s ease 1.0s forwards;">Avvio in corso...</div>
+    <div style="width:150px;height:3px;border-radius:2px;background:#ECEAF6;margin-top:22px;overflow:hidden;opacity:0;animation:eidetica-entra 0.6s ease 1.1s forwards;">
+      <div style="width:40%;height:100%;border-radius:2px;background:linear-gradient(90deg,#2E5BFF,#7B2FF7,#E0219A,#FF9A1F);animation:eidetica-barra 1.6s ease-in-out infinite;"></div>
+    </div>
+    <button id="veritas-boot-splash-skip" style="display:none;margin-top:22px;background:transparent;border:1px solid rgba(22,24,58,0.18);color:#6b6f8a;border-radius:8px;padding:8px 16px;font-size:11px;cursor:pointer;font-family:inherit;">Continua senza motore reale &rarr;</button>
   </div>
-  <style>@keyframes veritas-boot-spin { to { transform: rotate(360deg); } }</style>
+  <style>
+    /* le ali si aprono: si scopre il file vero dal centro verso fuori */
+    @keyframes eidetica-ali {
+      from { clip-path: inset(0 50% 0 50%); opacity: 0; transform: scale(0.97); }
+      to   { clip-path: inset(0 0 0 0);     opacity: 1; transform: scale(1); }
+    }
+    @keyframes eidetica-respiro { 0%,100% { transform: scale(1); } 50% { transform: scale(1.022); } }
+    @keyframes eidetica-entra   { to { opacity: 1; } }
+    /* ⚠️ La barra NON dice una percentuale: si muove per dire «sto lavorando»,
+       e non finge di sapere a che punto e'. Una barra che afferma un
+       avanzamento che nessuno ha misurato e' la stessa merce avariata dei KPI
+       finti, in piccolo. Quando ci sara' un avanzamento vero, si passa a
+       quello. */
+    @keyframes eidetica-barra {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(310%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #veritas-boot-splash *, #veritas-boot-splash { animation: none !important; opacity: 1 !important; clip-path: none !important; }
+    }
+  </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
