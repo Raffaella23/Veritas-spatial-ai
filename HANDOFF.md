@@ -356,19 +356,51 @@ macinava. Da fare per primo alla ripresa, ed è mezz'ora:
 
 ### D — L'identita' EIDETICA nella piattaforma *(in parallelo, come la 15)*
 
-1. **il file del logo**: Raffaella lo salva in `Assets/eidetica-logo.png` — ⚠️ e
-   lo deve fare lei, il file arriva dalla chat e Claude non puo' scriverlo;
-2. **la schermata di caricamento**: prima versione gia' disegnata in
-   `banco/eidetica_caricamento.svg` — occhio, ali, e i punti dell'iride che si
-   accendono **uno alla volta**, che e' letteralmente cio' che il programma sta
-   facendo mentre si aspetta. Va portata **inline dentro `index.html`**, in cima
-   al `<body>`, e tolta quando la scena e' pronta;
-3. **il logo fisso nella UI**: dove, lo decide Raffaella. Oggi in alto a sinistra
-   c'e' la scritta «VERITAS» con il pallino di stato — quello e' il posto
-   naturale, ma **si chiede** (direttiva 4);
-4. ⚠️ **e resta aperta la domanda dei nomi**: la piattaforma sullo schermo dice
-   «VERITAS», il marchio dice «EIDETICA». Sono due nomi o uno? Non si decide al
-   posto suo.
+**✅ Fatta il 05/09: la schermata d'attesa.** Non e' una schermata nuova — ce
+n'era gia' una (fondo scuro, rotella verde, «VERITAS SPATIAL AI»), pilotata dal
+codice a riga ~1538 che le scrive i messaggi e mostra il bottone per saltare
+l'attesa del motore fisico. Sono stati tenuti tutti e tre gli identificativi e
+cambiato solo il vestito: una seconda schermata sarebbe divergita dalla prima
+alla prima modifica.
+
+Com'e' fatta, e perche':
+
+- **il marchio non e' ridisegnato, e' il file vero.** *«Cercare di farlo uguale
+  al logo, perche' altrimenti perde.»* Un ridisegno e' una copia, e una copia
+  perde. L'animazione sta SOPRA `Assets/Eidetica _logo_colorato.png`;
+- **le ali si aprono** dal centro verso fuori (il file scoperto per gradi), poi
+  il marchio respira;
+- **il pulviscolo** — 54 punti nei colori del marchio. Idea di Raffaella, e fa
+  due cose: si mangia il **rettangolo** del file (il suo fondo non e' piatto, ha
+  una velatura, e su tinta piena si vedeva) e dice il prodotto — *il marchio che
+  si condensa da una polvere di punti*, che e' l'iride del logo e la direttiva
+  15 in un'immagine sola;
+- ⚠️ **SVG e non JavaScript**, e non per gusto: dentro `index.html` i blocchi
+  `<script>` sono contati e il numero 3 e' guardato per hash. Uno in piu' in
+  cima sposterebbe gli indici e farebbe suonare la guardia del reinline;
+- ⚠️ **i punti sono numeri scritti nel file** (`banco/pulviscolo.py`, seme 23):
+  la schermata non calcola niente mentre l'applicazione sta partendo;
+- ⚠️ **il fondo e' `#fafbfa`**, letto dai quattro angoli dell'immagine vera e
+  non indovinato;
+- ⚠️ **la barra non dice una percentuale.** Si muove per dire «sto lavorando».
+  Una barra che afferma un avanzamento che nessuno ha misurato e' la stessa
+  merce avariata dei KPI finti, in piccolo;
+- ⚠️ **la riga di stato sta su una pastiglia scura** perche' chi la scrive le
+  passa dei COLORI che significano qualcosa — verde quando il motore e' pronto.
+  Erano scelti per il fondo nero, e sul chiaro il verde sparirebbe.
+
+**Cosa resta:**
+
+1. **il logo fisso nella UI.** Dove, lo decide Raffaella. Oggi in alto a
+   sinistra c'e' «VERITAS» col pallino di stato: e' il posto naturale, ma **si
+   chiede** (direttiva 4);
+2. **un export piu' leggero.** Il file e' 1774 px per 850 KB: pesante per il
+   web, e a schermo identico a 700 px (~60 KB). Cosi' l'attesa diventerebbe
+   istantanea invece di aspettare il logo;
+3. **una versione con lo sfondo trasparente**, e la schermata puo' tornare
+   scura come il resto dell'applicazione;
+4. ⚠️ **e resta la domanda dei nomi**: sullo schermo c'e' scritto «VERITAS», il
+   marchio dice «EIDETICA». Sono due nomi o uno? Non si decide al posto suo.
 
 ---
 
