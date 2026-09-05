@@ -216,12 +216,46 @@ check('e anche in museo, che un parcheggio ce l ha pure lui',
       museo.some((v) => v.nome === 'automobili'));
 check('i quadri stanno in tutti e due',
       museo.some((v) => v.nome === 'quadri') && aeroporto.some((v) => v.nome === 'quadri'));
-check('i banchi del check-in sono un aggiunta solo per aeroporto',
+// ⚠️ QUESTE DUE PROVE DICEVANO IL CONTRARIO: pretendevano il check-in solo in
+//    aeroporto e la biglietteria solo in museo. Era vero fino al 30/08/2026, poi
+//    Raffaella l'ha rovesciato e il codice e' stato riscritto; la prova no. Una
+//    prova rimasta indietro e' una nota vecchia che pretende di avere ragione:
+//    si sostituisce, non si affianca.
+check('il banco di accettazione si chiede anche in museo: ospedale, albergo, fiera',
       aeroporto.some((v) => v.chiedi === 'a check-in counter')
-      && !museo.some((v) => v.chiedi === 'a check-in counter'));
-check('e la biglietteria solo per museo',
+      && museo.some((v) => v.chiedi === 'a check-in counter'));
+check('e la biglietteria anche in aeroporto: museo, teatro, stadio, stazione',
       museo.some((v) => v.chiedi === 'a ticket desk')
-      && !aeroporto.some((v) => v.chiedi === 'a ticket desk'));
+      && aeroporto.some((v) => v.chiedi === 'a ticket desk'));
+check('restano legate al dominio solo le due che fuori da li non dicono niente',
+      aeroporto.some((v) => v.chiedi === 'a jet bridge')
+      && !museo.some((v) => v.chiedi === 'a jet bridge')
+      && !museo.some((v) => v.chiedi === 'an airport departure gate'));
+
+// ⚠️ LE PAROLE DI LUOGO NON NOMINANO. Marcate il 05/09/2026: si continuano a
+//    chiedere (direttiva 6: il vocabolario non si pota), ma non danno il nome a
+//    un volume. Senza questa prova il difetto tornerebbe muto -- quattordici
+//    volumi su diciotto chiamati tutti «sala d'attesa», e nessun errore in log.
+check('sala d attesa e marcata come luogo, perche non e un oggetto',
+      R.VOCABOLARIO.some((v) => v.nome === "sala d'attesa" && v.luogo === true));
+check('le parole di luogo sono sette, e nessuna e stata tolta dal vocabolario',
+      R.VOCABOLARIO.filter((v) => v.luogo).length === 7,
+      R.VOCABOLARIO.filter((v) => v.luogo).map((v) => v.nome).join(', '));
+check('e si continuano a chiedere all occhio, in ogni dominio',
+      R.vocabolarioPer('museo').some((v) => v.luogo));
+
+// ⚠️ LA POSTURA DICE COSA FA IL CORPO, e non sostituisce la funzione.
+check('una panca dice che ci si siede',
+      R.VOCABOLARIO.find((v) => v.termine === 'bench').postura === 'seduto');
+check('un quadro dice che ci si ferma IN PIEDI, e non e la stessa cosa',
+      R.VOCABOLARIO.find((v) => v.termine === 'painting').postura === 'in piedi');
+check('un letto dice che ci si sta sdraiati',
+      R.VOCABOLARIO.find((v) => v.termine === 'bed').postura === 'sdraiato');
+check('e tutti e tre restano funzione sosta: la postura si aggiunge, non sostituisce',
+      ['bench', 'painting', 'bed'].every((t) =>
+        R.VOCABOLARIO.find((v) => v.termine === t).funzione === 'sosta'));
+check('un aereo non ha postura: davanti a lui il corpo non fa niente di particolare',
+      R.VOCABOLARIO.find((v) => v.termine === 'airplane').postura === null);
 check('ogni voce dichiara da dove viene',
       R.VOCABOLARIO.every((v) => !!v.fonte),
       R.VOCABOLARIO.filter((v) => !v.fonte).length + ' senza fonte');
@@ -261,7 +295,12 @@ for (const d of ['aeroporto', 'museo', 'gioco'])
 //    arrivare SENZA NESSUN ERRORE: le tappe resterebbero con l'etichetta
 //    misurata e nessuno collegherebbe le due cose. Questa prova lo vede subito.
 const O = await import('./veritas_occhi.js');
-const chiaviNote = new Set(O.default.FUNZIONI.map((f) => f.chiave));
+// ⚠️ Era `FUNZIONI`, tolto di proposito da veritas_occhi.js (vedi il commento
+//    alla riga 55 di quel file: erano dodici NOMI di spazi decisi prima di
+//    guardare un modello, la Regola 0-bis violata alla lettera). Il file di
+//    prova era rimasto indietro ed esplodeva qui, quindi TUTTE le prove sotto
+//    non giravano da giorni. Rimesso in pari il 05/09/2026 su `CATEGORIE`.
+const chiaviNote = new Set(O.default.CATEGORIE.map((f) => f.chiave));
 const ignote = R.VOCABOLARIO.map((v) => v.funzione)
   .filter((f) => f && !chiaviNote.has(f));
 check('ogni funzione del vocabolario e nota a veritas_occhi.js',

@@ -24002,6 +24002,30 @@ const FUNZIONE_DI = Object.freeze({
 // ⚠️ Chi non ha postura non e' un errore: e' un oggetto davanti al quale il
 //    corpo non fa niente di particolare (un'automobile, una pista). L'avatar
 //    ci passa accanto, e il programma lo dice invece di inventarsi un gesto.
+// ⚠️ LE PAROLE CHE NOMINANO UN LUOGO, NON UN OGGETTO. Marcate il 05/09/2026
+//    su decisione di Raffaella.
+//
+//    Il registro dichiara dal 30/08: NON SI CHIEDE PER TIPO DI EDIFICIO, SI
+//    CHIEDE PER OGGETTO. Sette parole lo violavano, e quattro le avevamo
+//    scritte noi. La piu' costosa e' «una sala d'attesa con file di sedute»:
+//    misurato il 04/09, e' il nome finito su QUATTORDICI volumi su diciotto.
+//
+//    E l'occhio non aveva sbagliato. Gli abbiamo chiesto «vedi una sala
+//    d'attesa?» a uno che vede sedute dappertutto, e ha risposto di si'
+//    quattordici volte. La domanda era sbagliata, non la risposta.
+//
+// ⚠️ NON SI TOLGONO DAL VOCABOLARIO. La direttiva 6 dice che il vocabolario
+//    e' enciclopedico e non si sceglie a mano cosa il programma sa riconoscere:
+//    queste parole si continuano a chiedere, e quello che l'occhio vede si
+//    continua a tenere. Ma non possono dare il NOME a un volume — come le
+//    persone, che si riconoscono apposta per poterle mettere da parte.
+//    Il nome della zona nasce dagli OGGETTI che ci stanno dentro.
+const LUOGHI = Object.freeze(new Set([
+  "building", "house", "field",
+  "a waiting room with rows of seats", "a security checkpoint",
+  "a lecture hall with tiered seating", "an airport departure gate",
+]));
+
 const POSTURA_DI = Object.freeze({
   // ci si siede
   chair: "seduto", armchair: "seduto", seat: "seduto", sofa: "seduto",
@@ -24161,10 +24185,12 @@ const VOCABOLARIO = Object.freeze(
     nome: NOME_IT[t] || t,
     funzione: FUNZIONE_DI[t] || null,
     postura: POSTURA_DI[t] || null,
+    luogo: LUOGHI.has(t),
     domini: "*",
     fonte: "ADE20K-150",
     controprova: t === "person",
-  })).concat(AGGIUNTE.map((a) => ({ ...a, termine: a.chiedi, fonte: "aggiunta dichiarata" })))
+  })).concat(AGGIUNTE.map((a) => ({ ...a, termine: a.chiedi, luogo: LUOGHI.has(a.chiedi),
+    fonte: "aggiunta dichiarata" })))
 );
 
 /**
@@ -24296,7 +24322,15 @@ function abbina(posti, rilevazioni, opz = {}) {
   // ⚠️ Le persone non nominano niente: sono la controprova
   //    (`veritas_controprova.js`). Se una zona prendesse il nome dalle figure
   //    umane, la verifica si darebbe ragione da sola.
-  const nominanti = buone.filter((r) => !(r.voce && r.voce.controprova));
+  // ⚠️ E NEMMENO I LUOGHI, per la stessa ragione rovesciata: «sala d'attesa»
+  //    non e' una cosa che sta nella stanza, e' la stanza. Chiamare un volume
+  //    con il nome di una stanza vuol dire aver deciso la zonazione PRIMA di
+  //    guardare cosa c'e' dentro — ed e' cosi' che quattordici volumi su
+  //    diciotto hanno preso lo stesso nome. Il nome nasce dagli oggetti.
+  //    Cio' che l'occhio ha visto non si butta: esce in `luoghiVisti`, come
+  //    testimonianza da dare al cervello.
+  const luoghi = buone.filter((r) => r.voce && r.voce.luogo);
+  const nominanti = buone.filter((r) => !(r.voce && (r.voce.controprova || r.voce.luogo)));
 
   const usate = new Set();
   const fuori = (posti || []).map((p) => {
@@ -24397,6 +24431,12 @@ function abbina(posti, rilevazioni, opz = {}) {
     scarti,
     scartatePerMotivo,
     persone: persone.length,
+    luoghi: luoghi.length,
+    luoghiVisti: luoghi.map((r) => ({
+      nome: r.voce.nome, score: +r.score.toFixed(3),
+      dove: r.mondo ? [+((r.mondo.min[0] + r.mondo.max[0]) / 2).toFixed(1),
+                       +((r.mondo.min[2] + r.mondo.max[2]) / 2).toFixed(1)] : null,
+    })),
   };
 }
 
@@ -24777,6 +24817,14 @@ if (typeof window !== "undefined") {
     if (righe.length)
       console.log("[VERITAS occhio] delle buttate: " + righe.join(", ")
         + " — window.__veritasScarti per vederle una per una");
+    // ⚠️ Un ramo che si salta in silenzio e' come una funzione mai chiamata.
+    //    Le parole di LUOGO si continuano a chiedere e quello che l'occhio
+    //    vede si tiene: qui si dice quante erano, perche' non nominano.
+    window.__veritasLuoghiVisti = r.luoghiVisti || [];
+    if (r.luoghi)
+      console.log("[VERITAS occhio] " + r.luoghi + " rilevazioni erano nomi di LUOGO"
+        + " (sala d'attesa, gate, varco...): tenute come testimonianza, non danno il"
+        + " nome a un volume — window.__veritasLuoghiVisti");
     const sfiorate = (r.scarti || []).filter((s) => s.motivo === "sfiorata")
       .map((s) => s.sovrapposizioneMax).sort((a, b) => b - a);
     if (sfiorate.length)
