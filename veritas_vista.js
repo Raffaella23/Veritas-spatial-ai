@@ -413,17 +413,25 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       //    Con `altezzaTelecamera` si dichiara la quota assoluta e
       //    l'inquadratura resta la stessa: cambia solo dove si mette
       //    l'occhio sulla sfera di quel raggio.
-      const altezza = opzioni.altezzaTelecamera != null
+      // ⚠️ SI CHIAMA `quotaTelecamera` E NON `altezza`, e non e' pignoleria:
+      //    `altezza` in questa funzione e' gia' l'ALTEZZA DELL'IMMAGINE in
+      //    pixel (768). Chiamando cosi' questa variabile la si copriva dentro
+      //    il ciclo, e le figure uscivano alte UN pixel invece di 768.
+      //    Misurato sulla pagina viva il 05/09: «mi avvicino a 6 grappoli: da
+      //    0 a 0.1 pixel al metro», e zero testimonianze. `node --check` non lo
+      //    vede — e' JavaScript valido — e nessuna prova in node lo prende,
+      //    perche' la resa vuole un renderer. Se ne accorge solo il numero.
+      const quotaTelecamera = opzioni.altezzaTelecamera != null
         ? opzioni.altezzaTelecamera
         : centro.y + distanza * Math.sin(elevRad);
-      const dislivello = altezza - centro.y;
+      const dislivello = quotaTelecamera - centro.y;
       // il raggio orizzontale che resta, tenuta ferma la distanza: se la
       // quota chiesta e' piu' alta della distanza stessa, non si va sotto
       // mezzo metro dal bersaglio.
       const raggio = Math.sqrt(Math.max(0.25, distanza * distanza - dislivello * dislivello));
       cam.position.set(
         centro.x + raggio * Math.cos(azimuth),
-        altezza,
+        quotaTelecamera,
         centro.z + raggio * Math.sin(azimuth),
       );
       cam.up.set(0, 1, 0);
@@ -453,7 +461,7 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
                        larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
                        etichetta: opzioni.etichetta || null,
-                       altezzaTelecamera: +altezza.toFixed(2),
+                       altezzaTelecamera: +quotaTelecamera.toFixed(2),
                        pixelPerMetro: +(altezza / (2 * distanza
                          * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
     }
