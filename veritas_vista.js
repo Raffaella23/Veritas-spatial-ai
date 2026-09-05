@@ -513,11 +513,23 @@ export function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15)
 export const FORME_ARREDO = Object.freeze(['seduta', 'banco']);
 
 export function grappoliDaInquadrare(posti, opz = {}) {
-  const raggio = opz.raggio != null ? opz.raggio : 6;
+  // ⚠️ QUANTO STRETTO, E PERCHE' PROPRIO COSI'. Misurato il 05/09 sulla
+  //    pagina viva: con grappoli da 20 m l'inquadratura dava 22 pixel al
+  //    metro e una seduta restava 12 pixel — comparivano tornelli,
+  //    ringhiere, colonne e scale mobili, ma nessuno schienale.
+  //
+  //      lato 20 m -> una seduta e' 12 pixel
+  //      lato  8 m -> una seduta e' ~30 pixel
+  //      lato  5 m -> una seduta e' ~48 pixel
+  //
+  //    Si paga in fotografie: grappoli piu' piccoli vuol dire piu'
+  //    grappoli, e ogni fotografia e' tempo dell'occhio. Otto metri e'
+  //    il bilanciamento provato; si stringe ancora solo misurando.
+  const raggio = opz.raggio != null ? opz.raggio : 4;
   const maxLato = opz.maxLato != null ? opz.maxLato : 25;
-  const latoMax = opz.latoMax != null ? opz.latoMax : 20;
-  const bordo = opz.bordo != null ? opz.bordo : 1.5;
-  const quanti = opz.quanti != null ? opz.quanti : 6;
+  const latoMax = opz.latoMax != null ? opz.latoMax : 8;
+  const bordo = opz.bordo != null ? opz.bordo : 1;
+  const quanti = opz.quanti != null ? opz.quanti : 15;
   const arredo = new Set(opz.formeArredo || FORME_ARREDO);
 
   const cose = [];

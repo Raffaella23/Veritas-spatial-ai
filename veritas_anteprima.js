@@ -59,7 +59,7 @@
 // ===========================================================================
 
 import { piantaInTela } from "./veritas_riconosce.js?v=1";
-import { mondoAPixel } from "./veritas_vista.js?v=4";
+import { mondoAPixel } from "./veritas_vista.js?v=5";
 
 const COLORI = {
   sfondo: "#12141a",
@@ -405,6 +405,22 @@ export function anteprima(doc, opz = {}) {
         riga("giro " + giro + " · cervello: capito=" + (m ? (m[1] === "true" ? "si" : "no") : "?")
           + (f ? " fiducia " + Math.round(parseFloat(f[1]) * 100) + "%" : ""));
         return risposta;
+      },
+
+      // ⚠️ LA FINESTRA SI COMPONE MENTRE L'OCCHIO GUARDA, vista per vista.
+      //    Prima restava ferma per minuti e poi si riempiva tutta insieme:
+      //    la stessa informazione, ma senza il tempo — e il tempo qui e'
+      //    l'unica cosa che dice a chi guarda che sta succedendo qualcosa.
+      onVista: function (v) {
+        try {
+          const visto = (v.cose && v.cose.length)
+            ? v.cose.slice(0, 4).map((c) => c.cosa).join(", ")
+            : "niente che riconosca";
+          riga("vista " + v.quale + "/" + v.quante + " · " + (v.vista || "")
+               + " · visto: " + visto,
+               v.cose && v.cose.length ? COLORI.puntoNome : COLORI.tenue);
+        } catch (e) {}
+        if (typeof ctx.onVista === "function") ctx.onVista(v);
       },
 
       onGiro: function (info) {

@@ -712,7 +712,26 @@ function estraiJson(testo) {
 // Il numero di viste non e' scelto qui: sono esattamente quelle che vanno al
 // cervello, e quante siano lo decide gia' la densita' di mesh del modello.
 
+/**
+ * Dice al mondo che una vista e' finita, senza poter rompere il giro.
+ *
+ * Due strade, e chi ascolta ne sceglie una: `ctx.onVista` per chi e'
+ * gia' dentro il giro (il pannello dell'anteprima), e un evento sulla
+ * finestra per chi arrivera' dopo — la regia della messa in scena non
+ * deve dover mettere le mani qui dentro.
+ */
+function annunciaVista(ctx, vista, quale, quante) {
+  if (!vista) return;
+  const info = { ...vista, quale, quante };
+  try { if (typeof ctx.onVista === "function") ctx.onVista(info); } catch (e) {}
+  try {
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function")
+      window.dispatchEvent(new CustomEvent("veritas:vista", { detail: info }));
+  } catch (e) {}
+}
+
 export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
+
   const fuori = { esitoPianta: null, testimonianza: null, viste: [] };
   if (typeof ctx.rileva !== "function") return fuori;
 
@@ -757,6 +776,20 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
       pixelPerMetro: scorci[i].pixelPerMetro || null,
       cose: [...conta.entries()].map(([label, quante]) => ({ cosa: label, quante })),
     });
+
+    // ⚠️ SI DICE SUBITO, NON A FINE GIRO — primo mattone della messa in
+    //    scena (direttiva 9). L'occhio ci mette minuti a girare tutte le
+    //    viste, e finora non diceva niente finche' non aveva finito: chi
+    //    guarda lo schermo vedeva un'attesa muta.
+    //
+    //    Adesso ogni vista si annuncia appena e' finita, con quello che ha
+    //    visto e quanto era fitta la figura. L'immagine si compone mentre
+    //    l'AI guarda, ed e' lo STATO VERO a guidarla: non c'e' nessun
+    //    effetto aggiunto, si racconta cio' che sta succedendo davvero.
+    //
+    // ⚠️ Non deve poter rompere il giro: se chi ascolta sbaglia, l'occhio
+    //    continua a guardare.
+    annunciaVista(ctx, fuori.viste[fuori.viste.length - 1], i + 1, scorci.length);
   }
 
   fuori.testimonianza = riassuntoTestimonianza(fuori);

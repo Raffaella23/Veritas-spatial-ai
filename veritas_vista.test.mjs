@@ -114,7 +114,13 @@ ok(grappoliDaInquadrare([{ cose: [] }]).length === 0, "e nemmeno con un posto vu
 
 // il tetto al numero di primi piani: il costo cresce coi grappoli, non con gli arredi
 const tanti = [{ cose: Array.from({ length: 40 }, (_, k) => cosa(k * 30, 0, 2, 4, "seduta")) }];
-ok(grappoliDaInquadrare(tanti).length === 6, `di tanti grappoli se ne guardano sei  (${grappoliDaInquadrare(tanti).length})`);
+// ⚠️ Il tetto e' salito da 6 a 15 il 05/09, insieme al lato sceso da 20 a 8 m:
+//    grappoli piu' stretti vuol dire grappoli piu' numerosi, se no meta'
+//    dell'arredo non verrebbe mai guardata da vicino.
+ok(grappoliDaInquadrare(tanti).length === 15, `di tanti grappoli se ne guardano quindici  (${grappoliDaInquadrare(tanti).length})`);
+ok(grappoliDaInquadrare(tanti).every((x) => x.max[0] - x.min[0] <= 10),
+   `e nessuno supera gli otto metri piu' il bordo`
+   + `  (il piu' lungo: ${Math.max(...grappoliDaInquadrare(tanti).map((x) => Math.round(x.max[0] - x.min[0])))} m)`);
 ok(grappoliDaInquadrare(tanti, { quanti: 3 }).length === 3, "e il tetto si puo' cambiare");
 
 // ⚠️ IL TETTO ALLA CRESCITA. Misurato sulla pagina viva il 05/09: senza,

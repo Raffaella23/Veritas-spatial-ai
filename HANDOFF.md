@@ -557,10 +557,21 @@ di cosa si vede da un punto (`veritas_visibility.js`, `veritas_visuale.js`), la
 chat col cervello, il flusso di dati progressivo descritto qui sopra, e perfino
 il motore per gli splat.
 
-**Manca**: gli eventi «una vista è finita» esposti mentre l'occhio gira; la regia
-che li mette in scena; la vista in prima persona agganciata a un agente; il
-microfono (Web Speech, la parte facile); e l'interfaccia ridotta a **immagine +
-una riga di chat**.
+**Fatto il 05/09, ed e' il primo mattone:** gli eventi «una vista e' finita»
+escono adesso mentre l'occhio gira. Ogni vista si annuncia appena finita — che
+cosa ha visto e quanto era fitta la figura — su due strade: `ctx.onVista` per
+chi e' gia' dentro il giro, e un evento `veritas:vista` sulla finestra per la
+regia che verra', che cosi' non dovra' mettere le mani dentro il giro. La
+finestra dell'occhio (`veritas_anteprima.js`) si compone vista per vista invece
+di restare muta per minuti e riempirsi tutta insieme.
+
+⚠️ E lo guida lo STATO VERO: non c'e' nessun effetto aggiunto, si racconta cio'
+che sta succedendo davvero.
+
+**Manca ancora**: la regia che mette in scena quegli eventi sul modello 3D (i
+nomi che si posano, l'intensita' che segue la fiducia); la vista in prima
+persona agganciata a un agente; il microfono (Web Speech, la parte facile); e
+l'interfaccia ridotta a **immagine + una riga di chat**.
 
 ### 🧍 GLI OMINI SONO BRUTTI — e nel prodotto del «viaggio» non possono restarlo
 
