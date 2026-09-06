@@ -451,14 +451,46 @@ sempre»). **Nessuna soglia in metri e' stata usata.**
 
 ⚠️ **DUE COSE DA GUARDARE IN FACCIA, e la seconda e' il prezzo della direttiva.**
 
-1. **Le automobili l'occhio NON le ha viste.** Il caso da cui e' partita la
-   direttiva — *«la' ci sono delle macchine che gridano vendetta»* — non e'
-   quello che ha funzionato: dall'alto un'auto non si riconosce, e a marcare
-   il fuori sono state la pista, il cielo e la terra. Il ragionamento e'
-   giusto, la vista no. **Va riprovato con gli scorci ravvicinati** (che ora
-   danno 41-85 pixel al metro invece di 6): li' un'automobile e' grande
-   abbastanza. Finche' non lo si prova, le macchine restano una cosa che
-   Raffaella vede e il programma no.
+1. **Dall'alto le automobili NON si vedono — da vicino si', e adesso ci si va.**
+   Nel primo giro il fuori l'avevano marcato la pista, il cielo e la terra: il
+   ragionamento era giusto, la vista no. La causa non era il vocabolario, erano
+   **due filtri sulla scelta dei primi piani**, e tutti e due buttavano via il
+   fronte strada prima ancora di guardarlo:
+
+   - i grappoli si ordinavano **solo per numero di arredi**, e il fronte strada
+     ha arredi ZERO (e' fatto di corsie). Quindici primi piani, nessuno li'.
+     Ora si **alterna** fra cio' che promette un comportamento e cio' di cui non
+     si sa niente;
+   - e a monte, una cosa piu' lunga di `maxLato` (25 m) veniva **scartata**
+     dall'elenco. Il gruppo delle corsie e' lungo **26,13 m**: buttato per
+     1,13 metri, su ogni modello, sempre. Ora una cosa troppo grande diventa un
+     grappolo **da sola**, inquadrata alla sua misura.
+
+   ⚠️ Il guasto era **circolare**, ed e' il motivo per cui e' durato: non ci si
+   avvicina perche' non si sa cosa c'e', e non si sa cosa c'e' perche' non ci
+   si avvicina. **Non si puo' concludere su cio' che non si e' mai guardato.**
+
+   📌 **Misurato il 06/09 facendo guardare all'occhio proprio quella
+   fotografia**, 20 pixel al metro, 61 secondi, 83 rilevazioni:
+
+   | parola | quante | migliore |
+   |---|---|---|
+   | taxi | 16 | **0,45** |
+   | automobile parcheggiata | 16 | |
+   | automobile | 15 | |
+   | furgone | 15 | |
+   | camion | 8 | |
+   | autobus | 7 | |
+   | strada | 5 | |
+   | marciapiede | 1 | |
+
+   Dall'alto, sulla stessa scena, non ne trovava **nessuna**. E `car`, `bus`,
+   `truck`, `van` portano «quasi sempre», `road` e `sidewalk` portano
+   «sempre»: da qui il fronte strada si marca da fuori **dalla parte giusta**.
+
+   ⚠️ [DA VERIFICARE] Questo e' stato misurato pilotando l'occhio a mano su
+   quel singolo scorcio, perche' il giro automatico era fermo ad aspettare il
+   modello linguistico. Il giro intero, da solo, va guardato una volta.
 2. **Sei «grattacieli» dove non ce n'e' nessuno**, ed erano gia' noti dal
    05/09 come *«quello che tre pixel sembrano»*. Prima erano un nome sbagliato
    e basta; **adesso votano**, perche' `skyscraper` sta fra le parole
