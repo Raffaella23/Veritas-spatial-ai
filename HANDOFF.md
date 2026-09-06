@@ -434,21 +434,45 @@ Provato in console con quattro rilevazioni finte: gruppo sul fronte strada →
 *«road, sempre»*; gruppo in sala d'attesa → *«niente, al chiuso»*; gruppo
 davanti all'aereo → *«aereo, quasi sempre»*, cioe' un voto.
 
-**🔴 [DA VERIFICARE] Il giro intero con l'occhio VERO non e' stato fatto**, e
-finche' non lo e' non si dichiara chiuso (regola del 04/09: una riga «corretto»
-si verifica contando le chiamate). Manca perche' il modello non e' piu' nel
-deposito di quel browser e va ricaricato dal pulsante — ⚠️ **mai dalla console
-con un `DataTransfer`**, che salta la scala automatica.
+### ✅ CHIUSO COL GIRO VERO — 06/09/2026, misurato sulla pagina viva
 
-Le tre domande da leggere, in quest'ordine, alla ripresa:
+Occhio vero acceso (`wasm/q8`), sguardo sulla pianta in **93 secondi**:
+**93 cose viste, 36 delle quali dicono «qui si e' all'aperto».**
 
-1. in console: `l'occhio aveva gia' guardato: N cose viste, M delle quali
-   dicono «qui si e' all'aperto»`. Se M = 0, l'occhio non riconosce le
-   automobili su questo modello, ed e' un difetto diverso — di vista, non di
-   ragionamento;
-2. poi: `l'occhio ha finito di guardare … rifaccio gli ingressi`;
-3. e infine la domanda per cui tutto questo e' stato fatto: **fra gli accessi
-   ne compare uno che si chiama «Accesso N da fuori»?**
+| | |
+|---|---|
+| **Accesso 1 da fuori** | 2 indizi d'accordo |
+| **Accesso 2 da fuori** | 2 indizi d'accordo |
+| Accesso 3 | resta interno |
+
+Le parole che hanno marcato il fuori: pista ×4, sky ×3, land ×3, earth ×3
+(«sempre»), aereo ×14, nave ×2, imbarcazioni ×1, skyscraper ×6 («quasi
+sempre»). **Nessuna soglia in metri e' stata usata.**
+
+⚠️ **DUE COSE DA GUARDARE IN FACCIA, e la seconda e' il prezzo della direttiva.**
+
+1. **Le automobili l'occhio NON le ha viste.** Il caso da cui e' partita la
+   direttiva — *«la' ci sono delle macchine che gridano vendetta»* — non e'
+   quello che ha funzionato: dall'alto un'auto non si riconosce, e a marcare
+   il fuori sono state la pista, il cielo e la terra. Il ragionamento e'
+   giusto, la vista no. **Va riprovato con gli scorci ravvicinati** (che ora
+   danno 41-85 pixel al metro invece di 6): li' un'automobile e' grande
+   abbastanza. Finche' non lo si prova, le macchine restano una cosa che
+   Raffaella vede e il programma no.
+2. **Sei «grattacieli» dove non ce n'e' nessuno**, ed erano gia' noti dal
+   05/09 come *«quello che tre pixel sembrano»*. Prima erano un nome sbagliato
+   e basta; **adesso votano**, perche' `skyscraper` sta fra le parole
+   «sempre». Una parola sbagliata ora ha una conseguenza — ed e' il prezzo
+   della direttiva 17, non un suo difetto: le stesse rotaie che portano
+   «pista → sei fuori» portano anche «grattacielo → sei fuori». Il rimedio non
+   e' togliere la parola (direttiva 6), e' **avvicinare la telecamera**
+   (direttiva 13), che e' lo stesso rimedio del punto 1.
+
+📌 **E un difetto di tempi, minore ma da sapere:** in quel giro gli ingressi
+non sono ripartiti da soli. Chiamando `trova()` a mano con la testimonianza
+dell'occhio il risultato e' quello scritto qui sopra, quindi la catena e'
+buona; e' il momento in cui parte che va rivisto. Da guardare per primo alla
+ripresa.
 
 ---
 

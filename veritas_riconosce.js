@@ -1180,10 +1180,32 @@ if (typeof window !== "undefined") {
   console.log("[VERITAS occhio] pronto — window.__veritasGuarda()");
 }
 
-export default {
+const ESPORTATE = {
   VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,
   occhioLocale, stato, racconta,
 };
+export default ESPORTATE;
+
+// ⚠️ LA MANIGLIA LA DA' IL MODULO — 06/09/2026, e serve a togliere un doppione.
+//
+// Raffaella: «questo problema e' gia' noto, dopo il controllo vanno tolte le
+// cose che non servono: perche' abbiamo ancora il duplicato?». Aveva ragione.
+// Di questo file giravano DUE copie insieme: il modulo e il blocco reinlinato
+// dentro `index.html`. Misurato in console: tre righe «occhio pronto» allo
+// stesso secondo, e a scrivere le maniglie era l'ultima che finiva di
+// caricarsi — cioe' a caso.
+//
+// `window.__veritasRiconosce` la assegnava solo la copia inline (gliela
+// aggiunge `banco/reinlina.py`, ed e' il suo secondo argomento). Il modulo la
+// LEGGEVA per sapere se toccava a lui accendere l'occhio all'avvio: tolta la
+// copia inline senza questa riga, quella guardia uscirebbe subito e l'occhio
+// non si accenderebbe piu' da solo — in silenzio, che e' il modo peggiore.
+//
+// ⚠️ Non sovrascrive: se la copia inline c'e' ancora, comanda lei e questa
+//    riga non fa niente. Cosi' i due stati sono tutti e due sani, e la
+//    rimozione non deve avvenire nello stesso istante.
+if (typeof window !== "undefined" && !window.__veritasRiconosce)
+  window.__veritasRiconosce = ESPORTATE;
