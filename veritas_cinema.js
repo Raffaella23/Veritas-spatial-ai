@@ -173,7 +173,7 @@ function costruisciPolvere(p) {
     //    tarato sulla distanza a cui stava la telecamera quando l'hai provato:
     //    misurato il 06/09, con la formula a pixel un punto veniva 0,38 px,
     //    cioe' invisibile. Un raggio in metri si comporta come una cosa vera.
-    dim[i] = 0.22 + caso() * 0.20;
+    dim[i] = 0.30 + caso() * 0.26;
   }
 
   const geom = new THREE.BufferGeometry();
@@ -194,7 +194,6 @@ function costruisciPolvere(p) {
   const materiale = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
     uniforms: {
       opacitaGlobale: { value: 0 },
       // altezza della tela in pixel / (2*tan(fov/2)): la conversione standard
@@ -242,13 +241,16 @@ function costruisciPolvere(p) {
         if (r > 1.0) discard;
         float alone   = pow(1.0 - r, 2.2);
         float nucleo  = pow(max(0.0, 1.0 - r * 2.6), 3.0);
-        // Non scoperto: un grigio bluastro appena percettibile — «qui c'e'
-        // qualcosa, non so ancora cosa». Scoperto: il colore del marchio, acceso.
-        vec3  spento  = vec3(0.16, 0.19, 0.30);
-        vec3  acceso  = vColore + vec3(nucleo * 0.85);
+        // ⚠️ INCHIOSTRO, NON NEON. Il film si gira sulla carta grigia della
+        //    piattaforma: l'additivo li' schiarisce e la polvere sparisce.
+        //    Quindi colore pieno, e il nucleo si SCURISCE invece di accendersi.
+        //    Non scoperto: un grigio appena piu' scuro della carta — «qui c'e'
+        //    qualcosa, non so ancora cosa». Scoperto: il colore del marchio.
+        vec3  spento  = vec3(0.62, 0.64, 0.69);
+        vec3  acceso  = vColore * (1.0 - nucleo * 0.28);
         vec3  finale  = mix(spento, acceso, vScoperto);
-        float forza   = mix(0.30, 1.0, vScoperto);
-        gl_FragColor = vec4(finale, (alone * 0.55 + nucleo) * opacitaGlobale * vVicino * forza);
+        float forza   = mix(0.34, 1.0, vScoperto);
+        gl_FragColor = vec4(finale, min(1.0, (alone * 0.55 + nucleo * 1.15)) * opacitaGlobale * vVicino * forza);
       }
     `,
   });
@@ -415,8 +417,37 @@ function rimettiIlModello() {
 //    (`__veritasGetTrajectory`). Se non c'e' ancora, il film resta dall'alto e
 //    LO DICE, invece di far camminare un fantasma su un percorso finto.
 // ---------------------------------------------------------------------------
-const OCCHIO_H = 1.65;      // m — l'altezza dell'occhio di chi cammina
-const CONO_GRADI = 62;      // il cono visivo utile: quello che si vede davvero
+// ⚠️ CHI GUARDA E' UN PARAMETRO DICHIARATO, non un numero nascosto.
+//    Raffaella, 06/09: «dobbiamo targettizzare chi e' il nostro osservatore:
+//    potremmo valutare di mettere quello sulla sedia a rotelle. Adesso facciamo
+//    il caso tipo, pero' tieni a mente che possiamo dire chi e' l'attore.»
+//
+//    Gli archetipi NON si riscrivono qui: esistono gia' in `veritas_visibility`
+//    (`business` occhio 1,65 · `wheelchair` 1,20 · `tourist` 1,65), sono gli
+//    stessi con cui si calcola l'isovista, e sono la ragione per cui il referto
+//    7 promette «la stessa pianta a 1,65 m e a 1,20 m». Due registri di altezze
+//    d'occhio che divergono sarebbero due verita' sullo stesso spazio.
+const ATTORE_PREDEFINITO = 'business';
+function attore(nome) {
+  const reg = (window.__veritasVisibility && window.__veritasVisibility.SKINS)
+           || (window.__veritasSkins) || null;
+  const k = nome || stato.attore || ATTORE_PREDEFINITO;
+  if (reg && reg[k]) return { chiave: k, occhio: reg[k].eyeHeight, nome: reg[k].label || k };
+  // Ripiego dichiarato: se il registro non e' esposto, si usano le due quote
+  // che il prodotto promette per iscritto, e si DICE che sono un ripiego.
+  const fallback = { business: 1.65, wheelchair: 1.20, tourist: 1.65 };
+  return { chiave: k, occhio: fallback[k] || 1.65, nome: k, ripiego: true };
+}
+
+// ⚠️ LA LENTE E' 60 GRADI, e non e' il cono percettivo.
+//    Raffaella, 06/09: «nei programmi di rendering, per ricreare la sensazione
+//    dell'occhio dell'uomo si usa un'apertura di sessanta gradi». E' vero, ed e'
+//    una cosa DIVERSA dai 100-140 gradi che `veritas_visibility` usa per
+//    l'isovista: quelli dicono quanto spazio una persona percepisce, questi
+//    dicono che lente stiamo montando. Confonderli darebbe una soggettiva da
+//    grandangolo, che deforma e fa sembrare tutto piu' lontano.
+const LENTE_GRADI = 60;
+const CONO_GRADI = 62;      // quanto il corpo INCONTRA camminando
 const CONO_PORTATA = 26;    // m — oltre, il dettaglio non si legge
 
 function trovaIlCammino() {
@@ -442,6 +473,7 @@ function trovaIlCammino() {
 function guidaLOcchio(u) {
   const via = stato.via, c = window.__veritasCamera;
   if (!via || !c) return null;
+  const OCCHIO_H = attore().occhio;
   const i = Math.min(via.length - 2, Math.floor(u * (via.length - 1)));
   const f = u * (via.length - 1) - i;
   const a = via[i], b = via[i + 1];
@@ -452,7 +484,11 @@ function guidaLOcchio(u) {
   // sta andando, ed e' quello che decide che cosa incontra.
   const avanti = via[Math.min(via.length - 1, i + 6)];
   c.position.set(px, py + OCCHIO_H, pz);
-  c.lookAt(avanti[0], avanti[1] + OCCHIO_H * 0.85, avanti[2]);
+  // ⚠️ SI GUARDA DRITTO, non in giu'. Mirare piu' in basso dell'occhio inclina
+  //    la camera, e una camera inclinata in giu' si legge come «sto in alto»:
+  //    misurato il 06/09, l'altezza era giusta (1,61 m sul pavimento) e
+  //    sembrava sbagliata solo per questo.
+  c.lookAt(avanti[0], avanti[1] + OCCHIO_H, avanti[2]);
   c.updateMatrixWorld();
   return [px, py, pz];
 }
@@ -485,10 +521,10 @@ function costruisciCartelli(p) {
   const d = document.createElement('div');
   d.id = 'eidetica-cinema-cartelli';
   d.style.cssText = [
-    'position:absolute', 'left:28px', 'bottom:168px', 'z-index:9200', 'max-width:46%',
+    'position:absolute', 'left:28px', 'bottom:232px', 'z-index:9200', 'max-width:44%',
     'pointer-events:none', 'font-family:Jura,Inter,system-ui,sans-serif',
-    'color:#f2f4fa', 'opacity:0', 'transition:opacity .8s ease',
-    'text-shadow:0 1px 18px rgba(0,0,0,.75)',
+    'color:#1b1d23', 'opacity:0', 'transition:opacity .8s ease',
+    'text-shadow:0 1px 0 rgba(255,255,255,.9)',
   ].join(';');
   d.innerHTML = `
     <div id="eidetica-cinema-atto" style="font-size:11px;letter-spacing:.22em;
@@ -533,7 +569,7 @@ function fotogramma() {
 
   // ATTO 1 — la polvere compare.
   if (ora < T.polvere) {
-    stato.materiale.uniforms.opacitaGlobale.value = morbido(ora / T.polvere) * 0.75;
+    stato.materiale.uniforms.opacitaGlobale.value = morbido(ora / T.polvere) * 0.92;
     if (stato.fase !== 'polvere') {
       stato.fase = 'polvere';
       racconta('atto primo', 'Non so ancora che posto sia questo.',
@@ -555,8 +591,8 @@ function fotogramma() {
       pos[i * 3 + 2] = nasce[i * 3 + 2] + (meta[i * 3 + 2] - nasce[i * 3 + 2]) * t;
     }
     g.attributes.position.needsUpdate = true;
-    stato.materiale.uniforms.opacitaGlobale.value = 0.75;
-    velaIlModello(0.10 + 0.10 * u);
+    stato.materiale.uniforms.opacitaGlobale.value = 0.92;
+    velaIlModello(0.30 + 0.12 * u);
   }
   // ATTO 3 — SI ENTRA NEL CORPO. La camera scende agli occhi di chi cammina.
   else {
@@ -570,10 +606,11 @@ function fotogramma() {
           ? 'la camera scende sugli occhi di un passeggero — cammino vero della simulazione'
           : '⚠️ non c’è ancora una traiettoria: resto dall’alto invece di far camminare un fantasma');
     }
-    stato.materiale.uniforms.opacitaGlobale.value = 0.68 + 0.07 * Math.sin(ora * 1.6);
-    velaIlModello(0.22);
+    stato.materiale.uniforms.opacitaGlobale.value = 0.90 + 0.06 * Math.sin(ora * 1.6);
+    velaIlModello(0.42);
     if (stato.cielo) stato.cielo.material.uniforms.velo.value =
       Math.min(1, (ora - T.polvere - T.condensa) / 1.2);
+    if (!stato.cielo && stato.cartelli) stato.cartelli.style.color = '#1b1d23';
 
     if (stato.via) {
       const t3 = ora - (T.polvere + T.condensa);
@@ -583,11 +620,12 @@ function fotogramma() {
         const u = morbido(t3 / T.discesa);
         const c = window.__veritasCamera;
         const meta0 = stato.via[0];
+        const hOcchio = attore().occhio;
         c.position.lerpVectors(stato.cameraPrima.pos,
-          new window.THREE.Vector3(meta0[0], meta0[1] + OCCHIO_H, meta0[2]), u);
+          new window.THREE.Vector3(meta0[0], meta0[1] + hOcchio, meta0[2]), u);
         const q = c.quaternion.clone();
         c.lookAt(stato.via[Math.min(stato.via.length - 1, 6)][0],
-                 meta0[1] + OCCHIO_H, stato.via[Math.min(stato.via.length - 1, 6)][2]);
+                 meta0[1] + hOcchio, stato.via[Math.min(stato.via.length - 1, 6)][2]);
         c.quaternion.slerpQuaternions(stato.cameraPrima.quat, c.quaternion.clone(), u);
         c.quaternion.copy(q.slerp(c.quaternion, u));
         c.updateMatrixWorld();
@@ -675,7 +713,7 @@ function preparaIlMarchio() {
 }
 
 // ---------------------------------------------------------------------------
-export function avvia() {
+export function avvia(opz) {
   if (stato.acceso) return true;
   const p = pagina();
   if (!p) { console.warn('[EIDETICA cinema] la scena non è pronta: non parte'); return false; }
@@ -697,8 +735,13 @@ export function avvia() {
     const b = new p.THREE.Box3().setFromObject(window.__veritasModelRoot);
     raggio = Math.max(50, b.getSize(new p.THREE.Vector3()).length());
   } catch (e) {}
-  stato.cielo = costruisciCielo(p.THREE, raggio);
-  stato.gruppo.add(stato.cielo);
+  // ⚠️ NIENTE CIELO SCURO — deciso da Raffaella il 06/09: «questo nero non mi
+  //    piace: farei lo schermo grigio, e poi la scena grigia dove precipitano
+  //    questi pixel colorati». Il film si gira dentro la carta della
+  //    piattaforma, e la polvere ci si deposita sopra come inchiostro.
+  //    (`costruisciCielo` resta scritta: se un giorno servira' una versione da
+  //     proiettare al buio, e' li' e si accende con `opz.cielo`.)
+  if (opz && opz.cielo) { stato.cielo = costruisciCielo(p.THREE, raggio); stato.gruppo.add(stato.cielo); }
   p.scena.add(stato.gruppo);
 
   // Il cammino vero. Se non c'e', il film si fa dall'alto e LO DICE.
@@ -706,6 +749,7 @@ export function avvia() {
   stato.cameraPrima = {
     pos: p.camera.position.clone(),
     quat: p.camera.quaternion.clone(),
+    fov: p.camera.fov,
   };
   stato.controlliPrima = null;
   try {
@@ -717,7 +761,7 @@ export function avvia() {
   stato.geom = costruito.geom;
   stato.materiale = costruito.materiale;
   stato.cartelli = costruisciCartelli(p);
-  abbassaLaStanza();
+  try { p.camera.fov = LENTE_GRADI; p.camera.updateProjectionMatrix(); } catch (e) {}
   stato.partenza = performance.now();
   stato.fase = 'spento';
   stato.viste = 0;
@@ -747,6 +791,7 @@ export function ferma() {
     if (c && stato.cameraPrima) {
       c.position.copy(stato.cameraPrima.pos);
       c.quaternion.copy(stato.cameraPrima.quat);
+      if (stato.cameraPrima.fov != null) { c.fov = stato.cameraPrima.fov; c.updateProjectionMatrix(); }
       c.updateMatrixWorld();
     }
     const ctr = window.__veritasControls;
