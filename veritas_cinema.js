@@ -1,134 +1,192 @@
 /**
- * EIDETICA — LA FINESTRA DELLA CONOSCENZA CHE SI FORMA
+ * EIDETICA — LA RICOMPOSIZIONE DELLO SPAZIO
  * =============================================================================
  *
- * Raffaella, 06/09/2026:
- *   «Io ho immaginato qualcosa di impressionante, di cinematico. Il marchio
- *    EIDETICA che diventa cliccabile e fa partire questo cinema di immagini che
- *    si formano, partendo dai frammenti di pixel che si creano. Deve essere
- *    qualcosa di trascendente: la formazione della conoscenza deve essere
- *    evocata visivamente. Stiamo facendo cose serie, ma in questo momento la
- *    cosa seria deve fare anche scena. L'architetto si deve fermare.»
+ * ⚠️ LA GRAMMATICA DI QUESTO FILM NON L'HA INVENTATA CHI SCRIVE CODICE.
+ *    Raffaella, 06/09/2026, ha scritto un prototipo intero — «Eidetica —
+ *    ricomposizione dello spazio», HTML e canvas — e l'ha consegnato dicendo:
+ *    *«ho creato questa simulazione, conclude sempre con i colori del marchio,
+ *    qui e' in italiano ma dipende dalla lingua che si sceglie, e voglio anche
+ *    il suono dentro. Vorrei che seguissi questa linea di pensiero.»*
  *
- * E' la DIRETTIVA 15 messa in scena, e la 15 dice due cose che qui comandano:
+ *    Da quel prototipo vengono, e NON si ridiscutono senza di lei:
+ *      · il fondo chiaro: si gira sulla carta, non al buio;
+ *      · l'ordine — prima i PUNTI che precipitano, poi le SUPERFICI che si
+ *        accendono sopra, poi i CARTELLINI che si posano;
+ *      · il cartellino: pallino sull'ancora, filo, pastiglia bianca col nome;
+ *      · le cinque fasi, che hanno un nome: modello grezzo, percezione,
+ *        riconoscimento, semantica, spazio ricomposto;
+ *      · la barra: play, pausa, scrub, «rivedi». E' un VIDEO, non degli scatti;
+ *      · il pad sonoro, spento all'avvio;
+ *      · la camera che orbita e si avvicina mentre lo spazio si ricompone.
  *
- *   1. ⚠️ **LA MESSA IN SCENA LA GUIDA LO STATO VERO, MAI UN EFFETTO.** Non c'e'
- *      un solo numero inventato in questo file. I punti sono i 21.267 punti
- *      MISURATI dello spazio navigabile; le viste sono le viste che l'occhio
- *      sta guardando davvero; la fiducia e' quella che ha dichiarato lui. Se
- *      l'animazione la guidasse un effetto invece dello stato, avremmo
- *      costruito una bugia bellissima — la stessa merce avariata dei KPI finti,
- *      ma col budget del marketing dietro.
+ * QUELLO CHE CAMBIA rispetto al prototipo, ed e' tutto il lavoro: li' i sei
+ * ambienti erano disegnati a mano, qui sono gli AMBIENTI MISURATI; i punti sono
+ * la nuvola vera; i nomi sono quelli che l'occhio ha riconosciuto; e i
+ * cartellini stanno dove le zone stanno davvero.
  *
- *   2. ⚠️ **MA QUI GLI EFFETTI SONO AMMESSI**, perche' stanno sulla
- *      RAPPRESENTAZIONE e non sulla conclusione (direttiva 10). *Come* si
- *      mostra e' libero; *che cosa* si afferma no. Un nome incerto resta
- *      pallido e con la sua domanda accanto, per quanto bello sia il modo in
- *      cui compare.
+ * ⚠️ LA REGOLA CHE TIENE IN PIEDI TUTTO (direttive 10 e 15): **i COLORI sono
+ *    liberi, le POSIZIONI no.** Il colore di un ambiente viene dal marchio e non
+ *    afferma niente sullo spazio; la posizione di ogni punto e' la misura. Si
+ *    puo' rendere bella la rappresentazione, mai la conclusione. Un nome
+ *    incerto resta pallido, per bello che sia il modo in cui compare.
  *
- * ⚠️ NIENTE GAUSSIAN SPLAT (direttiva 9). L'occhio non produce punti
- *    tridimensionali, e costruirci uno splat vorrebbe dire disegnare
- *    un'immagine della comprensione al posto della comprensione. Il modello
- *    vero c'e' gia': si accende lui, progressivamente.
- *
- * LA SCELTA VISIVA — e la decide Raffaella, 06/09:
- *   «Se questi pixel hanno i colori di EIDETICA su un fondo bello, non ce ne
- *    frega niente che non rispecchino i colori del modello: l'importante e' che
- *    facciano vedere come il modello guarda la realta'.»
- *
- * Quindi **la stanza si abbassa e i colori si accendono.** La piattaforma e'
- * chiara («il vestito e' carta», 05/09) e su carta il marchio non puo'
- * brillare: al massimo si deposita. Il film si prende il suo fondo profondo per
- * la durata del film, e **alla fine la luce torna** — la piattaforma resta
- * quella di sempre, il buio e' un momento, non una scelta di prodotto.
- *
- * ⚠️ **E LA RIGA CHE NON SI ATTRAVERSA, che e' quella che fa vendere il
- *    referto: i COLORI sono liberi, le POSIZIONI no.** Ogni punto sta dove e'
- *    stato misurato, al millimetro. Si puo' rendere bella la rappresentazione,
- *    mai la conclusione (direttiva 10). Un fondo scuro non afferma niente sullo
- *    spazio; un punto spostato per far scena si'.
- *
- * E' UNO STRATO. `window.veritasCinema.spegni()` e la scena torna com'era:
- * nessun oggetto aggiunto resta, nessun materiale resta modificato.
+ * E' UNO STRATO: `window.veritasCinema.spegni()` e la scena torna com'era —
+ * camera, lente e materiali compresi.
  */
 
-const MARCA = {
-  // I quattro colori del marchio EIDETICA, nell'ordine dell'iride.
-  blu:      [0.18, 0.36, 1.00],
-  viola:    [0.48, 0.25, 0.89],
-  magenta:  [0.88, 0.15, 0.60],
-  arancio:  [0.96, 0.65, 0.14],
-};
-const SCALA = [MARCA.blu, MARCA.viola, MARCA.magenta, MARCA.arancio];
+// I colori del marchio, nell'ordine dell'iride: sono quelli del prototipo.
+const MARCA = [
+  [0.169, 0.361, 0.902],   // blu      #2B5CE6
+  [0.482, 0.184, 0.831],   // viola    #7B2FD4
+  [0.878, 0.204, 0.545],   // magenta  #E0348B
+  [0.976, 0.447, 0.122],   // arancio  #F9721F
+  [0.984, 0.690, 0.231],   // oro      #FBB03B
+];
 
-const T = {
-  polvere:      1.2,   // s — la polvere compare
-  condensa:     4.2,   // s — i punti raggiungono la loro posizione misurata
-  respiro:      0.9,   // s — l'assestamento prima che l'occhio cominci
-  discesa:      2.4,   // s — la camera scende dentro il corpo di chi cammina
-  passeggiata: 55.0,   // s — quanto dura il cammino, dal primo all'ultimo passo
+// ⚠️ LE PAROLE SEGUONO LA LINGUA SCELTA. Raffaella: «qui risulta tutta in
+//    italiano ma naturalmente dipende dalla lingua che si sceglie». La lingua
+//    non si indovina: si legge da dove l'applicazione la tiene gia'.
+const PAROLE = {
+  it: {
+    fasi: ['Modello grezzo', 'Percezione', 'Riconoscimento', 'Semantica', 'Spazio ricomposto'],
+    uno: 'ambiente riconosciuto', molti: 'ambienti riconosciuti',
+    occhio: 'altezza occhio', avvia: 'Avvia', pausa: 'Pausa',
+    riprendi: 'Riprendi', rivedi: 'Rivedi', suono: 'Suono',
+    senzaNome: 'senza nome', incontrati: 'incontrati camminando',
+  },
+  en: {
+    fasi: ['Raw model', 'Perception', 'Recognition', 'Semantics', 'Space recomposed'],
+    uno: 'space recognised', molti: 'spaces recognised',
+    occhio: 'eye height', avvia: 'Play', pausa: 'Pause',
+    riprendi: 'Resume', rivedi: 'Replay', suono: 'Sound',
+    senzaNome: 'unnamed', incontrati: 'met while walking',
+  },
 };
+function lingua() {
+  // ⚠️ NON si guarda `document.documentElement.lang`: misurato il 06/09, quel
+  //    campo diceva «en» mentre l'interfaccia era tutta in italiano, e il film
+  //    e' uscito in inglese. La lingua e' quella che l'utente ha SCELTO, e
+  //    l'applicazione la tiene nei suoi due bottoni IT/EN.
+  const g = window.__veritasLingua || window.__veritasLang;
+  if (g && PAROLE[String(g).toLowerCase().slice(0, 2)]) return String(g).toLowerCase().slice(0, 2);
+  try {
+    const b = Array.prototype.slice.call(document.querySelectorAll('button'))
+      .filter(function (x) { return /^(IT|EN)$/i.test((x.textContent || '').trim()); });
+    for (const x of b) {
+      const st = getComputedStyle(x);
+      const acceso = x.getAttribute('aria-pressed') === 'true'
+        || /active|selected|attiv/i.test(x.className || '')
+        || parseFloat(st.opacity || '1') > 0.95 && st.fontWeight >= 600;
+      if (acceso) return (x.textContent || '').trim().toLowerCase();
+    }
+  } catch (e) {}
+  return 'it';
+}
+const P = () => PAROLE[lingua()];
+
+// ⚠️ CHI GUARDA E' UN PARAMETRO DICHIARATO. Raffaella, 06/09: «dobbiamo
+//    targettizzare chi e' il nostro osservatore: potremmo valutare quello sulla
+//    sedia a rotelle». Gli archetipi non si riscrivono qui: stanno in
+//    `veritas_visibility` (business 1,65 · wheelchair 1,20 · tourist), sono gli
+//    stessi dell'isovista e gli stessi per cui il referto 7 promette «la stessa
+//    pianta a 1,65 m e a 1,20 m». Due registri sarebbero due verita'.
+const ATTORE_PREDEFINITO = 'business';
+function attore(nome) {
+  const reg = (window.__veritasVisibility && window.__veritasVisibility.SKINS)
+           || window.__veritasSkins || null;
+  const k = nome || stato.attore || ATTORE_PREDEFINITO;
+  if (reg && reg[k]) return { chiave: k, occhio: reg[k].eyeHeight, nome: reg[k].label || k };
+  const ripiego = { business: 1.65, wheelchair: 1.20, tourist: 1.65 };
+  return { chiave: k, occhio: ripiego[k] || 1.65, nome: k, ripiego: true };
+}
+
+// ⚠️ LA LENTE E' 60 GRADI, e non e' il cono percettivo. Raffaella, 06/09: «nei
+//    programmi di rendering, per ricreare la sensazione dell'occhio dell'uomo si
+//    usa un'apertura di sessanta gradi». I 100-140 gradi di `veritas_visibility`
+//    dicono quanto una persona PERCEPISCE; questi dicono che lente montiamo.
+const LENTE_GRADI = 60;
+const CONO_GRADI = 62;      // quanto il corpo INCONTRA camminando
+const CONO_PORTATA = 26;    // m — oltre, il dettaglio non si legge
+
+// Il film in frazioni di se stesso, come nel prototipo (t va da 0 a 1).
+const ATTI = {
+  polvere:   [0.00, 0.10],
+  condensa:  [0.06, 0.55],
+  superfici: [0.30, 0.72],
+  cartelli:  [0.55, 0.80],
+  cammino:   [0.80, 1.00],
+};
+const DURATA_MS = 26000;
 
 const stato = {
-  acceso: false,
-  gruppo: null,
-  punti: null,
-  geom: null,
-  materiale: null,
-  partenza: 0,
-  fase: 'spento',
-  raf: null,
-  velature: [],        // opacita' originali, per rimetterle
-  cartelli: null,
-  viste: 0,
-  ultimaVista: null,
-  vive: [],            // le viste arrivate: {x, z, t}
-  fondoPrima: null,
-  fogColorePrima: null,
-  cssPadrePrima: null,
-  cielo: null,
-  via: null,
-  scoperti: 0,
-  cameraPrima: null,
-  controlliPrima: null,
-  ultimoRacconto: 0,
+  acceso: false, t: 0, corre: false, ultimo: 0, raf: null,
+  gruppo: null, geom: null, materiale: null,
+  ambienti: [], velature: [], cartelli: null, plancia: null, pannello: null,
+  cameraPrima: null, controlliPrima: null,
+  via: null, scoperti: 0, attore: null,
+  centro: [0, 0, 0], raggio0: 40, angolo0: 0, altezza0: 20,
+  audio: null, suonoAcceso: false,
 };
 
-// ---------------------------------------------------------------------------
-// Le maniglie della pagina. Se manca qualcosa non si finge: si dice e si esce.
-// ---------------------------------------------------------------------------
 function pagina() {
-  const THREE = window.THREE;
-  const scena = window.__veritasScene;
-  const camera = window.__veritasCamera;
-  const tela = window.__veritasCanvasEl;
-  const punti = window.__veritasAutoPoints || [];
+  const THREE = window.THREE, scena = window.__veritasScene,
+        camera = window.__veritasCamera, tela = window.__veritasCanvasEl,
+        punti = window.__veritasAutoPoints || [];
   if (!THREE || !scena || !camera || !tela) return null;
   return { THREE, scena, camera, tela, punti };
 }
 
 // ---------------------------------------------------------------------------
-// La polvere: un punto per ogni punto MISURATO dello spazio navigabile.
-//
-// Ogni punto ha due posizioni: da dove arriva (sparso, alto, senza forma) e
-// dove sta davvero (la misura). Fra le due si interpola, e quella e' tutta
-// l'animazione della condensazione: nessun numero inventato, solo il vero
-// raggiunto piu' o meno tardi.
+// GLI AMBIENTI SONO QUELLI MISURATI, non sei riquadri disegnati a mano.
+// Ognuno prende un colore del marchio — che non afferma niente sullo spazio,
+// e' rappresentazione — e un istante in cui entra in scena, sfalsato lungo x:
+// cosi' la conoscenza si deposita da una parte all'altra, come uno sguardo.
 // ---------------------------------------------------------------------------
-function costruisciPolvere(p) {
-  const { THREE, punti } = p;
-  const n = punti.length;
+function leggiGliAmbienti() {
+  const z = ((window.__veritasPercezione || {}).zones || []).slice();
+  if (!z.length) return [];
+  const xs = z.map((a) => a.centroidX);
+  const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+  // I nomi VERI, se qualcuno li ha capiti. Se no si dichiara «senza nome»:
+  // riempire con un'etichetta inventata sarebbe la bugia peggiore.
+  const nodi = (window.__veritasGetNodes ? window.__veritasGetNodes() : []) || [];
+  return z.map((a, i) => {
+    const t = (a.centroidX - minX) / Math.max(1e-6, maxX - minX);
+    let nome = null, fiducia = 1, vicino = null, dmin = Infinity;
+    for (const n of nodi) {
+      if (!n.pos) continue;
+      const d = Math.hypot(n.pos[0] - a.centroidX, n.pos[2] - a.centroidZ);
+      if (d < dmin) { dmin = d; vicino = n; }
+    }
+    if (vicino && dmin < Math.max(6, Math.sqrt(a.areaM2 || 9))) {
+      nome = vicino.label || null;
+      fiducia = vicino.fiducia != null ? vicino.fiducia
+              : (vicino.confidence != null ? vicino.confidence : 1);
+    }
+    return {
+      i, nome, fiducia, area: a.areaM2 || 0,
+      x: a.centroidX, y: a.y != null ? a.y : 0, z: a.centroidZ,
+      colore: MARCA[i % MARCA.length],
+      t0: ATTI.condensa[0] + t * (ATTI.condensa[1] - ATTI.condensa[0]) * 0.75,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// LA POLVERE. Ogni punto ha due posizioni: da dove precipita e dove sta
+// DAVVERO. Fra le due si interpola, e quella e' tutta l'animazione: l'unica
+// cosa animata e' QUANDO arriva, mai DOVE.
+// ---------------------------------------------------------------------------
+function costruisciPolvere(p, ambienti) {
+  const THREE = p.THREE, punti = p.punti, n = punti.length;
   if (!n) return null;
 
-  const pos = new Float32Array(n * 3);      // posizione corrente (animata)
-  const meta = new Float32Array(n * 3);     // dove sta davvero: la misura
-  const nasce = new Float32Array(n * 3);    // da dove arriva
-  const col = new Float32Array(n * 3);
-  const rit = new Float32Array(n);          // ritardo: la polvere non arriva tutta insieme
-  const dim = new Float32Array(n);
+  const pos = new Float32Array(n * 3), meta = new Float32Array(n * 3),
+        nasce = new Float32Array(n * 3), tinta = new Float32Array(n * 3),
+        quando = new Float32Array(n), dim = new Float32Array(n),
+        scoperto = new Float32Array(n);
 
-  // L'ingombro serve solo a far nascere la polvere ATTORNO allo spazio, non
-  // dentro: cosi' si vede arrivare da fuori, come una cosa che si scopre.
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxY = -Infinity;
   for (const q of punti) {
     if (q[0] < minX) minX = q[0]; if (q[0] > maxX) maxX = q[0];
@@ -136,174 +194,92 @@ function costruisciPolvere(p) {
     if (q[1] > maxY) maxY = q[1];
   }
   const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
-  const raggio = Math.max(maxX - minX, maxZ - minZ) * 0.75;
+  const raggio = Math.max(maxX - minX, maxZ - minZ) * 0.6;
 
-  // Seme fisso: la stessa scena due volte deve fare lo stesso film.
-  let seme = 20260906;
+  let seme = 20260906;   // seme fisso: la stessa scena fa sempre lo stesso film
   const caso = () => { seme = (seme * 1664525 + 1013904223) % 4294967296; return seme / 4294967296; };
 
   for (let i = 0; i < n; i++) {
     const q = punti[i];
     meta[i * 3] = q[0]; meta[i * 3 + 1] = q[1]; meta[i * 3 + 2] = q[2];
 
-    // Nasce su una cupola attorno allo spazio: angolo casuale, quota alta.
-    const a = caso() * Math.PI * 2;
-    const r = raggio * (0.8 + caso() * 0.7);
-    nasce[i * 3]     = cx + Math.cos(a) * r;
-    nasce[i * 3 + 1] = maxY + 6 + caso() * 22;
+    const a = caso() * Math.PI * 2, r = raggio * (0.9 + caso() * 0.8);
+    nasce[i * 3] = cx + Math.cos(a) * r;
+    nasce[i * 3 + 1] = maxY + 5 + caso() * 20;
     nasce[i * 3 + 2] = cz + Math.sin(a) * r;
-
     pos[i * 3] = nasce[i * 3]; pos[i * 3 + 1] = nasce[i * 3 + 1]; pos[i * 3 + 2] = nasce[i * 3 + 2];
 
-    // Il ritardo segue la POSIZIONE, non il caso: la conoscenza si deposita da
-    // una parte all'altra dello spazio, come uno sguardo che lo percorre.
-    const t = (q[0] - minX) / Math.max(1e-6, maxX - minX);
-    rit[i] = Math.min(0.85, Math.max(0, t * 0.55 + caso() * 0.3));
-
-    // Il colore viene dal marchio, e la posizione lungo l'edificio sceglie
-    // dove si sta nell'iride: blu -> viola -> magenta -> arancio.
-    const g = t * (SCALA.length - 1);
-    const k = Math.min(SCALA.length - 2, Math.floor(g));
-    const f = g - k;
-    col[i * 3]     = SCALA[k][0] * (1 - f) + SCALA[k + 1][0] * f;
-    col[i * 3 + 1] = SCALA[k][1] * (1 - f) + SCALA[k + 1][1] * f;
-    col[i * 3 + 2] = SCALA[k][2] * (1 - f) + SCALA[k + 1][2] * f;
-
-    // ⚠️ Il raggio e' in METRI, non in pixel. Un punto scritto in pixel e'
-    //    tarato sulla distanza a cui stava la telecamera quando l'hai provato:
-    //    misurato il 06/09, con la formula a pixel un punto veniva 0,38 px,
-    //    cioe' invisibile. Un raggio in metri si comporta come una cosa vera.
-    dim[i] = 0.30 + caso() * 0.26;
+    // A quale ambiente appartiene: il piu' vicino fra quelli MISURATI. Da li'
+    // prende il colore e il momento in cui entra in scena.
+    let amb = null, dmin = Infinity;
+    for (const A of ambienti) {
+      const d = (A.x - q[0]) * (A.x - q[0]) + (A.z - q[2]) * (A.z - q[2]);
+      if (d < dmin) { dmin = d; amb = A; }
+    }
+    const col = amb ? amb.colore : MARCA[0];
+    tinta[i * 3] = col[0]; tinta[i * 3 + 1] = col[1]; tinta[i * 3 + 2] = col[2];
+    quando[i] = (amb ? amb.t0 : ATTI.condensa[0]) + caso() * 0.07;
+    dim[i] = 0.40 + caso() * 0.34;
   }
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geom.setAttribute('tinta', new THREE.BufferAttribute(col, 3));
+  geom.setAttribute('tinta', new THREE.BufferAttribute(tinta, 3));
   geom.setAttribute('dimensione', new THREE.BufferAttribute(dim, 1));
-  // ⚠️ QUANTO E' STATO SCOPERTO, per punto. 0 = il corpo non ci e' ancora
-  //    passato davanti, 1 = l'ha incontrato. E' la direttiva 9 fatta numero:
-  //    «la comprensione compare dove il corpo la incontra», e il buio dove non
-  //    si e' ancora guardato NON e' un buco, e' un'informazione.
-  geom.setAttribute('scoperto', new THREE.BufferAttribute(new Float32Array(n), 1));
-  geom.userData = { meta, nasce, rit, n };
+  geom.setAttribute('scoperto', new THREE.BufferAttribute(scoperto, 1));
+  geom.userData = { meta: meta, nasce: nasce, quando: quando, n: n };
 
-  // ⚠️ ADDITIVO, e si puo' perche' il film si prende un fondo scuro suo.
-  //    Su carta l'additivo schiarisce e basta; sul profondo e' luce che si
-  //    somma — due punti vicini fanno piu' luce di uno, ed e' esattamente cio'
-  //    che si vuole vedere: dove la conoscenza si infittisce, la scena brucia.
+  // ⚠️ INCHIOSTRO, NON NEON. Si gira sulla carta (decisione di Raffaella): in
+  //    additivo su fondo chiaro «colore + bianco = bianco» e la polvere
+  //    sparisce. Colore pieno, nucleo che si scurisce.
+  // ⚠️ E la dimensione e' un RAGGIO IN METRI, non in pixel: un valore in pixel
+  //    e' tarato sulla distanza a cui stava la camera quando l'hanno provato —
+  //    misurato il 06/09, veniva 0,38 pixel, cioe' invisibile.
   const materiale = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: {
-      opacitaGlobale: { value: 0 },
-      // altezza della tela in pixel / (2*tan(fov/2)): la conversione standard
-      // fra un raggio in metri e la sua dimensione a schermo. Si aggiorna a
-      // ogni fotogramma, perche' la finestra si ridimensiona.
-      scalaPixel: { value: 900.0 },
-    },
-    // ⚠️ Il colore si chiama `tinta` e si DICHIARA qui. Chiamarlo `color` e
-    //    affidarsi a `vertexColors` funziona solo nei materiali di serie di
-    //    three: in uno shader scritto a mano quell'attributo puo' non essere
-    //    dichiarato dal prefisso, e il modulo non compila senza dire perche'.
-    vertexShader: `
-      attribute float dimensione;
-      attribute vec3 tinta;
-      attribute float scoperto;
-      varying vec3 vColore;
-      varying float vVicino;
-      varying float vScoperto;
-      uniform float scalaPixel;
-      void main() {
-        vColore = tinta;
-        vScoperto = scoperto;
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        float d = max(0.001, -mv.z);
-        // Un minimo di due pixel: sotto, la polvere sparisce e il film non
-        // c'e' piu'. Un massimo, o da vicino un punto diventa una macchia.
-        // Un punto non ancora incontrato resta piccolo e spento: c'e', ma non
-        // afferma niente. Quando il corpo ci passa davanti, cresce e si accende.
-        gl_PointSize = clamp(dimensione * scalaPixel / d, 1.5, 18.0) * (0.45 + 0.55 * scoperto);
-        vVicino = clamp(30.0 / d, 0.25, 1.0);
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vColore;
-      varying float vVicino;
-      varying float vScoperto;
-      uniform float opacitaGlobale;
-      void main() {
-        // Un nucleo acceso con l'alone attorno: sommandosi, dove i punti si
-        // infittiscono la scena brucia. E' cosi' che si vede a occhio DOVE la
-        // conoscenza e' densa, senza scrivere un numero.
-        vec2 d = gl_PointCoord - vec2(0.5);
-        float r = length(d) * 2.0;
-        if (r > 1.0) discard;
-        float alone   = pow(1.0 - r, 2.2);
-        float nucleo  = pow(max(0.0, 1.0 - r * 2.6), 3.0);
-        // ⚠️ INCHIOSTRO, NON NEON. Il film si gira sulla carta grigia della
-        //    piattaforma: l'additivo li' schiarisce e la polvere sparisce.
-        //    Quindi colore pieno, e il nucleo si SCURISCE invece di accendersi.
-        //    Non scoperto: un grigio appena piu' scuro della carta — «qui c'e'
-        //    qualcosa, non so ancora cosa». Scoperto: il colore del marchio.
-        vec3  spento  = vec3(0.62, 0.64, 0.69);
-        vec3  acceso  = vColore * (1.0 - nucleo * 0.28);
-        vec3  finale  = mix(spento, acceso, vScoperto);
-        float forza   = mix(0.34, 1.0, vScoperto);
-        gl_FragColor = vec4(finale, min(1.0, (alone * 0.55 + nucleo * 1.15)) * opacitaGlobale * vVicino * forza);
-      }
-    `,
+    transparent: true, depthWrite: false,
+    uniforms: { opacitaGlobale: { value: 0 }, scalaPixel: { value: 900 } },
+    vertexShader: [
+      'attribute float dimensione;',
+      'attribute vec3 tinta;',
+      'attribute float scoperto;',
+      'varying vec3 vColore; varying float vVicino; varying float vScoperto;',
+      'uniform float scalaPixel;',
+      'void main() {',
+      '  vColore = tinta; vScoperto = scoperto;',
+      '  vec4 mv = modelViewMatrix * vec4(position, 1.0);',
+      '  float d = max(0.001, -mv.z);',
+      '  gl_PointSize = clamp(dimensione * scalaPixel / d, 3.0, 30.0);',
+      '  vVicino = clamp(34.0 / d, 0.30, 1.0);',
+      '  gl_Position = projectionMatrix * mv;',
+      '}',
+    ].join('\n'),
+    fragmentShader: [
+      'varying vec3 vColore; varying float vVicino; varying float vScoperto;',
+      'uniform float opacitaGlobale;',
+      'void main() {',
+      '  vec2 d = gl_PointCoord - vec2(0.5);',
+      '  float r = length(d) * 2.0;',
+      '  if (r > 1.0) discard;',
+      '  float alone  = pow(1.0 - r, 2.2);',
+      '  float nucleo = pow(max(0.0, 1.0 - r * 2.6), 3.0);',
+      '  vec3 colore  = vColore * (1.0 - nucleo * 0.25);',
+      '  float a = min(1.0, alone * 0.5 + nucleo * 1.1) * opacitaGlobale * vVicino;',
+      '  gl_FragColor = vec4(colore, a);',
+      '}',
+    ].join('\n'),
   });
 
   const oggetto = new THREE.Points(geom, materiale);
   oggetto.frustumCulled = false;
-  oggetto.name = '__eideticaCinema';
-  return { oggetto, geom, materiale };
+  oggetto.name = '__eideticaPolvere';
+  return { oggetto: oggetto, geom: geom, materiale: materiale };
 }
 
 // ---------------------------------------------------------------------------
-// IL CIELO DEL FILM, e sta DENTRO la scena.
-//
-// ⚠️ Misurato il 06/09, dopo due tentativi sbagliati: `scene.background` non si
-//    vede (la tela e' trasparente, clear alpha = 0) e il bianco non viene dal
-//    genitore della tela — sta piu' su, in un contenitore che non e' mio. Ogni
-//    strada che passa dal DOM e' una gara con `veritas_carta`, e la perde chi
-//    disegna per primo. Una sfera rovesciata dentro la scena invece non la puo'
-//    riscrivere nessuno: e' geometria, come tutto il resto qui dentro.
-// ---------------------------------------------------------------------------
-function costruisciCielo(THREE, raggio) {
-  const g = new THREE.SphereGeometry(Math.max(400, raggio * 6), 32, 24);
-  const m = new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, depthTest: false, transparent: true,
-    uniforms: { velo: { value: 0 } },
-    vertexShader: `
-      varying vec3 vP;
-      void main() { vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-    `,
-    fragmentShader: `
-      varying vec3 vP;
-      uniform float velo;
-      void main() {
-        // Dal blu notte all'alto al quasi-nero in basso: profondita', non nero
-        // piatto. Il nero spegne le tinte del marchio; questo le tiene vive.
-        float h = clamp(vP.y * 0.5 + 0.5, 0.0, 1.0);
-        vec3 alto  = vec3(0.078, 0.094, 0.176);
-        vec3 basso = vec3(0.016, 0.020, 0.043);
-        gl_FragColor = vec4(mix(basso, alto, h), velo);
-      }
-    `,
-  });
-  const sfera = new THREE.Mesh(g, m);
-  sfera.name = '__eideticaCielo';
-  sfera.renderOrder = -1000;
-  sfera.frustumCulled = false;
-  return sfera;
-}
-
-// ---------------------------------------------------------------------------
-// Il modello vero fa un passo indietro mentre la polvere parla, e torna dopo.
-// ⚠️ Si conservano le opacita' ORIGINALI e si rimettono allo spegnimento: uno
-//    strato che non sa tornare indietro non e' uno strato, e' un danno.
+// LE SUPERFICI SI ACCENDONO DOPO I PUNTI — l'ordine del prototipo, e Raffaella
+// l'aveva gia' detto a voce: «poi si concretizzava in mesh».
+// ⚠️ Si conservano le opacita' ORIGINALI: uno strato che non sa tornare
+//    indietro non e' uno strato, e' un danno.
 // ---------------------------------------------------------------------------
 function velaIlModello(fattore) {
   const radice = window.__veritasModelRoot;
@@ -312,9 +288,7 @@ function velaIlModello(fattore) {
     radice.traverse((o) => {
       if (!o.isMesh || !o.material) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) {
-        stato.velature.push({ m, opacity: m.opacity, transparent: m.transparent });
-      }
+      for (const m of mats) stato.velature.push({ m: m, opacity: m.opacity, transparent: m.transparent });
     });
   }
   for (const v of stato.velature) {
@@ -323,144 +297,227 @@ function velaIlModello(fattore) {
     v.m.needsUpdate = true;
   }
 }
-// ---------------------------------------------------------------------------
-// LA STANZA SI ABBASSA — deciso da Raffaella il 06/09: «un fondo bello».
-//
-// Per la durata del film il fondo va sul profondo, cosi' i colori del marchio
-// possono BRILLARE invece che depositarsi. Alla fine la luce torna: la
-// piattaforma resta chiara, il buio e' un momento e non una scelta di prodotto.
-// ⚠️ Si conserva ESATTAMENTE quello che c'era, foschia compresa: `veritas_carta`
-//    ha lavorato per allineare la foschia al colore dell'aria, e riaccendere la
-//    luce con la foschia sbagliata rimetterebbe il nero sul modello — il difetto
-//    gia' pagato il 05/09.
-// ---------------------------------------------------------------------------
-const FONDO_FILM = 0x0b0d16;   // blu notte, non nero: il nero spegne le tinte
-function abbassaLaStanza() {
-  const scena = window.__veritasScene, THREE = window.THREE;
-  if (!scena || !THREE) return;
-  stato.fondoPrima = { background: scena.background, fog: scena.fog };
-  scena.background = new THREE.Color(FONDO_FILM);
-  if (scena.fog) {
-    stato.fogColorePrima = scena.fog.color ? scena.fog.color.clone() : null;
-    if (scena.fog.color) scena.fog.color.setHex(FONDO_FILM);
-  }
-}
-function rialzaLaStanza() {
-  const tela = window.__veritasCanvasEl;
-  const padre = tela && tela.parentElement;
-  if (padre && stato.cssPadrePrima !== null) {
-    padre.style.background = stato.cssPadrePrima;
-    stato.cssPadrePrima = null;
-  }
-  const scena = window.__veritasScene;
-  if (!scena || !stato.fondoPrima) return;
-  scena.background = stato.fondoPrima.background;
-  if (scena.fog && stato.fogColorePrima) scena.fog.color.copy(stato.fogColorePrima);
-  stato.fondoPrima = null; stato.fogColorePrima = null;
-}
-
-// ⚠️ IL FONDO VERO NON E' `scene.background` — misurato il 06/09.
-//    La tela e' trasparente (clear alpha = 0) e dietro c'e' il BIANCO della
-//    pagina: mettere il colore sulla scena non serviva a niente, e in additivo
-//    «colore + bianco = bianco», cioe' la polvere c'era ed era invisibile.
-//    Il fondo si prende dove il fondo sta davvero: sotto la tela.
-function tieniIlFondo() {
-  const scena = window.__veritasScena || window.__veritasScene, THREE = window.THREE;
-  const tela = window.__veritasCanvasEl;
-  const padre = tela && tela.parentElement;
-  if (padre && stato.cssPadrePrima === null) {
-    stato.cssPadrePrima = padre.style.background || '';
-    padre.style.transition = 'background 1.1s ease';
-    padre.style.background =
-      'radial-gradient(120% 90% at 50% 40%, #141833 0%, #0b0d16 55%, #05060c 100%)';
-  }
-  if (!scena || !THREE) return;
-  if (!scena.background || scena.background.getHex() !== FONDO_FILM) {
-    if (!scena.background || !scena.background.isColor) scena.background = new THREE.Color(FONDO_FILM);
-    else scena.background.setHex(FONDO_FILM);
-  }
-  if (scena.fog && scena.fog.color && scena.fog.color.getHex() !== FONDO_FILM)
-    scena.fog.color.setHex(FONDO_FILM);
-}
-
-function aggiornaScalaPixel() {
-  const c = window.__veritasCamera, tela = window.__veritasCanvasEl;
-  if (!c || !tela || !stato.materiale) return;
-  const h = tela.clientHeight || tela.height || 800;
-  const fov = (c.fov || 50) * Math.PI / 180;
-  stato.materiale.uniforms.scalaPixel.value = h / (2 * Math.tan(fov / 2));
-}
-
 function rimettiIlModello() {
   for (const v of stato.velature) {
-    v.m.opacity = v.opacity;
-    v.m.transparent = v.transparent;
-    v.m.needsUpdate = true;
+    v.m.opacity = v.opacity; v.m.transparent = v.transparent; v.m.needsUpdate = true;
   }
   stato.velature = [];
 }
 
 // ---------------------------------------------------------------------------
-// LA SOGGETTIVA — chiesta da Raffaella il 06/09.
-//
-//   «Perche' il film non lo facciamo partire in soggettiva, partendo proprio
-//    dall'occhio di uno degli agenti dentro? Cosi' hai la definizione degli
-//    oggetti man mano che quello cammina, come fanno i motori dei videogiochi:
-//    renderizzano la parte del cono visivo, e pian piano la gente capisce,
-//    mette cartellini e quant'altro.»
-//
-// E' la direttiva 9, ed e' **onesta di natura**: la comprensione compare dove
-// il corpo la incontra, e dove il corpo non e' ancora passato resta buio — che
-// non e' un buco, e' un'informazione.
-//
-// ⚠️ IL CAMMINO NON SI INVENTA: e' la traiettoria vera della simulazione
-//    (`__veritasGetTrajectory`). Se non c'e' ancora, il film resta dall'alto e
-//    LO DICE, invece di far camminare un fantasma su un percorso finto.
+// I CARTELLINI, come li ha disegnati Raffaella: pallino sull'ancora, filo,
+// pastiglia bianca col nome. Stanno su una tela sopra la scena, non nel DOM:
+// devono seguire la prospettiva.
+// ⚠️ Un nome INCERTO resta pallido. E' l'unica cosa del film che afferma
+//    qualcosa sullo spazio, quindi e' l'unica che deve dire quanto ci crede.
 // ---------------------------------------------------------------------------
-// ⚠️ CHI GUARDA E' UN PARAMETRO DICHIARATO, non un numero nascosto.
-//    Raffaella, 06/09: «dobbiamo targettizzare chi e' il nostro osservatore:
-//    potremmo valutare di mettere quello sulla sedia a rotelle. Adesso facciamo
-//    il caso tipo, pero' tieni a mente che possiamo dire chi e' l'attore.»
-//
-//    Gli archetipi NON si riscrivono qui: esistono gia' in `veritas_visibility`
-//    (`business` occhio 1,65 · `wheelchair` 1,20 · `tourist` 1,65), sono gli
-//    stessi con cui si calcola l'isovista, e sono la ragione per cui il referto
-//    7 promette «la stessa pianta a 1,65 m e a 1,20 m». Due registri di altezze
-//    d'occhio che divergono sarebbero due verita' sullo stesso spazio.
-const ATTORE_PREDEFINITO = 'business';
-function attore(nome) {
-  const reg = (window.__veritasVisibility && window.__veritasVisibility.SKINS)
-           || (window.__veritasSkins) || null;
-  const k = nome || stato.attore || ATTORE_PREDEFINITO;
-  if (reg && reg[k]) return { chiave: k, occhio: reg[k].eyeHeight, nome: reg[k].label || k };
-  // Ripiego dichiarato: se il registro non e' esposto, si usano le due quote
-  // che il prodotto promette per iscritto, e si DICE che sono un ripiego.
-  const fallback = { business: 1.65, wheelchair: 1.20, tourist: 1.65 };
-  return { chiave: k, occhio: fallback[k] || 1.65, nome: k, ripiego: true };
+function costruisciSovrimpressione(p) {
+  const c = document.createElement('canvas');
+  c.id = 'eidetica-cinema-cartelli';
+  // ⚠️ LA MISURA IN CSS SERVE, e la sua mancanza ha coperto tutto il film.
+  //    Misurato il 06/09: senza `width`/`height` in CSS la tela si disegna alla
+  //    sua misura INTRINSECA (larghezza in pixel del dispositivo, il doppio) e
+  //    si stende sopra la scena come un lenzuolo. Per mezz'ora e' sembrato che
+  //    il film non disegnasse niente: disegnava, e stava sotto un foglio.
+  //    Il sintomo che l'ha svelato: i cartellini si vedevano e il 3D no — cioe'
+  //    esattamente le due cose stanno su due tele diverse.
+  c.style.cssText = 'position:absolute;left:0;top:0;z-index:9200;pointer-events:none';
+  // ⚠️ IL FONDO SI TOGLIE CON `!important`, E CI SONO VOLUTE DUE ORE.
+  //    Misurato il 06/09: la tela dei cartellini risultava
+  //    `background: rgb(233,235,240)` — il grigio della piattaforma — perche'
+  //    una regola dello strato «carta» colora TUTTI i canvas, e vince su uno
+  //    stile in linea normale. Risultato: un foglio grigio steso sopra la
+  //    scena 3D. Il film girava benissimo sotto, e i cartellini si vedevano
+  //    perfettamente perche' erano gli unici disegnati su quel foglio.
+  //    Il sintomo che l'ha svelato: nascondendo questa tela ricompariva tutto.
+  c.style.setProperty('background', 'transparent', 'important');
+  (p.tela.parentElement || document.body).appendChild(c);
+  return c;
+}
+function disegnaCartelli(u) {
+  const c = stato.cartelli, cam = window.__veritasCamera, tela = window.__veritasCanvasEl;
+  if (!c || !cam || !tela) return 0;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = tela.clientWidth, h = tela.clientHeight;
+  if (c.width !== Math.round(w * dpr)) {
+    c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+  }
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const a0 = ATTI.cartelli[0], a1 = ATTI.cartelli[1];
+  let quanti = 0;
+  const V = new window.THREE.Vector3();
+  // ⚠️ NON tutti i cartellini: quelli di sette metri quadri si accavallano e
+  //    non si legge piu' niente. Si tengono i piu' grandi — che sono anche
+  //    quelli di cui ha senso parlare — e il conto dice quanti sono in tutto,
+  //    cosi' non si nasconde nulla.
+  const scelti = stato.ambienti.slice()
+    .sort(function (x, y) { return y.area - x.area; }).slice(0, 8);
+  const N = Math.max(1, scelti.length);
+  const presi = [];
+  scelti.forEach((A, k) => {
+    const suo = a0 + (k / N) * (a1 - a0);
+    const ap = Math.min(1, Math.max(0, (u - suo) / 0.06));
+    if (ap <= 0) return;
+    quanti++;
+    V.set(A.x, A.y + 1.4, A.z).project(cam);
+    if (V.z > 1) return;
+    let x = (V.x * 0.5 + 0.5) * w, y = (-V.y * 0.5 + 0.5) * h;
+    // se un cartellino cade addosso a uno gia' messo, si alza finche' respira
+    let salto = 0;
+    while (presi.some(function (q) { return Math.abs(q.x - x) < 150 && Math.abs(q.y - (y - salto)) < 30; })
+           && salto < 200) salto += 32;
+    const yBase = y; y -= salto;
+    presi.push({ x: x, y: y });
+    const col = A.colore.map((v) => Math.round(v * 255));
+    const rgba = (al) => 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + al + ')';
+    // ⚠️ La fiducia entra QUI e in nessun altro punto del film: un nome di cui
+    //    non si e' sicuri si vede meno, e chi guarda lo capisce senza leggere.
+    const al = ap * (0.45 + 0.55 * Math.min(1, A.fiducia));
+    const testo = A.nome || (P().senzaNome + ' · ' + Math.round(A.area) + ' m²');
+
+    g.font = '500 12.5px "Helvetica Neue",Helvetica,Arial,sans-serif';
+    const lw = g.measureText(testo).width;
+    const py = y - 30 * ap;
+    g.strokeStyle = rgba(0.32 * al); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, yBase); g.lineTo(x, py + 11); g.stroke();
+    g.beginPath(); g.fillStyle = rgba(0.85 * al); g.arc(x, yBase, 2.6, 0, 6.283); g.fill();
+    const bx = x - lw / 2 - 11, by = py - 11.5;
+    g.beginPath();
+    if (g.roundRect) g.roundRect(bx, by, lw + 22, 23, 11.5); else g.rect(bx, by, lw + 22, 23);
+    g.fillStyle = 'rgba(255,255,255,' + (0.93 * al) + ')'; g.fill();
+    g.strokeStyle = rgba(0.3 * al); g.stroke();
+    g.fillStyle = 'rgba(20,26,51,' + al + ')';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(testo, x, py + 0.5);
+  });
+  return stato.ambienti.length ? Math.round(quanti * stato.ambienti.length / N) : 0;
 }
 
-// ⚠️ LA LENTE E' 60 GRADI, e non e' il cono percettivo.
-//    Raffaella, 06/09: «nei programmi di rendering, per ricreare la sensazione
-//    dell'occhio dell'uomo si usa un'apertura di sessanta gradi». E' vero, ed e'
-//    una cosa DIVERSA dai 100-140 gradi che `veritas_visibility` usa per
-//    l'isovista: quelli dicono quanto spazio una persona percepisce, questi
-//    dicono che lente stiamo montando. Confonderli darebbe una soggettiva da
-//    grandangolo, che deforma e fa sembrare tutto piu' lontano.
-const LENTE_GRADI = 60;
-const CONO_GRADI = 62;      // quanto il corpo INCONTRA camminando
-const CONO_PORTATA = 26;    // m — oltre, il dettaglio non si legge
+// ---------------------------------------------------------------------------
+// LA PLANCIA: play, pausa, scrub, rivedi, suono. E' un VIDEO — Raffaella:
+// «dovremmo vedere un video; io adesso ho visto degli scatti».
+// ---------------------------------------------------------------------------
+function costruisciPlancia(p) {
+  const d = document.createElement('div');
+  d.id = 'eidetica-cinema-plancia';
+  d.style.cssText = [
+    'position:absolute', 'left:50%', 'bottom:26px', 'transform:translateX(-50%)',
+    'z-index:9300', 'display:flex', 'align-items:center', 'gap:16px',
+    'padding:12px 20px', 'border-radius:100px',
+    'background:rgba(255,255,255,.86)', 'backdrop-filter:blur(18px)',
+    '-webkit-backdrop-filter:blur(18px)',
+    'box-shadow:0 1px 2px rgba(20,26,51,.06),0 12px 40px rgba(20,26,51,.1)',
+    'font-family:"Helvetica Neue",Helvetica,Arial,sans-serif', 'font-size:13px',
+    'color:#141A33',
+  ].join(';');
+  d.innerHTML =
+    '<button id="ec-play" style="display:flex;align-items:center;gap:9px;font:inherit;' +
+    'font-weight:500;border:0;background:none;cursor:pointer;color:inherit;padding:6px 2px">' +
+    '<span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;' +
+    'color:#fff;font-size:10px;padding-left:1px;' +
+    'background:linear-gradient(125deg,#2B5CE6,#7B2FD4 45%,#E0348B 72%,#F9721F)">▶</span>' +
+    '<span id="ec-et">' + P().pausa + '</span></button>' +
+    '<div style="width:1px;height:22px;background:#E3E5EE"></div>' +
+    '<input id="ec-barra" type="range" min="0" max="1000" value="0" ' +
+    'style="width:190px;height:3px;-webkit-appearance:none;appearance:none;border-radius:3px;' +
+    'background:#E3E5EE;cursor:pointer">' +
+    '<div style="width:1px;height:22px;background:#E3E5EE"></div>' +
+    '<button id="ec-suono" style="font:inherit;border:0;background:none;cursor:pointer;' +
+    'color:inherit;padding:6px 2px;white-space:nowrap">' + P().suono + ': off</button>' +
+    '<div style="width:1px;height:22px;background:#E3E5EE"></div>' +
+    '<button id="ec-chiudi" style="font:inherit;border:0;background:none;cursor:pointer;' +
+    'color:#8A90A6;padding:6px 2px">✕</button>';
+  (p.tela.parentElement || document.body).appendChild(d);
 
+  d.querySelector('#ec-play').onclick = function () { stato.corre ? pausa() : riparti(); };
+  d.querySelector('#ec-barra').oninput = function (e) { stato.t = e.target.value / 1000; pausa(); };
+  d.querySelector('#ec-suono').onclick = function (e) {
+    stato.suonoAcceso = !stato.suonoAcceso;
+    e.target.textContent = P().suono + ': ' + (stato.suonoAcceso ? 'on' : 'off');
+    if (stato.suonoAcceso && stato.corre) suonoSu(); else suonoGiu();
+  };
+  d.querySelector('#ec-chiudi').onclick = function () { ferma(); };
+  return d;
+}
+
+function costruisciStato(p) {
+  const d = document.createElement('div');
+  d.id = 'eidetica-cinema-stato';
+  d.style.cssText = [
+    'position:absolute', 'top:70px', 'right:26px', 'z-index:9300', 'text-align:right',
+    'pointer-events:none', 'font-family:"Helvetica Neue",Helvetica,Arial,sans-serif',
+    'font-size:11.5px', 'line-height:1.8', 'color:#8A90A6',
+    'font-variant-numeric:tabular-nums',
+  ].join(';');
+  d.innerHTML =
+    '<b id="ec-fase" style="display:block;font-size:13px;font-weight:500;color:#141A33"></b>' +
+    '<span id="ec-conta"></span><br><span id="ec-occhio"></span>';
+  (p.tela.parentElement || document.body).appendChild(d);
+  return d;
+}
+
+// ---------------------------------------------------------------------------
+// IL PAD SONORO — chiesto da Raffaella, e spento all'avvio come nel prototipo.
+// Quattro voci filtrate e un lento respiro sul filtro. Non commenta niente: fa
+// da aria, e l'aria non afferma nulla sullo spazio.
+// ---------------------------------------------------------------------------
+function creaSuono() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  const ac = new AC();
+  const gn = ac.createGain(); gn.gain.value = 0;
+  const flt = ac.createBiquadFilter();
+  flt.type = 'lowpass'; flt.frequency.value = 850; flt.Q.value = 0.7;
+  [110, 164.81, 220, 329.63].forEach(function (f, i) {
+    const o = ac.createOscillator(); o.type = i % 2 ? 'sine' : 'triangle'; o.frequency.value = f;
+    const g = ac.createGain(); g.gain.value = 0.16 / (i + 1);
+    o.connect(g); g.connect(flt); o.start();
+  });
+  flt.connect(gn); gn.connect(ac.destination);
+  const l = ac.createOscillator(); l.frequency.value = 0.06;
+  const lg = ac.createGain(); lg.gain.value = 420;
+  l.connect(lg); lg.connect(flt.frequency); l.start();
+  return { ac: ac, gn: gn };
+}
+function suonoSu() {
+  if (!stato.suonoAcceso) return;
+  if (!stato.audio) stato.audio = creaSuono();
+  if (!stato.audio) return;
+  const ac = stato.audio.ac, gn = stato.audio.gn;
+  if (ac.state === 'suspended') ac.resume();
+  gn.gain.cancelScheduledValues(ac.currentTime);
+  gn.gain.linearRampToValueAtTime(0.085, ac.currentTime + 2.2);
+}
+function suonoGiu() {
+  if (!stato.audio) return;
+  const ac = stato.audio.ac, gn = stato.audio.gn;
+  gn.gain.cancelScheduledValues(ac.currentTime);
+  gn.gain.linearRampToValueAtTime(0, ac.currentTime + 1.1);
+}
+
+// ---------------------------------------------------------------------------
+// LA CONTROPROVA: dentro gli occhi di chi cammina. Raffaella: «poi faremo
+// queste simulazioni partendo dall'occhio dei personaggi, che scendono dal
+// taxi, entrano, seguono le frecce verdi. Ed e' quella la controprova che tutto
+// funziona.» Ultimo atto, non primo: prima si capisce, poi si verifica.
+// ⚠️ IL CAMMINO NON SI INVENTA: e' la traiettoria vera della simulazione. Se non
+//    c'e', il film finisce orbitando e LO DICE, invece di far camminare un
+//    fantasma su un percorso finto.
+// ---------------------------------------------------------------------------
 function trovaIlCammino() {
   let t = null;
   try { t = window.__veritasGetTrajectory && window.__veritasGetTrajectory(); } catch (e) { t = null; }
   if (!t) return null;
-  // La traiettoria puo' arrivare in due forme: fotogrammi di agenti, o agenti
-  // con i loro fotogrammi. Si accettano tutte e due, senza indovinare.
   const frames = t.frames || t.fotogrammi || (Array.isArray(t) ? t : null);
   if (!Array.isArray(frames) || !frames.length) return null;
   const via = [];
   for (const f of frames) {
-    const a = Array.isArray(f) ? f[0] : (f && (f.agents || f.agenti) ? (f.agents || f.agenti)[0] : null);
+    const a = Array.isArray(f) ? f[0]
+            : (f && (f.agents || f.agenti) ? (f.agents || f.agenti)[0] : null);
     if (!a) continue;
     const x = Array.isArray(a) ? a[0] : (a.x != null ? a.x : (a.pos && a.pos[0]));
     const y = Array.isArray(a) ? a[1] : (a.y != null ? a.y : (a.pos && a.pos[1]));
@@ -469,36 +526,10 @@ function trovaIlCammino() {
   }
   return via.length > 8 ? via : null;
 }
-
-function guidaLOcchio(u) {
-  const via = stato.via, c = window.__veritasCamera;
-  if (!via || !c) return null;
-  const OCCHIO_H = attore().occhio;
-  const i = Math.min(via.length - 2, Math.floor(u * (via.length - 1)));
-  const f = u * (via.length - 1) - i;
-  const a = via[i], b = via[i + 1];
-  const px = a[0] + (b[0] - a[0]) * f;
-  const py = a[1] + (b[1] - a[1]) * f;
-  const pz = a[2] + (b[2] - a[2]) * f;
-  // Si guarda avanti lungo il cammino, non a caso: e' il verso in cui il corpo
-  // sta andando, ed e' quello che decide che cosa incontra.
-  const avanti = via[Math.min(via.length - 1, i + 6)];
-  c.position.set(px, py + OCCHIO_H, pz);
-  // ⚠️ SI GUARDA DRITTO, non in giu'. Mirare piu' in basso dell'occhio inclina
-  //    la camera, e una camera inclinata in giu' si legge come «sto in alto»:
-  //    misurato il 06/09, l'altezza era giusta (1,61 m sul pavimento) e
-  //    sembrava sbagliata solo per questo.
-  c.lookAt(avanti[0], avanti[1] + OCCHIO_H, avanti[2]);
-  c.updateMatrixWorld();
-  return [px, py, pz];
-}
-
-// Scopre i punti che il corpo si trova davanti, e non li rispegne mai piu'.
 function scopriNelCono(dove) {
-  const g = stato.geom; if (!g || !dove) return 0;
-  const c = window.__veritasCamera; if (!c) return 0;
-  const { meta, n } = g.userData;
-  const sc = g.attributes.scoperto.array;
+  const g = stato.geom, c = window.__veritasCamera;
+  if (!g || !dove || !c) return 0;
+  const meta = g.userData.meta, n = g.userData.n, sc = g.attributes.scoperto.array;
   const d = new window.THREE.Vector3(0, 0, -1).applyQuaternion(c.quaternion);
   const cosMax = Math.cos(CONO_GRADI * Math.PI / 360);
   let nuovi = 0;
@@ -515,277 +546,200 @@ function scopriNelCono(dove) {
 }
 
 // ---------------------------------------------------------------------------
-// La riga che racconta. Dice SEMPRE lo stato vero, e quando non sa, lo dice.
+// IL FOTOGRAMMA
 // ---------------------------------------------------------------------------
-function costruisciCartelli(p) {
-  const d = document.createElement('div');
-  d.id = 'eidetica-cinema-cartelli';
-  d.style.cssText = [
-    'position:absolute', 'left:28px', 'bottom:232px', 'z-index:9200', 'max-width:44%',
-    'pointer-events:none', 'font-family:Jura,Inter,system-ui,sans-serif',
-    'color:#1b1d23', 'opacity:0', 'transition:opacity .8s ease',
-    'text-shadow:0 1px 0 rgba(255,255,255,.9)',
-  ].join(';');
-  d.innerHTML = `
-    <div id="eidetica-cinema-atto" style="font-size:11px;letter-spacing:.22em;
-         text-transform:uppercase;opacity:.55;margin-bottom:6px"></div>
-    <div id="eidetica-cinema-riga" style="font-size:19px;font-weight:600;
-         letter-spacing:.01em;line-height:1.3"></div>
-    <div id="eidetica-cinema-nota" style="font-size:12px;opacity:.6;margin-top:5px"></div>`;
-  (p.tela.parentElement || document.body).appendChild(d);
-  return d;
-}
-function racconta(atto, riga, nota) {
-  if (!stato.cartelli) return;
-  stato.cartelli.style.opacity = '1';
-  const a = stato.cartelli.querySelector('#eidetica-cinema-atto');
-  const r = stato.cartelli.querySelector('#eidetica-cinema-riga');
-  const n = stato.cartelli.querySelector('#eidetica-cinema-nota');
-  if (a) a.textContent = atto || '';
-  if (r) r.textContent = riga || '';
-  if (n) n.textContent = nota || '';
-}
+const dolce = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3));
+function fra(a, u) { return dolce((u - a[0]) / (a[1] - a[0])); }
 
-// ---------------------------------------------------------------------------
-// Il film. Ogni fotogramma legge il tempo e lo STATO VERO, e basta.
-// ---------------------------------------------------------------------------
-function fotogramma() {
+function fotogramma(ms) {
   if (!stato.acceso) return;
-  const ora = (performance.now() - stato.partenza) / 1000;
-
-  // ⚠️ IL FONDO SI TIENE A OGNI FOTOGRAMMA. `veritas_carta` riscrive il colore
-  //    della scena per conto suo: metterlo una volta sola all'avvio non basta,
-  //    misurato il 06/09 — dopo due secondi era gia' tornato chiaro.
-  tieniIlFondo();
-  aggiornaScalaPixel();
-  const g = stato.geom;
-  if (!g) return;
-  const { meta, nasce, rit, n } = g.userData;
+  if (stato.corre) {
+    stato.t += (stato.ultimo ? ms - stato.ultimo : 16) / DURATA_MS;
+    if (stato.t >= 1) { stato.t = 1; pausa(); }
+  }
+  stato.ultimo = ms;
+  const u = stato.t, g = stato.geom;
+  if (!g) { stato.raf = requestAnimationFrame(fotogramma); return; }
+  const meta = g.userData.meta, nasce = g.userData.nasce,
+        quando = g.userData.quando, n = g.userData.n;
   const pos = g.attributes.position.array;
 
-  const morbido = (x) => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3);
-  if (stato.cielo && ora < T.polvere + T.condensa)
-    stato.cielo.material.uniforms.velo.value = Math.min(1, ora / 0.9);
-
-  // ATTO 1 — la polvere compare.
-  if (ora < T.polvere) {
-    stato.materiale.uniforms.opacitaGlobale.value = morbido(ora / T.polvere) * 0.92;
-    if (stato.fase !== 'polvere') {
-      stato.fase = 'polvere';
-      racconta('atto primo', 'Non so ancora che posto sia questo.',
-               (window.__veritasAutoPoints || []).length.toLocaleString('it-IT') + ' punti misurati, ancora senza forma');
-    }
-  }
-  // ATTO 2 — la condensazione: ogni punto raggiunge la sua misura.
-  else if (ora < T.polvere + T.condensa) {
-    const u = (ora - T.polvere) / T.condensa;
-    if (stato.fase !== 'condensa') {
-      stato.fase = 'condensa';
-      racconta('atto secondo', 'Lo spazio prende forma.',
-               'ogni punto va dove è stato misurato — nessuna posizione è inventata');
-    }
-    for (let i = 0; i < n; i++) {
-      const t = morbido(Math.min(1, Math.max(0, (u - rit[i]) / (1 - rit[i] + 1e-6))));
-      pos[i * 3]     = nasce[i * 3]     + (meta[i * 3]     - nasce[i * 3])     * t;
-      pos[i * 3 + 1] = nasce[i * 3 + 1] + (meta[i * 3 + 1] - nasce[i * 3 + 1]) * t;
-      pos[i * 3 + 2] = nasce[i * 3 + 2] + (meta[i * 3 + 2] - nasce[i * 3 + 2]) * t;
-    }
-    g.attributes.position.needsUpdate = true;
-    stato.materiale.uniforms.opacitaGlobale.value = 0.92;
-    velaIlModello(0.30 + 0.12 * u);
-  }
-  // ATTO 3 — SI ENTRA NEL CORPO. La camera scende agli occhi di chi cammina.
-  else {
-    if (stato.fase !== 'sguardo') {
-      stato.fase = 'sguardo';
-      for (let i = 0; i < n * 3; i++) pos[i] = meta[i];
-      g.attributes.position.needsUpdate = true;
-      racconta('atto terzo',
-        stato.via ? 'Adesso ci cammino dentro.' : 'Adesso guardo.',
-        stato.via
-          ? 'la camera scende sugli occhi di un passeggero — cammino vero della simulazione'
-          : '⚠️ non c’è ancora una traiettoria: resto dall’alto invece di far camminare un fantasma');
-    }
-    stato.materiale.uniforms.opacitaGlobale.value = 0.90 + 0.06 * Math.sin(ora * 1.6);
-    velaIlModello(0.42);
-    if (stato.cielo) stato.cielo.material.uniforms.velo.value =
-      Math.min(1, (ora - T.polvere - T.condensa) / 1.2);
-    if (!stato.cielo && stato.cartelli) stato.cartelli.style.color = '#1b1d23';
-
-    if (stato.via) {
-      const t3 = ora - (T.polvere + T.condensa);
-      if (t3 < T.discesa) {
-        // La discesa: dalla veduta d'insieme fino agli occhi. Si scende, non si
-        // salta: un taglio secco farebbe perdere l'orientamento a chi guarda.
-        const u = morbido(t3 / T.discesa);
-        const c = window.__veritasCamera;
-        const meta0 = stato.via[0];
-        const hOcchio = attore().occhio;
-        c.position.lerpVectors(stato.cameraPrima.pos,
-          new window.THREE.Vector3(meta0[0], meta0[1] + hOcchio, meta0[2]), u);
-        const q = c.quaternion.clone();
-        c.lookAt(stato.via[Math.min(stato.via.length - 1, 6)][0],
-                 meta0[1] + hOcchio, stato.via[Math.min(stato.via.length - 1, 6)][2]);
-        c.quaternion.slerpQuaternions(stato.cameraPrima.quat, c.quaternion.clone(), u);
-        c.quaternion.copy(q.slerp(c.quaternion, u));
-        c.updateMatrixWorld();
-      } else {
-        const u = Math.min(1, (t3 - T.discesa) / T.passeggiata);
-        const dove = guidaLOcchio(u);
-        const nuovi = scopriNelCono(dove);
-        stato.scoperti = (stato.scoperti || 0) + nuovi;
-        if (nuovi && (performance.now() - (stato.ultimoRacconto || 0)) > 900) {
-          stato.ultimoRacconto = performance.now();
-          const tot = g.userData.n;
-          racconta('atto terzo', 'Cammino, e lo spazio si apre davanti a me.',
-            stato.scoperti.toLocaleString('it-IT') + ' punti su ' + tot.toLocaleString('it-IT')
-            + ' incontrati dal corpo — il resto è buio perché non ci sono ancora passato');
-        }
-        if (u >= 1 && stato.fase !== 'finito') {
-          stato.fase = 'finito';
-          racconta('e adesso lo so',
-            'Ho attraversato lo spazio.',
-            stato.scoperti.toLocaleString('it-IT') + ' punti incontrati camminando · '
-            + 'nessuna posizione è inventata');
-        }
-      }
-    }
+  const cam = window.__veritasCamera, tela = window.__veritasCanvasEl;
+  if (cam && tela) {
+    const h = tela.clientHeight || 800;
+    stato.materiale.uniforms.scalaPixel.value = h / (2 * Math.tan((cam.fov || 60) * Math.PI / 360));
   }
 
+  // I punti precipitano e si posano. Nessuna posizione inventata: solo QUANDO.
+  for (let i = 0; i < n; i++) {
+    const s = dolce((u - quando[i]) / 0.16);
+    if (s >= 1) {
+      pos[i * 3] = meta[i * 3]; pos[i * 3 + 1] = meta[i * 3 + 1]; pos[i * 3 + 2] = meta[i * 3 + 2];
+    } else {
+      pos[i * 3]     = nasce[i * 3]     + (meta[i * 3]     - nasce[i * 3])     * s;
+      pos[i * 3 + 1] = nasce[i * 3 + 1] + (meta[i * 3 + 1] - nasce[i * 3 + 1]) * s;
+      pos[i * 3 + 2] = nasce[i * 3 + 2] + (meta[i * 3 + 2] - nasce[i * 3 + 2]) * s;
+    }
+  }
+  g.attributes.position.needsUpdate = true;
+  stato.materiale.uniforms.opacitaGlobale.value = 0.45 + 0.55 * fra(ATTI.polvere, u);
+
+  // Le superfici si accendono SOPRA i punti, dopo.
+  velaIlModello(0.06 + 0.72 * fra(ATTI.superfici, u));
+
+  const quanti = disegnaCartelli(u);
+
+  // La camera orbita e si avvicina — finche' non comincia la controprova.
+  if (cam && (u < ATTI.cammino[0] || !stato.via)) {
+    const k = dolce(Math.min(1, u / ATTI.cammino[0]));
+    const mira = stato.centro;
+    const ang = stato.angolo0 + k * 0.9;
+    const dist = stato.raggio0 * (1 - 0.42 * k);
+    const alt = stato.altezza0 * (1 - 0.55 * k);
+    cam.position.set(mira[0] + Math.sin(ang) * dist, mira[1] + alt, mira[2] + Math.cos(ang) * dist);
+    cam.lookAt(mira[0], mira[1], mira[2]);
+    cam.updateMatrixWorld();
+  } else if (cam && stato.via) {
+    const k = Math.min(1, (u - ATTI.cammino[0]) / (ATTI.cammino[1] - ATTI.cammino[0]));
+    const occhio = attore().occhio;
+    const i = Math.min(stato.via.length - 2, Math.floor(k * (stato.via.length - 1)));
+    const f = k * (stato.via.length - 1) - i;
+    const a = stato.via[i], b = stato.via[i + 1];
+    const px = a[0] + (b[0] - a[0]) * f, py = a[1] + (b[1] - a[1]) * f,
+          pz = a[2] + (b[2] - a[2]) * f;
+    const avanti = stato.via[Math.min(stato.via.length - 1, i + 6)];
+    cam.position.set(px, py + occhio, pz);
+    // ⚠️ Si guarda DRITTO: mirare piu' in basso inclina la camera, e una camera
+    //    inclinata in giu' si legge come «sto in alto». Raffaella l'ha sentito
+    //    prima che venisse misurato.
+    cam.lookAt(avanti[0], avanti[1] + occhio, avanti[2]);
+    cam.updateMatrixWorld();
+    stato.scoperti += scopriNelCono([px, py, pz]);
+  }
+
+  if (stato.pannello) {
+    const W = P();
+    const fase = u < 0.03 ? 0 : u < ATTI.condensa[1] ? 1 : u < ATTI.cartelli[0] ? 2
+               : u < ATTI.cammino[0] ? 3 : 4;
+    const ef = stato.pannello.querySelector('#ec-fase');
+    const ec = stato.pannello.querySelector('#ec-conta');
+    const eo = stato.pannello.querySelector('#ec-occhio');
+    if (ef) ef.textContent = W.fasi[fase];
+    if (ec) ec.textContent = (u >= ATTI.cammino[0] && stato.via)
+      ? stato.scoperti.toLocaleString() + ' ' + W.incontrati
+      : quanti + ' ' + (quanti === 1 ? W.uno : W.molti);
+    if (eo) eo.textContent = W.occhio + ' ' + attore().occhio.toFixed(2).replace('.', ',') + ' m';
+  }
+  if (stato.plancia && stato.corre) {
+    const b = stato.plancia.querySelector('#ec-barra');
+    if (b) b.value = Math.round(u * 1000);
+  }
+
+  // ⚠️ QUI NON SI CHIAMA `renderer.render()`, ED E' STATO PROVATO.
+  //    Il 06/09 e' stata aggiunta una chiamata di disegno «per sicurezza»,
+  //    pensando che la tela non venisse aggiornata. Risultato: il film
+  //    disegnava sopra il fotogramma appena dipinto dall'applicazione e lo
+  //    cancellava — schermo bianco, con i cartellini (che stanno su una tela
+  //    2D a parte) perfettamente visibili sopra il nulla.
+  //    Chi dipinge la tela 3D e' l'applicazione, e la dipinge mentre la
+  //    riproduzione corre: per questo il film la fa partire, ed e' anche
+  //    quello che Raffaella aveva chiesto — «dovrebbe essere il play della
+  //    simulazione».
   stato.raf = requestAnimationFrame(fotogramma);
-}
-
-function raccontaSguardo() {
-  const v = stato.ultimaVista;
-  if (!v) {
-    racconta('atto terzo', 'Adesso guardo.',
-             'l’occhio si annuncia a ogni vista finita — questa riga cambia da sola');
-    return;
-  }
-  const quante = v.quante != null ? v.quante : null;
-  racconta('atto terzo',
-    v.titolo || 'Ho guardato una vista.',
-    (quante != null ? quante + ' cose viste' : 'nessuna cosa riconosciuta')
-    + (v.pixelPerMetro ? ' · ' + Math.round(v.pixelPerMetro) + ' pixel al metro' : '')
-    + ' · vista ' + stato.viste);
-}
-
-// ---------------------------------------------------------------------------
-// L'aggancio all'occhio: l'evento c'e' gia' dal 05/09 e nessuno lo ascoltava.
-// ⚠️ Qui NON si mette le mani dentro il giro dell'occhio: si ascolta e basta.
-// ---------------------------------------------------------------------------
-function ascoltaLOcchio() {
-  window.addEventListener('veritas:vista', (e) => {
-    if (!stato.acceso) return;
-    const d = (e && e.detail) || {};
-    stato.viste++;
-    const cose = d.trovate || d.rilevazioni || d.viste || null;
-    stato.ultimaVista = {
-      titolo: d.nome || d.etichetta || 'Ho guardato una vista.',
-      quante: Array.isArray(cose) ? cose.length : (typeof cose === 'number' ? cose : null),
-      pixelPerMetro: d.pixelPerMetro || null,
-    };
-    raccontaSguardo();
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Il marchio diventa cliccabile. Idea di Raffaella, 06/09.
-// ---------------------------------------------------------------------------
-function preparaIlMarchio() {
-  const img = [...document.querySelectorAll('img')]
-    .find((i) => /eidetica/i.test(i.src) && i.getBoundingClientRect().width > 40);
-  if (!img) return null;
-  img.style.cursor = 'pointer';
-  img.title = 'EIDETICA — guarda come si forma la conoscenza';
-  img.style.transition = 'filter .4s ease, transform .4s ease';
-  img.addEventListener('mouseenter', () => {
-    img.style.filter = 'drop-shadow(0 0 14px rgba(123,63,228,.45))';
-    img.style.transform = 'scale(1.04)';
-  });
-  img.addEventListener('mouseleave', () => {
-    img.style.filter = ''; img.style.transform = '';
-  });
-  img.addEventListener('click', () => {
-    if (stato.acceso) ferma(); else avvia();
-  });
-  return img;
 }
 
 // ---------------------------------------------------------------------------
 export function avvia(opz) {
-  if (stato.acceso) return true;
+  if (stato.acceso) { riparti(); return true; }
   const p = pagina();
-  if (!p) { console.warn('[EIDETICA cinema] la scena non è pronta: non parte'); return false; }
+  if (!p) { console.warn('[EIDETICA cinema] la scena non è pronta'); return false; }
   if (!p.punti.length) {
     console.warn('[EIDETICA cinema] non c’è ancora una nuvola misurata: '
       + 'il film racconta lo spazio, e senza misure non c’è niente da raccontare');
     return false;
   }
-  const costruito = costruisciPolvere(p);
+  stato.attore = (opz && opz.attore) || null;
+  stato.ambienti = leggiGliAmbienti();
+  const costruito = costruisciPolvere(p, stato.ambienti);
   if (!costruito) return false;
 
   stato.gruppo = new p.THREE.Group();
   stato.gruppo.name = '__eideticaCinemaGruppo';
   stato.gruppo.add(costruito.oggetto);
-
-  // Il cielo del film, dentro la scena: nessuno lo puo' riscrivere.
-  let raggio = 200;
-  try {
-    const b = new p.THREE.Box3().setFromObject(window.__veritasModelRoot);
-    raggio = Math.max(50, b.getSize(new p.THREE.Vector3()).length());
-  } catch (e) {}
-  // ⚠️ NIENTE CIELO SCURO — deciso da Raffaella il 06/09: «questo nero non mi
-  //    piace: farei lo schermo grigio, e poi la scena grigia dove precipitano
-  //    questi pixel colorati». Il film si gira dentro la carta della
-  //    piattaforma, e la polvere ci si deposita sopra come inchiostro.
-  //    (`costruisciCielo` resta scritta: se un giorno servira' una versione da
-  //     proiettare al buio, e' li' e si accende con `opz.cielo`.)
-  if (opz && opz.cielo) { stato.cielo = costruisciCielo(p.THREE, raggio); stato.gruppo.add(stato.cielo); }
   p.scena.add(stato.gruppo);
+  stato.geom = costruito.geom; stato.materiale = costruito.materiale;
 
-  // Il cammino vero. Se non c'e', il film si fa dall'alto e LO DICE.
+  stato.cartelli = costruisciSovrimpressione(p);
+  stato.plancia = costruisciPlancia(p);
+  stato.pannello = costruisciStato(p);
   stato.via = trovaIlCammino();
+  stato.scoperti = 0; stato.t = 0;
+
+  // Da dove orbita: dal punto in cui la camera sta adesso, cosi' il film non
+  // comincia con un salto.
+  // ⚠️ L'ORBITA SI CALCOLA SUL MODELLO, non da dove la camera si trovava.
+  //    Misurato il 06/09: partendo dalla posizione corrente il film cominciava
+  //    da ottanta metri e finiva con i cartellini grandi come formiche. Il
+  //    raggio lo detta l'edificio, che e' l'unica cosa che sa quanto e' grande.
+  const b = new p.THREE.Box3().setFromObject(window.__veritasModelRoot);
+  const c = b.getCenter(new p.THREE.Vector3());
+  const dim = b.getSize(new p.THREE.Vector3());
+  stato.centro = [c.x, c.y + Math.min(6, dim.y * 0.4), c.z];
+  stato.raggio0 = Math.max(24, Math.max(dim.x, dim.z) * 0.78);
+  stato.angolo0 = Math.atan2(p.camera.position.x - c.x, p.camera.position.z - c.z);
+  stato.altezza0 = stato.raggio0 * 0.52;
   stato.cameraPrima = {
-    pos: p.camera.position.clone(),
-    quat: p.camera.quaternion.clone(),
-    fov: p.camera.fov,
+    pos: p.camera.position.clone(), quat: p.camera.quaternion.clone(), fov: p.camera.fov,
   };
-  stato.controlliPrima = null;
+  try { p.camera.fov = LENTE_GRADI; p.camera.updateProjectionMatrix(); } catch (e) {}
   try {
     const ctr = window.__veritasControls;
     if (ctr && 'enabled' in ctr) { stato.controlliPrima = ctr.enabled; ctr.enabled = false; }
   } catch (e) {}
 
-  stato.punti = costruito.oggetto;
-  stato.geom = costruito.geom;
-  stato.materiale = costruito.materiale;
-  stato.cartelli = costruisciCartelli(p);
-  try { p.camera.fov = LENTE_GRADI; p.camera.updateProjectionMatrix(); } catch (e) {}
-  stato.partenza = performance.now();
-  stato.fase = 'spento';
-  stato.viste = 0;
-  stato.acceso = true;
-
-  console.log('[EIDETICA cinema] parte: ' + p.punti.length.toLocaleString('it-IT')
-    + ' punti misurati. Lo guida lo stato vero, non un effetto.');
-  fotogramma();
+  const partita = facciPartireLaRiproduzione();
+  stato.acceso = true; stato.corre = true; stato.ultimo = 0;
+  console.log('[EIDETICA cinema] riproduzione '
+    + (partita ? 'avviata dal film' : 'era gia in corso, oppure non trovata')
+    + ' — senza, la tela 3D non viene ridipinta e il film non si vede');
+  console.log('[EIDETICA cinema] ' + p.punti.length.toLocaleString() + ' punti misurati, '
+    + stato.ambienti.length + ' ambienti'
+    + (stato.via ? ', cammino vero di ' + stato.via.length + ' passi' : ', senza cammino: resto in orbita')
+    + '. Lo guida lo stato vero, non un effetto.');
+  suonoSu();
+  stato.raf = requestAnimationFrame(fotogramma);
   return true;
+}
+
+export function pausa() {
+  stato.corre = false;
+  const et = stato.plancia && stato.plancia.querySelector('#ec-et');
+  if (et) et.textContent = stato.t >= 1 ? P().rivedi : P().riprendi;
+  suonoGiu();
+}
+export function riparti() {
+  if (stato.t >= 1) stato.t = 0;
+  stato.corre = true; stato.ultimo = 0;
+  const et = stato.plancia && stato.plancia.querySelector('#ec-et');
+  if (et) et.textContent = P().pausa;
+  suonoSu();
 }
 
 export function ferma() {
   if (!stato.acceso) return;
-  stato.acceso = false;
+  stato.acceso = false; stato.corre = false;
   if (stato.raf) cancelAnimationFrame(stato.raf);
   stato.raf = null;
+  suonoGiu();
   const scena = window.__veritasScene;
   if (scena && stato.gruppo) scena.remove(stato.gruppo);
   if (stato.geom) stato.geom.dispose();
   if (stato.materiale) stato.materiale.dispose();
-  if (stato.cartelli && stato.cartelli.parentElement)
-    stato.cartelli.parentElement.removeChild(stato.cartelli);
-  // La camera torna dove stava: un film che ti lascia dentro un muro non e' un
-  // film, e' un danno.
+  [stato.cartelli, stato.plancia, stato.pannello].forEach(function (el) {
+    if (el && el.parentElement) el.parentElement.removeChild(el);
+  });
+  // La camera torna dove stava: un film che ti lascia dentro un muro non è un
+  // film, è un danno.
   try {
     const c = window.__veritasCamera;
     if (c && stato.cameraPrima) {
@@ -797,28 +751,85 @@ export function ferma() {
     const ctr = window.__veritasControls;
     if (ctr && stato.controlliPrima !== null && 'enabled' in ctr) ctr.enabled = stato.controlliPrima;
   } catch (e) {}
-  stato.cameraPrima = null; stato.controlliPrima = null;
-  stato.cielo = null; stato.via = null; stato.scoperti = 0;
-  rialzaLaStanza();
   rimettiIlModello();
-  stato.gruppo = stato.punti = stato.geom = stato.materiale = stato.cartelli = null;
-  stato.fase = 'spento';
+  stato.gruppo = null; stato.geom = null; stato.materiale = null;
+  stato.cartelli = null; stato.plancia = null; stato.pannello = null;
+  stato.cameraPrima = null; stato.controlliPrima = null; stato.via = null;
   console.log('[EIDETICA cinema] fermo. La scena è tornata com’era.');
 }
-
 export const spegni = ferma;
 
+// ---------------------------------------------------------------------------
+// ⚠️ IL FILM FA PARTIRE LA RIPRODUZIONE, e non e' una comodita': senza, non si
+//    vede NIENTE. Misurato il 06/09, e ci sono volute due ore per capirlo.
+//
+//    L'applicazione ridipinge la tela 3D solo mentre la riproduzione corre. A
+//    simulazione ferma nessuno disegna, e il film — che pure girava, con la
+//    camera al posto giusto e 2.416 mesh al 45% di opacita' — restava invisibile
+//    su una tela che nessuno aggiornava.
+//
+//    Raffaella l'aveva detto prima che venisse misurato: *«secondo me dovrebbe
+//    essere il play della simulazione, cioe' dovremmo vedere un video»*. Aveva
+//    ragione due volte: e' giusto di prodotto ED e' l'unico modo perche' si
+//    veda.
+//
+//    ⚠️ Il bottone si riconosce dalla GEOMETRIA dell'icona, non dal testo: il
+//       Play di lucide-react e' un solo `<polygon points="6 3 20 12 6 21 6 3">`
+//       senza rettangoli. E' lo STESSO bottone che fa pausa, quindi se porta
+//       gia' la pausa la riproduzione sta correndo e cliccarlo la fermerebbe —
+//       lo stesso difetto al contrario, gia' pagato il 02/09.
+// ---------------------------------------------------------------------------
+function facciPartireLaRiproduzione() {
+  try {
+    const bottoni = Array.prototype.slice.call(document.querySelectorAll('button'));
+    for (const b of bottoni) {
+      const poly = b.querySelectorAll('polygon');
+      const rect = b.querySelectorAll('rect');
+      // un solo triangolo e nessun rettangolo = Play. Due rettangoli = Pausa.
+      if (poly.length === 1 && rect.length === 0 && b.querySelector('svg')) {
+        const r = b.getBoundingClientRect();
+        if (r.width > 8 && r.height > 8) { b.click(); return true; }
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+// Il marchio fa partire il film — idea di Raffaella, 06/09.
+function preparaIlMarchio() {
+  const img = Array.prototype.slice.call(document.querySelectorAll('img'))
+    .filter(function (i) { return /eidetica/i.test(i.src) && i.getBoundingClientRect().width > 40; })[0];
+  if (!img) return null;
+  img.style.cursor = 'pointer';
+  img.title = 'EIDETICA';
+  img.style.transition = 'filter .4s ease, transform .4s ease';
+  img.addEventListener('mouseenter', function () {
+    img.style.filter = 'drop-shadow(0 0 14px rgba(123,47,212,.45))';
+    img.style.transform = 'scale(1.04)';
+  });
+  img.addEventListener('mouseleave', function () { img.style.filter = ''; img.style.transform = ''; });
+  img.addEventListener('click', function () { stato.acceso ? ferma() : avvia(); });
+  return img;
+}
+
 if (typeof window !== 'undefined') {
-  window.veritasCinema = { avvia, ferma, spegni: ferma, stato: () => ({ ...stato, geom: undefined, materiale: undefined, gruppo: undefined, punti: undefined, cartelli: undefined }) };
-  ascoltaLOcchio();
-  // Il marchio puo' non esserci ancora quando questo modulo si carica.
-  const prova = (n) => {
+  window.veritasCinema = {
+    avvia: avvia, ferma: ferma, spegni: ferma, pausa: pausa, riparti: riparti,
+    stato: function () {
+      return {
+        acceso: stato.acceso, t: stato.t, corre: stato.corre,
+        ambienti: stato.ambienti.length, scoperti: stato.scoperti,
+        attore: attore().chiave, lingua: lingua(), cammino: !!stato.via,
+      };
+    },
+  };
+  const prova = function (n) {
     if (preparaIlMarchio()) {
-      console.log('[EIDETICA cinema] pronto — il marchio è cliccabile, oppure window.veritasCinema.avvia()');
+      console.log('[EIDETICA cinema] pronto — il marchio fa partire il film, oppure window.veritasCinema.avvia()');
       return;
     }
-    if (n < 40) setTimeout(() => prova(n + 1), 500);
-    else console.log('[EIDETICA cinema] pronto — window.veritasCinema.avvia() (il marchio non l’ho trovato)');
+    if (n < 40) setTimeout(function () { prova(n + 1); }, 500);
+    else console.log('[EIDETICA cinema] pronto — window.veritasCinema.avvia()');
   };
   prova(0);
 }
