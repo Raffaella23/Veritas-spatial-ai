@@ -363,6 +363,56 @@ un avanzamento misurato, o non mostra una percentuale.
 
 ---
 
+## 17. IL SUPERPOTERE DELL'OCCHIO: la parola vista TIRA LA CONSEGUENZA
+
+> Raffaella, 06/09/2026: *«Là ci sono delle macchine che gridano vendetta, c'e'
+> gia' solo quello. L'occhio dovrebbe sparare un razzo in testa al cervello e
+> dire: questa o e' una vendita di automobili, oppure c'e' una strada. Ma
+> siccome c'e' un aereo, e' difficile che si vendano le macchine — e quindi e'
+> un aeroporto, e quindi quello e' un ingresso.»*
+>
+> *«Questo sistema lo devi sbloccare una volta per tutte, perche' voglio fare
+> altro.»*
+
+⚠️ **NON SI TARA UNA SOGLIA PER RICONOSCERE UNA COSA CHE L'OCCHIO SA GIA'
+NOMINARE.** E' la direttiva 7 («riconoscere serve ad AGIRE») portata sullo
+SPAZIO invece che sul comportamento: «sedute» vuol dire *ci si ferma*,
+«veicoli» vuol dire *qui sei fuori*.
+
+Il ragionamento ha tre gradini, e sono tutti e tre dell'occhio e del cervello,
+nessuno di un righello:
+
+1. **l'occhio nomina** — vede delle automobili;
+2. **il cervello elenca le conseguenze possibili** — o e' un concessionario, o
+   e' una strada;
+3. **il cervello sceglie con gli altri indizi già visti** — c'e' un aereo,
+   quindi non e' un concessionario: e' una strada, quindi si e' fuori, quindi
+   li' c'e' un ingresso.
+
+⚠️ **E l'invariante e' agnostico**, come le posture: *dove ci sono veicoli si e'
+all'aperto* vale in un aeroporto, in una scuola, in un ospedale, in un centro
+commerciale. Non si scrive «aeroporto» da nessuna parte. La conseguenza sta
+accanto alla parola nel registro (`veritas_riconosce.js`, `POSTURA_DI` e le sue
+sorelle), non in una regola di dominio.
+
+📌 **Il caso che l'ha fatta nascere, misurato il 06/09.** Il marchio «da fuori»
+si reggeva su tre soglie in metri (lungo ≥ 3, largo ≥ 1,5, alto ≥ 1). Quelle
+soglie erano state tarate quando il modello stava a scala **7,3x**; il righello
+umano lo ha portato a **5,272x**, tutto si e' ristretto del 28%, e le macchine
+sono passate da 1,70 a **1,23 m** di larghezza. Larghezza richiesta: 1,50.
+**Zero macchine su quattro passavano, e il marchio non scattava piu'.**
+
+⚠️ **La lezione, e vale oltre questo caso: una soglia in metri e' tarata su una
+SCALA, e la scala di questo progetto cambia.** Ogni numero assoluto scritto nel
+codice e' una bomba a orologeria che scoppia il giorno in cui si misura meglio.
+Quello che l'occhio sa nominare non si misura: si chiede a lui.
+
+*(Questa direttiva ASSORBE e sostituisce la vecchia riga «il superpotere
+all'occhio» del 29/08 — punto 4 dell'elenco «Cosa fare, in questo ordine» —
+che parlava solo di quali immagini gli arrivano.)*
+
+---
+
 ## 📋 I LAVORI APERTI, in quest'ordine
 
 
@@ -4110,11 +4160,12 @@ qualunque accoppiamento è una toppa.
    modello»* — quanti banchi, quante sedute servono. Serve una lettura
    puntuale, non una riga di comando.
 
-4. 🟠 **Il superpotere all'occhio.** Dagli scorci si prende solo la
-   testimonianza, mai i riquadri (in prospettiva un riquadro non ha una
-   posizione a terra — commenti in `veritas_comprensione.js` ~597). Con la
-   rotazione a mazzetti l'occhio riceve già le stesse immagini del cervello,
-   giro per giro: resta da verificarlo a schermo.
+4. **Il superpotere all'occhio: spostato in cima, direttiva 17.** Quello che
+   restava qui era solo la parte sulle immagini (dagli scorci si prende la
+   testimonianza, mai i riquadri: in prospettiva un riquadro non ha una
+   posizione a terra — commenti in `veritas_comprensione.js` ~597), ed e'
+   chiusa dal 05/09. La parte viva — *la parola vista tira la conseguenza* —
+   e' una direttiva, non una voce di elenco.
 
 5. 🔴 **LA SEGNALETICA SEMANTICA — promossa il 31/08, ed è la missione, non
    una rifinitura.** Detto da Raffaella: *«noi ci dobbiamo occupare di
