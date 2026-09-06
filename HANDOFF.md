@@ -666,6 +666,51 @@ misurata e il nome riconosciuto. Se ha capito male, li' si vede subito.
 
 `veritas_cinema.js`, uno strato: tela sua, renderer suo, `Esc` chiude.
 
+## 🔒 LA GRAMMATICA DEL FILM — l'ha scritta Raffaella, e non si ridiscute
+
+⚠️ **Non l'ha inventata chi scrive codice.** Il 06/09 Raffaella ha consegnato un
+**prototipo funzionante**, HTML e canvas — *«Eidetica — ricomposizione dello
+spazio»* — dicendo: *«conclude sempre con i colori del marchio, qui e' in
+italiano ma dipende dalla lingua che si sceglie, e voglio anche il suono dentro.
+Vorrei che seguissi questa linea di pensiero.»*
+
+⚠️ **Queste undici righe sono la specifica. Chi rifa' il film le rispetta, e se
+vuole cambiarne una la discute con Raffaella prima.** *(Scritte qui il 06/09
+perche' stavano solo in un commento dentro `veritas_cinema.js`: una decisione
+che vive dentro un file sparisce quando qualcuno riscrive quel file — ed e'
+esattamente il difetto che quel giorno e' costato una giornata intera.)*
+
+1. **Fondo chiaro.** Si gira sulla carta, non al buio. *«Questo nero non mi
+   piace: farei lo schermo grigio, e poi la scena dove precipitano questi pixel
+   colorati.»*
+2. **I colori sono quelli del marchio** — blu, viola, magenta, arancio, oro — e
+   non rispecchiano quelli del modello: *«non ce ne frega niente, l'importante e'
+   far vedere come il modello guarda la realta'.»*
+3. **L'ordine e' PUNTI → SUPERFICI → CARTELLINI.** I punti precipitano, poi si
+   accendono le superfici sopra, poi si posano i nomi. Mai il contrario.
+4. **I punti si condensano in MESH**, non restano una nuvola. *(E' il lavoro
+   aperto qui sotto: e' la riga che tiene in piedi tutto il resto.)*
+5. **Il cartellino**: pallino sull'ancora, filo, pastiglia bianca col nome.
+6. **Cinque fasi, e hanno un nome**: modello grezzo · percezione ·
+   riconoscimento · semantica · spazio ricomposto.
+7. **E' un VIDEO, non degli scatti**: barra con play, pausa, trascinamento e
+   «rivedi». *«Io adesso ho visto degli scatti.»*
+8. **Il suono c'e'**, e all'avvio del prototipo era spento (nella finestra a
+   tutto schermo Raffaella l'ha voluto acceso: *«e la musica mettine una
+   qualsiasi adesso»*).
+9. **Le parole seguono la lingua scelta**, non una lingua scritta nel codice.
+10. **La lente e' 60 gradi** — *«nei programmi di rendering, per ricreare la
+    sensazione dell'occhio dell'uomo»*. ⚠️ E' cosa DIVERSA dai 100-140 gradi
+    dell'isovista, che dicono quanto una persona percepisce.
+11. **L'osservatore e' un parametro dichiarato**: *«dobbiamo targettizzare chi e'
+    il nostro osservatore — potremmo valutare quello sulla sedia a rotelle.»*
+    Gli archetipi stanno in `veritas_visibility` e non si riscrivono altrove.
+
+📌 **E la sequenza di prodotto, detta il 06/09:** prima la formazione della
+conoscenza, poi — *«e poi infine»* — la simulazione vista dagli occhi di chi
+scende dal taxi, entra e segue le frecce verdi. **Quella e' la controprova che
+tutto funziona**, ed e' l'ultimo atto, non il primo.
+
 ## 🔴 IL PROSSIMO LAVORO, e l'ha definito Raffaella meglio di chi scriveva
 
 > *«Penso che il problema sia nella distanza fra i punti: si devono radunare e
