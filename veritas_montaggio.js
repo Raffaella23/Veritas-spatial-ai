@@ -61,11 +61,11 @@ import "./veritas_manuale.js";
 //   node --check veritas_montaggio.js
 // ===========================================================================
 
-import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=6"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=7"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=11";
+import { anteprima } from "./veritas_anteprima.js?v=13";
 import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=2";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.

@@ -12759,16 +12759,37 @@ function grappoliDaInquadrare(posti, opz = {}) {
   const quanti = opz.quanti != null ? opz.quanti : 15;
   const arredo = new Set(opz.formeArredo || FORME_ARREDO);
 
+  // ⚠️ CIO' CHE E' TROPPO GRANDE NON SI BUTTA: SI GUARDA DA PIU' LONTANO.
+  //    Corretto il 06/09/2026, ed e' l'ultimo anello della catena del
+  //    parcheggio. Qui c'era `continue`: una cosa piu' lunga di `maxLato`
+  //    spariva dall'elenco, quindi non entrava in nessun grappolo e non
+  //    riceveva MAI una fotografia ravvicinata — su nessun modello, mai.
+  //
+  //    Misurato su questo aeroporto: le corsie del fronte strada stanno in un
+  //    gruppo lungo **26,13 m** contro un tetto di 25. **Buttate per 1,13
+  //    metri.** Da li' l'occhio non ha mai visto la strada, non ha mai visto
+  //    le automobili, e il «da fuori» veniva marcato solo dal lato degli
+  //    aerei — cioe' dalla parte sbagliata rispetto a quello che Raffaella
+  //    vede a schermo.
+  //
+  //    ⚠️ E la soglia non andava alzata: sarebbe stata la stessa medicina che
+  //       si e' gia' rotta due volte oggi. Un numero in metri e' tarato su una
+  //       SCALA, e questo progetto la scala se la ricalcola. A 26 metri
+  //       inquadrati restano comunque ~29 pixel al metro, contro i 6 della
+  //       veduta d'insieme: la fotografia serve ancora. Quindi la cosa grande
+  //       diventa un grappolo DA SOLA, inquadrata alla sua misura, e non fa
+  //       crescere gli altri — che era la ragione vera del tetto.
   const cose = [];
+  const troppoGrandi = [];
   for (const p of posti || [])
     for (const c of (p.cose || [])) {
       if (!c || !c.centro || !c.ingombro || !c.ingombro.min || !c.ingombro.max) continue;
       const lx = c.ingombro.max[0] - c.ingombro.min[0];
       const lz = c.ingombro.max[2] - c.ingombro.min[2];
-      if (lx > maxLato || lz > maxLato) continue;
+      if (lx > maxLato || lz > maxLato) { troppoGrandi.push(c); continue; }
       cose.push(c);
     }
-  if (!cose.length) return [];
+  if (!cose.length && !troppoGrandi.length) return [];
 
   const grappoli = [];
   for (const c of cose) {
@@ -12804,15 +12825,58 @@ function grappoliDaInquadrare(posti, opz = {}) {
     dentro.forme[f] = (dentro.forme[f] || 0) + 1;
   }
 
+  // Le cose troppo grandi: ognuna un grappolo suo, alla sua misura. Non si
+  // uniscono a niente — sarebbero loro a far crescere gli altri oltre il tetto.
+  for (const c of troppoGrandi) {
+    grappoli.push({
+      min: c.ingombro.min.slice(), max: c.ingombro.max.slice(),
+      pezzi: (c.quante || 1),
+      arredi: arredo.has(c.forma) ? (c.quante || 1) : 0,
+      forme: { [c.forma || 'senza forma']: 1 },
+      daSola: true,
+    });
+  }
+
   // ⚠️ CI SI AVVICINA DOVE C'E' UN ARREDO, non dove ci sono piu' pezzi.
   //    Misurato il 05/09: ordinando per numero di pezzi i sei primi piani
   //    finivano tutti su ammassi di volumi e di cose appese, e NESSUNO
   //    conteneva una seduta — cioe' proprio la cosa per cui ci si avvicina.
   //    L'arredo e' quello che implica un comportamento (ci si siede, si fa
   //    la fila): e' li' che vale la pena spendere una fotografia.
-  return grappoli
-    .sort((a, b) => (b.arredi - a.arredi) || (b.pezzi - a.pezzi))
-    .slice(0, quanti)
+  //
+  // ⚠️ MA NON SOLO LI', E QUESTA E' LA CORREZIONE DEL 06/09.
+  //
+  //    Ordinando SOLO per arredi, un grappolo che di arredi non ne ha non
+  //    riceve mai una fotografia — mai, su nessun modello. Misurato su questo
+  //    aeroporto: il fronte strada e' un grappolo da 282 m2 con 28 oggetti in
+  //    fila (le corsie, 4,5 x 26 m l'una), forma «volume», arredi ZERO.
+  //    Quindici primi piani, nessuno li' sopra. Da cui: l'occhio non ha mai
+  //    visto le automobili, il fuori non veniva marcato dal lato strada, e
+  //    Raffaella vedeva a schermo delle macchine che il programma non nomina.
+  //
+  //    ⚠️ E il guasto era CIRCOLARE, che e' il motivo per cui e' durato: non
+  //       ci si avvicina perche' non si sa cosa c'e', e non si sa cosa c'e'
+  //       perche' non ci si avvicina. **Non si puo' concludere su cio' che non
+  //       si e' mai guardato** — ed e' la direttiva 17 letta al contrario.
+  //
+  //    Si ALTERNA, come gia' si fa fra scorci larghi e ravvicinati per lo
+  //    stesso identico motivo: una lista di cio' che PROMETTE un
+  //    comportamento (gli arredi) e una di cio' di cui NON SI SA NIENTE (gli
+  //    altri, i piu' estesi per primi), e si pesca una volta per parte.
+  //    Nessuna quota fissa da tarare: se una delle due si esaurisce, l'altra
+  //    prende i posti rimasti.
+  const conArredi = grappoli.filter((g) => g.arredi > 0)
+    .sort((a, b) => (b.arredi - a.arredi) || (b.pezzi - a.pezzi));
+  const senzaArredi = grappoli.filter((g) => !g.arredi)
+    .sort((a, b) => ((b.max[0] - b.min[0]) * (b.max[2] - b.min[2]))
+                  - ((a.max[0] - a.min[0]) * (a.max[2] - a.min[2])));
+  const scelti = [];
+  let i = 0, j = 0;
+  while (scelti.length < quanti && (i < conArredi.length || j < senzaArredi.length)) {
+    if (i < conArredi.length) scelti.push(conArredi[i++]);
+    if (scelti.length < quanti && j < senzaArredi.length) scelti.push(senzaArredi[j++]);
+  }
+  return scelti
     .map((g) => ({
       min: [g.min[0] - bordo, g.min[1], g.min[2] - bordo],
       max: [g.max[0] + bordo, g.max[1] + bordo, g.max[2] + bordo],
@@ -26517,6 +26581,6 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=14"></script>
+<script type="module" src="./veritas_montaggio.js?v=16"></script>
 </body>
 </html>
