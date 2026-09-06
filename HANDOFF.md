@@ -647,6 +647,76 @@ Il richiamo automatico esiste per gli accessi, non per le zone.
 
 ---
 
+# 🎬 LA LETTURA DAL VIVO — 06/09/2026, e il prossimo lavoro e' il cuore
+
+> Raffaella, 06/09: *«Questo e' il cuore di tutto.»*
+
+**C'e' un pulsante col marchio in basso a destra** — «Lettura dal vivo» /
+«Live view». Si apre a tutto schermo, si apre col marchio che allarga le ali,
+e dentro **non c'e' una sola mesh del modello dell'utente**.
+
+> *«Io vorrei non vedere il modello che ho dato. Se abbiamo selezionato questo
+> tipo di immagine e' perche' vogliamo la controprova visiva che il nostro
+> meccanismo funziona, e soprattutto di COME funziona. Se vedo gia' tutto il
+> modello in partenza non mi serve: io voglio vedere cosa vede lui, da zero.»*
+
+Dentro ci sono solo due cose, tutte e due farina del programma: **i punti che
+ha misurato** e **le impronte degli ambienti che ha ricostruito**, con la forma
+misurata e il nome riconosciuto. Se ha capito male, li' si vede subito.
+
+`veritas_cinema.js`, uno strato: tela sua, renderer suo, `Esc` chiude.
+
+## 🔴 IL PROSSIMO LAVORO, e l'ha definito Raffaella meglio di chi scriveva
+
+> *«Penso che il problema sia nella distanza fra i punti: si devono radunare e
+> condensare a formare delle MESH. Per questo tu hai sentito la necessita' di
+> alzarti in alto — ma se i punti arrivano dal nulla e si condensano, vanno a
+> formare la mesh effettivamente? Cosi' puoi stare all'altezza dell'uomo, nello
+> sguardo di uno che cammina. Diversamente crei una vista prospettica che
+> replica quella dall'alto. Invece noi vogliamo l'occhio dell'osservatore.»*
+
+⚠️ **Alzare la telecamera e' la cura sbagliata, ed e' stata provata due volte
+oggi.** Finche' la nuvola resta sparsa, a 1,65 m non c'e' niente da guardare —
+e alzandosi si ottiene solo un'altra vista dall'alto, cioe' proprio quella che
+la finestra non deve essere.
+
+**La strada, ed e' gia' misurata:** nella griglia del motore percettivo
+(`buildOccupancyGrid`, celle libere/occupate) **il confine fra una cella libera
+e una occupata E' IL MURO**. Da li' si alzano superfici vere — misurate, non
+inventate — la nuvola ci si addensa sopra, e si sta in piedi dentro uno spazio
+che si costruisce attorno.
+⚠️ L'ALTEZZA di quelle superfici il programma NON la misura (vale dal 30/08,
+`f4ff56a`): va dichiarata, e va detto che e' dichiarata.
+
+## ⚠️ Le trappole pagate il 06/09 su questa finestra — non si ripagano
+
+1. **Una regola dello strato «carta» colora TUTTI i canvas.** Una tela di
+   sovrimpressione risultava `background: rgb(233,235,240)` e stendeva un foglio
+   grigio sopra la scena 3D. Il film girava benissimo sotto, e si vedevano solo
+   i cartellini perche' erano gli unici disegnati su quel foglio. **Due ore.**
+   Si toglie con `style.setProperty('background','transparent','important')`.
+   📌 Il sintomo che l'ha svelato: nascondendo quella tela ricompariva tutto.
+2. **L'applicazione ridipinge la tela 3D solo mentre la riproduzione corre.**
+   A simulazione ferma nessuno disegna, e qualunque cosa si aggiunga alla sua
+   scena resta invisibile. (Raffaella l'aveva detto prima che fosse misurato:
+   *«dovrebbe essere il play della simulazione»*.)
+3. **Non si chiama `renderer.render()` sulla scena dell'applicazione**: cancella
+   il fotogramma che lei ha appena dipinto. Provato, e peggiora.
+4. **Una dimensione di punto scritta in PIXEL e' tarata sulla distanza a cui
+   stava la telecamera quando l'hanno provata.** Misurato: veniva 0,38 px, cioe'
+   invisibile. Si usa un raggio in METRI.
+5. **`document.documentElement.lang` diceva «en» su un'interfaccia italiana** e
+   il film e' uscito in inglese. La lingua e' quella SCELTA: si leggono i
+   bottoni IT/EN.
+6. **Su fondo chiaro il blending additivo non esiste**: «colore + bianco =
+   bianco». Su carta i punti sono inchiostro, non neon.
+
+📌 **Per vedere la finestra**: aprire il progetto (un clic sulla riga →
+impostazioni → «Apri lo spazio di lavoro»), aspettare l'analisi, poi il
+pulsante in basso a destra.
+
+---
+
 ## 📋 I LAVORI APERTI, in quest'ordine
 
 
