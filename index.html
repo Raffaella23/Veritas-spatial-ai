@@ -24337,6 +24337,52 @@ const POSTURA_DI = Object.freeze({
   escalator: "passa", step: "passa", path: "passa", bridge: "passa",
 });
 
+// ⚠️ DIRETTIVA 17 — LA PAROLA VISTA TIRA LA CONSEGUENZA.
+//
+// Raffaella, 06/09/2026: «l'occhio dovrebbe sparare un razzo in testa al
+// cervello e dire: questa o e' una vendita di automobili, oppure c'e' una
+// strada. Ma siccome c'e' un aereo, e' difficile che si vendano le macchine —
+// e quindi e' un aeroporto, e quindi quello e' un ingresso».
+//
+// E' la sorella di POSTURA_DI, e ha la stessa forma: una parola, una
+// conseguenza. La postura dice cosa fa il CORPO davanti a quell'oggetto;
+// questa dice dove si TROVA chi lo vede.
+//
+// ⚠️ DUE FORZE, E LA DIFFERENZA E' IL PUNTO DELLA DIRETTIVA.
+//   · "sempre"      — non puo' stare al chiuso. Il cielo, una strada, un
+//                     marciapiede, una pista: chi li vede e' fuori, e basta.
+//   · "quasi sempre" — al chiuso ci sta, ma solo in un edificio che lo espone:
+//                     un'automobile in un concessionario, un aereo in un museo,
+//                     una barca in un salone. Da sola non decide: e' un VOTO.
+//                     E' esattamente il dubbio di Raffaella — «o e' una vendita
+//                     di automobili, oppure c'e' una strada» — e si scioglie
+//                     con gli altri indizi, non con una soglia.
+//
+// ⚠️ E' AGNOSTICO, e deve restarlo (Regola 0-bis). «Dove ci sono veicoli si e'
+//    all'aperto» vale in un aeroporto, in una scuola, in un ospedale, in un
+//    centro commerciale. Qui dentro non compare, e non deve comparire mai, il
+//    nome di un tipo di edificio.
+//
+// ⚠️ NESSUNA MISURA IN METRI. Il marchio «da fuori» si reggeva su tre soglie
+//    (lungo >= 3 m, largo >= 1,5 m, alto >= 1 m) tarate quando il modello
+//    stava a scala 7,3x. Il righello umano lo ha portato a 5,272x, le macchine
+//    si sono ristrette da 1,70 a 1,23 m, e zero su quattro passavano piu'.
+//    Una soglia in metri e' tarata su una SCALA, e la scala di questo progetto
+//    cambia. Cio' che l'occhio sa nominare non si misura: si chiede a lui.
+const ARIA_APERTA_DI = Object.freeze({
+  // non puo' stare al chiuso: chi lo vede e' fuori
+  sky: "sempre", road: "sempre", sidewalk: "sempre", runway: "sempre",
+  grass: "sempre", earth: "sempre", land: "sempre", field: "sempre",
+  sea: "sempre", river: "sempre", mountain: "sempre", hill: "sempre",
+  skyscraper: "sempre", streetlight: "sempre",
+  // al chiuso ci sta solo in un edificio che lo espone: vota, non decide
+  car: "quasi sempre", bus: "quasi sempre", truck: "quasi sempre",
+  van: "quasi sempre", minibike: "quasi sempre", bicycle: "quasi sempre",
+  boat: "quasi sempre", ship: "quasi sempre", airplane: "quasi sempre",
+  tent: "quasi sempre", awning: "quasi sempre", palm: "quasi sempre",
+  tree: "quasi sempre",
+});
+
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
 // piu' onesto di una traduzione inventata, e succede solo per gli oggetti che
 // non diventano mai il nome di una zona.
@@ -24473,6 +24519,7 @@ const VOCABOLARIO = Object.freeze(
     nome: NOME_IT[t] || t,
     funzione: FUNZIONE_DI[t] || null,
     postura: POSTURA_DI[t] || null,
+    ariaAperta: ARIA_APERTA_DI[t] || null,
     luogo: LUOGHI.has(t),
     domini: "*",
     fonte: "ADE20K-150",
@@ -24795,6 +24842,30 @@ async function riconosci(posti, opz = {}) {
     rilevazioni: rilevazioni.length,
     chieste: parole.length,
     nominati: esito.posti.filter((p) => p.nome).length,
+    // ⚠️ DIRETTIVA 17 — QUELLO CHE L'OCCHIO HA VISTO NON RESTA DENTRO L'OCCHIO.
+    //    Fino al 06/09 di qui usciva solo il NUMERO delle rilevazioni: chi
+    //    voleva sapere *che cosa* fosse stato visto, e DOVE, non aveva modo di
+    //    chiederlo. Cosi' il marchio «da fuori» degli accessi si e' dovuto
+    //    reggere su tre soglie in metri — che si sono rotte il giorno in cui la
+    //    scala e' cambiata (7,3x -> 5,272x: le macchine da 1,70 a 1,23 m di
+    //    larghezza, e zero su quattro passavano piu').
+    //
+    //    Adesso ogni rilevazione esce con la sua parola, dove sta, quanto ci
+    //    crede l'occhio, e la CONSEGUENZA che quella parola porta con se'
+    //    (`ariaAperta`: "sempre" / "quasi sempre" / null). Chi deve decidere
+    //    qualcosa lo chiede all'occhio invece di misurarlo.
+    //
+    //    ⚠️ Restano rilevazioni, non misure: sono cio' che l'occhio DICE di
+    //       aver visto, con la sua fiducia accanto. Chi le usa lo dichiari.
+    viste: rilevazioni.map((r) => ({
+      termine: r.voce.termine,
+      nome: r.voce.nome,
+      ariaAperta: r.voce.ariaAperta || null,
+      luogo: !!r.voce.luogo,
+      controprova: !!r.voce.controprova,
+      score: +r.score.toFixed(3),
+      centro: r.mondo && r.mondo.centro ? r.mondo.centro.slice() : null,
+    })),
   };
 }
 
@@ -25198,7 +25269,7 @@ if (typeof window !== "undefined") {
 }
 
 window.__veritasRiconosce = {
-  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI,
+  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,
@@ -27632,11 +27703,11 @@ if (typeof window !== 'undefined') {
      window.veritasCarta.spegni(). Va per primo cosi' il bianco c'e'
      gia' quando il resto si disegna, e non si vede il salto. -->
 <script type="module" src="./veritas_carta.js?v=6"></script>
-<script type="module" src="./veritas_accessi.js?v=6"></script>
+<script type="module" src="./veritas_accessi.js?v=7"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=12"></script>
+<script type="module" src="./veritas_montaggio.js?v=13"></script>
 </body>
 </html>

@@ -20,7 +20,11 @@ from html.parser import HTMLParser
 #    a ogni reinline. Un allarme che suona sempre non protegge piu' niente.
 #    Rimesso in pari il 04/09/2026, dopo aver verificato che il blocco 3 e'
 #    identico byte per byte a quello committato su main.
-SHA_BLOCCO_3 = "415c4124f57d6453"
+# ⚠️ 06/09/2026 — ribattuto, e la vecchia impronta (415c4124f57d6453) non vale
+#    piu': quel giorno il bundle e' stato modificato a mano per aggiungere il
+#    carattere Jura ai font del vestito EIDETICA. Ventitre caratteri, voluti,
+#    verificati uno per uno: e' l'unica differenza in 872.517.
+SHA_BUNDLE = "beb4953744b92c5b"
 
 
 class Estrai(HTMLParser):
@@ -116,15 +120,28 @@ def main():
         print(f"(blocco NUOVO, inserito in fondo)")
     open("index.html", "w", encoding="utf-8").write(documento)
 
-    # Verifica: il blocco 3 non si tocca, mai.
+    # Verifica: il bundle React non si tocca, mai.
+    #
+    # ⚠️ SI CERCA PER IMPRONTA, NON PER POSIZIONE — corretto il 06/09/2026.
+    #    Questa guardia diceva `blocchi[3]`, e il 06/09 il bundle e' scivolato
+    #    al blocco 4 (la schermata d'attesa EIDETICA ha portato i blocchi da 34
+    #    a 37). Da quel momento il reinlinatore gridava «BLOCCO 3 ALTERATO» a
+    #    ogni esecuzione, su un bundle intatto: un allarme finto, cioe'
+    #    esattamente cio' contro cui la guardia era stata scritta. Un allarme
+    #    che suona sempre e' un allarme spento.
+    #    Cercandolo per impronta fra TUTTI i blocchi, aggiungerne uno non
+    #    disturba piu' niente, e se il bundle sparisce davvero si sente.
     q = Estrai()
     q.feed(open("index.html", encoding="utf-8").read())
-    sha = hashlib.sha256(q.blocchi[3][0].encode()).hexdigest()[:16]
-    if sha != SHA_BLOCCO_3:
-        raise SystemExit(f"BLOCCO 3 ALTERATO: {sha} (atteso {SHA_BLOCCO_3})")
+    dove = [i for i, b in enumerate(q.blocchi)
+            if hashlib.sha256(b[0].encode()).hexdigest()[:16] == SHA_BUNDLE]
+    if not dove:
+        raise SystemExit(
+            f"BUNDLE ALTERATO: nessuno dei {len(q.blocchi)} blocchi "
+            f"ha l'impronta {SHA_BUNDLE}")
 
     print(f"{modulo} -> blocco reinlinato, {len(nuovo_corpo)} byte")
-    print(f"blocchi totali: {len(q.blocchi)} — blocco 3 intatto ({sha})")
+    print(f"blocchi totali: {len(q.blocchi)} — bundle intatto al blocco {dove[0]}")
 
 
 if __name__ == "__main__":

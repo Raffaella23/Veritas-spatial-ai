@@ -411,6 +411,45 @@ Quello che l'occhio sa nominare non si misura: si chiede a lui.
 all'occhio» del 29/08 — punto 4 dell'elenco «Cosa fare, in questo ordine» —
 che parlava solo di quali immagini gli arrivano.)*
 
+### Dov'e' arrivata, il 06/09 — e cosa non e' ancora provato
+
+**✅ Scritto e provato sulla pagina viva, con un occhio finto:**
+
+- `ARIA_APERTA_DI` in `veritas_riconosce.js`, sorella di `POSTURA_DI`: **27
+  parole**, due forze. `road` e `sky` decidono da sole, `car` e `airplane`
+  votano, `chair` non dice niente;
+- l'occhio non tiene piu' per se' quello che vede: `riconosci()` restituisce
+  ora anche `viste` — parola, dove, fiducia, e la conseguenza — dove prima
+  usciva solo il NUMERO delle rilevazioni. **E' questo il superpotere: non che
+  l'occhio veda di piu', ma che quello che vede arrivi a chi deve decidere;**
+- `ariaApertaVista()` in `veritas_accessi.js`, e `voceOggetti` la interroga
+  PRIMA di misurare. Il vecchio `coseFerme` (le tre soglie in metri) resta solo
+  come ripiego, e **quando ripiega lo dichiara nel log**;
+- quando l'occhio finisce di guardare, **gli ingressi si rifanno** con la sua
+  testimonianza. Senza questo richiamo la direttiva sarebbe scritta e mai
+  applicata: gli ingressi si cercano appena il modello e' entrato, l'occhio ci
+  mette due minuti, e parlerebbe quando non lo ascolta piu' nessuno.
+
+Provato in console con quattro rilevazioni finte: gruppo sul fronte strada →
+*«road, sempre»*; gruppo in sala d'attesa → *«niente, al chiuso»*; gruppo
+davanti all'aereo → *«aereo, quasi sempre»*, cioe' un voto.
+
+**🔴 [DA VERIFICARE] Il giro intero con l'occhio VERO non e' stato fatto**, e
+finche' non lo e' non si dichiara chiuso (regola del 04/09: una riga «corretto»
+si verifica contando le chiamate). Manca perche' il modello non e' piu' nel
+deposito di quel browser e va ricaricato dal pulsante — ⚠️ **mai dalla console
+con un `DataTransfer`**, che salta la scala automatica.
+
+Le tre domande da leggere, in quest'ordine, alla ripresa:
+
+1. in console: `l'occhio aveva gia' guardato: N cose viste, M delle quali
+   dicono «qui si e' all'aperto»`. Se M = 0, l'occhio non riconosce le
+   automobili su questo modello, ed e' un difetto diverso — di vista, non di
+   ragionamento;
+2. poi: `l'occhio ha finito di guardare … rifaccio gli ingressi`;
+3. e infine la domanda per cui tutto questo e' stato fatto: **fra gli accessi
+   ne compare uno che si chiama «Accesso N da fuori»?**
+
 ---
 
 ## 📋 I LAVORI APERTI, in quest'ordine

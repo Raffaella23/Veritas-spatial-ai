@@ -507,6 +507,50 @@ export function coseFerme(pezzi, opz = {}) {
   return scarto <= (opz.regolarita != null ? opz.regolarita : 0.4);
 }
 
+/**
+ * DIRETTIVA 17 — LA PAROLA VISTA TIRA LA CONSEGUENZA.
+ *
+ * Raffaella, 06/09/2026: «l'occhio dovrebbe sparare un razzo in testa al
+ * cervello e dire: questa o e' una vendita di automobili, oppure c'e' una
+ * strada. Ma siccome c'e' un aereo, e' difficile che si vendano le macchine —
+ * e quindi e' un aeroporto, e quindi quello e' un ingresso».
+ *
+ * Si guarda se l'occhio, vicino a questo punto, ha visto qualcosa che al chiuso
+ * non ci sta. La conseguenza viaggia gia' con la parola (`ariaAperta` nel
+ * registro di `veritas_riconosce.js`): qui non si decide niente, si legge.
+ *
+ * ⚠️ LE DUE FORZE NON SI CONFONDONO, ed e' il punto della direttiva.
+ *    «sempre» (cielo, strada, marciapiede, pista) chiude la questione da sola.
+ *    «quasi sempre» (un'automobile, un aereo, una barca) e' un VOTO: al chiuso
+ *    ci sta, ma solo in un edificio che lo espone. E' il dubbio di Raffaella —
+ *    «o e' una vendita di automobili, oppure c'e' una strada» — e si scioglie
+ *    con l'accordo fra le voci, che questo modulo fa gia', non con una soglia.
+ *
+ * ⚠️ E' una TESTIMONIANZA, non una misura: e' cio' che l'occhio dice di aver
+ *    visto, con la sua fiducia accanto. Chi la usa lo dichiara nel referto.
+ */
+export function ariaApertaVista(centro, opz = {}) {
+  const viste = opz.viste || [];
+  if (!centro || !viste.length) return null;
+  // Lo stesso raggio con cui due voci si trovano d'accordo: se la' dentro c'e'
+  // una strada, questo gruppo di oggetti sta sulla strada.
+  const raggio = opz.raggioVista != null ? opz.raggioVista : (opz.raggioAccordo || 6);
+  let migliore = null;
+  for (const v of viste) {
+    if (!v || !v.ariaAperta || !v.centro) continue;
+    const d = Math.hypot(v.centro[0] - centro[0], v.centro[2] - centro[2]);
+    if (d > raggio) continue;
+    const forte = v.ariaAperta === 'sempre';
+    const eraForte = migliore && migliore.forza === 'sempre';
+    if (!migliore || (forte && !eraForte) || (forte === eraForte && v.score > migliore.score))
+      migliore = {
+        parola: v.nome || v.termine, forza: v.ariaAperta,
+        score: v.score, distanza: +d.toFixed(1),
+      };
+  }
+  return migliore;
+}
+
 export function voceOggetti(cose, opz = {}) {
   const voce = { nome: 'gli oggetti in fila', punti: [], file: 0, fuori: 0, gruppi: 0 };
   const elenco = cose || [];
@@ -525,11 +569,31 @@ export function voceOggetti(cose, opz = {}) {
     voce.file++;
     let sx = 0, sy = 0, sz = 0;
     for (const p of pezzi) { sx += p.centro[0]; sy += p.centro[1]; sz += p.centro[2]; }
-    const fuori = coseFerme(pezzi, opz);
+    const centro = [sx / pezzi.length, sy / pezzi.length, sz / pezzi.length];
+
+    // ⚠️ L'OCCHIO PARLA PER PRIMO (direttiva 17), e il righello resta indietro.
+    //    Prima il «da fuori» lo decidevano tre soglie in metri, tarate quando
+    //    il modello stava a scala 7,3x: col righello umano a 5,272x le macchine
+    //    sono passate da 1,70 a 1,23 m di larghezza e nessuna passava piu'.
+    //    Una parola vista non si ristringe quando cambia la scala.
+    const visto = ariaApertaVista(centro, opz);
+    let fuori = false, perche = null;
+    if (visto) {
+      fuori = true;
+      perche = "l'occhio ci ha visto " + visto.parola
+             + (visto.forza === 'sempre' ? ", che al chiuso non ci sta"
+                                         : ", che al chiuso ci sta solo in vetrina");
+    } else if (coseFerme(pezzi, opz)) {
+      // ⚠️ RIPIEGO, e si dichiara: vale solo quando l'occhio non ha guardato.
+      //    Un ripiego che funziona bene nasconde il guasto che copre — lezione
+      //    del 04/09, pagata due settimane.
+      fuori = true;
+      perche = 'cose ferme in fila, misurate (l\'occhio non aveva guardato qui)';
+    }
     if (fuori) voce.fuori++;
     voce.punti.push({
-      centro: [sx / pezzi.length, sy / pezzi.length, sz / pezzi.length],
-      oggetti: g.quante || pezzi.length, altezza: h, fuori,
+      centro, oggetti: g.quante || pezzi.length, altezza: h, fuori, perche,
+      daOcchio: !!visto,
     });
   }
   return voce;
@@ -726,7 +790,7 @@ export function raccontaAccessi(r) {
 export default {
   PASSO, CAMPIONI_MAX, VICINO, VOCI_MINIME, COPERTURA_CIECA, CATENA,
   campiona, copertura, accessiDaCopertura, profondita,
-  capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme,
+  capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme, ariaApertaVista,
   voceTetto, voceSegnaletica, vocePersone, voceOggetti, uniscoVoci,
   raggiungibili, trova, raccontaAccessi,
 };
@@ -808,10 +872,23 @@ if (typeof window !== 'undefined') {
       }
       try {
         const t0 = performance.now();
-        const r = trova(THREE, root, nm);
+        // ⚠️ DIRETTIVA 17: si porta all'analisi CIO' CHE L'OCCHIO HA VISTO.
+        //    Si rilegge ogni volta, perche' al primo giro l'occhio non ha
+        //    ancora guardato — gli accessi si cercano appena il modello e'
+        //    entrato, lui ci mette un paio di minuti. Vedi `rifaiCoiVisti`
+        //    qui sotto: quando l'occhio finisce, si torna a chiedere.
+        const visto = window.__veritasVisto;
+        const viste = (visto && visto.ok && Array.isArray(visto.viste)) ? visto.viste : [];
+        const r = trova(THREE, root, nm, { viste });
         r.ms = Math.round(performance.now() - t0);
+        r.viste = viste.length;
         window.__veritasAccessi = r;
         console.log('[VERITAS accessi] ' + raccontaAccessi(r) + ' (' + r.ms + ' ms)');
+        console.log('[VERITAS accessi] ' + (viste.length
+          ? 'l\'occhio aveva gia\' guardato: ' + viste.length + ' cose viste, '
+            + viste.filter((v) => v.ariaAperta).length + ' delle quali dicono «qui si e\' all\'aperto»'
+          : 'l\'occhio non aveva ancora guardato: il «da fuori» resta sul ripiego '
+            + 'misurato, e si rifara\' quando lui avra\' finito'));
         for (const v of r.voci || [])
           console.log('[VERITAS accessi] voce «' + v.nome + '»: '
             + (v.cieca ? 'MUTA — ' + v.perche : v.punti + ' posti proposti'));
@@ -832,11 +909,43 @@ if (typeof window !== 'undefined') {
       }
     };
     setTimeout(prova, 300);
+
+    // ⚠️ QUANDO L'OCCHIO HA FINITO, SI TORNA A CHIEDERE (direttiva 17).
+    //
+    // Gli ingressi si cercano appena il modello e' entrato; l'occhio ci mette
+    // un paio di minuti. Al primo giro `__veritasVisto` non esiste ancora,
+    // quindi il «da fuori» ricade sul ripiego misurato — che e' proprio la
+    // regola che si e' rotta quando la scala e' cambiata. Senza questo
+    // richiamo, la direttiva 17 sarebbe scritta e mai applicata: l'occhio
+    // parlerebbe quando non lo ascolta piu' nessuno.
+    //
+    // Si aspetta che SMETTA di arrivare roba, invece di contare le viste: il
+    // numero di viste per giro cambia col modello, e un conto scritto a mano
+    // sarebbe un'altra soglia tarata su questo aeroporto.
+    if (!window.__veritasAccessiInAscolto) {
+      window.__veritasAccessiInAscolto = true;
+      let attesa = null;
+      window.addEventListener('veritas:vista', function () {
+        if (attesa) clearTimeout(attesa);
+        attesa = setTimeout(function () {
+          attesa = null;
+          const v = window.__veritasVisto;
+          if (!v || !v.ok || !Array.isArray(v.viste) || !v.viste.length) return;
+          const aperte = v.viste.filter((x) => x.ariaAperta).length;
+          console.log('[VERITAS accessi] l\'occhio ha finito di guardare ('
+            + v.viste.length + ' cose viste, ' + aperte
+            + ' che parlano di aria aperta): rifaccio gli ingressi con la sua testimonianza');
+          tentativi = 0;
+          prova();
+        }, 6000);
+      });
+    }
     return out;
   };
   window.__veritasAccessiModulo = {
     PASSO, VICINO, VOCI_MINIME, campiona, copertura, accessiDaCopertura, profondita,
-    capi, raggruppa, segnaleticaDallaScena, coseFerme, voceTetto, voceSegnaletica,
+    capi, raggruppa, segnaleticaDallaScena, coseFerme, ariaApertaVista,
+    voceTetto, voceSegnaletica,
     vocePersone, voceOggetti, uniscoVoci, raggiungibili, trova, raccontaAccessi,
   };
   console.log('[VERITAS accessi] pronto — window.__veritasAccessi dopo il caricamento');
