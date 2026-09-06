@@ -16576,7 +16576,7 @@ console.log("[VERITAS Perception] layer percettivo pronto — window.__veritasPe
  * sulla stessa area. KMeans, al contrario, cresce col numero di punti.
  */
 
-export const PERCEPTION_DEFAULTS = {
+const PERCEPTION_DEFAULTS = {
   /** Lato della cella in metri. 0.04 = vede una porta, 0.02 = vede uno scalino. */
   cellSize: 0.05,
   /** Banda verticale attorno alla quota del piano (m). */
@@ -16622,7 +16622,7 @@ export const PERCEPTION_DEFAULTS = {
  * Rasterizza i punti navigabili di un livello in una griglia 2D sul piano XZ.
  * Una cella è LIBERA se contiene almeno un punto campionato.
  */
-export function buildOccupancyGrid(points, levelY, opts = {}) {
+function buildOccupancyGrid(points, levelY, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
   const flat = points instanceof Float32Array;
   const n = flat ? points.length / 3 : points.length;
@@ -16677,7 +16677,7 @@ export function buildOccupancyGrid(points, levelY, opts = {}) {
  * È la differenza tra una lettura "precisa e puntuale" e una piena di falsi
  * positivi. Implementata con due passate 1D per asse: O(celle × raggio).
  */
-export function closeHoles(grid, radius = PERCEPTION_DEFAULTS.closeRadius) {
+function closeHoles(grid, radius = PERCEPTION_DEFAULTS.closeRadius) {
   if (radius <= 0) return grid;
   const { w, h } = grid;
 
@@ -16761,7 +16761,7 @@ function edt1d(f, n, d, arg, v, z) {
  *
  * @returns {{dist:Float32Array, featX:Int32Array, featZ:Int32Array}}
  */
-export function distanceTransform(grid) {
+function distanceTransform(grid) {
   const { w, h, free, cellSize } = grid;
   const INF = 1e12;
   const m = Math.max(w, h);
@@ -16824,7 +16824,7 @@ export function distanceTransform(grid) {
  *     con clearance quasi nulla, che poi domina qualunque classifica per
  *     larghezza. Verificato sul campo: quattro falsi allarmi per stanza.
  */
-export function extractMedialAxis(grid, ft, opts = {}) {
+function extractMedialAxis(grid, ft, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
   const { w, h, free } = grid;
   const { dist, featX, featZ } = ft;
@@ -16873,7 +16873,7 @@ export function extractMedialAxis(grid, ft, opts = {}) {
  * cinquanta celle rosse adiacenti — con la sua misura peggiore e la sua
  * posizione nel mondo, pronta da far pulsare sul modello.
  */
-export function findBottlenecks(grid, ft, axis, opts = {}) {
+function findBottlenecks(grid, ft, axis, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
   const { w, h, cellSize, minX, minZ, levelY } = grid;
   const { dist } = ft;
@@ -16953,7 +16953,7 @@ export function findBottlenecks(grid, ft, axis, opts = {}) {
  *
  * @returns {{labels:Int32Array, zones:Array, gateways:Array}}
  */
-export function segmentZones(grid, ft, opts = {}) {
+function segmentZones(grid, ft, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
   const { w, h, free, cellSize, minX, minZ, levelY } = grid;
   const { dist } = ft;
@@ -17014,8 +17014,86 @@ export function segmentZones(grid, ft, opts = {}) {
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
   const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb); };
 
+  /*
+   * ⚠️ IL FUORI E' UN CONFINE, ANCHE SENZA UN MURO — 06/09/2026, direttiva 17.
+   *
+   * Due bacini si fondono quando il varco fra loro e' largo. Su un edificio a
+   * pianta libera questo fonde TUTTO: misurato su questo aeroporto, il piano
+   * terra risultava UN ambiente solo di 2.759 m2, 98 x 28 m, su un edificio
+   * lungo 106. Dentro quella stanza sola stavano il piazzale, la strada, i
+   * taxi, il check-in e le sale d'attesa. Raffaella: «la zonazione tiene fuori
+   * la parte importante del parcheggio, e tutto il percorso con le frecce
+   * verdi dal taxi».
+   *
+   * Non mancava l'area: mancava il CONFINE. E il confine fra dentro e fuori
+   * non e' un muro — su uno spaccato il muro non c'e' proprio, e la voce «dove
+   * finisce il tetto» tace da sola (3 campioni coperti su 840). Lo dicono gli
+   * OGGETTI che stanno di la': le automobili, la strada, il marciapiede, il
+   * cielo. E' il metodo che Raffaella ha descritto guardando il modello.
+   *
+   * Quindi: dove l'occhio dice che di la' si e' all'aperto e di qua no, li' i
+   * due bacini NON si fondono, per largo che sia il passaggio. Chi entra da
+   * fuori passa comunque — resta un varco, e i varchi si contano dopo — ma
+   * l'ambiente interno e quello esterno restano due.
+   *
+   * ⚠️ NESSUNA MISURA IN METRI, ed e' il punto della direttiva 17: si guarda
+   *    se i due bacini sono d'accordo sull'essere all'aperto, non quanto
+   *    distano o quanto sono grandi. Un numero in metri e' tarato su una
+   *    scala, e questo progetto la scala se la ricalcola.
+   *
+   * ⚠️ E se l'occhio non ha guardato, `aperto` resta vuoto e qui non cambia
+   *    NIENTE: si torna esattamente al comportamento di prima. Un difetto di
+   *    vista non deve diventare un difetto di geometria.
+   */
+  const viste = o.ariaAperta
+    || (typeof window !== "undefined" && window.__veritasVisto
+        && window.__veritasVisto.ok && Array.isArray(window.__veritasVisto.viste)
+        ? window.__veritasVisto.viste : []);
+  const testimoni = viste.filter((v) => v && v.ariaAperta && v.centro);
+
+  let quotaAperta = null;
+  if (testimoni.length) {
+    // Quanto lontano arriva una testimonianza: lo stesso raggio con cui due
+    // indizi si trovano d'accordo altrove nel programma.
+    const raggio = o.raggioAriaAperta != null ? o.raggioAriaAperta : 6;
+    const apertaCella = new Uint8Array(w * h);
+    for (const t of testimoni) {
+      const cx = Math.round((t.centro[0] - minX) / cellSize);
+      const cz = Math.round((t.centro[2] - minZ) / cellSize);
+      const r = Math.ceil(raggio / cellSize);
+      for (let dz = -r; dz <= r; dz++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dz * dz > r * r) continue;
+          const nx = cx + dx, nz = cz + dz;
+          if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+          apertaCella[nz * w + nx] = 1;
+        }
+    }
+    // Per ogni bacino: la maggioranza delle sue celle sta all'aperto, si' o no.
+    // Una maggioranza non e' una soglia tarata: e' la domanda stessa.
+    const dentro = new Map(), tutte = new Map();
+    for (let i = 0; i < w * h; i++) {
+      const L = labels[i];
+      if (L === -1) continue;
+      tutte.set(L, (tutte.get(L) || 0) + 1);
+      if (apertaCella[i]) dentro.set(L, (dentro.get(L) || 0) + 1);
+    }
+    quotaAperta = new Map();
+    tutte.forEach((n, L) => quotaAperta.set(L, (dentro.get(L) || 0) / n));
+  }
+  const allAperto = (L) => quotaAperta ? quotaAperta.get(L) >= 0.5 : null;
+
   const pairs = [...gw.values()].sort((p, q) => q.clearance - p.clearance);
-  for (const p of pairs) if (p.clearance * 2 >= o.mergeGatewayM) union(p.a, p.b);
+  let tenutiSeparati = 0;
+  for (const p of pairs) {
+    if (p.clearance * 2 < o.mergeGatewayM) continue;
+    if (quotaAperta && allAperto(p.a) !== allAperto(p.b)) { tenutiSeparati++; continue; }
+    union(p.a, p.b);
+  }
+  if (tenutiSeparati && typeof console !== "undefined")
+    console.log("[VERITAS zone] " + tenutiSeparati
+      + " passaggi larghi NON fusi: da una parte l'occhio vede l'aria aperta,"
+      + " dall'altra no. Il fuori e' un confine anche senza un muro.");
 
   /*
    * Assorbimento dei frammenti.
@@ -17043,6 +17121,10 @@ export function segmentZones(grid, ft, opts = {}) {
     for (const p of pairs) {                 // già ordinati per varco decrescente
       const ra = find(p.a), rb = find(p.b);
       if (ra === rb) continue;
+      // ⚠️ La stessa regola vale qui: una scheggia all'aperto non si fa
+      //    assorbire da una stanza chiusa solo perche' e' piccola. Senza
+      //    questa riga il confine appena difeso sopra rientrerebbe da qui.
+      if (quotaAperta && allAperto(p.a) !== allAperto(p.b)) continue;
       if ((area.get(ra) || 0) < minArea || (area.get(rb) || 0) < minArea) {
         union(ra, rb);
         merged = true;
@@ -17060,19 +17142,9 @@ export function segmentZones(grid, ft, opts = {}) {
     const L = labels[i];
     if (L === -1) continue;
     let a = acc.get(L);
-    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0,
-                    sumXX: 0, sumZZ: 0, sumXZ: 0 }; acc.set(L, a); }
+    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0 }; acc.set(L, a); }
     const x = i % w, z = (i - x) / w;
     a.cells++; a.sumX += x; a.sumZ += z;
-    // ⚠️ I MOMENTI SECONDI SERVONO ALLA FORMA, non alle statistiche.
-    //    Chiesto da Raffaella il 30/08: il volume di una tappa deve prendere
-    //    la forma dell'ambito funzionale — tutta la fila dei controlli sotto
-    //    un unico parallelepipedo allungato — non un cubetto standard messo
-    //    in mezzo. Per farlo servono tre cose: quanto e' lunga la zona, quanto
-    //    e' larga, e COM'E' GIRATA. Le prime due si ricavavano gia' dall'area;
-    //    il verso no, e senza verso una fila in diagonale veniva disegnata
-    //    dritta. Questi tre accumuli lo danno senza un secondo giro sulle celle.
-    a.sumXX += x * x; a.sumZZ += z * z; a.sumXZ += x * z;
     if (dist[i] > a.maxClearance) a.maxClearance = dist[i];
   }
 
@@ -17080,39 +17152,9 @@ export function segmentZones(grid, ft, opts = {}) {
   for (const a of acc.values()) {
     const areaM2 = a.cells * cellArea;
     if (areaM2 < minArea) continue;
-    // La forma della zona, misurata: due lati e un verso.
-    //
-    // Si ricava dalla dispersione delle celle attorno al proprio centro. Per
-    // un rettangolo pieno la dispersione vale il lato diviso radice di 12,
-    // quindi il lato si riottiene esatto; per una zona storta si ottiene il
-    // rettangolo che meglio la rappresenta, che e' quello che serve a
-    // disegnarla. L'angolo e' quello del lato lungo nel piano orizzontale.
-    //
-    // ⚠️ Il rettangolo non puo' dichiarare piu' pavimento di quanto ne sia
-    //    stato misurato: su una zona a L i due lati ne promettono troppo. Se
-    //    succede si stringono tutti e due in proporzione, e il volume resta
-    //    dentro l'area vera. Promettere superficie che non c'e' e' la stessa
-    //    merce avariata di un KPI finto.
-    const mx = a.sumX / a.cells, mz = a.sumZ / a.cells;
-    const cxx = Math.max(0, a.sumXX / a.cells - mx * mx) * cellSize * cellSize;
-    const czz = Math.max(0, a.sumZZ / a.cells - mz * mz) * cellSize * cellSize;
-    const cxz = (a.sumXZ / a.cells - mx * mz) * cellSize * cellSize;
-    const media = (cxx + czz) / 2;
-    const scarto = Math.sqrt(Math.max(0, ((cxx - czz) / 2) * ((cxx - czz) / 2) + cxz * cxz));
-    let lungo = Math.sqrt(12 * Math.max(0, media + scarto));
-    let largo = Math.sqrt(12 * Math.max(0, media - scarto));
-    const angolo = 0.5 * Math.atan2(2 * cxz, cxx - czz);
-    if (lungo * largo > areaM2 && lungo * largo > 0) {
-      const k = Math.sqrt(areaM2 / (lungo * largo));
-      lungo *= k; largo *= k;
-    }
     zones.push({
       label: a.label,
       areaM2: +areaM2.toFixed(2),
-      // forma misurata: lato lungo, lato corto, e di quanto e' girato
-      formaLungo: +lungo.toFixed(2),
-      formaLargo: +largo.toFixed(2),
-      formaAngolo: +angolo.toFixed(4),
       centroidX: minX + (a.sumX / a.cells + 0.5) * cellSize,
       centroidZ: minZ + (a.sumZ / a.cells + 0.5) * cellSize,
       y: levelY,
@@ -17165,7 +17207,7 @@ export function segmentZones(grid, ft, opts = {}) {
  * Metodo: si rasterizza a grana grossa per stimare l'area realmente coperta,
  * poi spaziatura ≈ √(area / numero di punti).
  */
-export function estimatePointSpacing(points, levelY, opts = {}) {
+function estimatePointSpacing(points, levelY, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
   const probe = Math.max(0.2, o.cellSize * 4);
   const g = buildOccupancyGrid(points, levelY, { ...o, cellSize: probe, padding: 1 });
@@ -17185,7 +17227,7 @@ export function estimatePointSpacing(points, levelY, opts = {}) {
  * Restituisce SOLO misure oggettive: nessun giudizio, nessuna soglia normativa.
  * Il giudizio è responsabilità del domain pack, che dichiara le proprie soglie.
  */
-export function perceiveLevel(points, levelY, opts = {}) {
+function perceiveLevel(points, levelY, opts = {}) {
   const o = { ...PERCEPTION_DEFAULTS, ...opts };
 
   // La risoluzione richiesta è sostenibile dai dati?
@@ -17236,7 +17278,7 @@ export function perceiveLevel(points, levelY, opts = {}) {
  * @param {Array} points         nuvola navigabile (mesh o centri di gaussiane)
  * @param {number[]} floorLevels quote dei piani (da detectFloorLevels)
  */
-export function perceive(points, floorLevels = [0], opts = {}) {
+function perceive(points, floorLevels = [0], opts = {}) {
   const levels = [];
   for (const y of floorLevels) {
     const r = perceiveLevel(points, y, opts);
@@ -17253,16 +17295,14 @@ export function perceive(points, floorLevels = [0], opts = {}) {
   };
 }
 
-
-// ---------------------------------------------------------------
-// Esposizione sul bridge window.__veritas*
-//
-// Il blocco boot e' uno script classico e non puo' importare un modulo:
-// l'unico modo per raggiungerlo e' il bridge globale gia' usato dal resto
-// del progetto. Gli script classici vengono eseguiti prima dei moduli, ma
-// l'analisi parte solo dopo il caricamento di un modello, quindi a quel
-// punto questo modulo e' gia' stato valutato.
-// ---------------------------------------------------------------
+// ⚠️ LA LEGATURA DICHIARATA DAL SORGENTE — 06/09/2026.
+//    Questo modulo non aveva `export default`, quindi `banco/reinlina.py` non
+//    sapeva a che cosa legare `window.__veritasPerceptionEngine` e si
+//    rifiutava di rigenerare il blocco. La legatura viveva SOLO dentro
+//    `index.html`, scritta a mano: cioe' il sorgente e la copia viva potevano
+//    divergere senza che nessuno se ne accorgesse — ed e' esattamente il
+//    difetto che il 05/09 ha fatto sparire un blocco intero.
+//    Dichiarandola qui, il file torna a essere la fonte e la copia si rigenera.
 window.__veritasPerceptionEngine = {
   perceive,
   perceiveLevel,
@@ -17275,8 +17315,6 @@ window.__veritasPerceptionEngine = {
   estimatePointSpacing,
   DEFAULTS: PERCEPTION_DEFAULTS,
 };
-console.log("[VERITAS Perception] motore geometrico pronto — window.__veritasPerceptionEngine");
-
 </script>
 <script type="module">
 // ===== VERITAS NAVIGAZIONE (inlinato da veritas_navigazione.js) =====
@@ -26581,6 +26619,6 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=16"></script>
+<script type="module" src="./veritas_montaggio.js?v=17"></script>
 </body>
 </html>

@@ -466,8 +466,86 @@ export function segmentZones(grid, ft, opts = {}) {
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
   const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[Math.max(ra, rb)] = Math.min(ra, rb); };
 
+  /*
+   * ⚠️ IL FUORI E' UN CONFINE, ANCHE SENZA UN MURO — 06/09/2026, direttiva 17.
+   *
+   * Due bacini si fondono quando il varco fra loro e' largo. Su un edificio a
+   * pianta libera questo fonde TUTTO: misurato su questo aeroporto, il piano
+   * terra risultava UN ambiente solo di 2.759 m2, 98 x 28 m, su un edificio
+   * lungo 106. Dentro quella stanza sola stavano il piazzale, la strada, i
+   * taxi, il check-in e le sale d'attesa. Raffaella: «la zonazione tiene fuori
+   * la parte importante del parcheggio, e tutto il percorso con le frecce
+   * verdi dal taxi».
+   *
+   * Non mancava l'area: mancava il CONFINE. E il confine fra dentro e fuori
+   * non e' un muro — su uno spaccato il muro non c'e' proprio, e la voce «dove
+   * finisce il tetto» tace da sola (3 campioni coperti su 840). Lo dicono gli
+   * OGGETTI che stanno di la': le automobili, la strada, il marciapiede, il
+   * cielo. E' il metodo che Raffaella ha descritto guardando il modello.
+   *
+   * Quindi: dove l'occhio dice che di la' si e' all'aperto e di qua no, li' i
+   * due bacini NON si fondono, per largo che sia il passaggio. Chi entra da
+   * fuori passa comunque — resta un varco, e i varchi si contano dopo — ma
+   * l'ambiente interno e quello esterno restano due.
+   *
+   * ⚠️ NESSUNA MISURA IN METRI, ed e' il punto della direttiva 17: si guarda
+   *    se i due bacini sono d'accordo sull'essere all'aperto, non quanto
+   *    distano o quanto sono grandi. Un numero in metri e' tarato su una
+   *    scala, e questo progetto la scala se la ricalcola.
+   *
+   * ⚠️ E se l'occhio non ha guardato, `aperto` resta vuoto e qui non cambia
+   *    NIENTE: si torna esattamente al comportamento di prima. Un difetto di
+   *    vista non deve diventare un difetto di geometria.
+   */
+  const viste = o.ariaAperta
+    || (typeof window !== "undefined" && window.__veritasVisto
+        && window.__veritasVisto.ok && Array.isArray(window.__veritasVisto.viste)
+        ? window.__veritasVisto.viste : []);
+  const testimoni = viste.filter((v) => v && v.ariaAperta && v.centro);
+
+  let quotaAperta = null;
+  if (testimoni.length) {
+    // Quanto lontano arriva una testimonianza: lo stesso raggio con cui due
+    // indizi si trovano d'accordo altrove nel programma.
+    const raggio = o.raggioAriaAperta != null ? o.raggioAriaAperta : 6;
+    const apertaCella = new Uint8Array(w * h);
+    for (const t of testimoni) {
+      const cx = Math.round((t.centro[0] - minX) / cellSize);
+      const cz = Math.round((t.centro[2] - minZ) / cellSize);
+      const r = Math.ceil(raggio / cellSize);
+      for (let dz = -r; dz <= r; dz++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dz * dz > r * r) continue;
+          const nx = cx + dx, nz = cz + dz;
+          if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+          apertaCella[nz * w + nx] = 1;
+        }
+    }
+    // Per ogni bacino: la maggioranza delle sue celle sta all'aperto, si' o no.
+    // Una maggioranza non e' una soglia tarata: e' la domanda stessa.
+    const dentro = new Map(), tutte = new Map();
+    for (let i = 0; i < w * h; i++) {
+      const L = labels[i];
+      if (L === -1) continue;
+      tutte.set(L, (tutte.get(L) || 0) + 1);
+      if (apertaCella[i]) dentro.set(L, (dentro.get(L) || 0) + 1);
+    }
+    quotaAperta = new Map();
+    tutte.forEach((n, L) => quotaAperta.set(L, (dentro.get(L) || 0) / n));
+  }
+  const allAperto = (L) => quotaAperta ? quotaAperta.get(L) >= 0.5 : null;
+
   const pairs = [...gw.values()].sort((p, q) => q.clearance - p.clearance);
-  for (const p of pairs) if (p.clearance * 2 >= o.mergeGatewayM) union(p.a, p.b);
+  let tenutiSeparati = 0;
+  for (const p of pairs) {
+    if (p.clearance * 2 < o.mergeGatewayM) continue;
+    if (quotaAperta && allAperto(p.a) !== allAperto(p.b)) { tenutiSeparati++; continue; }
+    union(p.a, p.b);
+  }
+  if (tenutiSeparati && typeof console !== "undefined")
+    console.log("[VERITAS zone] " + tenutiSeparati
+      + " passaggi larghi NON fusi: da una parte l'occhio vede l'aria aperta,"
+      + " dall'altra no. Il fuori e' un confine anche senza un muro.");
 
   /*
    * Assorbimento dei frammenti.
@@ -495,6 +573,10 @@ export function segmentZones(grid, ft, opts = {}) {
     for (const p of pairs) {                 // già ordinati per varco decrescente
       const ra = find(p.a), rb = find(p.b);
       if (ra === rb) continue;
+      // ⚠️ La stessa regola vale qui: una scheggia all'aperto non si fa
+      //    assorbire da una stanza chiusa solo perche' e' piccola. Senza
+      //    questa riga il confine appena difeso sopra rientrerebbe da qui.
+      if (quotaAperta && allAperto(p.a) !== allAperto(p.b)) continue;
       if ((area.get(ra) || 0) < minArea || (area.get(rb) || 0) < minArea) {
         union(ra, rb);
         merged = true;
@@ -664,3 +746,24 @@ export function perceive(points, floorLevels = [0], opts = {}) {
     totalNavigableM2: +levels.reduce((s, l) => s + l.navigableAreaM2, 0).toFixed(2),
   };
 }
+
+// ⚠️ LA LEGATURA DICHIARATA DAL SORGENTE — 06/09/2026.
+//    Questo modulo non aveva `export default`, quindi `banco/reinlina.py` non
+//    sapeva a che cosa legare `window.__veritasPerceptionEngine` e si
+//    rifiutava di rigenerare il blocco. La legatura viveva SOLO dentro
+//    `index.html`, scritta a mano: cioe' il sorgente e la copia viva potevano
+//    divergere senza che nessuno se ne accorgesse — ed e' esattamente il
+//    difetto che il 05/09 ha fatto sparire un blocco intero.
+//    Dichiarandola qui, il file torna a essere la fonte e la copia si rigenera.
+export default {
+  perceive,
+  perceiveLevel,
+  segmentZones,
+  findBottlenecks,
+  buildOccupancyGrid,
+  closeHoles,
+  distanceTransform,
+  extractMedialAxis,
+  estimatePointSpacing,
+  DEFAULTS: PERCEPTION_DEFAULTS,
+};

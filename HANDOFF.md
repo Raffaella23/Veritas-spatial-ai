@@ -40,6 +40,12 @@ o l'hai misurata, o la marchi **[DA VERIFICARE]**. Non c'è una terza via.
 di mano.** Tre errori identici in un giorno hanno prodotto
 `banco/sistema_carta.mjs`. Fanne altri se servono.
 
+**7. 🔒 LA MILESTONE DEL 06/09 NON SI TOCCA.** *«Non deve essere mai piu'
+toccato in nessuna chat senza che ci siano delle motivazioni discusse e
+autorizzate.»* Sta qui sotto, dopo le direttive, e riguarda i cinque pezzi che
+fanno nascere il confine fra dentro e fuori. Se ti sembra sbagliata: **misura,
+porta il numero a Raffaella, discuti — e solo dopo tocchi.**
+
 ### Le tre cose che ti faranno perdere un'ora se non le sai
 
 ⚠️ **Il repo vero è `C:\\Users\\ciani\\OneDrive\\Desktop\\VERITAS\\temp-repo`.**
@@ -505,6 +511,139 @@ non sono ripartiti da soli. Chiamando `trova()` a mano con la testimonianza
 dell'occhio il risultato e' quello scritto qui sopra, quindi la catena e'
 buona; e' il momento in cui parte che va rivisto. Da guardare per primo alla
 ripresa.
+
+---
+
+# 🔒 MILESTONE — IL CONFINE LO DICE L'OCCHIO. 06/09/2026
+
+> Raffaella, 06/09/2026: *«Questo deve essere scritto come milestone. Non deve
+> essere mai piu' toccato in nessuna chat senza che ci siano delle motivazioni
+> che vengono discusse e autorizzate.»*
+
+⛔ **QUESTA SEZIONE E' CHIUSA.** Chi apre una chat nuova non ne cambia una riga,
+non «ottimizza», non «semplifica» e non riscrive i cinque pezzi qui sotto. Se
+qualcosa sembra sbagliato: **si misura, si porta il numero a Raffaella, si
+discute, e solo dopo si tocca.** Ogni riga qui e' costata una giornata intera e
+ognuna e' stata verificata sulla pagina viva, non al banco.
+
+## Che cosa e' cambiato, in una riga
+
+**Il confine fra dentro e fuori non e' piu' una misura in metri: e' quello che
+l'occhio vede dall'altra parte.**
+
+## Il guasto, e perche' e' durato
+
+Il piano terra dell'aeroporto risultava **UN ambiente solo di 2.759 m², 98 x 28
+m**, su un edificio lungo 106. Dentro quella stanza sola stavano il piazzale, la
+strada, i taxi, il check-in e le sale d'attesa. Raffaella: *«la zonazione tiene
+fuori la parte importante del parcheggio, e tutto il percorso con le frecce
+verdi dal taxi»*.
+
+Non mancava l'area: **mancava il confine.** E il confine non poteva nascere,
+perche' cinque cose diverse lo impedivano una dopo l'altra — ognuna nascondeva
+la successiva.
+
+## I cinque pezzi, in ordine, e nessuno si tocca
+
+| | il pezzo | prima → dopo |
+|---|---|---|
+| 1 | **il gancio delle passate**, caduto il 05/09 dentro un reinline | 83 m² → **3.364 m²** navigabili |
+| 2 | **`ARIA_APERTA_DI`**: la parola vista porta la conseguenza | 0 → **2 accessi «da fuori»** |
+| 3 | **il doppione dell'occhio**, tolto | 3 occhi accesi → **1** |
+| 4 | **i primi piani vanno anche dove non si sa niente** | 0 → **83 rilevazioni sulla strada** |
+| 5 | **il fuori e' un confine anche senza un muro** | 1 ambiente da 2.759 m² → **2** (1.627 + 1.132) |
+
+**1. Il gancio.** `08acb4d` lo aveva scritto DENTRO il blocco inlinato di
+`veritas_vista.js`; `807c560` (05/09, la telecamera) ha rigenerato quel blocco
+dal modulo e il gancio — che nel modulo non c'era mai stato — e' sparito. Il
+file restava valido: *chiamare una funzione che non esiste non e' un errore di
+sintassi*. Senza gancio, dopo il righello umano **nessuno rifaceva la nuvola**,
+e il motore misurava l'aeroporto in unita' del file scrivendo «metri quadri».
+⚠️ Rimesso **accanto alla sequenza che accende** (`collegaLeSequenze`), non dov'era:
+li' un reinline lo cancellerebbe una terza volta.
+
+**2. La parola tira la conseguenza** (direttiva 17). `ARIA_APERTA_DI` in
+`veritas_riconosce.js`, sorella di `POSTURA_DI`: 27 parole, due forze — «sempre»
+(cielo, strada, marciapiede, pista) decide da sola, «quasi sempre» (automobile,
+aereo, barca) **vota**, perche' al chiuso ci sta solo in vetrina.
+⚠️ **Nessuna misura in metri**, ed e' il punto: il vecchio marchio «da fuori» si
+reggeva su tre soglie tarate a scala 7,3x, e col righello umano a 5,272x le
+macchine sono passate da 1,70 a 1,23 m di larghezza — zero su quattro passavano.
+
+**3. Il doppione.** Di `veritas_riconosce.js` giravano due copie insieme, e in
+console si accendevano **tre** occhi allo stesso secondo: a scrivere le maniglie
+era l'ultima che finiva di caricarsi, cioe' a caso. Tolto il blocco inline
+(1.191 righe); la maniglia la assegna il modulo.
+⚠️ Restano tre doppioni vivi: `veritas_vista.js`, `veritas_accessi.js`,
+`veritas_carta.js`. Vanno tolti allo stesso modo, uno per volta e verificando.
+
+**4. Si guarda anche dove non si sa niente.** I primi piani si sceglievano
+ordinando **solo per numero di arredi**, e il fronte strada ha arredi ZERO (e'
+fatto di corsie): quindici primi piani, nessuno li'. E a monte, una cosa piu'
+lunga di 25 m veniva **scartata** dall'elenco — il gruppo delle corsie e' lungo
+**26,13 m**, buttato per 1,13 metri, su ogni modello, sempre.
+⚠️ Il guasto era **circolare**: non ci si avvicina perche' non si sa cosa c'e',
+e non si sa cosa c'e' perche' non ci si avvicina. **Non si puo' concludere su
+cio' che non si e' mai guardato.**
+📌 Misurato: sulla stessa scena, dall'alto **zero** automobili; da 20 pixel al
+metro **83 rilevazioni** — taxi 16, auto parcheggiate 16, automobili 15, furgoni
+15, camion 8, autobus 7, strada 5, marciapiede 1.
+
+**5. Il taglio** (`veritas_perception.js`, `segmentZones`). Due bacini si
+fondevano quando il varco fra loro era largo: su pianta libera questo fonde
+tutto. Ora **dove l'occhio vede l'aria aperta di la' e non di qua, i due bacini
+NON si fondono**, per largo che sia il passaggio.
+
+> ⚠️ **E QUESTO E' IL CUORE DELLA MILESTONE, detto da Raffaella il 06/09:**
+> *«il limite fra interno ed esterno molto spesso e' labile: adesso in
+> architettura ci sono delle uscite che non sono quelle standard, possono essere
+> anche piu' ampie, possono essere delle superfici vetrate — non le capiamo
+> quelle architetture?»*
+>
+> Il vecchio criterio diceva *passaggio largo = non e' un confine*, e con quello
+> una vetrata continua di venti metri non e' un confine. Il nuovo dice **il
+> confine e' dove cambia quello che si vede**, non dove lo spazio si stringe.
+> Un'architettura aperta la capiamo **meglio** di prima, non peggio.
+
+⚠️ **Se l'occhio non ha guardato, il passo 5 non fa NIENTE** e si torna al
+comportamento di prima. Un difetto di vista non deve diventare un difetto di
+geometria.
+
+## Misurato sulla pagina viva, 06/09/2026
+
+| | prima | dopo |
+|---|---|---|
+| area navigabile | 83,34 m² | **3.363,57 m²** |
+| ambienti | 4 | **11, con 11 varchi reali** |
+| il piano terra | **1 stanza da 2.759 m²** | **2 ambienti**, 1.627 + 1.132 m² |
+| accessi marcati «da fuori» | 0 | **2 su 3** |
+| segnaletica del modello | non letta | 4 famiglie, 1.652 m² |
+| occhi accesi insieme | 3 | **1** |
+
+Riga da cercare in console, ed e' la firma di questa milestone:
+
+```
+[VERITAS zone] 2 passaggi larghi NON fusi: da una parte l'occhio vede l'aria
+aperta, dall'altra no. Il fuori e' un confine anche senza un muro.
+```
+
+## Cosa NON e' chiuso, e va detto
+
+🔴 **Il fronte strada non e' ancora una zona sua.** Il taglio del punto 5 ha
+separato il lato degli aerei, non quello della strada — perche' le rilevazioni
+con una POSIZIONE vengono solo dalla pianta, e dall'alto le automobili non si
+vedono. Le vede il primo piano (83 rilevazioni), ma da uno scorcio in
+prospettiva **non si prende una posizione** (Regola 0: dagli scorci solo la
+testimonianza, mai le misure).
+
+**La strada per chiuderlo, e non e' una violazione della Regola 0:** un primo
+piano non da' un punto, ma si sa **quale rettangolo di mondo ha inquadrato** —
+e' il grappolo. «In quest'area ho visto dei taxi» e' una testimonianza legata a
+una REGIONE, non una misura ricavata da un pixel. E' il prossimo lavoro.
+
+🔴 **La rianalisi dopo che l'occhio ha finito va ancora chiesta a mano**
+(`__veritasAssegnazioneAutorevole = true; __veritasRianalizzaModello()`).
+Il richiamo automatico esiste per gli accessi, non per le zone.
 
 ---
 
