@@ -1,0 +1,341 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Il marchio — banco di prova</title>
+<!--
+  BANCO DI PROVA DEL MARCHIO. Non e' una pagina del prodotto, non va in
+  linea: sta in banco/ come tutto il resto degli attrezzi. Serve a
+  guardare i ricavati di banco/marchio.py alle misure vere prima di
+  metterli in index.html.
+-->
+<style>
+  :root { --carta:#fafbfa; --scuro:#16183A; --inchiostro:#16183A; --tenue:#6b6f8a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--carta); color:var(--inchiostro);
+         font:14px/1.6 'JetBrains Mono', ui-monospace, monospace; }
+  main { max-width:980px; margin:0 auto; padding:40px 24px 96px; }
+  h1 { font-size:19px; letter-spacing:.02em; margin:0 0 4px; }
+  h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+       color:var(--tenue); font-weight:500; margin:56px 0 14px;
+       border-top:1px solid #e6e6ef; padding-top:16px; }
+  p  { max-width:62ch; color:#3a3d5c; }
+  .nota { color:var(--tenue); font-size:12px; max-width:62ch; }
+
+  .coppia { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .riquadro { border-radius:12px; padding:34px 20px; display:flex;
+              align-items:center; justify-content:center; min-height:190px; }
+  .chiaro { background:var(--carta); border:1px solid #e6e6ef; }
+  .scuro  { background:var(--scuro); }
+  .scacchi { background-image:
+      linear-gradient(45deg,#d9d9e4 25%,transparent 25%,transparent 75%,#d9d9e4 75%),
+      linear-gradient(45deg,#d9d9e4 25%,transparent 25%,transparent 75%,#d9d9e4 75%);
+    background-size:18px 18px; background-position:0 0,9px 9px; background-color:#f2f2f7; }
+  .riquadro img { max-width:100%; height:auto; }
+  .eti { font-size:11px; color:var(--tenue); margin:6px 2px 0; letter-spacing:.04em; }
+
+  table { border-collapse:collapse; font-size:12.5px; margin-top:8px; width:100%; }
+  th,td { text-align:left; padding:7px 12px 7px 0; border-bottom:1px solid #ececf4;
+          white-space:nowrap; }
+  th { color:var(--tenue); font-weight:500; letter-spacing:.05em; font-size:11px;
+       text-transform:uppercase; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .vinto { color:#0a7a4a; }
+
+  .scala { display:flex; align-items:flex-end; gap:30px; flex-wrap:wrap;
+           background:var(--scuro); padding:26px 24px; border-radius:12px; }
+  .scala figure { margin:0; text-align:center; }
+  .scala img { display:block; margin:0 auto 8px; }
+  .scala figcaption { font-size:10.5px; color:#8b90b5; }
+
+  /* le tre ipotesi di collocazione: finte finestre dell'applicazione */
+  .ipotesi { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .app { border:1px solid #e6e6ef; border-radius:10px; overflow:hidden;
+         background:#fff; }
+  .barra { height:38px; background:var(--scuro); display:flex; align-items:center;
+           gap:9px; padding:0 11px; }
+  .barra .titolo { color:#e8e9f5; font-size:10.5px; letter-spacing:.05em; }
+  .barra .voci { margin-left:auto; display:flex; gap:9px; }
+  .barra .voci i { display:block; width:15px; height:5px; border-radius:2px;
+                   background:#3c3f6e; font-style:normal; }
+  .tela { height:132px; position:relative;
+          background:linear-gradient(160deg,#f4f5fb,#e9ebf6); }
+  .tela .pianta { position:absolute; inset:16px 16px 16px 16px; border-radius:5px;
+      border:1px dashed #c3c6de; }
+  .angolo { position:absolute; left:11px; bottom:10px; opacity:.9; }
+  .fianco { position:absolute; right:11px; top:10px; opacity:.9; }
+  .app figcaption { font-size:11px; color:var(--tenue); padding:9px 11px 12px;
+                    border-top:1px solid #f0f0f6; }
+  .app b { color:var(--inchiostro); font-weight:600; display:block; font-size:11.5px;
+           margin-bottom:2px; }
+</style>
+
+<main>
+  <h1>Il marchio — banco di prova</h1>
+  <p class="nota">Ricavati da <code>Assets/Eidetica&nbsp;_logo_colorato.png</code>
+     con <code>banco/marchio.py</code>. Niente qui e' ridisegnato.</p>
+
+  <h2>1 · Il fondo trasparente</h2>
+  <p>Lo stesso file su carta, su scacchi e su scuro. Quello che bisogna
+     guardare e' <b>il bianco dell'occhio</b>: nel file d'origine e' lo stesso
+     bianco della pagina, e chi scontorna "togliendo il bianco" lo buca. Se
+     l'occhio si vede anche sul nero, il ritaglio ha tenuto.</p>
+  <div class="coppia">
+    <div>
+      <div class="riquadro scacchi"><img src="../Assets/eidetica_intero_trasparente.webp" alt=""></div>
+      <div class="eti">trasparente, su scacchi</div>
+    </div>
+    <div>
+      <div class="riquadro scuro"><img src="../Assets/eidetica_intero_trasparente.webp" alt=""></div>
+      <div class="eti">trasparente, sul blu scuro dell'applicazione (#16183A)</div>
+    </div>
+  </div>
+
+  <h2>2 · Il peso</h2>
+  <table>
+    <tr><th>file</th><th>misura</th><th class="num">peso</th><th class="num">rispetto all'originale</th></tr>
+    <tr><td>Eidetica _logo_colorato.png <i>(originale)</i></td><td>1774&times;887</td><td class="num">832 KB</td><td class="num">—</td></tr>
+    <tr><td>eidetica_intero.webp</td><td>920&times;501</td><td class="num vinto">33 KB</td><td class="num vinto">25&times; piu' leggero</td></tr>
+    <tr><td>eidetica_intero_trasparente.webp</td><td>920&times;501</td><td class="num vinto">~110 KB</td><td class="num vinto">7&times; piu' leggero</td></tr>
+    <tr><td>eidetica_simbolo_trasparente.webp</td><td>256&times;93</td><td class="num vinto">10 KB</td><td class="num vinto">80&times; piu' leggero</td></tr>
+  </table>
+  <p class="nota">Di quei 832 KB, 22 erano solo targhetta: il certificato di
+     provenienza che il generatore d'immagini ha cucito dentro al file. Il
+     resto era risoluzione mai usata — la schermata d'attesa lo disegna al
+     massimo a 460&nbsp;px, ne trasportava 1774.</p>
+
+  <h2>3 · Il simbolo alle misure vere di una barra</h2>
+  <p>Per il logo <i>fisso</i> nella UI non si puo' usare il marchio intero:
+     sotto i 40&nbsp;px la parola <span style="letter-spacing:.1em">EIDETICA</span>
+     e la riga sotto si impastano. Questo e' il solo occhio alato, tagliato
+     dallo stesso file.</p>
+  <div class="scala">
+    <figure><img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:20px" alt=""><figcaption>20 px</figcaption></figure>
+    <figure><img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:24px" alt=""><figcaption>24 px</figcaption></figure>
+    <figure><img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:28px" alt=""><figcaption>28 px</figcaption></figure>
+    <figure><img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:34px" alt=""><figcaption>34 px</figcaption></figure>
+    <figure><img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:44px" alt=""><figcaption>44 px</figcaption></figure>
+    <figure><img src="../Assets/eidetica_intero_trasparente.webp" style="height:34px" alt=""><figcaption>intero a 34 px<br>— illeggibile</figcaption></figure>
+  </div>
+
+  <h2>4 · Dove puo' stare, fisso</h2>
+  <p>Tre collocazioni, disegnate alla misura giusta. Non sono equivalenti:
+     la prima e' la piu' normale, la seconda e' quella che non ruba spazio
+     alla pianta, la terza firma il disegno invece dell'applicazione.</p>
+  <div class="ipotesi">
+    <figure class="app">
+      <div class="barra">
+        <img src="../Assets/eidetica_simbolo_trasparente.webp" style="height:22px" alt="">
+        <span class="titolo">EIDETICA</span>
+        <span class="voci"><i></i><i></i><i></i></span>
+      </div>
+      <div class="tela"><div class="pianta"></div></div>
+      <figcaption><b>A · in testa a sinistra</b>
+        Dove lo cerca chiunque. Sempre visibile, sempre nel campo visivo.
+        Costa 38 px di altezza a tutte le schermate.</figcaption>
+    </figure>
+    <figure class="app">
+      <div class="barra">
+        <span class="titolo" style="color:#8b90b5">progetto — aeroporto</span>
+        <span class="voci"><i></i><i></i><i></i></span>
+      </div>
+      <div class="tela"><div class="pianta"></div>
+        <img class="angolo" src="../Assets/eidetica_simbolo_trasparente.webp" style="height:19px" alt=""></div>
+      <figcaption><b>B · nell'angolo della vista</b>
+        Sta dentro la pianta, in basso a sinistra, sopra il disegno. Non
+        toglie niente. Finisce dentro le schermate che si esportano.</figcaption>
+    </figure>
+    <figure class="app">
+      <div class="barra">
+        <span class="titolo" style="color:#8b90b5">progetto — aeroporto</span>
+        <span class="voci"><i></i><i></i><i></i></span>
+      </div>
+      <div class="tela"><div class="pianta"></div>
+        <img class="fianco" src="../Assets/eidetica_intero_trasparente.webp" style="height:26px;opacity:.55" alt=""></div>
+      <figcaption><b>C · marchio intero, in filigrana</b>
+        Come la firma su una tavola. Si legge solo se la cerchi. Regge
+        l'intero, perche' non deve competere con niente.</figcaption>
+    </figure>
+  </div>
+
+  <!-- ═══ 5 · LA CARTA E LE VELATURE ══════════════════════════════════════
+       Idea di Raffaella: toni chiari, quasi pastello, ripresi dal marchio,
+       nelle finestre di dialogo. Fondo sempre bianco. «Tecnico ma
+       sofisticato».
+       Qui sotto e' costruita con una regola sola, non a occhio: dei quattro
+       colori del marchio si tiene SOLO LA TINTA, e si impongono a tutti e
+       quattro la stessa chiarezza e la stessa croma. E' quello che fa la
+       differenza fra una famiglia e quattro cugini. -->
+  <style>
+    /* Le quattro tinte del marchio, in gradi. Solo questo si eredita. */
+    :root{
+      --t-modello: 266;   /* era #2E5BFF */
+      --t-simula:  292;   /* era #7B2FF7 */
+      --t-esito:   349;   /* era #E0219A */
+      --t-norma:    63;   /* era #FF9A1F */
+      /* le tre altezze: velatura, filo, inchiostro. Uguali per tutti. */
+      --vel: .965; --vel-c: .026;
+      --filo:  .90; --filo-c: .045;
+      --inch:  .50; --inch-c: .14;
+    }
+    .carta { background:#FAFBFA; }         /* il fondo: la carta */
+    .alzato{ background:#FFFFFF; }         /* cio' che si solleva dalla carta */
+
+    .due-bianchi{ display:grid; grid-template-columns:1fr 1fr; gap:0;
+      border:1px solid #e6e6ef; border-radius:12px; overflow:hidden; }
+    .due-bianchi > div{ padding:26px 22px; }
+    .due-bianchi b{ display:block; font-size:12px; margin-bottom:3px; }
+    .due-bianchi span{ font-size:11.5px; color:var(--tenue); }
+
+    .banco-dialoghi{ background:#FAFBFA; border:1px solid #ececf4;
+      border-radius:14px; padding:26px 22px;
+      display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    @media (max-width:760px){ .banco-dialoghi{ grid-template-columns:1fr; } }
+
+    .dialogo{
+      border-radius:11px; overflow:hidden;
+      background: oklch(var(--vel) var(--vel-c) var(--h));
+      border: 1px solid oklch(var(--filo) var(--filo-c) var(--h));
+      box-shadow: 0 1px 2px rgba(22,24,58,.04), 0 8px 22px -14px rgba(22,24,58,.28);
+    }
+    .dialogo header{
+      display:flex; align-items:center; gap:8px;
+      padding:9px 13px;
+      border-bottom:1px solid oklch(var(--filo) var(--filo-c) var(--h));
+    }
+    .dialogo .pallino{ width:7px; height:7px; border-radius:50%;
+      background: oklch(var(--inch) var(--inch-c) var(--h)); flex:none; }
+    .dialogo h3{ margin:0; font-size:11px; letter-spacing:.07em;
+      text-transform:uppercase; font-weight:600;
+      color: oklch(var(--inch) var(--inch-c) var(--h)); }
+    .dialogo .corpo{ padding:13px; background:#fff; }
+    .dialogo .riga{ display:flex; justify-content:space-between;
+      align-items:baseline; padding:5px 0; font-size:11.5px; color:#4a4d68;
+      border-bottom:1px solid #f2f2f7; }
+    .dialogo .riga:last-child{ border-bottom:0; }
+    .dialogo .riga i{ font-style:normal; color:var(--tenue); }
+    .dialogo .riga b{ font-family:ui-monospace,monospace;
+      font-variant-numeric:tabular-nums; font-weight:500; color:#16183A; }
+    .dialogo .mestiere{ font-size:11px; color:var(--tenue); padding:0 13px 12px;
+      background:#fff; }
+
+    .sbagliato{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .sbagliato div{ height:66px; border-radius:9px; border:1px solid #eceaf2;
+      display:flex; align-items:flex-end; padding:7px 9px; font-size:10px;
+      color:var(--tenue); }
+  </style>
+
+  <h2>5 · La carta e le velature</h2>
+  <p><b>I due bianchi hanno due mestieri diversi</b>, e questo risponde al tuo
+     «bianco o bianco carta, non lo so»: <b>tutti e due</b>. Se il fondo e' gia'
+     bianco pieno, non resta niente sopra — ogni pannello puo' solo scendere, e
+     una velatura si legge come una <i>macchia</i>. Se il fondo e' carta, il
+     bianco pieno diventa la cosa che si <i>solleva</i>.</p>
+  <div class="due-bianchi">
+    <div class="carta"><b>#FAFBFA — la carta</b>
+      <span>Il fondo di tutto. E' lo stesso bianco su cui e' disegnato il
+      marchio: la piattaforma sta letteralmente sulla carta su cui e' nato
+      il logo.</span></div>
+    <div class="alzato"><b>#FFFFFF — l'alzato</b>
+      <span>Solo cio' che si stacca dal fondo: il corpo di una finestra, una
+      tabella, un campo da compilare. Non e' un fondo, e' un rilievo.</span></div>
+  </div>
+
+  <h2 style="border:0;padding-top:34px;margin-bottom:8px">Le quattro velature — e il loro mestiere</h2>
+  <p>Il punto delicato della tua idea: <b>se le tinte si alternano per varieta',
+     diventano decorazione</b> — e peggio, l'occhio si mette a cercare un
+     significato che non c'e'. Se invece ogni tinta dice <i>che tipo di
+     finestra e' questa</i>, in un giorno chi lavora impara a colpo d'occhio
+     dove sta la roba. E' li' che «tecnico» diventa «sofisticato»: si legge
+     veloce.</p>
+  <div class="banco-dialoghi">
+    <div class="dialogo" style="--h:var(--t-modello)">
+      <header><span class="pallino"></span><h3>Modello</h3></header>
+      <div class="corpo">
+        <div class="riga"><i>elementi IFC</i><b>18 402</b></div>
+        <div class="riga"><i>locali riconosciuti</i><b>247</b></div>
+        <div class="riga"><i>superficie netta</i><b>31 480 m²</b></div>
+      </div>
+      <div class="mestiere">le cose che <i>ci sono</i> — geometria, BIM, locali</div>
+    </div>
+
+    <div class="dialogo" style="--h:var(--t-simula)">
+      <header><span class="pallino"></span><h3>Simulazione</h3></header>
+      <div class="corpo">
+        <div class="riga"><i>agenti attivi</i><b>1 250</b></div>
+        <div class="riga"><i>tempo simulato</i><b>00:14:20</b></div>
+        <div class="riga"><i>passo</i><b>1/30 s</b></div>
+      </div>
+      <div class="mestiere">le cose che <i>si muovono</i> — agenti, flussi, tempo</div>
+    </div>
+
+    <div class="dialogo" style="--h:var(--t-esito)">
+      <header><span class="pallino"></span><h3>Esiti</h3></header>
+      <div class="corpo">
+        <div class="riga"><i>tempo di esodo</i><b>4′ 38″</b></div>
+        <div class="riga"><i>densita' di picco</i><b>3,1 p/m²</b></div>
+        <div class="riga"><i>coda massima</i><b>62 persone</b></div>
+      </div>
+      <div class="mestiere">le cose che <i>sono venute fuori</i> — misure, esiti</div>
+    </div>
+
+    <div class="dialogo" style="--h:var(--t-norma)">
+      <header><span class="pallino"></span><h3>Norme</h3></header>
+      <div class="corpo">
+        <div class="riga"><i>larghezza uscita B</i><b>1,05 m</b></div>
+        <div class="riga"><i>minimo richiesto</i><b>1,20 m</b></div>
+        <div class="riga"><i>verifiche non passate</i><b>2</b></div>
+      </div>
+      <div class="mestiere">le cose da <i>guardare</i> — regole, verifiche, avvisi</div>
+    </div>
+  </div>
+  <p class="nota" style="margin-top:14px">Le quattro velature sono
+     <code>oklch(0.965&nbsp;0.026&nbsp;H)</code> — <b>stessa chiarezza, stessa
+     croma, cambia solo la tinta</b>. Filo e inchiostro seguono la stessa
+     regola a due altezze piu' basse. Aggiungere una quinta finestra vuol dire
+     scegliere un grado, non inventare un colore.</p>
+
+  <h2>6 · Perche' la regola, e quando serve davvero</h2>
+  <p>Mescolare i quattro colori al bianco <b>nella stessa dose</b> e' come
+     verrebbe d'istinto. Finche' la dose e' leggerissima non succede quasi
+     niente — ed e' giusto dirlo, perche' e' il caso in cui la scorciatoia
+     funziona.</p>
+
+  <p class="nota"><b>Al 9%</b> — scarto di chiarezza fra la piu' chiara e la
+     piu' scura: <b>0,022</b>. Invisibile. Qui la regola non serve.</p>
+  <div class="sbagliato">
+    <div style="background:color-mix(in srgb,#2E5BFF 9%,#fff)">blu &nbsp;L .957</div>
+    <div style="background:color-mix(in srgb,#7B2FF7 9%,#fff)">viola &nbsp;L .955</div>
+    <div style="background:color-mix(in srgb,#E0219A 9%,#fff)">magenta &nbsp;L .957</div>
+    <div style="background:color-mix(in srgb,#FF9A1F 9%,#fff)">ambra &nbsp;L .977</div>
+  </div>
+
+  <p style="margin-top:22px">Il guaio arriva quando <b>la velatura deve
+     lavorare</b>: quando deve distinguersi dalla carta anche su uno schermo
+     mediocre, in un ufficio illuminato male, in una schermata proiettata. A
+     quel punto la dose sale — e con la dose sale l'errore.</p>
+
+  <p class="nota"><b>Al 22%</b>, la dose a cui una tinta si vede sul serio:
+     scarto <b>0,055</b>. L'ambra resta a 0,944 mentre il viola scende a 0,889.
+     La fila non e' piu' pari, e si vede.</p>
+  <div class="sbagliato">
+    <div style="background:color-mix(in srgb,#2E5BFF 22%,#fff)">blu &nbsp;L .895</div>
+    <div style="background:color-mix(in srgb,#7B2FF7 22%,#fff)">viola &nbsp;L .889</div>
+    <div style="background:color-mix(in srgb,#E0219A 22%,#fff)">magenta &nbsp;L .896</div>
+    <div style="background:color-mix(in srgb,#FF9A1F 22%,#fff)">ambra &nbsp;L .944</div>
+  </div>
+
+  <p class="nota" style="margin-top:22px">Le stesse quattro, alla stessa forza,
+     <b>con la regola</b>: chiarezza imposta uguale per tutte. Scarto
+     <b>0,000</b>, a qualunque forza le si porti — perche' la chiarezza e'
+     <i>decisa</i>, non <i>ottenuta</i>.</p>
+  <div class="sbagliato">
+    <div style="background:oklch(.895 .05 266)">blu &nbsp;L .895</div>
+    <div style="background:oklch(.895 .05 292)">viola &nbsp;L .895</div>
+    <div style="background:oklch(.895 .05 349)">magenta &nbsp;L .895</div>
+    <div style="background:oklch(.895 .05 63)">ambra &nbsp;L .895</div>
+  </div>
+
+  <p class="nota" style="margin-top:16px">E' questo il motivo vero per cui vale
+     la pena scriverla come regola invece che scegliere quattro colori a occhio:
+     <b>non per come stanno oggi, ma per come reggeranno quando qualcuno le
+     dovra' spingere.</b></p>
+</main>

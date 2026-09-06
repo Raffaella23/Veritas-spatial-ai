@@ -473,12 +473,56 @@ export function dentroUnSolido(scena, corpo, margine) {
  *    Il costo scende anche: si smette al primo asse che dice fuori, che e'
  *    il caso normale.
  */
+// ---------------------------------------------------------------------------
+// LA GUARDIA CONTRO IL TRAP DEL MOTORE FISICO
+//
+// Raffaella, 06/09: sul modello dell'aeroporto il motore fisico e' andato in
+// «unreachable» al fotogramma 0, agente 0, cercando il punto libero. Un
+// «unreachable» e' un panico di Rust dentro il wasm: da JavaScript non si
+// vede altro, e la simulazione non viene applicata affatto.
+//
+// Rapier va in panico quando riceve un numero NON FINITO — un NaN o un
+// Infinity in un'origine, in una direzione o in una lunghezza. E qui i modi
+// per produrne uno ci sono tutti:
+//   - `lungo` nasce da `Math.hypot` sull'ingombro: se l'ingombro non e' stato
+//     misurato (min +Infinity, max -Infinity, che e' come nasce una scatola
+//     vuota) viene Infinity, e Infinity come distanza massima di un raggio fa
+//     saltare il motore;
+//   - `punto` arriva da una catena di somme (`piede[1] + altezza/2 + gradino`)
+//     e basta che una misura sia mancante perche' diventi NaN.
+//
+// ⚠️ QUESTA GUARDIA NON RIPARA LA CAUSA: la rende visibile. Prima il
+//    programma moriva senza dire quale numero fosse sbagliato; adesso lo
+//    stampa una volta sola e va avanti rispondendo «non lo so» invece di
+//    schiantarsi. Un difetto dichiarato vale piu' di un crash muto — ed e' la
+//    stessa regola gia' scritta altrove in questo file.
+let __giaDetto = false;
+function numeriSani(dove, valori) {
+  for (const [nome, v] of Object.entries(valori)) {
+    if (typeof v === "number" && Number.isFinite(v)) continue;
+    if (!__giaDetto) {
+      __giaDetto = true;
+      console.error("[VERITAS corpo][GUARDIA] numero non finito verso il motore fisico"
+        + " — in " + dove + ", '" + nome + "' vale " + v
+        + ". Ecco tutti i valori di quella chiamata:", valori);
+      console.error("   E' questo che faceva esplodere Rapier con «unreachable»."
+        + " La chiamata viene saltata: si risponde «non lo so» invece di morire.");
+    }
+    return false;
+  }
+  return true;
+}
+
 export function dentroPerParita(scena, punto) {
   const { RAPIER, world } = scena;
   const ing = scena.ingombro;
   const lungo = ing
     ? Math.hypot(ing.max[0] - ing.min[0], ing.max[1] - ing.min[1], ing.max[2] - ing.min[2]) * 1.1
     : 1e4;
+  if (!numeriSani("dentroPerParita", {
+    x: punto && punto.x, y: punto && punto.y, z: punto && punto.z, lungo,
+  })) return false;
+
   let dentro = 0;
   for (const d of DIREZIONI_PARITA) {
     let n = 0;
@@ -527,6 +571,11 @@ export function toccaUnaSuperficie(scena, corpo, margine) {
   const chiave = raggio.toFixed(4) + '_' + mezza.toFixed(4);
   let forma = scena.__forme.get(chiave);
   if (!forma) { forma = new RAPIER.Capsule(mezza, raggio); scena.__forme.set(chiave, forma); }
+
+  if (!numeriSani("toccaUnaSuperficie", {
+    x: corpo.pos && corpo.pos.x, y: corpo.pos && corpo.pos.y,
+    z: corpo.pos && corpo.pos.z, raggio, mezza,
+  })) return false;
 
   const urto = world.intersectionWithShape(
     corpo.pos, ROTAZIONE_FERMA, forma,

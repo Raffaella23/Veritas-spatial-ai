@@ -18,7 +18,7 @@
 //
 // COSA MOSTRA, in tempo reale
 //
-//   ┌─ VERITAS · quello che vedo ────────────────── [▾] [×] ─┐
+//   ┌─ EIDETICA · quello che vedo ────────────────── [▾] [×] ─┐
 //   │                                                            │
 //   │   ┌──────────────────────────────────────────────┐       │
 //   │   │  LA PIANTA VERA, quella data in pasto all'occhio│      │
@@ -62,13 +62,23 @@ import { piantaInTela } from "./veritas_riconosce.js?v=1";
 import { mondoAPixel } from "./veritas_vista.js?v=5";
 
 const COLORI = {
-  sfondo: "#12141a",
-  testo: "#e8eaf0",
-  tenue: "#8b91a3",
-  punto: "#6b7a99",        // volume misurato, ancora senza nome
-  puntoNome: "#3ddc97",    // volume che ha ricevuto un nome
-  scatola: "#ff8c42",      // cosa l'occhio dice di aver visto
-  bordo: "#2a2e3a",
+  // ⚠️ TARATI SUL CHIARO, e presi dalla tavolozza del marchio invece che
+  //    inventati. Raffaella, 05/09: «usa dei colori basandoti su quelli che
+  //    abbiamo all'interno della piattaforma».
+  //    Prima erano da fondo nero (#12141a, testo #e8eaf0, nomi verde acceso):
+  //    sul chiaro il testo spariva e il verde sbiadiva.
+  //    E il verde e' andato via anche per una ragione sua: in questa
+  //    piattaforma il verde SIGNIFICA «il motore e' pronto». Usarlo anche per
+  //    altro toglie forza all'unico posto dove e' un'informazione.
+  sfondo: "#E9EBF0",       // lo stesso grigio della vista 3D: e' un disegno
+  testo: "#16183A",
+  tenue: "#6B6F8A",
+  bordo: "#C9CDDC",
+  punto: "#A8AEC2",        // volume misurato, ancora senza nome: grigio, muto
+  puntoNome: "#2E5BFF",    // volume che ha ricevuto un nome — le cose CHE CI SONO
+  scatola: "#FF9A1F",      // cosa l'occhio DICE di aver visto — da guardare,
+                           // ed e' l'ambra che in tutta la piattaforma vuol
+                           // dire esattamente «guarda qui».
 };
 
 // ---------------------------------------------------------------------------
@@ -148,7 +158,7 @@ export function anteprima(doc, opz = {}) {
   testa.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 10px;"
     + "background:#1a1d26;border-bottom:1px solid " + COLORI.bordo + ";cursor:default";
   const titolo = doc.createElement("span");
-  titolo.textContent = "VERITAS · quello che vedo";
+  titolo.textContent = "EIDETICA · quello che vedo";
   titolo.style.cssText = "flex:1;font-weight:600;letter-spacing:.02em";
   const bPiega = bottone(doc, "▾", "apri e chiudi");
   const bChiudi = bottone(doc, "×", "chiudi del tutto");
@@ -256,6 +266,39 @@ export function anteprima(doc, opz = {}) {
       return;
     }
 
+    // ⚠️ LE ETICHETTE NON SI SOVRAPPONGONO PIU'. Raffaella, 05/09: «vedi le
+    //    scritte come appaiono? non si capisce niente».
+    //    Aveva ragione, e il difetto era grosso: si scriveva un'etichetta su
+    //    OGNI punto e su OGNI scatola, decine, tutte a 10 px e tutte una
+    //    sopra l'altra. Ne usciva un groviglio arancione.
+    //    E' il difetto peggiore possibile PROPRIO QUI, perche' questo
+    //    pannello esiste per una cosa sola — «guarda la figura: i nomi stanno
+    //    sopra le cose giuste?». Un pannello di controllo illeggibile non e'
+    //    un pannello brutto, e' un pannello che non fa il suo mestiere.
+    //
+    //    La regola: si prova a scrivere, e se il posto e' gia' occupato si
+    //    RINUNCIA a quella scritta. Meglio dieci nomi che si leggono che
+    //    quaranta che non si leggono. I riquadri e i pallini restano tutti:
+    //    non si perde niente di quello che il motore ha visto, si smette solo
+    //    di scriverci sopra.
+    const occupato = [];
+    function scriviSePuoi(testo, x, y) {
+      const w = c.measureText(testo).width;
+      const r = { x0: x - 1, y0: y - 9, x1: x + w + 1, y1: y + 3 };
+      for (const q of occupato) {
+        if (r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) return false;
+      }
+      occupato.push(r);
+      // una velina chiara sotto: una scritta sopra un disegno fitto non si
+      // legge nemmeno quando e' sola.
+      const sf = c.fillStyle;
+      c.fillStyle = "rgba(233,235,240,.82)";
+      c.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+      c.fillStyle = sf;
+      c.fillText(testo, x, y);
+      return true;
+    }
+
     // --- la nuvola di punti: i volumi MISURATI --------------------------
     // Sono l'unica cosa certa in tutta la scena: la geometria dice dove.
     if (stato.mostra.punti && stato.inquadratura) {
@@ -273,7 +316,7 @@ export function anteprima(doc, opz = {}) {
 
         if (nome && stato.mostra.nomi) {
           c.font = "10px monospace"; c.fillStyle = COLORI.puntoNome;
-          c.fillText(nome, x + r + 3, y + 3);
+          scriviSePuoi(nome, x + r + 3, y + 3);
         }
       }
     }
@@ -287,9 +330,13 @@ export function anteprima(doc, opz = {}) {
         c.strokeStyle = COLORI.scatola;
         c.globalAlpha = 0.35 + 0.65 * Math.min(1, b.score / 0.5);
         c.strokeRect(x, y, w, h);
-        if (stato.mostra.nomi) {
+        // ⚠️ E SOLO LE SCATOLE CHE CI CREDONO. Sotto il 35% di fiducia il
+        //    nome e' una supposizione: scriverlo con la stessa autorita' di
+        //    uno sicuro e' la stessa merce avariata dei numeri finti.
+        //    Il riquadro resta — la macchina l'ha visto — ma senza nome.
+        if (stato.mostra.nomi && b.score >= 0.35) {
           c.font = "10px monospace"; c.fillStyle = COLORI.scatola;
-          c.fillText(b.label + " " + Math.round(b.score * 100) + "%", x + 2, y - 3);
+          scriviSePuoi(b.label + " " + Math.round(b.score * 100) + "%", x + 2, y - 3);
         }
         c.globalAlpha = 1;
       }

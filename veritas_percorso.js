@@ -25,10 +25,24 @@
 // si attraversano, non ordinate per dimensione. Un percorso che salta avanti e
 // indietro non e' un percorso.
 
-/** Quante tappe ha senso avere. Sotto 2 non e' un percorso, sopra ~8 non e'
- *  piu' una sequenza leggibile ne' per l'utente ne' per il motore. */
+/** Quante tappe ha senso avere.
+ *
+ *  ⚠️ IL TETTO ERA 8, SEMPRE, PER QUALUNQUE EDIFICIO. Raffaella, 05/09:
+ *     «se ci sono delle regole stupide le togliamo... se impediscono la
+ *     lettura dell'oggetto, buttale».
+ *     La ragione scritta qui prima — «sopra ~8 non e' piu' una sequenza
+ *     leggibile» — e' giusta per una palazzina e falsa per un terminal. Un
+ *     aeroporto ne riconosce 31: con il tetto a 8 ne cadevano 23, e fra
+ *     quelle il fronte strada, i taxi e la fila ai varchi. Un numero costante
+ *     che non guarda l'oggetto e' esattamente una regola che impedisce di
+ *     leggerlo.
+ *     Ora il tetto assoluto e' largo (24) e a decidere davvero e'
+ *     `tappeConsigliate`, che scala con quanto e' grande lo spazio. 24 non e'
+ *     un numero magico: e' «tanto da non stringere mai un edificio vero,
+ *     poco da accorgersi se un giorno il riconoscimento impazzisse e ne
+ *     tirasse fuori duecento». */
 export const TAPPE_MIN = 2;
-export const TAPPE_MAX = 8;
+export const TAPPE_MAX = 24;
 
 function areaDi(z) {
   if (!z) return 0;
@@ -118,9 +132,14 @@ export function riduciAPercorso(zone, flusso, maxTappe = 5) {
  */
 export function tappeConsigliate(nAmbienti) {
   if (!nAmbienti || nAmbienti < 2) return TAPPE_MIN;
-  if (nAmbienti <= 5) return nAmbienti;
-  if (nAmbienti <= 12) return 5;
-  return 7;
+  if (nAmbienti <= 5) return nAmbienti;          // pochi: si tengono tutti
+  if (nAmbienti <= 12) return 5;                 // una casa, un piano d'ufficio
+  // ⚠️ QUI PRIMA C'ERA `return 7`, e valeva sia per 13 ambienti che per 300.
+  //    Adesso cresce con l'edificio: circa un ambiente su due, che su un
+  //    terminal da 31 fa 15 tappe invece di 7. Resta una SELEZIONE — non si
+  //    cammina fra trentuno posti — ma smette di essere lo stesso numero per
+  //    una villetta e per Fiumicino.
+  return Math.max(7, Math.min(TAPPE_MAX, Math.round(nAmbienti * 0.48)));
 }
 
 export default { riduciAPercorso, tappeConsigliate, TAPPE_MIN, TAPPE_MAX };

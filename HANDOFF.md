@@ -1,12 +1,86 @@
-# HANDOFF.md — VERITAS Spatial AI
+# HANDOFF.md — EIDETICA *(il prodotto si chiamava VERITAS)*
 
-> ⛔ **PRIMA DI TOCCARE QUALUNQUE COSA, LEGGI «LE DIRETTIVE DEL 04-05/09/2026»
-> QUI SOTTO.** Sono decisioni già prese: non si ricavano dal codice, non si
-> reinterpretano. Un commento nel codice che le contraddice è vecchio, e va
-> cancellato — non seguito.
->
-> **Aggiornato il 05/09/2026.** Questo è **l’unico documento di stato del
-> progetto.** Non ce ne sono altri, e non se ne creano altri.
+**Aggiornato il 06/09/2026. Questo è l'unico documento di stato del progetto.**
+
+---
+
+## ⛔ LEGGI QUESTO PRIMA DI SCRIVERE UNA RIGA
+
+Sei appena entrato in un progetto che ha alle spalle **settimane di decisioni
+già prese e già pagate**. Non sei il primo, e la maggior parte degli errori che
+stai per fare li ha già fatti qualcun altro — sono scritti qui.
+
+### Le sei regole ferree
+
+**1. Non puoi andare oltre quello che è scritto qui.** Se una cosa non è
+scritta, non la deduci dal codice e non la decidi: **chiedi a Raffaella.** Il
+codice dice *com'è*, non *come deve essere*. Su ogni scelta di impianto — un
+pannello, un nome, un colore, una soglia, un'architettura — si chiede.
+
+**2. Un commento nel codice che contraddice questo documento è vecchio: si
+cancella, non si segue.** Ed è costato un giro intero il 04/09.
+
+**3. UN SOLO DOCUMENTO: questo.** Non si crea `CLAUDE.md`, non si crea
+`RIPARTENZA.md`, non si crea `NOTE_SESSIONE.md`, non si crea niente. Se hai
+qualcosa da scrivere, **si aggiorna questo file sostituendo la parte superata**,
+non accodando in fondo. *(Regola violata il 06/09 creando un `RIPARTENZA.md`,
+poi cancellato: la regola era scritta, letta, e infranta lo stesso.)*
+
+**4. Prima di costruire qualunque cosa strutturale, fai un `grep` qui dentro.**
+Il 06/09 stavo per costruire un secondo dock: la regola *«i comandi stanno tutti
+a sinistra e i pannelli si aprono a destra»* era già scritta, e il dock esisteva
+già. Raffaella: *«questa cosa io te l'ho espressa già tante volte»*. Aveva
+ragione, ed era scritta.
+
+**5. Verifica con i numeri, non con l'impressione.** Ogni affermazione in questo
+documento che dice «misurato» ha dietro una misura vera. Se scrivi qualcosa qui,
+o l'hai misurata, o la marchi **[DA VERIFICARE]**. Non c'è una terza via.
+
+**6. Se una cosa si sbaglia sempre allo stesso modo, non va ricordata: va tolta
+di mano.** Tre errori identici in un giorno hanno prodotto
+`banco/sistema_carta.mjs`. Fanne altri se servono.
+
+### Le tre cose che ti faranno perdere un'ora se non le sai
+
+⚠️ **Il repo vero è `C:\\Users\\ciani\\OneDrive\\Desktop\\VERITAS\\temp-repo`.**
+La cartella `Veritas-spatial-ai` accanto è un clone rotto e vuoto.
+
+⚠️ **`veritas_corpo.js`, `veritas_llm.js`, `veritas_occhi.js` sono COPIE che non
+vengono caricate.** Il codice che gira è incollato dentro `index.html` (2 MB).
+Il 06/09 ho corretto il file sbagliato e non è successo niente. Prima di toccare
+una funzione, cerca se esiste anche dentro `index.html`.
+
+⚠️ **Sul Desktop ci sono ancora documenti superati** — `AVVIO_NUOVA_CHAT.md`,
+`handoff.md`, `Piano/CLAUDE_INSTRUCTIONS.md`, e la vecchia cartella
+`Veritas-spatial-ai-main` con dentro `CLAUDE.md`, `CONTEXT.md`,
+`PROJECT_INFO.md`, `design_brief.md`. **Sono tutti morti dal 24/08.** Se ne apri
+uno, stai leggendo istruzioni di venti giorni fa. **Non sono qui.**
+
+### Come si lavora, in pratica
+
+- **Il servertto**: `http://localhost:5173/index.html`. Il riquadro d'anteprima
+  dentro Claude **non regge** l'applicazione 3D: si pianta. Per guardare si usa
+  **Chrome**, e i log te li leggi da solo con `mcp__claude-in-chrome__*` —
+  **non si chiede a Raffaella di copiare la console.**
+- **Dopo ogni modifica a `veritas_carta.js`: `node banco/sistema_carta.mjs`.**
+- **Ogni volta che apri o chiudi una finestra, dillo.** E il link alla pagina si
+  dà sempre, senza farselo chiedere.
+
+### Come si scrive a Raffaella
+
+> *«Scrivimi proprio due righe e in grassetto quello che vuoi chiedermi, perché
+> mi scoccia leggere tutto quel testo.»* — 06/09/2026
+
+**Due righe in grassetto in cima, con l'azione o la decisione. Il resto sotto, e
+solo se serve.** Domande esplicite e concise: *«quanto è lungo il terminal?»* era
+una domanda mal posta — non può misurarlo, e la risposta era già dentro il
+modello. Si parla da architetto: metri quadri e disegni, non nomi di funzioni.
+
+---
+
+> ⛔ **Ora leggi «LE DIRETTIVE DEL 04-05/09/2026» qui sotto**, prima di tutto il
+> resto. Sono decisioni già prese: non si ricavano dal codice, non si
+> reinterpretano, non si mettono ai voti.
 
 ---
 
@@ -274,11 +348,14 @@ che dicono *ci si muove attorno per capire*, e un'iride fatta di **punti
 collegati** invece che di una pupilla — cioe' la comprensione che si compone. E'
 la direttiva 9 disegnata.
 
-⚠️ **UNA SCHERMATA DI CARICAMENTO NON PUO' ASPETTARE CHE UN FILE SI CARICHI.**
-Se il logo dell'attesa fosse il PNG, nei primi secondi — proprio quelli che deve
-coprire — non ci sarebbe niente. Quindi l'animazione d'attesa si disegna
-**dentro la pagina, in SVG**: pesa nulla, parte al primo fotogramma, scala su
-qualunque schermo. Il PNG resta il logo fisso nell'interfaccia.
+⚠️ **UNA SCHERMATA DI CARICAMENTO NON PUO' ASPETTARE CHE UN FILE SI CARICHI**
+— ma il modo giusto non era ridisegnare il marchio in SVG. *(Questa nota
+sostituisce quella del 05/09, che diceva di disegnarlo dentro la pagina:
+superata dalla regola di Raffaella «il marchio non si ridisegna, si usa».)*
+La risposta e' **alleggerire il file vero**: `banco/marchio.py` cava dal PNG
+d'origine un WebP da **33 KB** (erano 832), che parte subito e non e' una
+copia. Di quegli 832 KB, 22 erano solo il certificato di provenienza cucito
+dentro dal generatore d'immagini, e il resto risoluzione mai usata.
 
 ⚠️ **E la barra non mente.** Una barra che corre da sola mentre non sta
 succedendo niente e' la stessa merce avariata dei KPI finti, in piccolo. O mostra
@@ -389,18 +466,162 @@ Com'e' fatta, e perche':
   passa dei COLORI che significano qualcosa — verde quando il motore e' pronto.
   Erano scelti per il fondo nero, e sul chiaro il verde sparirebbe.
 
-**Cosa resta:**
+**✅ Le quattro cose che restavano sono chiuse — 06/09/2026.**
 
-1. **il logo fisso nella UI.** Dove, lo decide Raffaella. Oggi in alto a
-   sinistra c'e' «VERITAS» col pallino di stato: e' il posto naturale, ma **si
-   chiede** (direttiva 4);
-2. **un export piu' leggero.** Il file e' 1774 px per 850 KB: pesante per il
-   web, e a schermo identico a 700 px (~60 KB). Cosi' l'attesa diventerebbe
-   istantanea invece di aspettare il logo;
-3. **una versione con lo sfondo trasparente**, e la schermata puo' tornare
-   scura come il resto dell'applicazione;
-4. ⚠️ **e resta la domanda dei nomi**: sullo schermo c'e' scritto «VERITAS», il
-   marchio dice «EIDETICA». Sono due nomi o uno? Non si decide al posto suo.
+1. **Il logo fisso: e' nell'angolo della vista 3D**, non nella barra. Lo decide
+   l'uso: *«tutti i video o le riprese fatti all'interno devono riportare il
+   marchio»*. La barra non entra in una ripresa del modello, l'angolo si'.
+   ⚠️ Sta nel DOM sopra la tela: entra nelle riprese dello schermo, **non** in
+   una foto presa dalla sola tela WebGL. Se servira' anche li', va disegnata
+   nella scena, ed e' un lavoro diverso.
+2. **Export leggeri**, tutti da `banco/marchio.py`: intero su bianco **33 KB**,
+   trasparente 112 KB, solo simbolo 8 KB, piu' un PNG trasparente per stampa e
+   slide. Da 832 KB.
+3. **Versione trasparente fatta, e svuotata davvero.** ⚠️ La trappola: il
+   *bianco dell'occhio* e il bianco della pagina sono lo stesso bianco (fondo
+   250,251,250 — sclera 251,252,253), quindi chi scontorna «togliendo il
+   bianco» buca l'occhio. Si allaga dai bordi. Ma anche il **vuoto dentro la D**
+   e' un'isola chiusa, e restava tappato: Raffaella l'ha visto sul grigio.
+   Su sua decisione ora si svuota **tutto** cio' che ha il colore del fondo —
+   una regola sola al posto di tre. Conseguenza da sapere: l'occhio prende il
+   colore di cio' che ha sotto. Si torna indietro con `SVUOTA_TUTTO = False`.
+4. **I nomi: uno solo, EIDETICA.** Rinominato tutto cio' che si legge (titolo,
+   accesso, barra, report, chat, pannello «quello che vedo»). ⚠️ **Non**
+   rinominati i file `veritas_*.js`, le variabili `__veritas*` e i prefissi di
+   registro: sono interni, e il codice stesso avverte che quel vocabolario e'
+   portante.
+
+**La piattaforma e' passata al chiaro** — decisione di Raffaella del 05/09,
+tutta in `veritas_carta.js`, che e' **uno strato**: `window.veritasCarta.spegni()`
+e torna com'era.
+
+- **due bianchi, due mestieri**: `#FAFBFA` e' la carta (il fondo, ed e' lo
+  stesso bianco su cui e' disegnato il marchio), `#FFFFFF` e' cio' che si
+  solleva. Se il fondo fosse gia' bianco pieno, una velatura si leggerebbe come
+  una macchia;
+- **quattro velature dal marchio**, ma se ne tiene **solo il grado** (266°
+  modello, 292° simulazione, 349° esiti, 63° norme) con chiarezza e croma
+  imposte uguali. ⚠️ Schiarire i colori mescolandoli al bianco non regge:
+  misurato, alla dose leggera lo scarto e' 0,022 (invisibile) ma al 22% sale a
+  0,055 e la fila non e' piu' pari. **La regola serve per quando qualcuno le
+  dovra' spingere.** E la tinta dice il *mestiere* della finestra, non fa
+  varieta';
+- **la vista 3D e' grigia `#E9EBF0` con reticolo prospettico sui tre piani** —
+  pavimento e quattro pareti, niente soffitto (dall'alto si guarderebbe il
+  modello attraverso una rete). ⚠️ Il nero non era lo sfondo: era una **lastra
+  dentro il GLB** piu' una **foschia nera** messa per «legare il modello al
+  fondo» — che su fondo chiaro fa l'opposto, spalma nero sul modello. La
+  foschia dev'essere *sempre* del colore dell'aria;
+- **il vetro e' diventato carta**: `backdrop-filter: blur(34px)` regge solo sul
+  scuro; su bianco, vetro bianco su fondo bianco non e' niente;
+- **i pannelli stanno tutti a destra** (regola gia' scritta piu' sotto, mai
+  applicata alle colonne del bundle) e c'e' **MASSIMIZZA** in basso a sinistra:
+  la tela passa da 1140 a 1440 px. ⚠️ Le colonne si spostano con `order`, non
+  muovendo nodi: il bundle non si tocca.
+
+---
+
+### E — LA SCALA: il righello e' l'uomo *(fatto il 06/09, e sblocca tutto)*
+
+⚠️ **Questa e' la radice di una fila di guasti che sembravano scollegati.**
+
+Il modello dell'aeroporto **non e' in metri**, e la piattaforma tirava a
+indovinare: *«invarianti architettonici -> fattore 7,3 (fiducia bassa, banda
+5,13x-10,26x)»*. Una banda da uno a due: cioe' il programma diceva «non lo so»,
+e poi decideva lo stesso.
+
+Raffaella, 06/09: *«non lo so quanto e' grande, non l'ho misurato e non lo posso
+misurare. L'unica cosa e' che li' dentro ci sono delle figure umane e ho scalato
+in base all'altezza di un uomo. Non ho altri metodi, e mi sembra abbastanza
+importante.»*
+
+**Ha ragione, ed e' il metodo piu' solido che ci sia**: un edificio puo' essere
+grande qualunque cosa, una persona no. Ora la piattaforma misura le figure
+umane dentro il modello (`index.html`, cerca `function scalaDalleFigureUmane`) e ne ricava
+il fattore. Misurato sul GLB dell'aeroporto: **97 persone in piedi alte 0,32 m
+-> fattore 5,272x** (non 7,3). Il terminal passa da 147x82 a **106x59 m** e le
+persone a 1,70 m.
+
+- ⚠️ **solo le persone IN PIEDI**: chi e' seduto e' alto 1,20, e mescolarli
+  abbassa la mediana e allunga l'edificio;
+- ⚠️ **almeno dieci figure**, e se i quartili sono larghi si rifiuta e lo
+  dichiara: una figura sola puo' essere una statua o un manichino;
+- ⚠️ **una misura batte una deduzione**, e lo si scrive nel registro invece di
+  sostituire zitti.
+
+**Cosa restava rotto per colpa della scala sbagliata**, e va riverificato ora:
+
+- il filtro delle superfici (`index.html`, cerca `const isOutOfScale`) decide chi e'
+  pavimento **confrontando le aree**: con la scala sbagliata sbaglia bersaglio;
+- ✅ **CHIUSO IL 06/09: il rettangolo da 20 x 10 m e la rianalisi che non
+  ripartiva erano LA STESSA COSA, e non erano un difetto di logica.** Un
+  blocco di `index.html` era caduto il 05/09 dentro `807c560` (la modifica
+  della telecamera): il gancio che chiude ogni passata era stato scritto
+  **dentro il blocco inlinato di `veritas_vista.js`** e mai nel modulo, quindi
+  il reinline del modulo lo ha cancellato. Il file restava valido — *chiamare
+  una funzione che non esiste non e' un errore di sintassi* — e per due giorni
+  nessuno rifaceva la nuvola dopo il righello umano. Rimesso, e **spostato
+  accanto alla sequenza che accende** (cerca `collegaLeSequenze`), dove nessun
+  reinline puo' piu' toccarlo. Misurato sulla pagina viva, stesso modello:
+
+  | | prima | dopo |
+  |---|---|---|
+  | area navigabile | 83,34 m² | **3.363,57 m²** |
+  | ambienti | 4 | **9, su 2 livelli, 6 varchi reali** |
+  | segnaletica del modello | non letta | **4 famiglie, 1.652 m² di pavimento visto** |
+  | ingressi | — | **3, ognuno con 2 indizi d'accordo** |
+
+  ⚠️ **Ed era caduto anche il lettore della segnaletica** (`__veritasLeggiSegnaletica`
+  e `__veritasLeggiSegnaleticaOra`): tre punti del programma li chiamavano e in
+  tutto il repository non li definiva piu' nessuno. Cioe' **le frecce che
+  l'autore ha messo nel file — comprese quelle del fronte strada — non le
+  guardava piu' nessuno.** Ora la voce «la segnaletica del modello» propone di
+  nuovo 30 posti agli accessi;
+- il trap del motore fisico (`unreachable`) probabilmente veniva da qui: agenti
+  alti 1,70 m in un modello scalato male nascono dentro i muri. Ora c'e' una
+  guardia che stampa il numero non finito invece di morire.
+
+**E le aree all'aperto non si buttano piu'** (`index.html`, cerca `superfici esterne TENUTE`). Prima
+`isOutOfScale` le scartava del tutto: il fronte strada e i taxi non erano
+esclusi dal *percorso*, erano esclusi dall'*analisi*, un passo prima — e nessuna
+regola a valle poteva rimediare.
+
+📌 **Rimisurato il 06/09, dopo che la catena e' stata riattaccata, e la lettura
+di prima era sbagliata.** I «42 punti su 27.000» erano il numero della passata
+PRE-scala, l'unica che girasse allora. Nella passata buona il fronte strada e'
+nella nuvola eccome: **3.602 punti oltre x=0, di cui 1.988 nella fascia
+x=10..20** — una delle piu' diese del modello. Ed e' anche calpestabile: il
+cammino arriva a **x=+22**.
+
+⚠️ **Quindi il parcheggio non e' escluso: e' INGHIOTTITO.** Dei 9 ambienti
+misurati, **uno solo sta al piano terra e misura 2.759 m², 98 x 28 m** su un
+edificio lungo 106. Dentro quella stanza sola ci stanno il piazzale, la strada,
+i taxi, il check-in e le sale d'attesa. Gli altri 8 sono i pontili al piano
+primo (da 7 a 23 m², piu' uno da 492).
+
+**Non manca il parcheggio: manca il CONFINE** — ed e' esattamente la direttiva 1
+(«in pianta libera i muri non bastano: il confine lo disegnano gli arredi»).
+Il lavoro A si sposta qui, ed e' lo stesso difetto del vecchio gate da
+5.261 m², solo rimisurato col metro giusto.
+
+**Le due regole della zonizzazione, tolte** (`veritas_percorso.js`, cerca `TAPPE_MAX` e `tappeConsigliate`):
+il tetto fisso di 7 tappe — *«un numero costante per una palazzina e per un
+terminal e' una regola che non guarda l'oggetto»* — ora scala con l'edificio; e
+le aree all'aperto non si riducono piu' a una sola: si tengono quelle **dal lato
+dell'arrivo** e si scartano quelle dal lato opposto. ⚠️ Quella riga **non era
+stupida**: impediva ai passeggeri di camminare sul piazzale accanto agli aerei.
+La distinzione vera non era «una sola», era **da che parte**.
+
+**I tempi del modello linguistico** erano 20 s (testo) e 90 s (immagini).
+Misurato: LM Studio con qwen2.5-vl-7b impiega **24 secondi per una domanda
+banale**. Il tempo scadeva sempre e l'errore usciva come «Failed to fetch» —
+che sembra una porta chiusa e invece la chiudevamo noi. Ora 180 s e 360 s.
+
+⚠️ **Le zone di un progetto salvato NON si ricalcolano** (`index.html`, cerca `const hasFewNodes`): se il progetto ha gia' dei nodi, l'assegnazione automatica non
+riparte, e ogni modifica alla zonizzazione resta **invisibile**. Non esiste un
+modo, per l'utente, di dire «rifai i punti da capo»: c'e'
+`window.eidetica.rifaiLeZone()`, che **cancella i punti rinominati a mano**, e
+`window.eidetica.tappe()` per l'elenco.
 
 ---
 
@@ -901,6 +1122,52 @@ ricostruire. Ogni riga qui sotto è stata verificata, non ricordata.
   combaciano, e le buttate sarebbero zero. Gira solo su Linux con Playwright.
 
 ---
+
+### ⚠️ Attrezzi e trappole aggiunti il 06/09/2026
+
+**Dopo ogni modifica a `veritas_carta.js`: `node banco/sistema_carta.mjs`.**
+Non e' pignoleria, e' che tre errori diversi in un giorno solo non li ha presi
+`node --check`:
+
+- **apici inclinati dentro il blocco CSS** — chiudono la stringa e spezzano il
+  modulo. Fatto **tre volte**, la seconda identica alla prima. Ora si
+  raddrizzano da soli;
+- **due funzioni cancellate** sostituendo un blocco di testo che le conteneva
+  in mezzo. Il file restava valido: *chiamare una funzione che non esiste non
+  e' un errore di sintassi*. Se ne accorge solo chi guarda lo schermo;
+- **il `?v=` mai alzato.** La trappola era gia' scritta qui sotto («si cambiano
+  a ogni modifica di quei file») e non l'ho applicata al file che scrivevo io:
+  `veritas_carta.js` e' rimasto a `?v=1` per un giorno intero, e Raffaella ha
+  visto errori causati da una copia vecchia in cache. Ora lo alza il comando.
+
+**Se una cosa si sbaglia sempre allo stesso modo, non va ricordata: va tolta
+di mano.**
+
+⚠️ **`veritas_corpo.js`, `veritas_llm.js`, `veritas_occhi.js` sono COPIE che
+non vengono caricate.** Il codice che gira e' incollato dentro `index.html`.
+Il 06/09 ho corretto il file sbagliato e non e' successo niente. Prima di
+toccare una funzione, verificare se esiste anche dentro `index.html`.
+
+⚠️ **Non si chiede a Raffaella di copiare la console.** C'e' Claude in Chrome
+(`mcp__claude-in-chrome__*`): si apre una scheda su
+`http://localhost:5173/index.html` — la sessione e' gia' autenticata — e i log
+si leggono da soli. Il riquadro d'anteprima dentro Claude **non regge**
+l'applicazione 3D: si pianta. Per guardare si usa Chrome.
+
+⚠️ **Le stampe ritardate non arrivano.** Un `setTimeout` che stampa dopo tre
+secondi stampa quando Raffaella ha gia' copiato: i comandi di diagnosi devono
+**restituire** il dato, non stamparlo dopo.
+
+### ⚠️ Come si scrive a Raffaella — 06/09/2026
+
+> *«Scrivimi proprio due righe e in grassetto quello che vuoi chiedermi,
+> perche' mi scoccia leggere tutto quel testo.»*
+
+**Due righe in grassetto in cima, con l'azione o la decisione.** Il resto sotto,
+e solo se serve. E **domande esplicite**: *«quanto e' lungo il terminal?»* era
+una domanda mal posta — non puo' misurarlo, e la risposta utile era gia' dentro
+il modello (le figure umane). Il link alla pagina si da' sempre, senza farselo
+chiedere, e ogni finestra che si apre o si chiude si segnala.
 
 ## 🔴 L'OCCHIO NON GUARDA GLI SCORCI — e il documento diceva di sì. 04/09/2026
 
@@ -3585,7 +3852,25 @@ Supabase per il multi-utente.
 
 ## Ricette di verifica
 
-**Blocco 3 intatto — dopo *ogni* modifica a `index.html`:**
+🔴 **IL BUNDLE NON E' PIU' IL BLOCCO 3, ED E' STATO MODIFICATO A MANO —
+ribattuto il 06/09.** La ricetta di sotto suonava un allarme finto a ogni
+esecuzione, che e' esattamente la trappola contro cui era stata scritta.
+Due cose sono cambiate e vanno sapute prima di crederle un guasto:
+
+- **il bundle e' scivolato al blocco 4** (i blocchi sono passati da 34 a 37 con
+  la schermata d'attesa EIDETICA);
+- **il suo contenuto e' cambiato di 23 caratteri**, e non e' corruzione: il
+  06/09 e' stato aggiunto il carattere **Jura** all'importazione dei font
+  dentro il CSS del bundle, per il vestito EIDETICA. Verificato carattere per
+  carattere: e' l'unica differenza in 872.517, e la coda combacia.
+
+**Riferimento buono da oggi: blocco 4, sha16 `beb4953744b92c5b`, 872.517
+caratteri.** ⚠️ E la lezione, che vale piu' del numero: **una ricetta di
+verifica che nomina un INDICE si rompe da sola appena qualcuno aggiunge un
+blocco.** Chi la riscrive faccia cercare il bundle *per hash fra tutti i
+blocchi*, non per posizione — cosi' non mente mai piu'.
+
+**Bundle intatto — dopo *ogni* modifica a `index.html`:**
 
 ```python
 from html.parser import HTMLParser
@@ -3600,8 +3885,12 @@ class SE(HTMLParser):
     def handle_data(self,d):
         if self.i: self.b.append(d)
 p=SE(); p.feed(open('index.html',encoding='utf-8').read())
-assert hashlib.sha256(p.s[3].encode()).hexdigest()[:16]=='58d371701aa9a349', 'BLOCCO 3 ALTERATO'
-print('ok, blocchi:', len(p.s))
+# Si cerca PER HASH, non per indice: aggiungere un blocco non deve far suonare
+# un allarme finto. Se il bundle non si trova, allora si' che e' stato alterato.
+dove=[i for i,b in enumerate(p.s)
+      if hashlib.sha256(b.encode()).hexdigest()[:16]=='beb4953744b92c5b']
+assert dove, 'BUNDLE ALTERATO'
+print('ok, bundle intatto al blocco', dove[0], '- blocchi totali:', len(p.s))
 ```
 
 Poi `node --check` sui blocchi modificati (i moduli ES vanno copiati in `.mjs`).

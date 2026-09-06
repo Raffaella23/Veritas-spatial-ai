@@ -143,7 +143,15 @@
 
   async function interroga(frase, timeoutMs) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs || 20000);
+    // ⚠️ ERA 20 SECONDI, E NON BASTAVA MAI. Misurato il 06/09 sulla macchina
+    //    di Raffaella, LM Studio con qwen2.5-vl-7b: 24 secondi per 150 token
+    //    di solo testo, senza immagini. Cioe' il tempo scadeva PRIMA che il
+    //    modello finisse anche la domanda piu' banale, sempre, e l'errore
+    //    usciva come «Failed to fetch» — che sembra una porta chiusa e invece
+    //    era una porta chiusa da noi.
+    //    180 secondi: sette volte la misura, per lasciar respirare una
+    //    domanda vera che e' molto piu' lunga di quella di prova.
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs || 180000);
     try {
       const res = await fetch(cfg.url + "/chat/completions", {
         method: "POST",

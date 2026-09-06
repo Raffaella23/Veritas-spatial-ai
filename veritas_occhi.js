@@ -406,7 +406,12 @@ export async function chiedi(dataURL, domanda, cfg, opz = {}) {
   const url = (cfg && cfg.url) || 'http://localhost:1234/v1';
   const modello = (opz.modello || (cfg && cfg.modelloVista) || (cfg && cfg.model) || 'local-model');
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => ctrl.abort(), opz.timeoutMs || 90000) : null;
+  // ⚠️ ERA 90 SECONDI. Stessa misura, stesso giorno: se il solo testo ne
+  //    prende 24, un giro con le immagini ne prende molti di piu'. E il resto
+  //    della catena aspetta gia' sette minuti prima di arrendersi
+  //    («nessuna tappa dopo sette minuti»): tanto vale che il tempo del
+  //    modello sia coerente con quello, invece di tagliare a meta' strada.
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), opz.timeoutMs || 360000) : null;
   try {
     const res = await fetch(url + '/chat/completions', {
       method: 'POST',
