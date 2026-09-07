@@ -56,6 +56,24 @@ vengono caricate.** Il codice che gira è incollato dentro `index.html` (2 MB).
 Il 06/09 ho corretto il file sbagliato e non è successo niente. Prima di toccare
 una funzione, cerca se esiste anche dentro `index.html`.
 
+🔴 **E IL RE-INLINE PUÒ SOVRASCRIVERE IL MODULO SBAGLIATO — pagato il 07/09.**
+`banco/reinlina.py` trova il blocco per la firma `window.__veritasX`, e la firma
+da sola non basta: chiedendo `veritas_perception.js __veritasPerception` la
+percezione è finita **sopra il modulo della VISIBILITÀ** (isovista, linea di
+vista, altezza dei muri) e lo ha cancellato. La legatura giusta era
+`__veritasPerceptionEngine`. Il comando aveva detto *«blocco reinlinato, bundle
+intatto»*: **sembrava andato bene**, e il guasto è uscito due ore dopo sulla
+pagina viva come `__veritasPerception.reset is not a function` — un'eccezione
+che fermava tutta la catena subito dopo il righello umano, riportando l'area
+navigabile a **83,34 m² con 4 ambienti**.
+✅ **Tolto di mano**: `reinlina.py` adesso confronta le **chiavi esportate** del
+blocco in pagina con quelle del modulo, e se hanno in comune meno della metà
+**rifiuta** stampando le due liste. Provato in tutti e due i versi.
+⚠️ E la guardia **non** guarda il nome del file — era il primo tentativo, ed era
+sbagliato: metà dei moduli non si nomina nella propria intestazione
+(`veritas_perception.js` comincia con «VERITAS — Motore di Percezione» e basta).
+**Una guardia che boccia anche il caso giusto viene disattivata il giorno dopo.**
+
 ⚠️ **Sul Desktop ci sono ancora documenti superati** — `AVVIO_NUOVA_CHAT.md`,
 `handoff.md`, `Piano/CLAUDE_INSTRUCTIONS.md`, e la vecchia cartella
 `Veritas-spatial-ai-main` con dentro `CLAUDE.md`, `CONTEXT.md`,
@@ -960,6 +978,86 @@ carrello e ala, e sta guardando un oggetto da mezzo metro con la lente da 60
 gradi. L'ultimo fotogramma, quando il cammino rientra nell'edificio, si legge
 benissimo. **Quindi la decisione di tenere l'eidetico regge**; quello che non
 reggeva era il cammino.
+
+### 🎬 IL FILM DEL 07/09 SERA — nitidezza, musica, dialogo *(v=40)*
+
+**1. IL PUNTINO DIVENTA UN OGGETTO, E L'OGGETTO HA UN'OMBRA.**
+> Raffaella: *«il puntino che parte si condensa fino a creare l'oggetto, quindi
+> l'oggetto poi deve avere una sua ombreggiatura e una sua linea di contorno,
+> perche' non dobbiamo perdere i dettagli di quello che si fa»*.
+
+📌 **Il difetto era misurabile e non era la densita': le facce non avevano
+NESSUNA ombreggiatura.** Erano tinta piatta per trasparenza, cioe' silhouette —
+e un oggetto senza ombra non ha volume, quindi non si distingue da un altro
+della stessa tinta. E' il «non si capisce niente» visto sullo schermo.
+⚠️ **La normale non si trasporta, si ricava**: `cross(dFdx, dFdy)` da' la normale
+della FACCIA, che per un triangolo campionato e' quella giusta — e non costa un
+terzo attributo su 24.878 triangoli.
+⚠️ **E si ombreggia come su carta**: su fondo chiaro «ombra» non vuol dire nero,
+vuol dire **piu' inchiostro**. La luce sta nello spazio della telecamera, non del
+mondo: a 1,65 m dentro l'edificio una luce fissa lascerebbe interi lati sempre
+bui e sempre gli stessi.
+⚠️ **Il contorno si perde per ultimo** — i fili sbiadiscono col 0,58 contro lo
+0,80 delle facce. E' il profilo che tiene il dettaglio quando il volume e' gia'
+una velatura.
+
+**2. LA MUSICA: il bersaglio, non l'aggettivo.**
+> Raffaella: *«cerca Interstellar, la musica di Christopher Nolan»*, per dare
+> *«l'anima dell'AI»*. E poi: *«non e' che ci vogliamo fare i debiti con Nolan
+> per farti capire il tipo di musica»*.
+
+⚠️ **Quella musica NON si usa** — e' di Zimmer, protetta, stesso problema di
+Neufert. Si prende il **carattere** e si suona. Tradotto in numeri: registro
+d'**organo** (sinusoidi in rapporto armonico 1-2-3-4-6-8, che e' letteralmente
+come si registra un organo a canne), un **arpeggio** che sale e ridiscende di un
+gradino, armonia **lenta e maggiore** che torna a casa (la9 · re · fa#m · mi
+sospeso — la sospensione chiede il ritorno, ed e' quella domanda che tiene sveglio
+l'ascolto), e una **salita di 22 secondi**, perche' quel genere non comincia dove
+finisce.
+📌 **E la lezione di metodo, che vale oltre la musica:** due tentativi «piu'
+evocativa» sono finiti in un rombo d'aereo e in un film horror. Un **riferimento**
+— un titolo — ha risolto in un colpo. **Da un aggettivo non si ricava niente;
+da un riferimento si ricavano modo, andamento e timbro.** Chiedere il
+riferimento invece dell'aggettivo vale per qualunque cosa non si possa misurare.
+
+**3. SI DIALOGA, NON SI COMPILA UN MODULO.**
+> *«Questa e' una sala d'attesa, questa potrebbe essere, e il cliente dice si',
+> hai capito bene. Questo e' il dialogo. Ma dobbiamo dialogare naturalmente come
+> facciamo io e te.»*
+
+L'AI **propone** col condizionale quando ha visto qualcosa — *«qui ho visto delle
+sedute. Potrebbe essere uno spazio dove ci si ferma e si aspetta. E' cosi'?»* —
+e la risposta si legge **come si parla**: «si', hai capito bene» vale la
+proposta, «no, e' un ufficio» corregge, «non lo so» lascia il volume senza nome e
+passa oltre.
+⚠️ **La proposta NON inventa un nome di stanza** (Regola 0-bis): dice il
+**comportamento** che gli oggetti visti implicano — direttiva 11. «Qui ci si
+siede» l'ha misurato l'occhio; «sala d'attesa» lo dice Raffaella.
+⚠️ **Se non capisce, RICHIEDE invece di indovinare.** Un nome messo per sbaglio
+su un volume e' peggio di nessun nome.
+⚠️ **La voce sceglie la piu' naturale disponibile** (natural/neural/premium, poi
+locale) invece della prima della lista: una voce robotica che dice «potrebbe
+essere» fa l'effetto opposto di quello che serve. *«Una voce suadente ma non
+esagerato: un'AI amica, user friendly»*.
+
+### ⚠️ COSA RESTA DA GUARDARE DI QUESTO, e perche' non l'ho guardato io
+
+**Provato davvero:** i due shader **compilano** nella pagina viva col three vero,
+zero errori WebGL — quindi **niente schermo bianco**, che era il rischio grosso.
+E il file in linea porta tutti i pezzi (ombreggiatura, organo, dialogo, voce).
+
+🟠 **NON provato: come si vede e come suona.** La finestra del browser di
+Raffaella e' rimasta **0 x 0** quando lei e' andata via, e da li' non si
+fotografa e non si clicca. Quindi vanno guardate col proprio occhio, in
+quest'ordine:
+1. **si distingue un oggetto da un altro?** E' la domanda per cui l'ombreggiatura
+   e' stata scritta;
+2. **la musica e' quel genere li'?** Se e' ancora sbagliata, il rimedio non e'
+   un altro aggettivo: e' un secondo riferimento;
+3. **il dialogo capisce «si', hai capito bene»?** E il microfono chiede il
+   permesso una volta sola, al primo clic.
+
+---
 
 🔴 **E LA PROVA CHE IL FILM RIFIUTA LA SEQUENZA FINTA HA FUNZIONATO**, ed e' la
 riga da cercare: *«il cammino che mi viene dato NON sta nello spazio misurato
