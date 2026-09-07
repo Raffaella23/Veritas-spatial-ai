@@ -17407,7 +17407,35 @@ function segmentZones(grid, ft, opts = {}) {
   }
   live.sort((a, b) => a.widthM - b.widthM);
 
-  return { labels, zones, gateways: live };
+  /*
+   * ⚠️ OGNI ANELLO LASCIA UN NUMERO, NON UNA RIGA DI LOG — deciso il 07/09/2026
+   *    dopo che Raffaella ha chiesto: *«perche' abbiamo ancora tutti questi
+   *    problemi dal momento che sono settimane che lavoriamo su questa parte?»*
+   *
+   *    La risposta misurata e' che la catena e' lunga e ogni anello si stacca
+   *    IN SILENZIO: occhio -> testimonianza -> zone -> tappe -> cammino -> film.
+   *    Quando uno si stacca, tutto il resto continua a girare e a produrre
+   *    numeri plausibili. Tre volte in una settimana, sempre cosi'.
+   *
+   *    Una riga di console non basta: scorre via, e chi arriva dopo non ha modo
+   *    di CHIEDERE se quel passo e' avvenuto. Quindi ogni passo lascia il suo
+   *    conto in un posto interrogabile, e `veritas_catena.js` li mette in fila.
+   */
+  const taglio = {
+    passaggiLarghiTenutiSeparati: tenutiSeparati,
+    testimoniAriaAperta: testimoni.length,
+    testimoniCalpestio: testimoniCalpestio.length,
+    ambientiToltiPerMezzi: toltiPerMezzi,
+    m2ToltiPerMezzi: +m2Tolti.toFixed(2),
+  };
+  if (typeof window !== "undefined") {
+    try {
+      window.__veritasTaglio = window.__veritasTaglio || {};
+      window.__veritasTaglio[String(levelY)] = taglio;
+    } catch (e) {}
+  }
+
+  return { labels, zones, gateways: live, taglio };
 }
 
 /* ========================================================================== *
@@ -26851,6 +26879,7 @@ if (typeof window !== 'undefined') {
 <script type="module" src="./veritas_carta.js?v=6"></script>
 <script type="module" src="./veritas_accessi.js?v=8"></script>
 <script type="module" src="./veritas_cinema.js?v=41"></script>
+<script type="module" src="./veritas_catena.js?v=1"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
