@@ -213,6 +213,59 @@ function dati() {
   //       misurato, e la differenza non si nasconde.
   let viaVera = !!via;
   let percorso = via;
+
+  // ⚠️ LA TESTIMONIANZA SI PRENDE UNA VOLTA SOLA, E SERVE A TUTTI E DUE I RAMI.
+  //    Stava dentro il ramo «cammino dedotto», e questo lasciava scoperto
+  //    proprio il caso che Raffaella stava guardando: quando la simulazione e'
+  //    partita davvero, il film segue il passeggero VERO, il ramo dedotto non
+  //    viene eseguito, e nessuno controllava piu' dove quel passeggero mette i
+  //    piedi. Il registro proteggeva il cammino finto e non quello vero.
+  let calpestioIn = null, fuoriDa = null, testimoni = 0;
+  try {
+    const M = window.__veritasAccessiModulo || {};
+    const dalPiano = ((window.__veritasVisto || {}).viste) || [];
+    const daVicino = window.__veritasVisteRegione || [];
+    const viste = (Array.isArray(dalPiano) ? dalPiano : []).concat(
+                  Array.isArray(daVicino) ? daVicino : []);
+    testimoni = viste.length;
+    if (viste.length && typeof M.calpestioVisto === 'function')
+      calpestioIn = (p) => M.calpestioVisto(p, { viste, raggioVista: 12 });
+    if (viste.length && typeof M.ariaApertaVista === 'function')
+      fuoriDa = (p) => M.ariaApertaVista(p, { viste, raggioVista: 12 });
+  } catch (e) { calpestioIn = null; fuoriDa = null; }
+
+  // ⚠️ E SUL CAMMINO VERO NON SI TAGLIA: SI DICHIARA.
+  //    Se il passeggero della simulazione passa in mezzo agli aerei, quello NON
+  //    e' un difetto del film — e' l'area navigabile misurata che comprende il
+  //    piazzale, cioe' il lavoro della zonizzazione, che e' aperto. Un film che
+  //    ritagliasse la traiettoria racconterebbe una simulazione diversa da
+  //    quella che sta girando: sarebbe la stessa merce avariata dei KPI finti.
+  //    Quindi si CONTA e si dice, con il numero.
+  if (viaVera && calpestioIn && Array.isArray(percorso) && percorso.length) {
+    let suiMezzi = 0, suiPassaggi = 0;
+    const passo = Math.max(1, Math.floor(percorso.length / 120));   // un campione ogni tanto
+    let guardati = 0;
+    for (let i = 0; i < percorso.length; i += passo) {
+      const c = calpestioIn(percorso[i]);
+      guardati++;
+      if (!c) continue;
+      if (c.regola === 'mezzi') suiMezzi++;
+      else if (c.regola === 'passaggio') suiPassaggi++;
+    }
+    const quota = guardati ? Math.round(100 * suiMezzi / guardati) : 0;
+    if (suiMezzi) {
+      console.warn('[EIDETICA live] il passeggero VERO passa dove l’occhio ha visto'
+        + ' i mezzi: ' + quota + '% dei passi campionati (' + suiMezzi + ' su ' + guardati + ').'
+        + ' Non è il film: è l’area navigabile misurata che comprende il piazzale.'
+        + ' Il film non taglia la traiettoria — racconterebbe una simulazione diversa'
+        + ' da quella che sta girando.');
+    } else {
+      console.log('[EIDETICA live] il passeggero vero non passa mai dove l’occhio ha'
+        + ' visto i mezzi (' + guardati + ' passi campionati'
+        + (suiPassaggi ? ', ' + suiPassaggi + ' dentro un passaggio' : '') + ').');
+    }
+  }
+
   if (!percorso) {
     // ⚠️ DOVE SI METTONO I PIEDI — Raffaella, 07/09, guardando il film:
     //    *«stavamo camminando sull'ala di un aereo, quindi c'e' qualcosa che
@@ -248,32 +301,18 @@ function dati() {
     //       `__veritasVisteRegione` (dai primi piani, legate a un'area).
     //    Nessuno dei due dava errore. Il film continuava a camminare fra gli
     //    aerei e in console usciva una riga che diceva un'altra cosa.
-    let calpestioIn = null, fuoriDa = null, testimoni = 0;
-    try {
-      const M = window.__veritasAccessiModulo || {};
-      const dalPiano = ((window.__veritasVisto || {}).viste) || [];
-      const daVicino = window.__veritasVisteRegione || [];
-      const viste = (Array.isArray(dalPiano) ? dalPiano : []).concat(
-                    Array.isArray(daVicino) ? daVicino : []);
-      testimoni = viste.length;
-      if (viste.length && typeof M.calpestioVisto === 'function')
-        calpestioIn = (Z) => M.calpestioVisto([Z.x, Z.y, Z.z], { viste, raggioVista: 12 });
-      if (viste.length && typeof M.ariaApertaVista === 'function')
-        fuoriDa = (Z) => M.ariaApertaVista([Z.x, Z.y, Z.z], { viste, raggioVista: 12 });
-    } catch (e) { calpestioIn = null; fuoriDa = null; }
-
     let dentro = zz;
     if (calpestioIn || fuoriDa) {
       const mezzi = [], passaggi = [];
       const soloDentro = zz.filter((Z) => {
-        const c = calpestioIn ? calpestioIn(Z) : null;
+        const c = calpestioIn ? calpestioIn([Z.x, Z.y, Z.z]) : null;
         // ⚠️ IL PASSAGGIO BATTE TUTTO. Un tubo d'imbarco e' circondato da aerei
         //    e da pista: qualunque altra regola lo butterebbe.
         if (c && c.regola === 'passaggio') { passaggi.push(Z.nome + ' (' + c.parola + ')'); return true; }
         if (c && c.regola === 'mezzi') { mezzi.push(Z.nome + ' (' + c.parola + ')'); return false; }
         // Dove il calpestio non dice niente resta la vecchia domanda: se li' si
         // e' all'aperto, non e' un ambiente da attraversare a piedi.
-        return !(fuoriDa && fuoriDa(Z));
+        return !(fuoriDa && fuoriDa([Z.x, Z.y, Z.z]));
       });
       // ⚠️ Se restassero meno di due ambienti non ci sarebbe piu' un viaggio:
       //    li' si tiene tutto e LO SI DICHIARA, invece di consegnare un film
@@ -1529,9 +1568,14 @@ function creaMusica() {
   gn.connect(ac.destination);
 
   // ── LA SALA
+  // ⚠️ E NON DEVE ESSERE UNA CRIPTA. Raffaella, 07/09: *«la musica è terribile,
+  //    sembra un film horror»*. Una coda di cinque secondi e' una cattedrale
+  //    vuota, ed e' meta' della ricetta del thriller: il suono torna da lontano
+  //    quando non te lo aspetti piu'. Tre secondi sono una sala grande e
+  //    accogliente — lo spazio si sente lo stesso, la minaccia no.
   const sala = ac.createConvolver();
-  try { sala.buffer = salaSintetica(ac, 5.2); } catch (e) {}
-  const salaG = ac.createGain(); salaG.gain.value = 0.85;
+  try { sala.buffer = salaSintetica(ac, 2.9); } catch (e) {}
+  const salaG = ac.createGain(); salaG.gain.value = 0.6;
   sala.connect(salaG); salaG.connect(gn);
   const versoLaSala = (nodo, quanto) => {
     const g = ac.createGain(); g.gain.value = quanto;
@@ -1539,8 +1583,11 @@ function creaMusica() {
   };
 
   // ── IL TAPPETO, e non deve rombare
+  // ⚠️ E PIU' APERTO DI PRIMA (07/09). Un pad scuro che si apre e si chiude
+  //    piano e' il respiro di qualcosa nel buio: e' suspense, non spazio.
+  //    Piu' luce e meno movimento, e diventa aria.
   const flt = ac.createBiquadFilter();
-  flt.type = 'lowpass'; flt.frequency.value = 1100; flt.Q.value = 0.7;
+  flt.type = 'lowpass'; flt.frequency.value = 1500; flt.Q.value = 0.6;
   // ⚠️ IL PASSA-ALTO E' LA RIGA CHE TOGLIE L'AEREO. Sotto i 110 Hz non passa
   //    piu' niente: e' li' che vive il rombo, ed e' li' che non serve nessuna
   //    delle note che stiamo suonando.
@@ -1555,17 +1602,25 @@ function creaMusica() {
   const lfoRg = ac.createGain(); lfoRg.gain.value = 0.22;
   lfoR.connect(lfoRg); lfoRg.connect(respiro.gain); lfoR.start();
 
-  // ⚠️ QUATTRO ACCORDI, E VANNO DA QUALCHE PARTE. Prima erano tre e giravano
-  //    in tondo: girare in tondo e' un'altra maniera di stare fermi. Qui c'e'
-  //    una cadenza — re minore, si bemolle, fa, do sospeso — e il do sospeso
-  //    CHIEDE di tornare al re. E' quella domanda che tira avanti l'ascolto.
-  //    Nessuna terza in nessuno dei quattro: senza terza non dicono ne'
-  //    allegro ne' triste, dicono grande.
+  // ⚠️ MAGGIORE, NON MINORE — ed e' l'altra meta' dell'horror, tolta il 07/09.
+  //
+  //    La versione di prima era in RE MINORE senza terza, con campane e cinque
+  //    secondi di coda: e' la ricetta letterale del thriller. «Senza terza non
+  //    dice ne' allegro ne' triste» e' vero da fermo, ma appena la melodia
+  //    entra su una pentatonica MINORE la terza la mette lei — e quello che
+  //    resta e' inquietudine.
+  //
+  //    Meraviglia e minaccia usano gli stessi ingredienti e cambiano di segno
+  //    per due dettagli soli: **il modo** e **il verso della linea**. Qui:
+  //    FA maggiore con la nona — fa, do, sol, la — che e' un accordo aperto e
+  //    luminoso, e una cadenza che RITORNA a casa invece di restare sospesa.
+  //    La minore in fondo e' l'unica ombra, e serve: senza nessuna ombra
+  //    diventa zuccheroso, che e' l'altro modo di sbagliare.
   const ACCORDI = [
-    [146.83, 220.00, 293.66, 329.63, 440.00],   // re    (re la re mi la)
-    [116.54, 174.61, 233.08, 261.63, 349.23],   // sib   (sib fa sib do fa)
-    [174.61, 261.63, 349.23, 392.00, 523.25],   // fa    (fa do fa sol do)
-    [130.81, 196.00, 261.63, 349.23, 392.00],   // do4   (do sol do fa sol)
+    [174.61, 261.63, 349.23, 392.00, 523.25],   // fa9   (fa do fa sol do)
+    [130.81, 196.00, 261.63, 293.66, 392.00],   // do9   (do sol do re sol)
+    [196.00, 293.66, 392.00, 440.00, 587.33],   // sol9  (sol re sol la re)
+    [220.00, 329.63, 440.00, 493.88, 659.26],   // la m9 (la mi la si mi)
   ];
   const TIMBRI = ['sine', 'sine', 'triangle', 'sine', 'triangle'];
   const VOLUMI = [0.30, 0.24, 0.13, 0.16, 0.07];
@@ -1603,8 +1658,8 @@ function creaMusica() {
   S.accordo = setTimeout(cambia, 13000);
 
   // il filtro che si apre e si chiude piano: lo spazio che si allarga
-  const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.031;
-  const lfoFg = ac.createGain(); lfoFg.gain.value = 520;
+  const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.045;
+  const lfoFg = ac.createGain(); lfoFg.gain.value = 240;
   lfoF.connect(lfoFg); lfoFg.connect(flt.frequency); lfoF.start();
 
   // ── LA FRASE, ed e' la differenza fra un tappeto e una musica.
@@ -1616,43 +1671,60 @@ function creaMusica() {
   //    e' consonante con tutti e quattro gli accordi — e ogni tanto **salta**
   //    invece di andare per gradi. Il salto e' quello che si ricorda.
   //
-  // ⚠️ Timbro di campana, non di organo: due parziali (1 e 2,76 volte) e una
-  //    coda lunghissima. Il 2,76 non e' un numero a caso, e' il rapporto del
-  //    primo parziale inarmonico delle campane vere: e' quello che fa «campana»
-  //    invece di «flauto». E va quasi tutta in sala: la coda e' lo spazio.
-  const SCALA = [587.33, 698.46, 783.99, 880.00, 1046.50];  // re fa sol la do
-  let grado = 2, versoSu = true;
+  // ⚠️ E NON E' PIU' UNA CAMPANA — 07/09. La campana era il terzo pezzo
+  //    dell'horror, e stava in un numero: il parziale a **2,76 volte** la
+  //    fondamentale. Non e' un rapporto qualsiasi, e' il primo parziale
+  //    INARMONICO delle campane vere — cioe' una nota che non sta nella scala
+  //    di nessuno. E' quello che fa «rintocco funebre» invece di «nota».
+  //    Adesso i parziali sono **armonici** (1, 2, 3, 4 volte): ottava, quinta
+  //    sopra, doppia ottava. Tutti dentro l'accordo, nessuno contro. Il timbro
+  //    che ne esce e' vetro, non bronzo.
+  //
+  // ⚠️ E LA SCALA E' MAGGIORE. Prima era pentatonica MINORE su re, ed era lei a
+  //    mettere la terza che il pad aveva tolto: da li' l'inquietudine. Questa e'
+  //    la pentatonica maggiore di fa — fa sol la do re — che sta bene su tutti e
+  //    quattro gli accordi e non contiene nessun intervallo di tensione.
+  //
+  // ⚠️ E LA LINEA SALE PIU' DI QUANTO SCENDE. Meraviglia e minaccia hanno gli
+  //    stessi suoni e verso opposto: una linea che scende e' un peso che cade,
+  //    una che sale e' qualcosa che si apre. Qui il verso e' sbilanciato in su.
+  const SCALA = [349.23, 392.00, 440.00, 523.25, 587.33, 698.46, 783.99];
+  //             fa      sol     la      do      re      fa      sol
+  let grado = 1, versoSu = true;
   const frase = () => {
     if (!S.aperto || !S.audio) return;
     const t = ac.currentTime;
     // per gradi quasi sempre, un salto ogni tanto: e' cosi' che una melodia
     // respira invece di camminare
-    const salta = Math.random() < 0.3;
-    const passo = salta ? 2 + Math.floor(Math.random() * 2) : 1;
+    const passo = Math.random() < 0.3 ? 2 : 1;
     grado += versoSu ? passo : -passo;
     if (grado >= SCALA.length) { grado = SCALA.length - 2; versoSu = false; }
     if (grado < 0) { grado = 1; versoSu = true; }
-    if (Math.random() < 0.25) versoSu = !versoSu;
+    // ⚠️ 0,18 in su contro 0,38 in giu': la linea torna a salire prima di
+    //    quanto scenda. Non e' simmetria, ed e' voluto.
+    if (Math.random() < (versoSu ? 0.18 : 0.38)) versoSu = !versoSu;
     const f = SCALA[grado];
 
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.11, t + 0.05);   // attacco di campana
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 9);    // coda lunga
-    g.connect(gn); versoLaSala(g, 1.15);
+    // attacco morbido, non percussivo: 0,25 s invece di 0,05. Un attacco
+    // secco e' un colpo, e un colpo mette in allarme.
+    g.gain.exponentialRampToValueAtTime(0.085, t + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 5.5);
+    g.connect(gn); versoLaSala(g, 0.7);
 
-    for (const [rap, vol] of [[1, 1], [2.76, 0.38], [5.4, 0.10]]) {
+    for (const [rap, vol] of [[1, 1], [2, 0.30], [3, 0.12], [4, 0.05]]) {
       const o = ac.createOscillator(); o.type = 'sine';
       o.frequency.value = f * rap;
       const gv = ac.createGain(); gv.gain.value = vol;
       o.connect(gv); gv.connect(g);
-      o.start(t); o.stop(t + 9.5);
+      o.start(t); o.stop(t + 6);
     }
     // il respiro fra una nota e l'altra non e' regolare: una frase non e' un
     // metronomo
-    S.rintocco = setTimeout(frase, 3400 + Math.random() * 5200);
+    S.rintocco = setTimeout(frase, 2800 + Math.random() * 3600);
   };
-  S.rintocco = setTimeout(frase, 2400);
+  S.rintocco = setTimeout(frase, 2000);
 
   return { ac, gn };
 }

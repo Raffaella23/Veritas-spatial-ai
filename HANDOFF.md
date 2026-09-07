@@ -934,13 +934,38 @@ resta aperto, ma il film non lo aspetta: gli ambienti dove **l'occhio ha visto
 l'aria aperta** (`ariaApertaVista`, direttiva 17) escono dal percorso. Nessuna
 soglia in metri — lo dice l'occhio.
 
-⚠️ **[DA VERIFICARE] — TUTTI E QUATTRO, piu' profondita' e finale.** Il server
-locale su cui si verificava si e' spento a meta' sessione, e il Chrome di
-Raffaella non raggiunge quello riavviato dalla parte di Claude: girano in due
-contesti diversi. **Ultima cosa vista davvero: `v=29`** (vertici, triangoli,
-pavimento, figure in oro). Da `v=30` in poi e' scritto e non guardato.
-📌 Per riprendere: server locale sulla cartella del repo, `python -m http.server
-5173`, poi `http://localhost:5173/index.html`.
+### ✅ GUARDATI SUL VIVO IL 07/09 — i numeri, e uno non regge
+
+Il `v=35` e' stato aperto sulla **pagina viva** (non su un server locale: il
+progetto ha il suo modello nel deposito di quel browser), giro intero, film
+guardato dall'inizio alla fine. Cosa dicono i numeri:
+
+| | misurato il 07/09 |
+|---|---|
+| modello, con il righello umano | **106,4 x 59,4 m** (97 persone alte 0,322 m -> 5,272x) |
+| punti nella nuvola del film | **115.848**, tutti arrivati a fine film |
+| polvere: vertici e triangoli | **89.062** punti da 164.682 vertici veri, **24.878** triangoli, 2.416 mesh, **344 figure umane** |
+| pavimento misurato | **468 strisce** di celle libere |
+| muri | **366** |
+| **il tetto dove c'e'** | ✅ **28 strisce** di soffitto misurato — poche, com'e' giusto su uno spaccato |
+| **il reticolo** | ✅ c'e', e si spegne man mano che lo spazio si ricompone |
+| **la profondita'** | ✅ regge: a 1,65 m il vicino e' inchiostro, il lontano un accenno |
+| **la musica** | 🔴 **suonava, ma sbagliata** — vedi qui sotto |
+| **il finale** | 🟠 **legibile solo dove il camminatore e' dentro l'edificio** |
+
+⚠️ **IL FINALE E IL PIAZZALE SONO LO STESSO DIFETTO, visto da dentro.** All'80%
+del film l'immagine diventa una poltiglia arancione illeggibile — e non e' un
+guasto di disegno: in quel momento **la telecamera e' dentro un aereo**, fra
+carrello e ala, e sta guardando un oggetto da mezzo metro con la lente da 60
+gradi. L'ultimo fotogramma, quando il cammino rientra nell'edificio, si legge
+benissimo. **Quindi la decisione di tenere l'eidetico regge**; quello che non
+reggeva era il cammino.
+
+🔴 **E LA PROVA CHE IL FILM RIFIUTA LA SEQUENZA FINTA HA FUNZIONATO**, ed e' la
+riga da cercare: *«il cammino che mi viene dato NON sta nello spazio misurato
+(il migliore dei 28 camminatori ci sta dentro solo il 13% dei passi)»*. La
+trappola del bundle e' stata riconosciuta guardando dove cadono i passi, senza
+contare i fotogrammi.
 
 ### 🔒 TRE DECISIONI D'INTERFACCIA — Raffaella, 06/09, indicando sullo schermo
 
@@ -965,52 +990,131 @@ pavimento, figure in oro). Da `v=30` in poi e' scritto e non guardato.
    browser che ha gia' usato la piattaforma in italiano resta italiano finche'
    non si preme EN.
 
-### 🔴 IL PROSSIMO LAVORO — «dovrebbe fare due più due»: DOVE SI METTONO I PIEDI
+### ✅ DOVE SI METTONO I PIEDI — «dovrebbe fare due più due». FATTO IL 07/09/2026
 
-> Raffaella, 06/09, dopo aver visto il camminatore attraversare il piazzale:
-> *«Dovrebbe fare anche due piu' due, l'AI. Nel senso: ci sono gli aerei. Si
-> cammina in mezzo agli aerei? Non lo so. Ci sono i tubi attaccati agli aerei
-> che portano a una struttura. E questo dovrebbe far parte della conoscenza
-> semantica, della conoscenza delle architetture che avevo detto di mettere
-> dentro come libreria.»*
+> Raffaella, 07/09, guardando il film dal vivo: *«stavamo camminando sull'ala di
+> un aereo, quindi c'e' qualcosa che non va nel riconoscimento del percorso. Se
+> riconosci un aereo, e che quello e' un aeroporto, devi sapere che non cammini
+> in mezzo agli aerei, ma che c'e' un tunnel a un livello piu' basso fra l'aereo
+> e il terminal.»*
 
-⚠️ **E' la direttiva 17 portata sul CAMMINO**, come «sedute → ci si ferma» lo e'
-sul comportamento e «automobili → sei fuori» sullo spazio. Il registro ha gia'
-due sorelle in `veritas_riconosce.js` — `POSTURA_DI` (riga 229) e
-`ARIA_APERTA_DI` (riga 284). **Ne manca la terza: dove si mettono i piedi.**
+📌 **MISURATO PRIMA DI TOCCARE NIENTE, e la diagnosi era gia' li':** l'occhio
+**vede** i tubi. Sulla pianta di questo modello «a jet bridge» e' la parola piu'
+frequente in assoluto — **17 volte, tutte con una posizione** — piu' `airplane`
+×16 e `runway` ×8. Sapeva che c'erano. Non tirava la conseguenza.
 
-**Le due invarianti, e sono agnostiche — non si scrive «aeroporto» da nessuna
-parte:**
+**La terza sorella, `CALPESTIO_DI`** (`veritas_riconosce.js`, accanto a
+`POSTURA_DI` e `ARIA_APERTA_DI`, stessa forma: una parola, una conseguenza).
+**18 parole: 11 «mezzi», 7 «passaggio».**
 
-1. **dove passano i mezzi, la gente non cammina** — aereo, pista, strada,
-   corsia. Vale per il piazzale di un aeroporto, la rampa delle ambulanze di un
-   ospedale, il carico e scarico di un centro commerciale;
-2. **un tubo che unisce un mezzo a un edificio e' un passaggio** — di li' si
-   cammina. E' il pontile d'imbarco, ed e' anche la passerella di una nave o il
-   tunnel di una stazione.
+⚠️ **E SERVIVA UN REGISTRO NUOVO, non bastava riusare «fuori».** Un marciapiede
+sta all'aperto e ci si cammina; una carreggiata sta all'aperto e non ci si
+cammina. Chi togliesse dal cammino tutto cio' che sta fuori toglierebbe anche il
+pontile d'imbarco — cioe' proprio la cosa da riconoscere. Le tre sorelle
+rispondono a tre domande diverse sulla stessa parola: *che postura permette*,
+*dentro o fuori*, *ci si mettono i piedi*.
 
-📌 **E l'occhio le vede gia'**: «pontile d'imbarco» e' la parola piu' frequente
-su questo modello, e le cinque stanzine misurate a +3,64 m **sono** i tubi. Sa
-che ci sono. Non tira la conseguenza.
+⚠️ **IL PASSAGGIO BATTE I MEZZI, SEMPRE**, ed e' il cuore della seconda
+invariante: un tubo sta in mezzo agli aerei **apposta**. Provato al banco col
+caso peggiore — aereo a 1 m con 0,90 di fiducia contro pontile a 9 m con 0,31 —
+e vince il pontile.
 
-⚠️ **La libreria e' gia' decisa e non si inventa:** **Uniclass 2015 tabella SL**
-— gratuita, ISO 12006-2, in CSV su GitHub (`buildig/uniclass-2015`), la stessa
-con cui si classificano gli oggetti IFC. Neufert e i manuali editoriali no: sono
-opere protette e in un prodotto che si vende diventano un problema legale.
+📚 **LA LIBRERIA E' STATA LETTA DAVVERO, non solo citata.** Uniclass 2015
+tabella SL, **1.041 voci**, scaricata il 07/09 da `github.com/buildig/uniclass-2015`
+→ `uniclass2015/Uniclass2015_SL.csv`. Le due invarianti hanno un corrispondente
+citabile: `SL_80_05_03` Aeroplane runways · `SL_80_05_05` Aircraft manoeuvring
+areas · `SL_80_05_06` Aircraft standing areas · `SL_80_35_13` Carriageways per i
+**mezzi**; `SL_80_10_09` Boarding areas · `SL_80_10_80` Ship gangways ·
+`SL_80_35_63` Pedestrian routes · `SL_90_10_95` Walkways per i **passaggi**.
+⚠️ **Uniclass NON ha una voce «jet bridge»**: la piu' vicina e' «Boarding
+areas». Quindi la parola resta nostra fra le AGGIUNTE, e **dalla tabella viene
+la conseguenza, non il nome**.
+⚠️ **E i titoli di Uniclass non entrano nel vocabolario**: sono nomi di LUOGO
+(«Departure lounges», «Passenger gates»), e il 05/09 quattro nomi di luogo hanno
+prodotto quattordici sale d'attesa dove ce n'erano sei.
 
-**E chiude DUE problemi con un lavoro solo** — Raffaella: *«i due fronti vanno
-affrontati insieme»*:
+**✅ E LA SECONDA META': LO SCORCIO DA' UNA REGIONE.** Un primo piano non da' un
+punto — e non lo da': `centro` resta `null`, sempre — ma **si sa quale rettangolo
+di mondo ha inquadrato**, perche' e' il grappolo, misurato prima di scattare.
+«In quest'area ho visto dei taxi» e' una testimonianza legata a un'AREA, non una
+misura ricavata da un pixel: la Regola 0 vieta la seconda cosa, non la prima.
+`testimoniQui()` in `veritas_accessi.js` accetta tutte e due le forme e **scrive
+da quale delle due viene** (`da: 'punto' | 'regione'`), perche' non sono la
+stessa qualita' di prova.
 
-- **si cammina in mezzo agli aerei**: se il piazzale smette di essere un posto
-  per i piedi, il camminatore non ci passa;
-- **non parte dalle macchine**: il film parte da un accesso marcato «da fuori»,
-  e su questo modello lo sono solo i due dal lato aerei. Quello dalla strada
-  resta interno perche' **dall'alto le automobili non si vedono** (zero in
-  pianta, 83 rilevazioni da vicino) e da uno scorcio non si prende una
-  posizione. La strada per chiuderlo e' gia' scritta e non viola la Regola 0:
-  uno scorcio non da' un punto, ma si sa **quale rettangolo di mondo ha
-  inquadrato** — il grappolo. «In quest'area ho visto dei taxi» e' una
-  testimonianza legata a una REGIONE, non una misura ricavata da un pixel.
+🔴 **DUE GUASTI SILENZIOSI TROVATI QUI, e sono la stessa famiglia: codice giusto
+che non veniva mai eseguito.** Vale la pena leggerli, perche' e' il terzo caso
+in due settimane.
+
+1. il film cercava `window.__veritasAccessi.ariaApertaVista`. Ma
+   `__veritasAccessi` e' il **risultato** di `trova()` e non ha nessuna funzione
+   dentro: le funzioni stanno in `__veritasAccessiModulo`. **Il filtro non ha
+   mai girato, nemmeno una volta**, da quando e' stato scritto;
+2. gli si passavano `__veritasTestimonianza.viste`, che sono i **riepiloghi
+   degli scorci** (`{vista, cose:[...]}`) e non hanno ne' `centro` ne'
+   `ariaAperta`. Anche riparato il primo, avrebbe letto zero. Le rilevazioni
+   vere stanno in `__veritasVisto.viste` (pianta, con posizione) e adesso in
+   `__veritasVisteRegione` (primi piani, con l'area).
+
+⚠️ Nessuno dei due dava errore, e in console usciva una riga che diceva un'altra
+cosa. **Una riga di log che non puo' distinguere «ho filtrato» da «non ho
+trovato la funzione» e' rumore rassicurante** — stessa lezione del 02/09.
+
+**Provato al banco: `veritas_calpestio.test.mjs`, 21 controlli, tutti passano.**
+E c'e' dentro **il tetto della direttiva 12**: se il registro supera le 30
+parole la prova **fallisce**, perche' un registro che cresce e' il tipo di
+edificio che rientra una parola per volta.
+
+🟠 **COSA RESTA DA GUARDARE SUL VIVO, e va fatto per primo alla ripresa.** Il
+giro completo con il registro acceso non e' ancora stato letto fino in fondo: la
+sessione del 07/09 e' finita mentre l'occhio macinava **24 viste** (9 campi
+larghi + 15 primi piani). Le righe da cercare in console, e sono tre:
+
+```
+[VERITAS occhio] N testimonianze legate a una REGIONE di mondo (i primi piani)
+[EIDETICA live] N ambienti tolti dal cammino: lì passano i mezzi
+[EIDETICA live] N ambienti TENUTI anche se stanno all’aperto: sono passaggi
+```
+
+**La domanda per cui tutto questo e' stato fatto:** il camminatore smette di
+passare in mezzo agli aerei, **e continua a passare dentro i pontili?** Se
+sparissero anche quelli, il passaggio non sta vincendo e va guardato li'.
+
+⚠️ **E RESTA APERTO IL TEMPO.** Il film fotografa quello che si sa **nel momento
+del clic** (`dati()` gira una volta sola). Se si apre la finestra prima che
+l'occhio abbia finito, il cammino non ha nessuna testimonianza e **puo' ancora
+passare sul piazzale** — adesso pero' lo dichiara forte in console invece di
+tacere. Il rimedio vero e' ascoltare `veritas:vista` dal film, ed e' il lavoro
+gia' scritto qui sotto.
+
+🔴 **E IL BUCO CHE SI E' VISTO SOLO PROVANDOLO, ed e' il piu' importante di
+tutti: IL REGISTRO PROTEGGEVA IL CAMMINO FINTO, NON QUELLO VERO.** Il filtro era
+stato messo dentro il ramo «se non c'e' un cammino, me ne deduco uno». Ma quando
+la simulazione e' partita davvero il film segue il **passeggero vero** e quel
+ramo non viene eseguito: nessuno guardava piu' dove quel passeggero mette i
+piedi. Cioe' esattamente il caso che Raffaella stava guardando quando ha detto
+«stavamo camminando sull'ala di un aereo».
+
+⚠️ **E sul cammino vero non si taglia: si DICHIARA, col numero.** Se il
+passeggero passa fra gli aerei, quello non e' un difetto del film — e' l'area
+navigabile misurata che comprende il piazzale, cioe' il lavoro A della
+zonizzazione, che e' aperto. **Un film che ritagliasse la traiettoria
+racconterebbe una simulazione diversa da quella che sta girando**, ed e' la
+stessa merce avariata dei KPI finti. Adesso il film campiona il percorso vero e
+scrive quanti passi cadono dove l'occhio ha visto i mezzi.
+
+📌 **La riparazione vera e' a monte, e adesso c'e' il materiale per farla:** le
+stesse testimonianze che il film usa per il cammino servono a `segmentZones`
+(`veritas_perception.js`) per **togliere il piazzale dall'area navigabile**. Fatto
+li', vale per la simulazione, per i referti e per il film insieme — invece che
+per il film soltanto. **E' il prossimo lavoro.**
+
+---
+
+*(La sezione che chiedeva questo lavoro stava qui ed e' stata TOLTA il 07/09,
+non lasciata accanto: era un ordine ancora in vigore — «e' il prossimo lavoro»
+— e un ordine morto si toglie. Il fatto misurato che conteneva e' salito nella
+sezione qui sopra; la prescrizione e' stata eseguita.)*
 
 ### 🎵 LA MUSICA — e Raffaella l'ha voluta piu' forte e piu' evocativa
 
@@ -1018,14 +1122,133 @@ affrontati insieme»*:
 > puntini. Solo che vuole una musica piu' evocativa, e un volume leggermente
 > piu' alto: l'ho messo al massimo per sentirlo.»*
 
-⚠️ **Un accordo che non cambia mai e' un ronzio intonato: e' il CAMBIO che fa la
-musica.** Ora sono tre accordi senza terza — re minore, si bemolle, fa — che si
-sciolgono l'uno nell'altro in nove secondi, e i rintocchi stanno sull'accordo
-del momento invece di suonare sempre le stesse quattro note. Volume da 0,34 a
-**0,62**.
+> Raffaella, 07/09, dopo averla sentita: *«la musica sembrava un rombo di un
+> aereo. Vorrei fosse un po' piu' ispirata, piu' evocativa.»*
+
+⚠️ **E NON ERA UN'IMPRESSIONE: era esattamente quello che il motore suonava.**
+Vale la pena scriverlo coi numeri, perche' e' un caso in cui l'orecchio di
+Raffaella ha diagnosticato una cosa che si vede nello spettro:
+
+| la versione del 06/09 | perche' suonava come un aereo |
+|---|---|
+| fondamentali a **58,27 e 73,42 Hz**, passa-basso a **620 Hz** | energia fra 50 e 600 Hz continua: e' la firma spettrale di un turbofan in crociera |
+| due voci a **110,00 e 110,35 Hz** | battono a **0,35 Hz** — un'ondulazione ogni tre secondi, che e' il *wow* di due motori fuori sincrono |
+| tutto tenuto, niente attaccava | un suono che non comincia mai non e' musica, e' un motore acceso |
+| nessun riverbero | senza spazio un pad sta attaccato all'orecchio e diventa ronzio |
+
+**La cura e' musicale, non tecnica, e sono quattro cose insieme** (07/09):
+**niente sotto i 110 Hz** (un passa-alto, ed e' la riga che toglie l'aereo);
+**scarti di pochi centesimi** al posto del battimento stretto — cinque voci con
+cinque respiri diversi fanno uno scintillio, non una pulsazione; **quattro
+accordi con una cadenza vera** (re minore, si bemolle, fa, do sospeso — e il do
+sospeso *chiede* di tornare al re) invece di tre che girano in tondo; e
+soprattutto **una FRASE**: poche note di campana su pentatonica minore, che
+cominciano e finiscono, con salti veri. Piu' una **sala sintetizzata** qui
+dentro — rumore che decade, perche' lo spazio e' meta' dell'emozione e questo
+film parla di spazio.
 ⚠️ **Tutta sintetizzata, nota per nota**, ed e' una scelta obbligata: la musica
 dei film non si puo' usare in un prodotto che si vende. Stessa regola di
 Neufert per le tabelle. **Si suona, non si prende.**
+🟠 **[DA VERIFICARE] con l'orecchio di Raffaella**: che adesso suoni ispirata e
+non solo *non-aereo*. Questa e' una cosa che nessun numero puo' dire.
+
+---
+
+### 🎙️ IL MONOLOGO INTERIORE — idea di Raffaella, 07/09/2026
+
+> *«La musica e i cartellini sono il commento alla costruzione. Vuoi fare anche
+> un altro tipo di monologo interiore? Cioe' dare una voce, una voce suadente,
+> la voce dell'AI che dice: questo potrebbe essere una sala d'attesa. E noi
+> comunque dobbiamo implementare dopo la finestra chat, che potrebbe stare anche
+> contestuale a questo elemento, in cui l'utente puo' dire: si', hai ragione, e'
+> una sala d'attesa. E quindi quei metri quadri senza nome automaticamente
+> possono essere rinominati durante la costruzione. Questo e' il futuro, lo so,
+> pero' secondo me ci si puo' arrivare.»*
+>
+> E l'ha data da valutare, non da eseguire: *«mi sembra una cosa un po' ardita,
+> pero' valutala, non prenderla per oro»*.
+
+📌 **Valutata, e la risposta e' che non e' ardita: e' gia' meta' costruita, e
+chiude tre cose aperte con un lavoro solo.** I pezzi esistono tutti:
+
+- il film **gia' scrive** i cartellini «unnamed · 23 m²» — visti sullo schermo
+  il 07/09. Quei metri quadri senza nome sono esattamente il posto dove la voce
+  parlerebbe;
+- la **Regola 0 punto 5** dice gia' «se non sa, chiede», e la domanda esiste
+  gia': oggi non va da nessuna parte;
+- il documento ha gia' deciso il 02/09 che **le domande dell'occhio vanno nella
+  chat, non in un riquadro di suo** — ed e' rimasto aperto da allora;
+- la **direttiva 15** dice «mentre si misura, si mostra», e l'evento
+  `veritas:vista` e' acceso dal 05/09 apposta;
+- la voce si **sintetizza nel browser** (Web Speech), quindi vale la stessa
+  regola della musica: **si suona, non si prende**. Nessun file di nessuno.
+
+⚠️ **E LA COSA DA GUARDARE IN FACCIA PRIMA DI FARLA, perche' e' un rischio vero
+e non tecnico: una voce persuade piu' di un'etichetta.** Un cartellino pallido
+si legge come incerto; una voce calda che dice «questa e' la sala d'attesa» suona
+come una certezza anche quando la fiducia e' 0,3. Sarebbe la direttiva 10 violata
+dal lato peggiore — *bella la conclusione*, non solo la rappresentazione.
+
+📌 **Il modo giusto lo ha detto Raffaella stessa nella sua frase, ed e' il
+condizionale: «questo POTREBBE essere una sala d'attesa».** Il dubbio deve
+stare nel parlato, non solo nel numero: *«qui potrebbe esserci…»* quando la
+fiducia e' bassa, *«qui c'e'…»* solo quando e' alta, e **il silenzio dove non sa
+niente** — che e' l'equivalente parlato del grigio «non misurato». Una voce che
+tace e' un'informazione.
+
+⚠️ **E la seconda meta' e' quella che vale i soldi**: la risposta dell'utente
+(«si', e' una sala d'attesa») **rinomina la zona mentre il film gira**. E' la
+prima volta che la correzione umana entra *durante* la comprensione invece che
+dopo. Si appoggia al **taccuino** (punto 6 delle priorita'), e senza quello
+resta una chiacchierata che non lascia traccia.
+
+### 🎓 L'EDUCAZIONE PER CONTESTO — domanda d'impianto di Raffaella, 07/09/2026
+
+> *«La libreria semantica, o tutto quello che in un certo qual modo sia — tra
+> virgolette — una educazione in base al contesto. Faccio un esempio: se io sto a
+> scuola mi comporto in un modo, se sto con i miei amici in un altro, se sono in
+> una chiesa in un'altra ancora. Questo tipo di educazione mettiamogliela cosi':
+> l'AI, nel momento in cui riconosce aeroporto, sa che ci sono determinati
+> comportamenti e li va a cercare. E quindi con l'occhio il cervello si
+> organizza.»*
+
+⚠️ **QUESTA E' LA PORTA DA CUI PUO' RIENTRARE IL TIPO DI EDIFICIO**, ed e' gia'
+scritto nella direttiva 12: *«se scriviamo "in aeroporto: siedi, poi il banco,
+poi il varco", abbiamo riscritto in verbi l'elenco cancellato il 30/08 — e
+sarebbe invisibile: un museo simulerebbe lo stesso, solo sbagliato»*. Ma
+Raffaella nella stessa direttiva 12 aveva **gia' autorizzato** i modelli
+specifici: *«una serie di invarianti comportamentali PIU' dei modelli specifici a
+cui attingere in funzione dell'oggetto che sta analizzando»*. Le due cose non si
+contraddicono, e il confine e' sottile: **le invarianti portano il peso, i
+modelli specifici restano sottili.**
+
+📌 **E c'e' una distinzione che scioglie il nodo, ed e' dentro la frase di
+Raffaella: «li va a CERCARE».** Il contesto non decide la risposta — **decide la
+domanda.** Sono due cose diversissime:
+
+| il contesto decide… | cosa succede |
+|---|---|
+| **la RISPOSTA** — «e' un aeroporto, quindi questa e' una sala d'attesa» | e' l'elenco d'aeroporto tornato dalla finestra. Un museo verrebbe simulato come un aeroporto, e nessuno se ne accorgerebbe |
+| **la DOMANDA** — «e' un aeroporto, quindi vado a guardare da vicino dove potrebbero esserci sedute e banchi» | il contesto sposta la TELECAMERA, non la conclusione. Se le sedute non ci sono, non le trova, e lo dice |
+
+⚠️ **La seconda e' salva, e vale anche di piu' di quanto sembra.** Le parole non
+costano (misurato il 04/09: 4 parole o 158, stesso tempo — si paga il *guardare
+la figura*). Quindi «cercare» non vuol dire chiedere parole diverse: vuol dire
+**scegliere dove avvicinarsi**, che oggi si sceglie a caso fra i grappoli e
+costa 20-90 secondi a scorcio. Un contesto che dice *«di la' guarda meglio»* fa
+risparmiare minuti veri e non afferma niente.
+
+🔴 **DOMANDA APERTA PER RAFFAELLA, e non si decide senza di lei:** quando l'AI
+cerca una cosa perche' il contesto gliel'ha suggerita **e non la trova**, che
+cosa deve fare?
+1. **tacere** — come adesso: se non c'e', non c'e';
+2. **dirlo nel referto** — «mi aspettavo dei banchi di accettazione e non li ho
+   trovati» diventa una riga del referto, e per un progettista puo' valere piu'
+   di quello che ha trovato;
+3. **chiederlo in chat** — «non vedo un controllo passaporti: c'e' e non lo
+   vedo, oppure non c'e'?».
+
+La 2 e la 3 sono prodotto, non tecnica, e cambiano che cosa si vende.
 
 ### 📋 LE TIPOLOGIE DI RESA — idea di Raffaella, da fare dopo
 
