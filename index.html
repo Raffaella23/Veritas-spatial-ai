@@ -13348,9 +13348,138 @@ function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
   return fuori;
 }
 
+
+/**
+ * LA PASSATA IN ORDINE, A VOLO D'UCCELLO E VICINA — Raffaella, 07/09/2026 sera:
+ *
+ * > *«vedo ancora troppe fotografie ravvicinate della zona degli aerei, e tutta
+ * > la zona d'ingresso operativa non è fotografata bene. O sono delle vedute
+ * > aeree a cento chilometri, ma non ci servono. Imponi allo script di fare
+ * > delle zoomate. Dall'alto ma ravvicinate. Una bassa da lontano e c'è la
+ * > pianta dall'alto. Poi fai delle zoomate a volo d'uccello, ma più vicine,
+ * > per segmenti in ordine, che ne so, al centro in asse: una sequenza di
+ * > scatti partendo da una parte in asse verso la fine in ordine, non a
+ * > trecentosessanta gradi, perché così non sta facendo le cose per bene.»*
+ * >
+ * > E la misura: *«ravvicinata max 7 metri»*.
+ *
+ * ⚠️ IL DIFETTO CHE TOGLIE, in una riga: il modello veniva girato **attorno**
+ *    (nove scorci a 360 gradi, dalla diagonale, cioè da 136 m: SEI pixel al
+ *    metro) e poi ci si avvicinava **solo ai grappoli più fitti**, che su un
+ *    aeroporto sono gli aerei. Metà dell'edificio non veniva fotografata mai,
+ *    e l'altra metà veniva fotografata da troppo lontano per riconoscerci
+ *    qualcosa. **Un giro a 360 gradi non è un sopralluogo: è un carosello.**
+ *
+ * COSA FA INVECE: **cammina lungo l'asse lungo dell'edificio, da un capo
+ * all'altro, in ordine**, e a ogni passo scatta una fotografia a volo
+ * d'uccello da **sette metri** — non uno di più. A sette metri con la lente da
+ * 60 gradi l'inquadratura è larga **8,1 m**, cioè circa **95 pixel al metro**:
+ * una seduta larga 55 cm sono 52 pixel invece di tre e mezzo.
+ *
+ * ⚠️ **L'AZIMUTH È FISSO**, ed è il punto della richiesta. Tutti gli scatti
+ *    guardano nello stesso verso, come le tavole di un rilievo: messi in fila
+ *    si leggono come una sequenza. Se ruotassero, sarebbero di nuovo un
+ *    carosello e nessuno saprebbe dire dove sta guardando.
+ *
+ * ⚠️ DOVE PASSA LA LINEA. Non in mezzo all'ingombro — li' in un aeroporto
+ *    c'è il piazzale — ma sul **baricentro dell'area calpestabile misurata**,
+ *    cioè dove sta la gente, se gli ambienti sono già stati misurati. Se non lo
+ *    sono, si passa dal centro dell'ingombro e **lo si dichiara**, perché sono
+ *    due passate diverse e chi legge deve sapere quale ha davanti.
+ *
+ * ⚠️ E COPRE SEMPRE TUTTO. Se al passo di sette metri servirebbero più scatti
+ *    del tetto, **il passo si allarga**: meglio una passata più rada che copre
+ *    l'edificio intero che una fitta che si ferma a metà — la stessa regola di
+ *    `inquadratura`, dove il tetto allarga il passo e non tronca la pianta.
+ *
+ * @param {object} opzioni  distanza (7), massimo (14), elevazioneGradi (50), fovGradi (60)
+ */
+function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return [];
+  radice.updateMatrixWorld(true);
+  const scatola = new THREE.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) return [];
+
+  const distanza = opzioni.distanza || 7;          // ← «ravvicinata max 7 metri»
+  const fovGradi = opzioni.fovGradi || 60;
+  const massimo = opzioni.massimo || 14;
+  const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 50;
+
+  const larghezzaX = scatola.max.x - scatola.min.x;
+  const larghezzaZ = scatola.max.z - scatola.min.z;
+  // L'asse lungo: si cammina per il verso in cui l'edificio è lungo.
+  const lungoX = larghezzaX >= larghezzaZ;
+  const lunghezza = lungoX ? larghezzaX : larghezzaZ;
+  const da = lungoX ? scatola.min.x : scatola.min.z;
+
+  // Quanto è larga l'inquadratura a quella distanza: è il passo naturale.
+  const inquadrata = 2 * distanza * Math.tan(fovGradi * Math.PI / 360);
+  let passi = Math.max(1, Math.round(lunghezza / inquadrata));
+  let raso = false;
+  if (passi > massimo) { passi = massimo; raso = true; }
+  const passo = lunghezza / passi;
+
+  // Dove passa la linea: sul baricentro del calpestabile, se c'è.
+  let trasversale, quota, dove = 'il centro dell\'ingombro';
+  const zone = (typeof window !== 'undefined' && (window.__veritasPercezione || {}).zones) || [];
+  const pesate = zone.filter((z) => z && (z.areaM2 || 0) > 0);
+  if (pesate.length) {
+    let sp = 0, st = 0, sy = 0;
+    for (const z of pesate) {
+      const w = z.areaM2;
+      sp += w; st += (lungoX ? z.centroidZ : z.centroidX) * w; sy += (z.y || 0) * w;
+    }
+    trasversale = st / sp; quota = sy / sp;
+    dove = 'il baricentro dell\'area calpestabile';
+  } else {
+    trasversale = lungoX ? (scatola.min.z + larghezzaZ / 2) : (scatola.min.x + larghezzaX / 2);
+    quota = scatola.min.y;
+  }
+
+  if (typeof console !== 'undefined')
+    console.log('[VERITAS passata] ' + passi + ' scatti in fila lungo l\'asse '
+      + (lungoX ? 'X' : 'Z') + ' di ' + lunghezza.toFixed(1) + ' m, uno ogni '
+      + passo.toFixed(1) + ' m, da ' + distanza + ' m ('
+      + Math.round(768 / inquadrata) + ' pixel al metro), passando per ' + dove
+      + (raso ? ' — il passo si è allargato per coprire tutto invece di fermarsi a metà' : ''));
+
+  // L'azimuth è FISSO e guarda di traverso all'asse: così la sequenza si legge
+  // come le tavole di un rilievo, sempre dallo stesso verso.
+  const azimuth = lungoX ? Math.PI / 2 : 0;
+
+  const fuori = [];
+  const mezzo = inquadrata / 2;
+  for (let i = 0; i < passi; i++) {
+    const centro = da + passo * (i + 0.5);
+    const min = [0, 0, 0], max = [0, 0, 0];
+    if (lungoX) {
+      min[0] = centro - mezzo;         max[0] = centro + mezzo;
+      min[2] = trasversale - mezzo;    max[2] = trasversale + mezzo;
+    } else {
+      min[2] = centro - mezzo;         max[2] = centro + mezzo;
+      min[0] = trasversale - mezzo;    max[0] = trasversale + mezzo;
+    }
+    min[1] = quota;                    max[1] = quota + 3;
+    const viste = scorciTreQuarti(THREE, renderer, radice, {
+      bersaglio: { min, max },
+      numeroScorci: 1,
+      azimuthIniziale: azimuth,
+      elevazioneGradi,
+      distanza,                        // ← sette metri, non uno di più
+      larghezza: opzioni.larghezza || 768,
+      altezza: opzioni.altezza || 768,
+      etichetta: 'passata ' + (i + 1) + ' di ' + passi + ', dal metro '
+        + Math.round(centro - da - passo / 2) + ' al metro '
+        + Math.round(centro - da + passo / 2) + ' in asse',
+    }) || [];
+    for (const v of viste) fuori.push(v);
+  }
+  return fuori;
+}
+
 window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
-  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro };
+  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine };
 </script>
 <script type="module">
 // veritas_percorso.js — da ambienti misurati a tappe di un percorso.
@@ -27248,7 +27377,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=20"></script>
+<script type="module" src="./veritas_montaggio.js?v=21"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>

@@ -626,11 +626,20 @@ window.__veritasComprendi = async function (opz = {}) {
     //    a quante mesh per m2 ha il modello: pochi se e' semplice, di piu' se e'
     //    complesso. Se la vista e' quella vecchia (senza scorci) non si rompe
     //    niente: si prosegue con la sola pianta, come prima.
+    // ⚠️ UNA SOLA, BASSA E DA LONTANO — Raffaella, 07/09/2026 sera: *«o sono
+    //    delle vedute aeree a cento chilometri, ma non ci servono. Una bassa
+    //    da lontano e c'è la pianta dall'alto.»*
+    //    Erano NOVE, tutte attorno a 360 gradi, dalla diagonale: sei pixel al
+    //    metro l'una, nove volte lo stesso niente. Ne serve **una**, e serve a
+    //    dire che cos'è l'edificio, non che cosa c'è dentro: quello lo dicono
+    //    la passata in ordine e le viste da dentro. Bassa (12 gradi) perché
+    //    dall'alto si vede il tetto.
     let scorci = [];
     if (typeof vista.scorciTreQuarti === "function") {
       try {
-        scorci = vista.scorciTreQuarti(THREE, rend, radice, opz.scorci || {}) || [];
-        if (scorci.length) log("guardo il modello da " + scorci.length + " punti di vista oltre alla pianta");
+        scorci = vista.scorciTreQuarti(THREE, rend, radice,
+          Object.assign({ numeroScorci: 1, elevazioneGradi: 12 }, opz.scorci || {})) || [];
+        if (scorci.length) log("una veduta bassa da lontano, per dire che cos'e' l'edificio");
       } catch (e) {
         log("non sono riuscito a girare il modello: " + ((e && e.message) || e));
       }
@@ -651,8 +660,16 @@ window.__veritasComprendi = async function (opz = {}) {
     let vicini = [];
     if (typeof vista.scorciRavvicinati === "function") {
       try {
-        vicini = vista.scorciRavvicinati(
-          THREE, rend, radice, trovate.posti, opz.ravvicinati || {}) || [];
+        // ⚠️ POCHI — Raffaella, 07/09 sera: *«vedo ancora troppe fotografie
+        //    ravvicinate della zona degli aerei»*. Erano quindici, e su un
+        //    aeroporto i grappoli piu' fitti sono gli aerei: quindici
+        //    fotografie del piazzale e zero dell'ingresso. La regola di
+        //    SCELTA non si tocca (è il passo 4 della milestone del 06/09):
+        //    si tocca **quanti ne arrivano all'occhio**, perche' adesso la
+        //    copertura dell'edificio la fa la passata in ordine.
+        vicini = (vista.scorciRavvicinati(
+          THREE, rend, radice, trovate.posti, opz.ravvicinati || {}) || [])
+          .slice(0, (opz.ravvicinati && opz.ravvicinati.massimo) || 4);
         if (vicini.length) {
           const fitto = vicini.map((v) => v.pixelPerMetro)
             .filter((n) => typeof n === "number");
@@ -688,6 +705,30 @@ window.__veritasComprendi = async function (opz = {}) {
     //    misurato, un occhio a 1,65 m nel suo mezzo, la lente del film, e la
     //    direzione scelta dall'isovista — dove c'e' qualcosa da vedere, non
     //    contro un muro.
+    // ⚠️ LA PASSATA IN ORDINE — Raffaella, 07/09 sera: *«fai delle zoomate a
+    //    volo d'uccello, ma piu' vicine, per segmenti in ordine, al centro in
+    //    asse: una sequenza di scatti partendo da una parte in asse verso la
+    //    fine in ordine, non a trecentosessanta gradi»*, e *«ravvicinata max
+    //    7 metri»*.
+    //    E' la sola cosa che garantisce che l'edificio venga fotografato
+    //    TUTTO: prima si girava attorno e ci si avvicinava solo dove c'era
+    //    piu' arredo, quindi meta' dell'edificio non compariva mai.
+    let passata = [];
+    if (typeof vista.passataInOrdine === "function") {
+      try {
+        passata = vista.passataInOrdine(THREE, rend, radice, opz.passata || {}) || [];
+        if (passata.length) {
+          const fitto = passata.map((v) => v.pixelPerMetro).filter((n) => typeof n === "number");
+          log("passata in ordine: " + passata.length + " scatti in fila lungo l'asse, da 7 m"
+            + (fitto.length ? " — " + Math.min.apply(null, fitto) + " pixel al metro" : ""));
+        } else {
+          log("nessuna passata in ordine: non sono riuscito a misurare l'asse dell'edificio");
+        }
+      } catch (e) {
+        log("non sono riuscito a fare la passata: " + ((e && e.message) || e));
+      }
+    }
+
     let dentro = [];
     if (typeof vista.giroDentro === "function") {
       try {
@@ -718,20 +759,30 @@ window.__veritasComprendi = async function (opz = {}) {
     //    primo piano e ogni campo largo, **ogni mazzetto porta all'occhio
     //    almeno una fotografia dell'interno**, che era la cosa che non
     //    arrivava mai.
-    if (dentro.length || vicini.length) {
-      const misti = [];
-      const giri = Math.max(Math.ceil(dentro.length / 2), vicini.length, scorci.length);
+    // ⚠️ L'ORDINE È LA PRIORITÀ. All'occhio le viste arrivano a mazzetti di
+    //    quattro, in quest'ordine: quello che sta in fondo alla fila viene
+    //    guardato per ultimo, e se il giro si interrompe non viene guardato
+    //    mai. Quindi: prima la veduta d'insieme (una), poi **la passata in
+    //    ordine e le viste da dentro alternate** — così ogni mazzetto porta
+    //    un pezzo di edificio nuovo e un interno — e i primi piani sui
+    //    grappoli in coda.
+    // ⚠️ E LA PASSATA NON SI RIMESCOLA CON SÉ STESSA: i suoi scatti restano
+    //    nell'ordine in cui sono stati presi, dal primo metro all'ultimo.
+    //    Rimescolarli vorrebbe dire perdere l'unica cosa che li rende una
+    //    sequenza invece di un mucchio.
+    if (dentro.length || vicini.length || passata.length) {
+      const misti = scorci.slice(0, 1);
+      const giri = Math.max(passata.length, dentro.length);
       for (let i = 0; i < giri; i++) {
-        if (2 * i < dentro.length) misti.push(dentro[2 * i]);
-        if (2 * i + 1 < dentro.length) misti.push(dentro[2 * i + 1]);
-        if (i < vicini.length) misti.push(vicini[i]);
-        if (i < scorci.length) misti.push(scorci[i]);
+        if (i < passata.length) misti.push(passata[i]);
+        if (i < dentro.length) misti.push(dentro[i]);
       }
+      for (const v of vicini) misti.push(v);
       scorci = misti;
-      log("all'occhio vanno " + scorci.length + " viste: " + dentro.length
-        + " da dentro, " + vicini.length + " primi piani, " + scorci.filter((v) => !v.daCamminatore && !v.etichetta).length
-        + " campi larghi — e le prime quattro sono " + scorci.slice(0, 4)
-          .map((v) => v.etichetta || "campo largo").join(" · "));
+      log("all'occhio vanno " + scorci.length + " viste, in quest'ordine: 1 veduta"
+        + " d'insieme, " + passata.length + " della passata in ordine, " + dentro.length
+        + " da dentro, " + vicini.length + " primi piani — le prime quattro sono "
+        + scorci.slice(0, 4).map((v) => v.etichetta || "veduta d'insieme").join(" · "));
     }
 
     const O = occhioDellaPagina();
