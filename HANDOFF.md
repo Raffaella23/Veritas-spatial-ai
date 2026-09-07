@@ -1238,17 +1238,119 @@ la figura*). Quindi «cercare» non vuol dire chiedere parole diverse: vuol dire
 costa 20-90 secondi a scorcio. Un contesto che dice *«di la' guarda meglio»* fa
 risparmiare minuti veri e non afferma niente.
 
-🔴 **DOMANDA APERTA PER RAFFAELLA, e non si decide senza di lei:** quando l'AI
-cerca una cosa perche' il contesto gliel'ha suggerita **e non la trova**, che
-cosa deve fare?
-1. **tacere** — come adesso: se non c'e', non c'e';
-2. **dirlo nel referto** — «mi aspettavo dei banchi di accettazione e non li ho
-   trovati» diventa una riga del referto, e per un progettista puo' valere piu'
-   di quello che ha trovato;
-3. **chiederlo in chat** — «non vedo un controllo passaporti: c'e' e non lo
-   vedo, oppure non c'e'?».
+✅ **E LA DOMANDA «cosa fa quando NON trova» ERA GIA' DECISA, il 02/09**, e non
+andava rifatta a Raffaella: *«le prove negative contano quanto le altre. Gli
+scartati e le regole che hanno taciuto sono esattamente la parte che viene
+contestata: quindi non sono righe di log, sono parte del referto»*. Quindi:
+**«mi aspettavo dei banchi di accettazione e non li ho trovati» e' una riga del
+referto**, non un silenzio. E per un progettista puo' valere piu' di quello che
+ha trovato.
 
-La 2 e la 3 sono prodotto, non tecnica, e cambiano che cosa si vende.
+---
+
+## 🎓 COME SI INTRODUCE L'EDUCAZIONE AL CONTESTO — deciso il 07/09, DA COSTRUIRE
+
+> Raffaella, 07/09, insistendo: *«secondo me la questione dell'educazione al
+> contesto la deve introdurre»*.
+
+⚠️ **STATO ONESTO AL 07/09: NON E' COSTRUITA, per niente.** Quello che esiste e'
+l'estremo opposto — le tre invarianti agnostiche. Del contesto c'e' una cosa
+sola, ed e' li' da prima: il cervello **dichiara gia'** cosa ha davanti nel suo
+insieme (`sguardo.ipotesi`, es. *«aeroporto (modello completo), fiducia 72%»*).
+**Poi quella frase non la legge nessuno.** Viene buttata.
+
+### La trappola, e va detta prima del disegno
+
+Ci sono due modi di fare quello che Raffaella chiede, e uno dei due e' l'elenco
+d'aeroporto che rientra dalla finestra.
+
+| | |
+|---|---|
+| ❌ **il contesto scritto nel CODICE** | una tabella «se e' un aeroporto, cerca sedute, banchi, varchi». E' la direttiva 12 violata alla lettera — *«se scriviamo "in aeroporto: siedi, poi il banco, poi il varco", abbiamo riscritto in verbi l'elenco cancellato il 30/08»*. E non si salva citando Uniclass sopra: una lista scritta da noi con una citazione sopra resta una lista scritta da noi |
+| ✅ **il contesto CHIESTO al cervello** | il cervello sa gia' cos'e' una chiesa, una scuola, un ospedale. Gli si chiede: *«hai detto che questo e' un X. In un X, che cose ti aspetteresti di trovare?»* — e la risposta e' **sua**, non nostra. Nel codice non entra nessuna parola di nessuna tipologia, mai |
+
+📌 **E la seconda funziona su qualunque edificio senza scrivere una riga in
+piu'**, che e' la prova che e' quella giusta: un museo, una moschea, un
+autosilo. Il giorno che arriva un tipo di edificio che nessuno aveva previsto,
+la tabella tace e il cervello risponde.
+
+### La regola, in una riga
+
+> **Il contesto non decide la RISPOSTA: decide la DOMANDA.**
+
+E le conseguenze sono tre, tutte e tre gia' misurabili:
+
+1. **sposta la telecamera, non la conclusione.** Un'aspettativa diventa un
+   **primo piano in piu'** dove quella cosa potrebbe stare — e oggi i primi
+   piani si scelgono alternando fra «dove ci sono arredi» e «dove non si sa
+   niente», cioe' mezzo a caso. Costano 20-90 s l'uno: mandarli nel posto giusto
+   e' tempo vero risparmiato;
+2. **non fa mai nascere un nome.** Il nome continua a nascere solo da cio' che
+   l'occhio ha visto (Regola 0-bis). Un'aspettativa non nominata resta non
+   nominata;
+3. **l'aspettativa delusa e' un RISULTATO**, e va nel referto (regola del
+   02/09). *«Mi aspettavo un controllo bagagli e non l'ho trovato»* e' una riga
+   che un progettista legge.
+
+⚠️ **E la fiducia si eredita.** Se il cervello dice «aeroporto» al 72%, tutto
+cio' che ne discende vale al massimo 72%. Un'aspettativa nata da un'ipotesi
+incerta non puo' diventare piu' sicura dell'ipotesi.
+
+### Cosa c'e' gia', e cosa manca
+
+**C'e' gia'**: il passo «studio» che dichiara l'insieme; i primi piani mirati
+(`grappoliDaInquadrare` + `scorciRavvicinati`, 05/09); le parole non costano
+(misurato 04/09: 4 o 158, stesso tempo); il registro delle conseguenze.
+
+**Manca**: chiedere al cervello le aspettative; farne dei bersagli per i primi
+piani; e la riga di referto per quelle deluse.
+
+⚠️ **E NON SI FA PRIMA CHE IL PIAZZALE SIA TOLTO DALL'AREA CALPESTABILE.**
+Cercare meglio dentro una pianta che comprende ancora la pista vuol dire mandare
+i primi piani sugli aerei. **Prima il recinto, poi il significato** — direttiva
+1, ed e' lo stesso ordine di sempre.
+
+### 🎤 SI PARLA, NON SI SCRIVE — deciso da Raffaella il 07/09/2026
+
+> *«Se deve inserire comunque la voce suadente, metteci anche la possibilita' del
+> dialogo direttamente vocale senza scrivere, sia per l'utente sia per me che in
+> questo momento ti sto parlando. Quindi una finestra di dialogo semplicissima,
+> linguaggio naturale. Possibile completamento, suggerimento eventualmente.
+> Soprattutto microfono.»*
+
+⚠️ **E' UNA SOLA COSA CON IL MONOLOGO INTERIORE, non due.** La voce che dice
+*«questo potrebbe essere una sala d'attesa»* e la voce con cui si risponde
+*«si', hai ragione»* sono i due versi dello stesso scambio. Farne due lavori
+separati vorrebbe dire costruire due volte lo stesso pezzo.
+
+**Le quattro cose, in ordine di quanto Raffaella le ha volute:**
+
+1. **il microfono** — *«soprattutto»*. Si detta invece di scrivere. Sta nel
+   browser (Web Speech), quindi vale la regola della musica e della voce: **si
+   usa quello che c'e', non si prende niente di nessuno**;
+2. **la voce che risponde** — il monologo interiore, col condizionale quando la
+   fiducia e' bassa e il **silenzio** dove non sa niente;
+3. **una finestra semplicissima** — *«linguaggio naturale»*. ⚠️ E qui c'e' un
+   difetto vecchio da chiudere per primo: la chat oggi **non capisce l'italiano**,
+   capisce comandi — da una frase intera ha creato una zona chiamata «Le Zone».
+   Una finestra col microfono davanti a un motore che aspetta comandi peggiora
+   le cose, non le migliora: **si parla piu' liberamente di come si scrive**;
+4. **completamento e suggerimenti** — *«eventualmente»*, ed e' l'unica delle
+   quattro che Raffaella ha messo al condizionale.
+
+📌 **E i suggerimenti giusti non si inventano: sono le domande che l'AI ha gia'
+in canna.** Il programma produce gia' i suoi dubbi (Regola 0 punto 5, «se non
+sa, chiede») e oggi finiscono in un riquadro dove non si puo' rispondere. Quelli
+sono i suggerimenti: *«questi 23 m² non hanno un nome — che spazio e'?»*.
+
+⚠️ **Dove sta, e non si discute**: i comandi a sinistra, i pannelli a destra —
+regola gia' scritta, gia' violata una volta. E dentro la finestra del film la
+chat sta **contestuale all'elemento**, come ha chiesto Raffaella il 07/09.
+
+⚠️ **Il pezzo che regge tutto e' il TACCUINO** (punto 6 delle priorita'): una
+chat che risponde a memoria e' una chat che inventa. Risponde dal registro di
+cio' che e' stato misurato, o dice che non lo sa. **Senza taccuino, il
+microfono e' un microfono attaccato a niente.**
 
 ### 📋 LE TIPOLOGIE DI RESA — idea di Raffaella, da fare dopo
 
