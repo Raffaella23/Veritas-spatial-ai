@@ -13194,9 +13194,115 @@ function vistaDalCamminatore(THREE, renderer, radice, opzioni = {}) {
   return fuori;
 }
 
+
+/**
+ * IL GIRO DENTRO L'EDIFICIO — una vista per ambiente, da dentro, ad altezza
+ * d'uomo. Raffaella, 07/09/2026 sera, dopo aver guardato le fotografie che
+ * l'occhio riceveva:
+ *
+ * > *«le visuali dall'alto, la pianta dall'alto, poi partono tutte le viste
+ * > più ravvicinate, gli scorci ravvicinati, e sono tutti dall'alto degli
+ * > aerei. Ci sono cinquecento foto degli aerei e delle altre parti
+ * > dell'edificio non c'è proprio nulla. È proprio nella modalità di ripresa,
+ * > quello che gli dai in pasto all'occhio è quello che vede. Ecco perché il
+ * > modello non lo capisce.»*
+ *
+ * ⚠️ AVEVA RAGIONE, ED È GEOMETRIA, NON UN DIFETTO DI VOCABOLARIO.
+ *    `scorciRavvicinati` inquadra i grappoli di arredo mettendo la telecamera
+ *    **fuori dal grappolo**, alla distanza che serve a riempire l'inquadratura,
+ *    a 18 gradi sopra l'orizzonte. Su un grappolo grande — un aereo è lungo
+ *    quaranta metri — quella distanza porta la telecamera **fuori
+ *    dall'edificio e in alto**, e da lì si vede il piazzale. Dentro il terminal
+ *    non ci si è mai messi: **l'unica cosa che il programma non aveva mai
+ *    fotografato è il posto dove cammina la gente.**
+ *
+ * ⚠️ E NON SI RISOLVE AGGIUNGENDO PAROLE. Se in cinquecento fotografie
+ *    l'interno non compare, nessun vocabolario lo farà comparire: *quello che
+ *    gli dai in pasto all'occhio è quello che vede*. Si risolve **cambiando da
+ *    dove si scatta**, ed è esattamente la direttiva 19.
+ *
+ * COME SCEGLIE DOVE GUARDARE, e non è a caso: da ogni ambiente misurato prova
+ * otto direzioni con l'**isovista** (che costa solo raggi, non pixel) e tiene
+ * le poche in cui si vede di più. Così la telecamera non finisce col naso
+ * contro un muro, e ogni ambiente porta almeno una fotografia di sé.
+ *
+ * ⚠️ UN AMBIENTE = ALMENO UNA FOTOGRAFIA. È il punto: prima l'ordine era per
+ *    quantità di arredo, e gli aerei vincevano sempre. Qui si gira per
+ *    AMBIENTI, dal più grande al più piccolo, e il tetto (`massimo`) taglia in
+ *    coda — non toglie mai il primo scatto di un ambiente prima di aver dato
+ *    il secondo a un altro.
+ *
+ * @param {Array} ambienti  gli ambienti MISURATI (`__veritasPercezione.zones`)
+ * @param {object} opzioni  perAmbiente (2), massimo (12), sonde (8), fovGradi (60)
+ */
+function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
+  if (!THREE || !renderer || !radice || !Array.isArray(ambienti) || !ambienti.length) return [];
+  const perAmbiente = opzioni.perAmbiente || 2;
+  const massimo = opzioni.massimo || 12;
+  const sonde = opzioni.sonde || 8;
+  const fovGradi = opzioni.fovGradi || 60;
+  const portata = opzioni.portata || 40;
+  const altezzaOcchio = opzioni.altezzaOcchio != null ? opzioni.altezzaOcchio : 1.65;
+  const misuraIsovista = opzioni.isovista
+    || (typeof window !== 'undefined' && window.__veritasPerception
+        && window.__veritasPerception.isovist) || null;
+
+  // Dal più grande al più piccolo: se il tetto taglia, taglia gli sgabuzzini.
+  const ordinati = ambienti.slice()
+    .filter((z) => z && typeof z.centroidX === 'number' && typeof z.centroidZ === 'number')
+    .sort((a, b) => (b.areaM2 || 0) - (a.areaM2 || 0));
+
+  // Prima si decide DOVE guardare (costa raggi), poi si scatta (costa pixel).
+  const daScattare = [];
+  for (const z of ordinati) {
+    const occhio = [z.centroidX, (z.y || 0) + altezzaOcchio, z.centroidZ];
+    const nome = (z.nome || z.label != null ? 'ambiente ' + (z.nome || z.label) : 'un ambiente')
+      + ' (' + Math.round(z.areaM2 || 0) + ' m²)';
+    let direzioni = [];
+    if (misuraIsovista) {
+      for (let i = 0; i < sonde; i++) {
+        const a = (i / sonde) * Math.PI * 2;
+        let area = 0;
+        try {
+          const iso = misuraIsovista(occhio, { eyeHeight: altezzaOcchio, range: portata,
+            direzione: a, ampiezzaGradi: fovGradi, rays: 10 });
+          area = iso ? iso.area : 0;
+        } catch (e) { area = 0; }
+        direzioni.push({ a, area });
+      }
+      direzioni.sort((p, q) => q.area - p.area);
+      // ⚠️ Una direzione che vede meno di un metro quadro è il muro: si scarta,
+      //    perché una fotografia di un muro occupa un turno dell'occhio (decine
+      //    di secondi) e non porta nessuna testimonianza.
+      direzioni = direzioni.filter((d) => d.area >= 1);
+    } else {
+      // Senza isovista non si indovina: quattro direzioni cardinali, e lo si dice.
+      direzioni = [0, 1, 2, 3].map((k) => ({ a: k * Math.PI / 2, area: null }));
+    }
+    direzioni.slice(0, perAmbiente).forEach((d, k) => {
+      daScattare.push({ occhio, a: d.a, area: d.area, nome, primo: k === 0 });
+    });
+  }
+  // Il tetto taglia in coda, ma prima i PRIMI scatti di tutti gli ambienti:
+  // meglio nove stanze viste una volta che tre viste tre volte.
+  daScattare.sort((p, q) => (q.primo ? 1 : 0) - (p.primo ? 1 : 0));
+
+  const fuori = [];
+  for (const d of daScattare.slice(0, massimo)) {
+    const v = vistaDalCamminatore(THREE, renderer, radice, {
+      posizione: d.occhio,
+      direzione: [Math.cos(d.a), 0, Math.sin(d.a)],
+      fovGradi, portata, altezzaOcchio,
+      etichetta: 'da dentro ' + d.nome + ', verso ' + Math.round(d.a * 180 / Math.PI) + '°',
+    });
+    if (v) fuori.push(v);
+  }
+  return fuori;
+}
+
 window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
-  ALTEZZA_SEZIONE, vistaDalCamminatore };
+  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro };
 </script>
 <script type="module">
 // veritas_percorso.js — da ambienti misurati a tappe di un percorso.
@@ -27094,7 +27200,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=19"></script>
+<script type="module" src="./veritas_montaggio.js?v=20"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>

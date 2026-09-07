@@ -648,9 +648,10 @@ window.__veritasComprendi = async function (opz = {}) {
     //    grappolo e non uno per oggetto. Il costo cresce col numero dei
     //    grappoli, che sono pochi, non col numero degli arredi, che sono
     //    tanti.
+    let vicini = [];
     if (typeof vista.scorciRavvicinati === "function") {
       try {
-        const vicini = vista.scorciRavvicinati(
+        vicini = vista.scorciRavvicinati(
           THREE, rend, radice, trovate.posti, opz.ravvicinati || {}) || [];
         if (vicini.length) {
           const fitto = vicini.map((v) => v.pixelPerMetro)
@@ -658,19 +659,6 @@ window.__veritasComprendi = async function (opz = {}) {
           log("mi avvicino a " + vicini.length + " grappoli di arredo: da "
             + Math.min.apply(null, fitto) + " a " + Math.max.apply(null, fitto)
             + " pixel al metro, dove il modello intero ne da' 6");
-          // ⚠️ SI ALTERNANO, NON SI ACCODANO. All'occhio arrivano solo le
-          //    prime VISTE_PER_GIRO di questo elenco (quattro): messi in
-          //    coda, i primi piani non gli arrivavano MAI — misurato sulla
-          //    pagina viva il 05/09, testimonianza fatta di soli aerei e
-          //    pontili a sei pixel al metro. Alternati, ogni mazzetto porta
-          //    all'occhio sia il campo largo che dice cos'e' l'edificio sia
-          //    il primo piano che dice cosa c'e' dentro.
-          const misti = [];
-          for (let i = 0; i < Math.max(scorci.length, vicini.length); i++) {
-            if (i < vicini.length) misti.push(vicini[i]);
-            if (i < scorci.length) misti.push(scorci[i]);
-          }
-          scorci = misti;
         } else {
           // ⚠️ Un ramo che si salta in silenzio non esiste per nessuno.
           log("nessun grappolo di arredo da inquadrare da vicino");
@@ -678,6 +666,72 @@ window.__veritasComprendi = async function (opz = {}) {
       } catch (e) {
         log("non sono riuscito ad avvicinarmi: " + ((e && e.message) || e));
       }
+    }
+
+    // ⚠️ E POI CI SI ENTRA DENTRO — Raffaella, 07/09/2026 sera, dopo aver
+    //    guardato le fotografie che l'occhio riceveva davvero:
+    //
+    //    «gli scorci ravvicinati sono tutti dall'alto degli aerei. Ci sono
+    //    cinquecento foto degli aerei e delle altre parti dell'edificio non
+    //    c'e' proprio nulla. E' proprio nella modalita' di ripresa: quello che
+    //    gli dai in pasto all'occhio e' quello che vede. Ecco perche' il
+    //    modello non lo capisce.»
+    //
+    //    Aveva ragione, ed e' geometria. `scorciRavvicinati` mette la
+    //    telecamera FUORI dal grappolo, alla distanza che serve a riempire
+    //    l'inquadratura: su un aereo lungo quaranta metri quella distanza la
+    //    porta fuori dall'edificio e in alto, e da li' si vede il piazzale.
+    //    **Dentro il terminal non ci si era mai messi.** L'unica cosa che il
+    //    programma non aveva mai fotografato e' il posto dove cammina la gente.
+    //
+    //    Queste sono la direttiva 19 applicata al giro d'apertura: un ambiente
+    //    misurato, un occhio a 1,65 m nel suo mezzo, la lente del film, e la
+    //    direzione scelta dall'isovista — dove c'e' qualcosa da vedere, non
+    //    contro un muro.
+    let dentro = [];
+    if (typeof vista.giroDentro === "function") {
+      try {
+        const ambienti = ((window.__veritasPercezione || {}).zones) || [];
+        dentro = vista.giroDentro(THREE, rend, radice, ambienti, opz.dentro || {}) || [];
+        if (dentro.length) {
+          const fitto = dentro.map((v) => v.pixelPerMetro).filter((n) => typeof n === "number");
+          log("entro dentro l'edificio: " + dentro.length + " viste da "
+            + ambienti.length + " ambienti misurati, occhio a 1,65 m"
+            + (fitto.length ? " — da " + Math.min.apply(null, fitto) + " a "
+                + Math.max.apply(null, fitto) + " pixel al metro" : ""));
+        } else {
+          // ⚠️ Senza ambienti misurati non c'e' nessun dentro in cui entrare, e
+          //    va detto: e' la differenza fra «non c'era niente» e «non ho guardato».
+          log("non sono entrato dentro: non ci sono ancora ambienti misurati"
+            + " (" + ambienti.length + ")");
+        }
+      } catch (e) {
+        log("non sono riuscito a entrare dentro: " + ((e && e.message) || e));
+      }
+    }
+
+    // ⚠️ SI ALTERNANO, NON SI ACCODANO, E DENTRO VA PER PRIMO.
+    //    All'occhio arrivano solo le prime VISTE_PER_GIRO di questo elenco
+    //    (quattro): messo in coda, un mazzo non gli arriva MAI — misurato
+    //    sulla pagina viva il 05/09, testimonianza fatta di soli aerei e
+    //    pontili a sei pixel al metro. Alternati DUE viste da dentro ogni
+    //    primo piano e ogni campo largo, **ogni mazzetto porta all'occhio
+    //    almeno una fotografia dell'interno**, che era la cosa che non
+    //    arrivava mai.
+    if (dentro.length || vicini.length) {
+      const misti = [];
+      const giri = Math.max(Math.ceil(dentro.length / 2), vicini.length, scorci.length);
+      for (let i = 0; i < giri; i++) {
+        if (2 * i < dentro.length) misti.push(dentro[2 * i]);
+        if (2 * i + 1 < dentro.length) misti.push(dentro[2 * i + 1]);
+        if (i < vicini.length) misti.push(vicini[i]);
+        if (i < scorci.length) misti.push(scorci[i]);
+      }
+      scorci = misti;
+      log("all'occhio vanno " + scorci.length + " viste: " + dentro.length
+        + " da dentro, " + vicini.length + " primi piani, " + scorci.filter((v) => !v.daCamminatore && !v.etichetta).length
+        + " campi larghi — e le prime quattro sono " + scorci.slice(0, 4)
+          .map((v) => v.etichetta || "campo largo").join(" · "));
     }
 
     const O = occhioDellaPagina();
