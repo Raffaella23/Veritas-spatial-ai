@@ -67,6 +67,10 @@ const PAROLE = {
     scrivi: 'scrivi, oppure premi il microfono',
     ascolto: 'ti ascolto…',
     nonSento: 'Il microfono non è disponibile in questo browser: scrivi pure.',
+    proponi: 'Qui ho visto $C. Potrebbe essere $F. È così?',
+    visto: 'Qui ho visto $C, su $A metri quadri. Che spazio è?',
+    vabene: 'Va bene, la lascio senza nome. Meglio così che inventarlo.',
+    equindi: 'Non ho capito il nome. Dimmelo come viene: «è una sala d’attesa».',
   },
   en: {
     pulsante: 'Live view',
@@ -85,6 +89,10 @@ const PAROLE = {
     scrivi: 'type, or press the microphone',
     ascolto: 'listening…',
     nonSento: 'The microphone is not available in this browser: please type.',
+    proponi: 'Here I saw $C. This could be $F. Is that right?',
+    visto: 'Here I saw $C, over $A square metres. What is this space?',
+    vabene: 'All right, I’ll leave it unnamed. Better than making one up.',
+    equindi: 'I didn’t catch the name. Just say it plainly: “it’s a waiting area”.',
   },
 };
 // ⚠️ NON si guarda `document.documentElement.lang`: misurato il 06/09, diceva
@@ -163,12 +171,16 @@ const S = {
   fotogrammi: 0,
   centro: [0, 0, 0], angolo0: 0,
   // ⚠️ LA MUSICA NASCE SPENTA — Raffaella, 07/09: «taglia quella musica
-  //    orribile». Due tentativi a orecchio chiuso hanno prodotto prima un
-  //    rombo d'aereo e poi un film horror: chi non puo' sentire non deve
-  //    decidere come suona la cosa. Il bottone resta, e la accende chi ha le
-  //    orecchie. ⚠️ Non si e' CANCELLATO il motore: cancellarlo vorrebbe dire
-  //    ricostruirlo da zero il giorno in cui si trova la musica giusta.
-  audio: null, musica: false, lancio: null,
+  //    orribile». Due tentativi a orecchio chiuso avevano prodotto prima un
+  //    rombo d'aereo e poi un film horror, e allora era nata spenta: chi non
+  //    puo' sentire non deve decidere come suona la cosa.
+  // ✅ RIACCESA il 07/09, quando Raffaella ha dato il BERSAGLIO invece di un
+  //    aggettivo — «cerca Interstellar, di Christopher Nolan» — e ha aggiunto
+  //    che serve a dare *«l'anima dell'AI»*. Da un riferimento si ricavano modo,
+  //    andamento e timbro; da «piu' evocativa» no. ⚠️ La musica di Zimmer NON
+  //    si usa: e' protetta, e in un prodotto che si vende e' il problema di
+  //    Neufert. Si prende il CARATTERE e si suona.
+  audio: null, musica: true, lancio: null,
   chat: null, chiestaZona: null, ascolto: null, voce: true,
 };
 
@@ -1127,28 +1139,74 @@ function costruisci(D) {
   //    essere intelligibile»*. Le superfici si chiudono, i punti si calmano, e
   //    l'ultima immagine e' un disegno che si legge — non la stessa polvere
   //    dell'inizio.
-  const ombra = (forza) => new T.ShaderMaterial({
+  // ⚠️ IL PUNTINO SI CONDENSA FINO A FARE L'OGGETTO, E L'OGGETTO HA UN'OMBRA —
+  //    Raffaella, 07/09/2026: *«il puntino che parte si condensa fino a creare
+  //    l'oggetto, quindi l'oggetto poi deve avere una sua ombreggiatura e una
+  //    sua linea di contorno, perche' non dobbiamo perdere i dettagli di quello
+  //    che si fa»*.
+  //
+  //    E il difetto era misurabile: **le facce non avevano nessuna
+  //    ombreggiatura.** Erano tinta piatta per trasparenza, cioe' silhouette.
+  //    Un oggetto senza ombra non ha volume, e senza volume non si distingue da
+  //    un altro oggetto della stessa tinta: e' esattamente il «non si capisce
+  //    niente» visto sullo schermo.
+  //
+  // 📌 LA NORMALE NON SI TRASPORTA, SI RICAVA. I triangoli del film sono
+  //    campionati dalle mesh dell'utente e non portano le normali: aggiungerle
+  //    vorrebbe dire un terzo attributo per ognuno dei 24.878 triangoli. Si
+  //    ricava nel fragment dalle derivate della posizione — `cross(dFdx, dFdy)`
+  //    — che da' la normale della FACCIA. Ed e' quella giusta: un triangolo
+  //    campionato e' una faccetta piatta, e l'ombreggiatura piatta e' come si
+  //    disegna un solido a mano.
+  //
+  // ⚠️ E SI OMBREGGIA COME SU CARTA, non come al buio. Su fondo chiaro «ombra»
+  //    non vuol dire nero: vuol dire PIU' INCHIOSTRO. Le facce girate verso la
+  //    luce restano pallide, quelle in ombra si caricano — stessa regola con cui
+  //    questo film disegna la profondita' (la sezione e' nera, lo sfondo chiaro).
+  //
+  // ⚠️ LA LUCE STA NELLO SPAZIO DELLA TELECAMERA, non del mondo. Camminando a
+  //    1,65 m dentro l'edificio, una luce fissa nel mondo lascerebbe interi lati
+  //    sempre bui e sempre gli stessi; una luce che segue l'occhio, un po' di
+  //    lato e dall'alto, e' come quando si gira un modellino fra le mani.
+  //
+  // ⚠️ E IL CONTORNO SI PERDE PER ULTIMO. I fili sbiadiscono con la distanza
+  //    meno delle facce (0,58 contro 0,80): il profilo e' quello che tiene il
+  //    dettaglio quando il volume e' gia' diventato una velatura.
+  const ombra = (forza, solido) => new T.ShaderMaterial({
     transparent: true, depthWrite: false, side: T.DoubleSide,
     uniforms: { u: { value: 0 }, forza: { value: forza }, finale: { value: 1 } },
     vertexShader: [
       'attribute vec3 tinta; attribute float quando;',
-      'varying vec3 vC; varying float vA; varying float vD;',
+      'varying vec3 vC; varying float vA; varying float vD; varying vec3 vP;',
       'uniform float u;',
       'void main(){',
       '  vC = tinta;',
       '  vA = clamp((u - quando) / 0.09, 0.0, 1.0);',
       '  vec4 mv = modelViewMatrix * vec4(position,1.0);',
       '  vD = -mv.z;',
+      '  vP = mv.xyz;',
       '  gl_Position = projectionMatrix * mv;',
       '}',
     ].join('\n'),
     fragmentShader: [
-      'varying vec3 vC; varying float vA; varying float vD;',
+      'varying vec3 vC; varying float vA; varying float vD; varying vec3 vP;',
       'uniform float forza; uniform float finale;',
       'void main(){ if (vA <= 0.001) discard;',
-      '  float p = 1.0 - 0.80 * smoothstep(10.0, 55.0, vD);',
-      '  gl_FragColor = vec4(vC, vA * forza * p * finale); }',
-    ].join('\n'),
+      '  float p = 1.0 - ' + (solido ? '0.80' : '0.58') + ' * smoothstep(10.0, 55.0, vD);',
+      '  vec3 c = vC; float a = vA * forza * p * finale;',
+    ].concat(solido ? [
+      '  vec3 n = normalize(cross(dFdx(vP), dFdy(vP)));',
+      '  vec3 L = normalize(vec3(0.34, 0.78, 0.52));',
+      // due termini: la luce vera, e un mezzo-cielo che schiarisce cio' che
+      // guarda in su — come succede davvero sotto una volta chiara
+      '  float lam = abs(dot(n, L));',
+      '  float cielo = 0.5 + 0.5 * n.y;',
+      '  float luce = clamp(0.30 + 0.62 * lam + 0.18 * cielo, 0.0, 1.0);',
+      '  a *= mix(1.55, 0.62, luce);',
+      '  c = vC * mix(0.70, 1.06, luce);',
+    ] : []).concat([
+      '  gl_FragColor = vec4(c, a); }',
+    ]).join('\n'),
   });
 
   // ⚠️ PRIMA I PUNTI, POI LA SUPERFICIE — Raffaella, 06/09, guardando la prima
@@ -1199,7 +1257,7 @@ function costruisci(D) {
       gp.setAttribute('position', new T.BufferAttribute(fp.subarray(0, iv * 3), 3));
       gp.setAttribute('tinta', new T.BufferAttribute(fc.subarray(0, iv * 3), 3));
       gp.setAttribute('quando', new T.BufferAttribute(fq.subarray(0, iv), 1));
-      pavMesh = new T.Mesh(gp, ombra(0.11));
+      pavMesh = new T.Mesh(gp, ombra(0.11, true));
       pavMesh.frustumCulled = false;
       scena.add(pavMesh);
     }
@@ -1264,7 +1322,7 @@ function costruisci(D) {
       gt.setAttribute('position', new T.BufferAttribute(new Float32Array(tp), 3));
       gt.setAttribute('tinta', new T.BufferAttribute(new Float32Array(tc), 3));
       gt.setAttribute('quando', new T.BufferAttribute(new Float32Array(tq), 1));
-      tettoMesh = new T.Mesh(gt, ombra(0.09));
+      tettoMesh = new T.Mesh(gt, ombra(0.09, true));
       tettoMesh.frustumCulled = false;
       scena.add(tettoMesh);
     }
@@ -1308,7 +1366,7 @@ function costruisci(D) {
     gm.setAttribute('position', new T.BufferAttribute(vp, 3));
     gm.setAttribute('tinta', new T.BufferAttribute(vc, 3));
     gm.setAttribute('quando', new T.BufferAttribute(vq, 1));
-    muriMesh = new T.Mesh(gm, ombra(0.14));
+    muriMesh = new T.Mesh(gm, ombra(0.14, true));
     muriMesh.frustumCulled = false;
     scena.add(muriMesh);
 
@@ -1316,7 +1374,7 @@ function costruisci(D) {
     gl.setAttribute('position', new T.BufferAttribute(lp, 3));
     gl.setAttribute('tinta', new T.BufferAttribute(lc, 3));
     gl.setAttribute('quando', new T.BufferAttribute(lq, 1));
-    muriFilo = new T.LineSegments(gl, ombra(0.55));
+    muriFilo = new T.LineSegments(gl, ombra(0.55, false));
     muriFilo.frustumCulled = false;
     scena.add(muriFilo);
   }
@@ -1368,7 +1426,7 @@ function costruisci(D) {
       go.setAttribute('position', new T.BufferAttribute(tp.subarray(0, iv * 3), 3));
       go.setAttribute('tinta', new T.BufferAttribute(tc.subarray(0, iv * 3), 3));
       go.setAttribute('quando', new T.BufferAttribute(tq.subarray(0, iv), 1));
-      oggMesh = new T.Mesh(go, ombra(0.10));
+      oggMesh = new T.Mesh(go, ombra(0.10, true));
       oggMesh.frustumCulled = false;
       scena.add(oggMesh);
 
@@ -1376,7 +1434,7 @@ function costruisci(D) {
       ge.setAttribute('position', new T.BufferAttribute(ep.subarray(0, il * 3), 3));
       ge.setAttribute('tinta', new T.BufferAttribute(ec.subarray(0, il * 3), 3));
       ge.setAttribute('quando', new T.BufferAttribute(eq.subarray(0, il), 1));
-      oggFilo = new T.LineSegments(ge, ombra(0.22));
+      oggFilo = new T.LineSegments(ge, ombra(0.32, false));
       oggFilo.frustumCulled = false;
       scena.add(oggFilo);
     }
@@ -1488,7 +1546,7 @@ function plancia(v) {
     + '<span style="font-size:15px;line-height:1">💬</span>' + P().dialogo + '</button>'
     + '<div style="width:1px;height:22px;background:#E3E5EE"></div>'
     + '<button id="el-suono" style="font:inherit;border:0;background:none;cursor:pointer;'
-    + 'color:inherit;padding:6px 2px;white-space:nowrap">' + P().suono + ': off</button>'
+    + 'color:inherit;padding:6px 2px;white-space:nowrap">' + P().suono + ': on</button>'
     + '<div style="width:1px;height:22px;background:#E3E5EE"></div>'
     + '<button id="el-chiudi" style="font:inherit;border:0;background:none;cursor:pointer;'
     + 'color:' + NEBBIA + ';padding:6px 2px">' + P().chiudi + ' ✕</button>';
@@ -1546,8 +1604,24 @@ function voceDi(testo) {
     if (!s) return;
     s.cancel();
     const u = new SpeechSynthesisUtterance(testo);
-    u.lang = lingua() === 'it' ? 'it-IT' : 'en-GB';
-    u.rate = 0.95; u.pitch = 1.0; u.volume = 0.9;
+    const lin = lingua() === 'it' ? 'it-IT' : 'en-GB';
+    u.lang = lin;
+    // ⚠️ «UNA VOCE SUADENTE MA NON ESAGERATO... UN'AI AMICA, USER FRIENDLY» —
+    //    Raffaella, 07/09. Quindi si sceglie la voce piu' NATURALE disponibile
+    //    e non la prima della lista: le voci di sistema vecchie sono robotiche,
+    //    e una voce robotica che dice «questo potrebbe essere uno spazio dove ci
+    //    si ferma» fa l'effetto opposto di quello che serve.
+    //    E si resta sotto il teatro: passo appena piu' lento del parlato normale,
+    //    tono naturale, volume che non alza la voce.
+    try {
+      const voci = s.getVoices() || [];
+      const buona = voci.find((V) => V.lang === lin && /natural|neural|premium|enhanced/i.test(V.name))
+        || voci.find((V) => V.lang === lin && V.localService)
+        || voci.find((V) => V.lang === lin)
+        || voci.find((V) => (V.lang || '').slice(0, 2) === lin.slice(0, 2));
+      if (buona) u.voice = buona;
+    } catch (e) {}
+    u.rate = 0.97; u.pitch = 1.0; u.volume = 0.85;
     s.speak(u);
   } catch (e) { /* una voce che non parte non deve fermare il film */ }
 }
@@ -1558,7 +1632,8 @@ function voceDi(testo) {
 function zonaDaChiedere() {
   const zz = S.zone || [];
   let scelta = null;
-  for (const Z of zz) if (!Z.nome && (!scelta || Z.area > scelta.area)) scelta = Z;
+    if (!Z.nome && !(S.saltate && S.saltate.has(Z))
+        && (!scelta || Z.area > scelta.area)) scelta = Z;
   return scelta;
 }
 
@@ -1601,33 +1676,107 @@ function apriChat(v) {
   const input = d.querySelector('#ec-in');
   const dico = (t) => { testo.textContent = t; voceDi(t); };
 
+  // ⚠️ SI DIALOGA, NON SI COMPILA UN MODULO — Raffaella, 07/09/2026:
+  //    *«questa è una sala d'attesa, questa potrebbe essere, e il cliente dice
+  //    sì, hai capito bene, questa è una sala d'attesa. Questo è il dialogo. Ma
+  //    dobbiamo dialogare naturalmente come facciamo io e te.»*
+  //
+  //    Quindi due cose, e nessuna delle due è una casella da riempire:
+  //      1. l'AI PROPONE, col condizionale, quando ha visto qualcosa;
+  //      2. la risposta si legge come si parla — «sì, hai capito bene» vale
+  //         quanto scrivere il nome, e «no, è un ufficio» corregge.
+  //
+  // ⚠️ E LA PROPOSTA NON INVENTA UN NOME DI STANZA (Regola 0-bis). Dice il
+  //    COMPORTAMENTO che gli oggetti visti lì implicano — direttiva 11, «il
+  //    cartellino dice un comportamento, non il nome di una stanza». «Qui ci si
+  //    siede» l'ha misurato l'occhio; «sala d'attesa» lo dice Raffaella.
+  const COMPORTA = { it: {
+      seduto: 'uno spazio dove ci si ferma e si aspetta',
+      'in piedi': 'uno spazio dove ci si presenta a qualcuno',
+      passa: 'un passaggio', sdraiato: 'uno spazio dove ci si sdraia',
+    }, en: {
+      seduto: 'a place where people stop and wait',
+      'in piedi': 'a place where people present themselves',
+      passa: 'a way through', sdraiato: 'a place where people lie down',
+    } };
+
+  // Che cosa ha visto l'occhio dentro questo ambiente: non si deduce, si legge.
+  const vistoQui = (Z) => {
+    const viste = ((window.__veritasVisto || {}).viste) || [];
+    const R = (window.__veritasRiconosce || {});
+    const POST = R.POSTURA_DI || {};
+    const raggio = Math.max(6, Math.sqrt(Math.max(1, Z.area)) * 0.6);
+    const conta = new Map();
+    for (const v of viste) {
+      if (!v || !v.centro || v.controprova || v.luogo) continue;
+      if (Math.hypot(v.centro[0] - Z.x, v.centro[2] - Z.z) > raggio) continue;
+      const k = v.nome || v.termine;
+      const e = conta.get(k) || { n: 0, postura: POST[v.termine] || null };
+      e.n++; conta.set(k, e);
+    }
+    let top = null;
+    conta.forEach((e, k) => { if (!top || e.n > top.n) top = { cosa: k, n: e.n, postura: e.postura }; });
+    return top;
+  };
+
   const chiedi = () => {
     const Z = zonaDaChiedere();
-    S.chiestaZona = Z;
+    S.chiestaZona = Z; S.proposta = null;
     if (!Z) { dico(P().tutteNominate); return; }
-    dico(P().chiedo.replace('$A', Math.round(Z.area)));
+    const v = vistoQui(Z);
+    if (v && v.postura && COMPORTA[lingua()][v.postura]) {
+      // ⚠️ «POTREBBE», sempre. Una voce calda persuade più di un'etichetta: se
+      //    afferma, chi ascolta le crede anche quando la fiducia è bassa.
+      S.proposta = COMPORTA[lingua()][v.postura];
+      dico(P().proponi.replace('$C', v.cosa).replace('$F', S.proposta));
+    } else if (v) {
+      dico(P().visto.replace('$C', v.cosa).replace('$A', Math.round(Z.area)));
+    } else {
+      // ⚠️ Dove non ha visto niente non inventa: lo dice. È il grigio «non
+      //    misurato», parlato.
+      dico(P().chiedo.replace('$A', Math.round(Z.area)));
+    }
   };
   chiedi();
 
+  // ⚠️ LA LETTURA DEL PARLATO, e non pretende di capire più di quel che capisce.
+  //    Riconosce tre cose sole — sì, no, non lo so — e per il resto cerca il
+  //    nome dopo un attacco («questa è…», «si tratta di…»). Se non lo trova
+  //    RICHIEDE invece di indovinare: un nome messo per sbaglio su un volume è
+  //    peggio di nessun nome, ed è la stessa regola dei nomi inventati.
+  const SI = /^(s[iì]|esatto|esattamente|giusto|corretto|certo|ok|va bene|hai (capito bene|ragione|indovinato)|proprio cos[iì]|yes|yeah|correct|right|exactly)\b/i;
+  const NO = /^(no|non è|non e'|nope)\b/i;
+  const BOH = /^(non lo so|non so|boh|non saprei|no idea|dunno)\b/i;
+  const ATTACCHI = /^(?:(?:s[iì]|no|esatto|certo|ok|hai capito bene|hai ragione|yes)[,.\s]+)*(?:(?:questa|questo|qui|qua|l[iì]|it|this|that)\s+)?(?:(?:è|e'|sarebbe|si tratta di|c'è|is|would be)\s+)?(?:(?:un|uno|una|un'|il|lo|la|i|gli|le|a|an|the)\s+)?/i;
+
   const rispondi = () => {
-    const t = (input.value || '').trim();
-    if (!t) return;
+    const grezzo = (input.value || '').trim();
+    if (!grezzo) return;
     input.value = '';
     const Z = S.chiestaZona;
-    if (Z) {
-      // ⚠️ Il nome si posa SUBITO: il cartellino lo legge a ogni fotogramma
-      //    (`Z.nome || senza nome`), quindi si vede mentre il film scorre —
-      //    che e' esattamente «rinominati durante la costruzione».
-      Z.nome = t;
-      Z.origine = 'detto da chi guarda';
-      console.log('[EIDETICA live] ' + Math.round(Z.area) + ' m² rinominati a voce: «'
-        + t + '». Origine: detto da chi guarda — la fonte piu\' alta che esista,'
-        + ' e nel referto resta scritta.');
-      dico(P().grazie.replace('$N', t));
-      setTimeout(chiedi, 2200);
-    } else {
-      dico(P().tutteNominate);
+    if (!Z) { dico(P().tutteNominate); return; }
+
+    if (BOH.test(grezzo)) {
+      S.saltate = (S.saltate || new Set()); S.saltate.add(Z);
+      dico(P().vabene); setTimeout(chiedi, 1800); return;
     }
+
+    let nome = grezzo.replace(ATTACCHI, '').replace(/[.!?\s]+$/, '').trim();
+    // «sì, hai capito bene» da solo: vale la proposta che l'AI aveva fatto.
+    if (!nome && SI.test(grezzo) && S.proposta) nome = S.proposta;
+    if (!nome) { dico(P().equindi); return; }
+    if (NO.test(grezzo) && nome === S.proposta) { dico(P().equindi); return; }
+
+    // ⚠️ Il nome si posa SUBITO: il cartellino lo rilegge a ogni fotogramma,
+    //    quindi si vede mentre il film scorre — «rinominati durante la
+    //    costruzione», come l'ha chiesto Raffaella.
+    Z.nome = nome;
+    Z.origine = 'detto da chi guarda';
+    console.log('[EIDETICA live] ' + Math.round(Z.area) + ' m² rinominati parlando: «'
+      + nome + '». Origine: detto da chi guarda — la fonte più alta che esista,'
+      + ' e nel referto resta scritta.');
+    dico(P().grazie.replace('$N', nome));
+    setTimeout(chiedi, 2400);
   };
   d.querySelector('#ec-ok').onclick = rispondi;
   input.onkeydown = (e) => { if (e.key === 'Enter') rispondi(); };
@@ -1766,174 +1915,120 @@ function creaMusica() {
   const gn = ac.createGain(); gn.gain.value = 0;
   gn.connect(ac.destination);
 
-  // ── LA SALA
-  // ⚠️ E NON DEVE ESSERE UNA CRIPTA. Raffaella, 07/09: *«la musica è terribile,
-  //    sembra un film horror»*. Una coda di cinque secondi e' una cattedrale
-  //    vuota, ed e' meta' della ricetta del thriller: il suono torna da lontano
-  //    quando non te lo aspetti piu'. Tre secondi sono una sala grande e
-  //    accogliente — lo spazio si sente lo stesso, la minaccia no.
+  // ── LA SALA. Grande ma non una cripta: l'organo vuole spazio, il thriller no.
   const sala = ac.createConvolver();
-  try { sala.buffer = salaSintetica(ac, 2.9); } catch (e) {}
-  const salaG = ac.createGain(); salaG.gain.value = 0.6;
+  try { sala.buffer = salaSintetica(ac, 3.4); } catch (e) {}
+  const salaG = ac.createGain(); salaG.gain.value = 0.72;
   sala.connect(salaG); salaG.connect(gn);
   const versoLaSala = (nodo, quanto) => {
     const g = ac.createGain(); g.gain.value = quanto;
     nodo.connect(g); g.connect(sala);
   };
 
-  // ── IL TAPPETO, e non deve rombare
-  // ⚠️ E PIU' APERTO DI PRIMA (07/09). Un pad scuro che si apre e si chiude
-  //    piano e' il respiro di qualcosa nel buio: e' suspense, non spazio.
-  //    Piu' luce e meno movimento, e diventa aria.
   const flt = ac.createBiquadFilter();
-  flt.type = 'lowpass'; flt.frequency.value = 1500; flt.Q.value = 0.6;
-  // ⚠️ IL PASSA-ALTO E' LA RIGA CHE TOGLIE L'AEREO. Sotto i 110 Hz non passa
-  //    piu' niente: e' li' che vive il rombo, ed e' li' che non serve nessuna
-  //    delle note che stiamo suonando.
+  flt.type = 'lowpass'; flt.frequency.value = 2200; flt.Q.value = 0.5;
   const hp = ac.createBiquadFilter();
   hp.type = 'highpass'; hp.frequency.value = 110; hp.Q.value = 0.6;
   flt.connect(hp); hp.connect(gn);
-  versoLaSala(hp, 0.5);
+  versoLaSala(hp, 0.55);
 
-  const respiro = ac.createGain(); respiro.gain.value = 0.66;
-  respiro.connect(flt);
-  const lfoR = ac.createOscillator(); lfoR.frequency.value = 0.062;
-  const lfoRg = ac.createGain(); lfoRg.gain.value = 0.22;
-  lfoR.connect(lfoRg); lfoRg.connect(respiro.gain); lfoR.start();
-
-  // ⚠️ MAGGIORE, NON MINORE — ed e' l'altra meta' dell'horror, tolta il 07/09.
-  //
-  //    La versione di prima era in RE MINORE senza terza, con campane e cinque
-  //    secondi di coda: e' la ricetta letterale del thriller. «Senza terza non
-  //    dice ne' allegro ne' triste» e' vero da fermo, ma appena la melodia
-  //    entra su una pentatonica MINORE la terza la mette lei — e quello che
-  //    resta e' inquietudine.
-  //
-  //    Meraviglia e minaccia usano gli stessi ingredienti e cambiano di segno
-  //    per due dettagli soli: **il modo** e **il verso della linea**. Qui:
-  //    FA maggiore con la nona — fa, do, sol, la — che e' un accordo aperto e
-  //    luminoso, e una cadenza che RITORNA a casa invece di restare sospesa.
-  //    La minore in fondo e' l'unica ombra, e serve: senza nessuna ombra
-  //    diventa zuccheroso, che e' l'altro modo di sbagliare.
-  const ACCORDI = [
-    [174.61, 261.63, 349.23, 392.00, 523.25],   // fa9   (fa do fa sol do)
-    [130.81, 196.00, 261.63, 293.66, 392.00],   // do9   (do sol do re sol)
-    [196.00, 293.66, 392.00, 440.00, 587.33],   // sol9  (sol re sol la re)
-    [220.00, 329.63, 440.00, 493.88, 659.26],   // la m9 (la mi la si mi)
-  ];
-  const TIMBRI = ['sine', 'sine', 'triangle', 'sine', 'triangle'];
-  const VOLUMI = [0.30, 0.24, 0.13, 0.16, 0.07];
-  // ⚠️ SCORDATE DI POCHI CENTESIMI, NON DI UN TERZO DI HERTZ. Cinque valori
-  //    diversi e nessuno multiplo dell'altro: quello che ne esce e' uno
-  //    scintillio, non una pulsazione. Il battimento stretto era l'aereo.
-  const SCARTI = [-6, 4, -3, 7, -9];
-  const osc = [];
-  for (let i = 0; i < TIMBRI.length; i++) {
-    const o = ac.createOscillator(); o.type = TIMBRI[i];
-    o.frequency.value = ACCORDI[0][i];
-    o.detune.value = SCARTI[i];
-    const g = ac.createGain(); g.gain.value = VOLUMI[i];
-    o.connect(g); g.connect(respiro); o.start();
-    // ogni voce respira col suo passo: cinque respiri diversi non fanno
-    // un'onda sola
-    const l = ac.createOscillator(); l.frequency.value = 0.03 + i * 0.017;
-    const lg = ac.createGain(); lg.gain.value = 3.5;
-    l.connect(lg); lg.connect(o.detune); l.start();
-    osc.push(o);
-  }
-  let accordo = 0;
-  const cambia = () => {
-    if (!S.aperto || !S.audio) return;
-    accordo = (accordo + 1) % ACCORDI.length;
-    const t = ac.currentTime;
-    for (let i = 0; i < osc.length; i++) {
-      const f = osc[i].frequency;
-      f.cancelScheduledValues(t);
-      f.setValueAtTime(f.value, t);
-      f.exponentialRampToValueAtTime(ACCORDI[accordo][i], t + 7);
-    }
-    S.accordo = setTimeout(cambia, 16000);
-  };
-  S.accordo = setTimeout(cambia, 13000);
-
-  // il filtro che si apre e si chiude piano: lo spazio che si allarga
-  const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.045;
-  const lfoFg = ac.createGain(); lfoFg.gain.value = 240;
-  lfoF.connect(lfoFg); lfoFg.connect(flt.frequency); lfoF.start();
-
-  // ── LA FRASE, ed e' la differenza fra un tappeto e una musica.
-  //
-  // ⚠️ Prima c'era un «rintocco» che pescava una nota dell'accordo e la
-  //    ribatteva: sempre la stessa altezza, sempre lo stesso gesto. Una nota
-  //    ripetuta e' un segnale, non una frase. Qui le note sono scelte da una
-  //    scala di cinque suoni — re, fa, sol, la, do, la pentatonica minore, che
-  //    e' consonante con tutti e quattro gli accordi — e ogni tanto **salta**
-  //    invece di andare per gradi. Il salto e' quello che si ricorda.
-  //
-  // ⚠️ E NON E' PIU' UNA CAMPANA — 07/09. La campana era il terzo pezzo
-  //    dell'horror, e stava in un numero: il parziale a **2,76 volte** la
-  //    fondamentale. Non e' un rapporto qualsiasi, e' il primo parziale
-  //    INARMONICO delle campane vere — cioe' una nota che non sta nella scala
-  //    di nessuno. E' quello che fa «rintocco funebre» invece di «nota».
-  //    Adesso i parziali sono **armonici** (1, 2, 3, 4 volte): ottava, quinta
-  //    sopra, doppia ottava. Tutti dentro l'accordo, nessuno contro. Il timbro
-  //    che ne esce e' vetro, non bronzo.
-  //
-  // ⚠️ E LA SCALA E' MAGGIORE. Prima era pentatonica MINORE su re, ed era lei a
-  //    mettere la terza che il pad aveva tolto: da li' l'inquietudine. Questa e'
-  //    la pentatonica maggiore di fa — fa sol la do re — che sta bene su tutti e
-  //    quattro gli accordi e non contiene nessun intervallo di tensione.
-  //
-  // ⚠️ E LA LINEA SALE PIU' DI QUANTO SCENDE. Meraviglia e minaccia hanno gli
-  //    stessi suoni e verso opposto: una linea che scende e' un peso che cade,
-  //    una che sale e' qualcosa che si apre. Qui il verso e' sbilanciato in su.
-  const SCALA = [349.23, 392.00, 440.00, 523.25, 587.33, 698.46, 783.99];
-  //             fa      sol     la      do      re      fa      sol
-  let grado = 1, versoSu = true;
-  const frase = () => {
-    if (!S.aperto || !S.audio) return;
-    const t = ac.currentTime;
-    // per gradi quasi sempre, un salto ogni tanto: e' cosi' che una melodia
-    // respira invece di camminare
-    const passo = Math.random() < 0.3 ? 2 : 1;
-    grado += versoSu ? passo : -passo;
-    if (grado >= SCALA.length) { grado = SCALA.length - 2; versoSu = false; }
-    if (grado < 0) { grado = 1; versoSu = true; }
-    // ⚠️ 0,18 in su contro 0,38 in giu': la linea torna a salire prima di
-    //    quanto scenda. Non e' simmetria, ed e' voluto.
-    if (Math.random() < (versoSu ? 0.18 : 0.38)) versoSu = !versoSu;
-    const f = SCALA[grado];
-
+  // ⚠️ IL REGISTRO D'ORGANO NON E' UN TIMBRO SCELTO A CASO, ed e' la cosa che
+  //    fa riconoscere quel genere prima di qualunque nota. Un organo a canne e'
+  //    un mucchio di SINUSOIDI in rapporto armonico intero — 1, 2, 3, 4, 6, 8 —
+  //    ed e' letteralmente come si registra un organo tirando i registri.
+  //    Nessun campione, nessun file: si somma.
+  const REGISTRI = [[1, 1.00], [2, 0.50], [3, 0.32], [4, 0.22], [6, 0.11], [8, 0.07]];
+  const canna = (f, dove, vol, t0, salita, tenuta, discesa, scarto) => {
     const g = ac.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    // attacco morbido, non percussivo: 0,25 s invece di 0,05. Un attacco
-    // secco e' un colpo, e un colpo mette in allarme.
-    g.gain.exponentialRampToValueAtTime(0.085, t + 0.25);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 5.5);
-    g.connect(gn); versoLaSala(g, 0.7);
-
-    for (const [rap, vol] of [[1, 1], [2, 0.30], [3, 0.12], [4, 0.05]]) {
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t0 + salita);
+    g.gain.setValueAtTime(Math.max(0.0002, vol), t0 + salita + tenuta);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + salita + tenuta + discesa);
+    g.connect(dove);
+    const fine = t0 + salita + tenuta + discesa + 0.05;
+    for (const [rap, peso] of REGISTRI) {
       const o = ac.createOscillator(); o.type = 'sine';
       o.frequency.value = f * rap;
-      const gv = ac.createGain(); gv.gain.value = vol;
+      if (scarto) o.detune.value = scarto;
+      const gv = ac.createGain(); gv.gain.value = peso;
       o.connect(gv); gv.connect(g);
-      o.start(t); o.stop(t + 6);
+      o.start(t0); o.stop(fine);
     }
-    // il respiro fra una nota e l'altra non e' regolare: una frase non e' un
-    // metronomo
-    S.rintocco = setTimeout(frase, 2800 + Math.random() * 3600);
+    return fine;
   };
-  S.rintocco = setTimeout(frase, 2000);
 
-  return { ac, gn };
+  // ⚠️ QUATTRO ACCORDI CHE SALGONO E TORNANO A CASA. La maggiore con la nona,
+  //    re, fa diesis minore, mi sospeso: e' il giro che regge quel genere di
+  //    colonna sonora — luminoso, una sola ombra, e una sospensione che CHIEDE
+  //    di tornare. La domanda e' quello che tiene sveglio l'ascolto.
+  const PAD = [
+    [220.00, 329.63, 440.00, 554.37],   // la  (la mi la do#)
+    [146.83, 293.66, 440.00, 587.33],   // re  (re re la re)
+    [185.00, 277.18, 369.99, 554.37],   // fa#m(fa# do# fa# do#)
+    [164.81, 246.94, 329.63, 493.88],   // mi sospeso (mi si mi si)
+  ];
+  // L'arpeggio: quattro note che salgono, sulla stessa armonia. E' la figura
+  // che gira — la cosa che si ricorda di quella musica.
+  const ARPE = [
+    [440.00, 554.37, 659.25, 880.00],
+    [440.00, 587.33, 739.99, 880.00],
+    [369.99, 554.37, 739.99, 880.00],
+    [329.63, 493.88, 659.25, 987.77],
+  ];
+
+  let accordo = 0, nota = 0;
+  const PASSO = 0.52;          // una nota ogni mezzo secondo scarso
+  const PER_ACCORDO = 20;      // ~10 secondi per accordo: armonia lenta
+
+  // Il pad d'organo tenuto sotto: quattro canne che cambiano con l'accordo.
+  const padG = ac.createGain(); padG.gain.value = 0.30; padG.connect(flt);
+  const suonaPad = () => {
+    if (!S.aperto || !S.audio) return;
+    const t = ac.currentTime;
+    const dur = PASSO * PER_ACCORDO;
+    const A = PAD[accordo];
+    for (let i = 0; i < A.length; i++)
+      canna(A[i], padG, 0.16 / (1 + i * 0.5), t, 2.2, dur - 3.6, 1.4, i % 2 ? 4 : -5);
+    S.accordo = setTimeout(() => { accordo = (accordo + 1) % PAD.length; suonaPad(); }, dur * 1000);
+  };
+  suonaPad();
+
+  // L'arpeggio sopra, staccato e leggero.
+  const arpG = ac.createGain(); arpG.gain.value = 0.20; arpG.connect(flt);
+  versoLaSala(arpG, 0.9);
+  const suonaArpe = () => {
+    if (!S.aperto || !S.audio) return;
+    const t = ac.currentTime;
+    const A = ARPE[accordo];
+    // ⚠️ non una scala che sale e basta: sale e ridiscende di un gradino, se no
+    //    dopo tre giri e' un esercizio di solfeggio.
+    const passi = [0, 1, 2, 3, 2, 1];
+    canna(A[passi[nota % passi.length]], arpG, 0.30, t, 0.03, 0.16, 0.55, 0);
+    nota++;
+    S.rintocco = setTimeout(suonaArpe, PASSO * 1000);
+  };
+  S.rintocco = setTimeout(suonaArpe, 900);
+
+  // ⚠️ E CRESCE. Quel genere di musica non comincia dove finisce: parte quasi
+  //    inudibile e si apre. Qui il volume sale nei primi trenta secondi, che e'
+  //    lo stesso tempo in cui la polvere si posa.
+  const su = ac.createGain(); // (segnaposto: la salita la fa `musicaSu`)
+  return { ac, gn, salita: true };
 }
+
 function musicaSu() {
   if (!S.musica) return;
   if (!S.audio) S.audio = creaMusica();
   if (!S.audio) return;
   if (S.audio.ac.state === 'suspended') S.audio.ac.resume();
-  S.audio.gn.gain.cancelScheduledValues(S.audio.ac.currentTime);
-  S.audio.gn.gain.linearRampToValueAtTime(0.62, S.audio.ac.currentTime + 3.5);
+  // ⚠️ E SI APRE PIANO. Quel genere di musica non comincia dove finisce: parte
+  //    quasi inudibile e cresce. Ventidue secondi, che e' lo stesso tempo in cui
+  //    la polvere si posa — la musica e la scena si aprono insieme.
+  const t = S.audio.ac.currentTime;
+  S.audio.gn.gain.cancelScheduledValues(t);
+  S.audio.gn.gain.setValueAtTime(Math.max(0.0001, S.audio.gn.gain.value), t);
+  S.audio.gn.gain.linearRampToValueAtTime(0.10, t + 2.5);
+  S.audio.gn.gain.linearRampToValueAtTime(0.56, t + 22);
 }
 function musicaGiu() {
   if (!S.audio) return;
