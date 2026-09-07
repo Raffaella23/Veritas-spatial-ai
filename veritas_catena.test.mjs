@@ -91,7 +91,7 @@ console.log('\n2. i guasti veri, uno per uno');
 {
   const m = mondoBuono();
   m.__veritasAccessi = { accessi: [{ nome: 'Accesso 1' }, { nome: 'Accesso 2' }] };
-  check('nessun accesso «da fuori»', stato(m, 6), 'rotto');
+  check('nessun accesso «da fuori», e l\'occhio ha già parlato', stato(m, 6), 'rotto');
 }
 {
   // «tappe messe a caso» — parole di Raffaella, 07/09
@@ -118,6 +118,15 @@ console.log('\n3. «NON ANCORA» NON È «ROTTO» — ed è la riga che tiene in
   const m = mondoBuono();
   m.veritasCinema = { stato: () => ({ aperto: false }) };
   check('film chiuso', stato(m, 9), 'attesa');
+}
+{
+  // ⚠️ Visto girare sul modello vero il 07/09: gli accessi si cercano prima che
+  //    l'occhio abbia parlato, e si rifanno da soli quando avra' finito. Finche'
+  //    e' cosi', «0 da fuori» e' un'attesa, non un guasto.
+  const m = mondoBuono();
+  m.__veritasVisto = { viste: [] }; m.__veritasVisteRegione = [];
+  m.__veritasAccessi = { accessi: [{ nome: 'Accesso 1' }, { nome: 'Accesso 2' }] };
+  check('0 «da fuori» mentre l\'occhio guarda ancora', stato(m, 6), 'attesa');
 }
 
 console.log('\n4. il PRIMO rotto, perché gli altri sono la sua ombra');

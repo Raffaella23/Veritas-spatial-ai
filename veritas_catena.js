@@ -154,16 +154,30 @@ function anelloConfine(testimonianzaOk) {
   return anello(5, 'il confine dentro/fuori', OK, misura);
 }
 
-/** Gli accessi, e quanti danno sul fuori. */
-function anelloAccessi() {
+/**
+ * Gli accessi, e quanti danno sul fuori.
+ *
+ * ⚠️ E QUI IL REFERTO POTEVA GRIDARE A VUOTO, corretto il 07/09 appena visto
+ *    girare la prima volta: gli ingressi si cercano appena il modello e' entrato,
+ *    l'occhio ci mette minuti, e finche' non ha parlato il marchio «da fuori»
+ *    non puo' esserci. Chiamarlo guasto in quel momento e' falso — gli accessi
+ *    si rifanno da soli quando l'occhio finisce.
+ *    Un allarme che suona quando non c'e' niente che non va viene spento dopo
+ *    due giorni, e allora tanto vale non averlo scritto.
+ */
+function anelloAccessi(testimonianzaPronta) {
   const A = typeof window !== 'undefined' ? window.__veritasAccessi : null;
   if (!A) return anello(6, 'gli accessi', ATTESA, 'non ancora cercati');
   const acc = A.accessi || [];
   const fuori = acc.filter((a) => /fuori|outside/i.test(a.nome || '')).length;
   const misura = acc.length + ' accessi · ' + fuori + ' marcati «da fuori»';
   if (!acc.length) return anello(6, 'gli accessi', ROTTO, misura, 'nessun ingresso trovato');
-  if (!fuori) return anello(6, 'gli accessi', ROTTO, misura,
-    'nessuno dà sul fuori: il viaggio non può cominciare da chi arriva');
+  if (!fuori) return anello(6, 'gli accessi', testimonianzaPronta ? ROTTO : ATTESA, misura,
+    testimonianzaPronta
+      ? 'nessuno dà sul fuori anche se l’occhio ha già parlato: il viaggio non può '
+        + 'cominciare da chi arriva, e questa volta non è questione di aspettare'
+      : 'nessuno dà ancora sul fuori, ma l’occhio non ha finito: si rifanno da soli '
+        + 'quando avrà parlato');
   return anello(6, 'gli accessi', OK, misura);
 }
 
@@ -235,7 +249,7 @@ export function catena() {
   const a3 = anelloTestimonianza(a2.stato === OK);
   const a4 = anelloSpazi();
   const a5 = anelloConfine(a3.stato === OK);
-  const a6 = anelloAccessi();
+  const a6 = anelloAccessi(a3.stato === OK);
   const a7 = anelloTappe();
   const a8 = anelloCammino();
   const a9 = anelloFilm();
