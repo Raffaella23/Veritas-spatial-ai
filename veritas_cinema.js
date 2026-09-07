@@ -181,7 +181,7 @@ const S = {
   //    si usa: e' protetta, e in un prodotto che si vende e' il problema di
   //    Neufert. Si prende il CARATTERE e si suona.
   audio: null, musica: true, lancio: null,
-  chat: null, chiestaZona: null, ascolto: null, voce: true,
+  chat: null, chiestaZona: null, ascolto: null, voce: true, canto: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -1632,9 +1632,92 @@ function voceDi(testo) {
 function zonaDaChiedere() {
   const zz = S.zone || [];
   let scelta = null;
+  // ⚠️ IL CICLO. La riga `for` era stata cancellata da una sostituzione fatta a
+  //    righe invece che a testo: `Z` non esisteva piu', la chat esplodeva appena
+  //    si apriva, e non rispondeva ne' parlando ne' scrivendo. `node --check`
+  //    non l'ha preso — e' la stessa trappola di sempre: usare una cosa che non
+  //    esiste non e' un errore di sintassi. Raffaella l'ha trovato in un minuto
+  //    usandola, che e' l'unico modo in cui questi guasti si trovano.
+  for (const Z of zz)
     if (!Z.nome && !(S.saltate && S.saltate.has(Z))
         && (!scelta || Z.area > scelta.area)) scelta = Z;
   return scelta;
+}
+
+/**
+ * LEGGERE UNA RISPOSTA DETTA A VOCE — e non pretendere di capire più di quel
+ * che si capisce.
+ *
+ * ⚠️ STA QUI FUORI, E NON DENTRO LA CHAT, PER UN MOTIVO PAGATO IL 07/09: il
+ *    dialogo si era rotto e nessuno se n'era accorto, perché per provarlo
+ *    servivano un browser con una finestra vera e un clic — e quel giorno la
+ *    finestra era larga zero. Una funzione pura si prova in Node in mezzo
+ *    secondo, e `veritas_dialogo.test.mjs` lo fa a ogni giro.
+ *
+ * 📌 E la prova, appena scritta, ha bocciato SUBITO quattordici casi — fra cui
+ *    proprio «sì, hai capito bene», che è la frase con cui Raffaella aveva
+ *    descritto il dialogo. Nessuno di quei quattordici si sarebbe visto
+ *    leggendo il codice.
+ *
+ * Riconosce tre cose sole — sì, no, non lo so — e per il resto cerca il nome
+ * dopo un attacco («questa è…», «si tratta di…»). Se non lo trova torna
+ * «non capito», e chi chiama RICHIEDE invece di indovinare: un nome messo per
+ * sbaglio su un volume è peggio di nessun nome.
+ */
+// ⚠️ I CONFINI DI PAROLA SONO SCRITTI PER ESTESO, e non con `\b`.
+//    In JavaScript `\b` conosce solo le lettere inglesi: dopo una «ì» o una «è»
+//    non vede nessun confine, quindi `\bsì\b` non riconosce «sì» e `\bè\b` non
+//    riconosce «è». Misurato il 07/09: «si» senza accento funzionava e «sì» no
+//    — che su un'interfaccia italiana vuol dire non funziona.
+//    Con `\p{L}` e la bandiera `u` il confine si dichiara, e vale per tutte le
+//    lingue: che è quello che serve a una piattaforma agnostica.
+const CONF_A = '(?<!\\p{L})';
+const CONF_D = '(?!\\p{L})';
+const PAROLE_SI = new RegExp(CONF_A + "(s[iì]|esatto|esattamente|giusto|corretto|certo"
+  + "|ok|va|bene|d'accordo|hai|capito|ragione|indovinato|proprio|cos[iì]"
+  + '|yes|yeah|correct|right|exactly)' + CONF_D, 'giu');
+const PAROLE_NO = new RegExp(CONF_A + '(no|non|nope|sbagliato|wrong)' + CONF_D, 'giu');
+const BOH = /^\s*(non lo so|non so|boh|non saprei|no idea|nessuna idea|dunno)/i;
+// I verbi con cui si presenta una cosa. Servono a due mestieri: tagliare
+// l'attacco («questa è…») e, in «non è X, è Y», tenere l'ULTIMO — perché in una
+// correzione la cosa giusta è quella che viene dopo.
+const VERBI = new RegExp(CONF_A + "(?:si tratta di|sarebbe|c'è|would be|è|e'|is)" + CONF_D, 'giu');
+const APERTURA = new RegExp('^\\s*(?:(?:s[iì]|no|esatto|certo|ok|yes|allora|guarda'
+  + '|secondo me)[,.\\s]+)*(?:(?:questa|questo|qui|qua|lì|li|it|this|that)\\s+)?', 'iu');
+const ARTICOLI = /^(?:un|uno|una|un'|il|lo|la|i|gli|le|a|an|the)\s+/i;
+
+export function leggiRisposta(grezzo, proposta) {
+  const t = (grezzo || '').trim();
+  if (!t) return { azione: 'niente' };
+  if (BOH.test(t)) return { azione: 'non lo so' };
+
+  const nudo = (x) => x.replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+  // ⚠️ SOLO ACCORDO: «sì», «esatto», «sì, hai capito bene». Tolte le parole di
+  //    accordo non resta niente, e allora vale la PROPOSTA che l'AI aveva fatto
+  //    — che è esattamente il dialogo descritto da Raffaella.
+  //    Senza una proposta davanti, però, un «sì» non vuol dire niente: si
+  //    richiede, invece di posare un nome che nessuno ha detto.
+  if (!nudo(t.replace(PAROLE_SI, ' '))) {
+    return proposta ? { azione: 'nome', nome: proposta, da: 'proposta' }
+                    : { azione: 'non capito' };
+  }
+  // ⚠️ E un «no» secco non è una correzione: è un rifiuto. Non si inventa
+  //    niente, si richiede.
+  if (!nudo(t.replace(PAROLE_NO, ' '))) return { azione: 'non capito' };
+
+  // «non è una sala d'attesa, è un corridoio» → vale «corridoio»: in una
+  // correzione la cosa giusta è l'ultima.
+  const pezzi = t.split(VERBI);
+  const coda = pezzi.length > 1 ? pezzi[pezzi.length - 1] : t;
+  const nome = coda
+    .replace(APERTURA, '')
+    .replace(/^[,;:\s]+/, '')
+    .replace(ARTICOLI, '')
+    .replace(/[.!?,;:\s]+$/, '')
+    .trim();
+  if (!nome) return { azione: 'non capito' };
+  return { azione: 'nome', nome: nome, da: 'detto' };
 }
 
 function apriChat(v) {
@@ -1744,11 +1827,6 @@ function apriChat(v) {
   //    nome dopo un attacco («questa è…», «si tratta di…»). Se non lo trova
   //    RICHIEDE invece di indovinare: un nome messo per sbaglio su un volume è
   //    peggio di nessun nome, ed è la stessa regola dei nomi inventati.
-  const SI = /^(s[iì]|esatto|esattamente|giusto|corretto|certo|ok|va bene|hai (capito bene|ragione|indovinato)|proprio cos[iì]|yes|yeah|correct|right|exactly)\b/i;
-  const NO = /^(no|non è|non e'|nope)\b/i;
-  const BOH = /^(non lo so|non so|boh|non saprei|no idea|dunno)\b/i;
-  const ATTACCHI = /^(?:(?:s[iì]|no|esatto|certo|ok|hai capito bene|hai ragione|yes)[,.\s]+)*(?:(?:questa|questo|qui|qua|l[iì]|it|this|that)\s+)?(?:(?:è|e'|sarebbe|si tratta di|c'è|is|would be)\s+)?(?:(?:un|uno|una|un'|il|lo|la|i|gli|le|a|an|the)\s+)?/i;
-
   const rispondi = () => {
     const grezzo = (input.value || '').trim();
     if (!grezzo) return;
@@ -1756,16 +1834,13 @@ function apriChat(v) {
     const Z = S.chiestaZona;
     if (!Z) { dico(P().tutteNominate); return; }
 
-    if (BOH.test(grezzo)) {
+    const letta = leggiRisposta(grezzo, S.proposta);
+    if (letta.azione === 'non lo so') {
       S.saltate = (S.saltate || new Set()); S.saltate.add(Z);
       dico(P().vabene); setTimeout(chiedi, 1800); return;
     }
-
-    let nome = grezzo.replace(ATTACCHI, '').replace(/[.!?\s]+$/, '').trim();
-    // «sì, hai capito bene» da solo: vale la proposta che l'AI aveva fatto.
-    if (!nome && SI.test(grezzo) && S.proposta) nome = S.proposta;
-    if (!nome) { dico(P().equindi); return; }
-    if (NO.test(grezzo) && nome === S.proposta) { dico(P().equindi); return; }
+    if (letta.azione !== 'nome') { dico(P().equindi); return; }
+    const nome = letta.nome;
 
     // ⚠️ Il nome si posa SUBITO: il cartellino lo rilegge a ogni fotogramma,
     //    quindi si vede mentre il film scorre — «rinominati durante la
@@ -1969,11 +2044,31 @@ function creaMusica() {
   ];
   // L'arpeggio: quattro note che salgono, sulla stessa armonia. E' la figura
   // che gira — la cosa che si ricorda di quella musica.
+  // ⚠️ NON UN GIRO DI TRE NOTE — Raffaella, 07/09 sera: *«la musica va, e sono
+  //    tre note che vanno avanti a giro, quindi no»*. E aveva ragione: la figura
+  //    era di sei passi e si ripeteva identica tre volte per accordo, quindi
+  //    quello che si sentiva era un anello, non una frase.
+  //    Adesso cinque note per accordo, e per ogni accordo un DISEGNO DIVERSO —
+  //    con dei silenzi dentro (`null`). Il silenzio e' quello che trasforma una
+  //    scala in una frase: senza respiro, qualunque sequenza torna un anello.
   const ARPE = [
-    [440.00, 554.37, 659.25, 880.00],
-    [440.00, 587.33, 739.99, 880.00],
-    [369.99, 554.37, 739.99, 880.00],
-    [329.63, 493.88, 659.25, 987.77],
+    [440.00, 554.37, 659.25, 880.00, 1108.73],
+    [440.00, 587.33, 739.99, 880.00, 1174.66],
+    [369.99, 554.37, 739.99, 880.00, 1108.73],
+    [329.63, 493.88, 659.25, 987.77, 1318.51],
+  ];
+  const DISEGNI = [
+    [0, 1, 2, 3, null, 2, 4, 3, 1, null],
+    [0, 2, 1, 3, 4, null, 3, 2, null, 1, 0, null],
+    [2, 3, 4, null, 3, 1, 2, 0, null],
+    [0, 1, 3, 2, 4, 3, null, 2, 1, null, 0],
+  ];
+  // ⚠️ E UNA VOCE SOPRA, che tiene note lunghe. Un arpeggio da solo e' un
+  //    accompagnamento: e' il canto che fa ricordare una musica. Poche note,
+  //    lunghissime, quasi sempre per gradi e ogni tanto un salto.
+  const CANTO = [
+    [659.25, 880.00, 1108.73], [587.33, 880.00, 1174.66],
+    [554.37, 739.99, 1108.73], [493.88, 987.77, 659.25],
   ];
 
   let accordo = 0, nota = 0;
@@ -1999,15 +2094,31 @@ function creaMusica() {
   const suonaArpe = () => {
     if (!S.aperto || !S.audio) return;
     const t = ac.currentTime;
-    const A = ARPE[accordo];
-    // ⚠️ non una scala che sale e basta: sale e ridiscende di un gradino, se no
-    //    dopo tre giri e' un esercizio di solfeggio.
-    const passi = [0, 1, 2, 3, 2, 1];
-    canna(A[passi[nota % passi.length]], arpG, 0.30, t, 0.03, 0.16, 0.55, 0);
+    const A = ARPE[accordo], D = DISEGNI[accordo];
+    const g = D[nota % D.length];
+    // un silenzio e' una nota anche lui: si conta il passo e non si suona
+    if (g !== null) canna(A[g], arpG, 0.28, t, 0.03, 0.16, 0.58, 0);
     nota++;
     S.rintocco = setTimeout(suonaArpe, PASSO * 1000);
   };
   S.rintocco = setTimeout(suonaArpe, 900);
+
+  // Il canto: una nota lunga ogni tanto, sopra tutto il resto.
+  const cantoG = ac.createGain(); cantoG.gain.value = 0.16; cantoG.connect(flt);
+  versoLaSala(cantoG, 1.0);
+  let grado = 0, versoSu = true;
+  const suonaCanto = () => {
+    if (!S.aperto || !S.audio) return;
+    const C = CANTO[accordo];
+    grado += versoSu ? 1 : -1;
+    if (grado >= C.length) { grado = C.length - 2; versoSu = false; }
+    if (grado < 0) { grado = 1; versoSu = true; }
+    if (Math.random() < 0.22) versoSu = !versoSu;
+    const t = ac.currentTime;
+    canna(C[grado], cantoG, 0.20, t, 1.6, 3.2, 2.6, -4);
+    S.canto = setTimeout(suonaCanto, 7400 + Math.random() * 4200);
+  };
+  S.canto = setTimeout(suonaCanto, 5200);
 
   // ⚠️ E CRESCE. Quel genere di musica non comincia dove finisce: parte quasi
   //    inudibile e si apre. Qui il volume sale nei primi trenta secondi, che e'
@@ -2385,6 +2496,7 @@ export function chiudi() {
   if (S.raf) cancelAnimationFrame(S.raf);
   if (S.rintocco) { clearTimeout(S.rintocco); S.rintocco = null; }
   if (S.accordo) { clearTimeout(S.accordo); S.accordo = null; }
+  if (S.canto) { clearTimeout(S.canto); S.canto = null; }
   musicaGiu();
   // ⚠️ Il microfono e la voce si spengono con la finestra. Un microfono che
   //    resta acceso dopo che l'utente ha chiuso e' la cosa peggiore che questo
