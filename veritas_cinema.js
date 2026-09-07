@@ -1861,26 +1861,36 @@ export function chiudi() {
 //    la stessa strada gia' usata per il bottone «Splat 3D». Se domani quei
 //    comandi cambiano nome, il pulsante torna nel suo angolo invece di
 //    atterrare in mezzo allo schermo.
+// ⚠️ IL BUNDLE NON SI TOCCA, NEMMENO PER METTERGLI UN BOTTONE ACCANTO.
+//    Costato subito, il 06/09: infilare il pulsante DENTRO il contenitore di
+//    x1/x2 gli ha rotto la disposizione e ha aperto un pannello bianco vuoto
+//    sopra i quattro numeri. La regola era gia' scritta ed e' la stessa dei
+//    pannelli: «le colonne si spostano con `order`, non muovendo nodi: il
+//    bundle non si tocca». Ci si mette ACCANTO senza entrarci: si misura dove
+//    sta x1 sullo schermo e ci si affianca, restando fuori dal suo albero.
 function accantoAllaBarra(b) {
   try {
     const q = Array.prototype.slice.call(document.querySelectorAll('button'))
       .filter((x) => /^x[12]$/i.test((x.textContent || '').trim()));
     if (!q.length) return false;
-    const ultimo = q[q.length - 1];
-    if (!ultimo.parentElement) return false;
-    b.style.cssText = [
-      'position:relative', 'margin:0 10px 0 0', 'vertical-align:middle',
-      'display:inline-flex', 'align-items:center', 'gap:9px',
-      'padding:6px 14px 6px 7px', 'border:0', 'border-radius:100px',
-      'cursor:pointer', 'background:rgba(255,255,255,.92)',
-      'box-shadow:0 1px 3px rgba(20,26,51,.10),0 6px 20px rgba(20,26,51,.12)',
-      'font-family:"Helvetica Neue",Helvetica,Arial,sans-serif', 'font-size:12.5px',
-      'font-weight:500', 'color:' + INCHIOSTRO, 'white-space:nowrap',
-      'transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease',
-    ].join(';');
-    ultimo.parentElement.insertBefore(b, q[0]);
+    const r = q[0].getBoundingClientRect();
+    if (!r.width || !r.height) return false;
+    b.style.position = 'fixed';
+    b.style.left = 'auto';
+    b.style.right = Math.round(window.innerWidth - r.left + 12) + 'px';
+    b.style.bottom = Math.round(window.innerHeight - r.bottom) + 'px';
+    b.style.padding = '7px 15px 7px 8px';
+    b.style.fontSize = '12.5px';
+    b.dataset.ancorato = '1';
     return true;
   } catch (e) { return false; }
+}
+
+// La barra si sposta quando la finestra cambia misura o si massimizza: il
+// pulsante la segue, invece di restare dov'era.
+function seguiLaBarra() {
+  const b = document.getElementById('eidetica-live-btn');
+  if (b && b.dataset.ancorato) accantoAllaBarra(b);
 }
 
 function pulsante() {
@@ -1911,8 +1921,8 @@ function pulsante() {
 
   // ⚠️ La barra del bundle nasce dopo di noi: si riprova finche' c'e', e nel
   //    frattempo il pulsante resta comunque raggiungibile nel suo angolo.
+  document.body.appendChild(b);
   if (!accantoAllaBarra(b)) {
-    document.body.appendChild(b);
     let tentativi = 0;
     const riprova = () => {
       if (tentativi++ > 40 || !document.getElementById('eidetica-live-btn')) return;
@@ -1920,6 +1930,7 @@ function pulsante() {
     };
     setTimeout(riprova, 700);
   }
+  addEventListener('resize', seguiLaBarra);
 }
 
 if (typeof window !== 'undefined') {

@@ -292,6 +292,21 @@
       confirm_email_msg: "Controlla la tua email per confermare l'account, poi accedi.",
       projects_title: "I tuoi progetti", projects_subtitle: "Seleziona un progetto o creane uno nuovo",
       logout_label: "esci", no_projects: "Nessun progetto ancora",
+      // I quattro numeri della simulazione. Stavano scritti a mano in italiano
+      // dentro il codice, e restavano italiani anche a piattaforma inglese:
+      // Raffaella, 06/09, «l'editor delle zone traduce, i quattro numeri no —
+      // ci vuole una regola che traduce tutto l'universo».
+      kpi_flusso: "Flusso", kpi_transito: "Transito medio",
+      kpi_cammino: "In cammino", kpi_saturazione: "Saturazione",
+      kpi_non_avviata: "non avviata", kpi_non_calcolabile: "non calcolabile",
+      kpi_nessun_arrivo: "nessun arrivo",
+      kpi_perche_ferma: "la simulazione non e' ancora stata avviata",
+      kpi_perche_vuota: "nessuna traiettoria calcolata su questo spazio",
+      kpi_perche_senza: "nessuno e' ancora arrivato in fondo al percorso",
+      kpi_spiega_flusso: "persone che completano il percorso, al secondo",
+      kpi_spiega_transito: "quanto ci mette chi arriva, dall'ingresso alla meta",
+      kpi_spiega_cammino: "persone ancora in movimento all'ultimo fotogramma, su ",
+      kpi_spiega_saturazione: "quota di tempo passata ferma in coda",
       new_project_label: "Nuovo progetto", new_project_placeholder: "Nome progetto",
       type_airport: "Aeroporto", type_museum: "Museo", type_gaming: "Gaming",
       type_hospital: "Ospedale", type_school: "Scuola", type_retail: "Spazio commerciale",
@@ -400,6 +415,17 @@
       confirm_email_msg: "Check your email to confirm your account, then sign in.",
       projects_title: "Your projects", projects_subtitle: "Select a project or create a new one",
       logout_label: "sign out", no_projects: "No projects yet",
+      kpi_flusso: "Flow", kpi_transito: "Average transit",
+      kpi_cammino: "Walking", kpi_saturazione: "Saturation",
+      kpi_non_avviata: "not started", kpi_non_calcolabile: "not computable",
+      kpi_nessun_arrivo: "no arrivals",
+      kpi_perche_ferma: "the simulation has not been started yet",
+      kpi_perche_vuota: "no trajectory computed on this space",
+      kpi_perche_senza: "nobody has reached the end of the route yet",
+      kpi_spiega_flusso: "people completing the route, per second",
+      kpi_spiega_transito: "how long it takes those who arrive, from entrance to destination",
+      kpi_spiega_cammino: "people still moving on the last frame, out of ",
+      kpi_spiega_saturazione: "share of time spent waiting in queue",
       new_project_label: "New project", new_project_placeholder: "Project name",
       type_airport: "Airport", type_museum: "Museum", type_gaming: "Gaming",
       type_hospital: "Hospital", type_school: "School", type_retail: "Retail space",
@@ -7003,37 +7029,36 @@
   function veritasNumeriHtml() {
     const s = veritasStatoDeiNumeri();
     if (s.stato === "ferma") {
-      const perche = "la simulazione non e' ancora stata avviata";
-      return veritasCella("Flusso", "non avviata", perche, true)
-        + veritasCella("Transito medio", "non avviata", perche, true)
-        + veritasCella("In cammino", "non avviata", perche, true)
-        + veritasCella("Saturazione", "non avviata", perche, true);
+      const perche = t("kpi_perche_ferma"), q = t("kpi_non_avviata");
+      return veritasCella(t("kpi_flusso"), q, perche, true)
+        + veritasCella(t("kpi_transito"), q, perche, true)
+        + veritasCella(t("kpi_cammino"), q, perche, true)
+        + veritasCella(t("kpi_saturazione"), q, perche, true);
     }
     if (s.stato === "vuota") {
-      const perche = "nessuna traiettoria calcolata su questo spazio";
-      return veritasCella("Flusso", "non calcolabile", perche, true)
-        + veritasCella("Transito medio", "non calcolabile", perche, true)
-        + veritasCella("In cammino", "non calcolabile", perche, true)
-        + veritasCella("Saturazione", "non calcolabile", perche, true);
+      const perche = t("kpi_perche_vuota"), q = t("kpi_non_calcolabile");
+      return veritasCella(t("kpi_flusso"), q, perche, true)
+        + veritasCella(t("kpi_transito"), q, perche, true)
+        + veritasCella(t("kpi_cammino"), q, perche, true)
+        + veritasCella(t("kpi_saturazione"), q, perche, true);
     }
     const k = s.kpi;
     const nessunArrivo = !k.agenti_completati;
     // ⚠️ Flusso e transito parlano solo di chi ARRIVA: senza arrivi non sono
     // zero, sono senza risposta, e va detto invece di scrivere 0.000.
-    const senza = "nessuno e' ancora arrivato in fondo al percorso";
-    return veritasCella("Flusso",
-        nessunArrivo ? "nessun arrivo" : k.flusso_effettivo_p_s.toFixed(3) + " p/s",
-        nessunArrivo ? senza : "persone che completano il percorso, al secondo",
+    const senza = t("kpi_perche_senza"), niente = t("kpi_nessun_arrivo");
+    return veritasCella(t("kpi_flusso"),
+        nessunArrivo ? niente : k.flusso_effettivo_p_s.toFixed(3) + " p/s",
+        nessunArrivo ? senza : t("kpi_spiega_flusso"),
         nessunArrivo)
-      + veritasCella("Transito medio",
-        nessunArrivo ? "nessun arrivo" : Math.round(k.tempo_transito_medio_s) + " s",
-        nessunArrivo ? senza : "quanto ci mette chi arriva, dall'ingresso alla meta",
+      + veritasCella(t("kpi_transito"),
+        nessunArrivo ? niente : Math.round(k.tempo_transito_medio_s) + " s",
+        nessunArrivo ? senza : t("kpi_spiega_transito"),
         nessunArrivo)
-      + veritasCella("In cammino", String(k.agenti_attivi),
-        "persone ancora in movimento all'ultimo fotogramma, su "
-          + (k.agenti_attivi + k.agenti_completati), false)
-      + veritasCella("Saturazione", k.saturazione_checkpoint_pct.toFixed(0) + "%",
-        "quota di tempo passata ferma in coda", false);
+      + veritasCella(t("kpi_cammino"), String(k.agenti_attivi),
+        t("kpi_spiega_cammino") + (k.agenti_attivi + k.agenti_completati), false)
+      + veritasCella(t("kpi_saturazione"), k.saturazione_checkpoint_pct.toFixed(0) + "%",
+        t("kpi_spiega_saturazione"), false);
   }
 
   let vNumeriChiave = "";
@@ -26675,7 +26700,7 @@ if (typeof window !== 'undefined') {
      gia' quando il resto si disegna, e non si vede il salto. -->
 <script type="module" src="./veritas_carta.js?v=6"></script>
 <script type="module" src="./veritas_accessi.js?v=7"></script>
-<script type="module" src="./veritas_cinema.js?v=33"></script>
+<script type="module" src="./veritas_cinema.js?v=34"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
