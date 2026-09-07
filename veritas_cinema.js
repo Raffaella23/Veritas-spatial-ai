@@ -100,6 +100,31 @@ const PAROLE = {
 function lingua() {
   const g = window.__veritasLingua || window.__veritasLang;
   if (g && PAROLE[String(g).toLowerCase().slice(0, 2)]) return String(g).toLowerCase().slice(0, 2);
+  // ⚠️ LA LINGUA SCELTA STA IN `localStorage`, ED È LA STESSA CHE USA LO
+  //    SCHERMO. Raffaella, 07/09/2026: *«il microfono utente nella chat non ha
+  //    funzionato. Mi ha capito quando ho parlato in inglese, in italiano no.
+  //    Anche se siamo con tutta la schermata italiano?»*
+  //
+  //    Il guasto era qui, ed era doppio:
+  //    · `window.__veritasLingua` e `window.__veritasLang` **non li scrive
+  //      nessuno**, in tutto il repository: era un ramo morto, la stessa
+  //      malattia di `__veritasVisto` — *usare una cosa che non esiste non è
+  //      un errore di sintassi*;
+  //    · e il ripiego INDOVINAVA la lingua dalla VERNICE dei bottoni IT/EN
+  //      (opacità e grassetto). Ma quei bottoni cambiano `background` e
+  //      `color`, **non il peso del carattere**: la condizione non era mai
+  //      vera, e si finiva sempre sull'inglese. Il microfono chiedeva
+  //      `en-GB` con lo schermo tutto in italiano.
+  //
+  //    La lingua scelta la scrive `setLang()` in `localStorage.veritasLang`,
+  //    ed è la fonte che legge lo schermo: si legge quella, non la si indovina.
+  //    ⚠️ Resta vero che NON si guarda `document.documentElement.lang`
+  //       (misurato il 06/09: diceva «en» su un'interfaccia tutta italiana).
+  try {
+    const scelta = localStorage.getItem('veritasLang');
+    if (scelta && PAROLE[String(scelta).toLowerCase().slice(0, 2)])
+      return String(scelta).toLowerCase().slice(0, 2);
+  } catch (e) {}
   try {
     const b = Array.prototype.slice.call(document.querySelectorAll('button'))
       .filter((x) => /^(IT|EN)$/i.test((x.textContent || '').trim()));
