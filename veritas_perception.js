@@ -501,7 +501,41 @@ export function segmentZones(grid, ft, opts = {}) {
     || (typeof window !== "undefined" && window.__veritasVisto
         && window.__veritasVisto.ok && Array.isArray(window.__veritasVisto.viste)
         ? window.__veritasVisto.viste : []);
-  const testimoni = viste.filter((v) => v && v.ariaAperta && v.centro);
+  /*
+   * ⚠️ MODIFICA AUTORIZZATA DA RAFFAELLA IL 07/09/2026, dentro la milestone
+   *    chiusa il 06/09 (passo 5). Regola 7: misurato, portato il numero,
+   *    discusso, autorizzato. Il numero era questo, sulla pagina viva:
+   *
+   *      l'occhio consegna 16 testimonianze legate a una REGIONE — 8 dicono
+   *      «qui si e' all'aperto» — e il confine non si muove di un metro
+   *      quadro: 3.364 m² e 9 ambienti prima, 3.364 m² e 9 ambienti dopo,
+   *      zero accessi «da fuori» prima e dopo.
+   *
+   * ⚠️ IL PERCHE', in una riga: qui si accettava SOLO `v.centro`, cioe' solo
+   *    le testimonianze che portano un PUNTO. Ma una testimonianza legata a
+   *    una regione ha `centro: null` **per costruzione**, perche' la Regola 0
+   *    vieta di ricavare una posizione da una prospettiva. Quindi tutte e otto
+   *    venivano buttate, `quotaAperta` restava `null`, e il passo 5 della
+   *    milestone non scattava mai. Sintomo:
+   *    `[VERITAS zone] dentro/fuori: 5 dentro, 0 all'aperto`.
+   *
+   * ⚠️ E LA SORELLA LO FACEVA GIA' GIUSTO, venti righe piu' sotto:
+   *    `CALPESTIO_DI` legge `__veritasVisteRegione` e accetta
+   *    `(v.centro || v.regione)`. Qui si fa la stessa identica cosa, con lo
+   *    stesso pennello: un punto si dipinge come un cerchio di raggio noto,
+   *    una regione si dipinge tutta, perche' «in quest'area ho visto del
+   *    cielo» vuol dire esattamente quell'area.
+   *
+   * ⚠️ QUELLO CHE **NON** CAMBIA, e va detto: senza occhio non cambia
+   *    niente, come prima. Se nessuno ha guardato, `testimoni` resta vuoto,
+   *    `quotaAperta` resta `null`, e la geometria si comporta come si e'
+   *    sempre comportata. Un difetto di vista non diventa un difetto di
+   *    geometria — la riga della milestone regge parola per parola.
+   */
+  const apertoDaVicino = (typeof window !== "undefined"
+    && Array.isArray(window.__veritasVisteRegione)) ? window.__veritasVisteRegione : [];
+  const testimoni = (o.ariaAperta || viste.concat(apertoDaVicino))
+    .filter((v) => v && v.ariaAperta && (v.centro || v.regione));
 
   let quotaAperta = null;
   if (testimoni.length) {
@@ -510,16 +544,38 @@ export function segmentZones(grid, ft, opts = {}) {
     const raggio = o.raggioAriaAperta != null ? o.raggioAriaAperta : 6;
     const apertaCella = new Uint8Array(w * h);
     for (const t of testimoni) {
-      const cx = Math.round((t.centro[0] - minX) / cellSize);
-      const cz = Math.round((t.centro[2] - minZ) / cellSize);
-      const r = Math.ceil(raggio / cellSize);
-      for (let dz = -r; dz <= r; dz++)
-        for (let dx = -r; dx <= r; dx++) {
-          if (dx * dx + dz * dz > r * r) continue;
-          const nx = cx + dx, nz = cz + dz;
-          if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
-          apertaCella[nz * w + nx] = 1;
-        }
+      if (t.centro) {
+        const cx = Math.round((t.centro[0] - minX) / cellSize);
+        const cz = Math.round((t.centro[2] - minZ) / cellSize);
+        const r = Math.ceil(raggio / cellSize);
+        for (let dz = -r; dz <= r; dz++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dz * dz > r * r) continue;
+            const nx = cx + dx, nz = cz + dz;
+            if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+            apertaCella[nz * w + nx] = 1;
+          }
+        continue;
+      }
+      // La regione si dipinge TUTTA: non e' un punto con un alone, e' l'area
+      // che la telecamera aveva davvero inquadrato quando ha visto il cielo.
+      const Rg = t.regione;
+      if (!Rg || !Rg.min || !Rg.max) continue;
+      const x0 = Math.max(0, Math.floor((Rg.min[0] - minX) / cellSize));
+      const x1 = Math.min(w - 1, Math.ceil((Rg.max[0] - minX) / cellSize));
+      const z0 = Math.max(0, Math.floor((Rg.min[2] - minZ) / cellSize));
+      const z1 = Math.min(h - 1, Math.ceil((Rg.max[2] - minZ) / cellSize));
+      for (let nz = z0; nz <= z1; nz++)
+        for (let nx = x0; nx <= x1; nx++) apertaCella[nz * w + nx] = 1;
+    }
+    // ⚠️ SI DICHIARA DA DOVE VIENE LA PROVA. Un punto dice DOVE, una regione
+    //    dice SOLO IN QUALE AREA: non sono la stessa qualita' di prova, e chi
+    //    legge il referto deve poterlo sapere senza aprire il codice.
+    if (typeof console !== "undefined") {
+      const punti = testimoni.filter((t) => t.centro).length;
+      console.log("[VERITAS zone] l'aria aperta la dicono " + testimoni.length
+        + " testimonianze: " + punti + " da un punto, " + (testimoni.length - punti)
+        + " da una regione. Le seconde dicono in quale AREA, non dove.");
     }
     // Per ogni bacino: la maggioranza delle sue celle sta all'aperto, si' o no.
     // Una maggioranza non e' una soglia tarata: e' la domanda stessa.

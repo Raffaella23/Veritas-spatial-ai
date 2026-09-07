@@ -371,15 +371,51 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const fovGradi = opzioni.fovGradi || 50;
   // Sul modello intero resta la distanza di sempre, che e' tarata e funziona;
   // su un bersaglio piu' piccolo si calcola perche' lo RIEMPIA.
-  const distanza = opzioni.distanza
-    || (opzioni.bersaglio
-        ? distanzaPerInquadrare([dimInq.x, dimInq.y, dimInq.z], fovGradi, opzioni.margine)
-        : diagonale * 0.8);
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
   const elevRad = elevazioneGradi * Math.PI / 180;
 
-  const larghezza = opzioni.larghezza || 768;
-  const altezza = opzioni.altezza || 768;
+  // ⚠️ IL SOGGETTO RIEMPIE LA FINESTRA — richiesta di Raffaella, ripetuta piu'
+  //    volte e finalmente misurata il 07/09. Si inquadra proiettando gli
+  //    spigoli sugli assi della telecamera, non la sfera che contiene la
+  //    scatola: su una fila di taxi lunga 26 m e alta 2 la sfera mandava la
+  //    telecamera a 35 m, dove la finestra e' alta 32,6 m e le macchine sono
+  //    il sei per cento dell'immagine.
+  // ⚠️ E SI GUARDA DI LATO, NON DI PUNTA — ed è l'altra metà dello stesso
+  //    guasto, saltata fuori facendo il conto il 07/09.
+  //
+  //    L'angolo da cui si guardava un grappolo era **arbitrario**: il numero
+  //    d'ordine del grappolo diviso il totale, per 360 gradi. Su una fila di
+  //    taxi lunga 26 m e larga 4, metà degli angoli la inquadrano **di
+  //    punta**: sullo schermo restano i 4 m di larghezza, e i 26 di fila
+  //    finiscono nella profondità, dove non si contano. Nessuna distanza può
+  //    riparare un angolo sbagliato: si vede una macchina e dietro il nulla.
+  //
+  //    `diLato` mette la telecamera **perpendicolare al lato lungo**, cioè
+  //    dove il soggetto fa l'ombra più larga sulla finestra. Lo scarto
+  //    (`scartoGradi`) resta, perché serve a non guardare tutti i grappoli
+  //    dallo stesso punto — ma dentro pochi gradi, mai di punta.
+  let azimuthBase = opzioni.azimuthIniziale || 0;
+  if (opzioni.bersaglio && opzioni.diLato) {
+    const diTraverso = dimInq.x >= dimInq.z ? Math.PI / 2 : 0;
+    azimuthBase = diTraverso + (opzioni.scartoGradi || 0) * Math.PI / 180;
+  }
+
+  const riempi = opzioni.bersaglio
+    ? riempiLaFinestra([dimInq.x, dimInq.y, dimInq.z],
+        azimuthBase, elevRad, fovGradi, opzioni.margine)
+    : null;
+  const distanza = opzioni.distanza
+    || (riempi ? riempi.distanza : diagonale * 0.8);
+
+  // ⚠️ E LA FINESTRA PRENDE LA FORMA DEL SOGGETTO, a parita' di pixel spesi:
+  //    un soggetto lungo e basso in una finestra quadrata non puo' riempirla
+  //    per definizione. Se la misura viene chiesta esplicitamente, comanda
+  //    quella e non si tocca niente.
+  const PIXEL = 768;
+  const asp = riempi && opzioni.larghezza == null && opzioni.altezza == null
+    ? riempi.aspetto : 1;
+  const larghezza = opzioni.larghezza || Math.round(PIXEL * Math.sqrt(asp));
+  const altezza = opzioni.altezza || Math.round(PIXEL / Math.sqrt(asp));
 
   const scena = new THREE.Scene();
   scena.background = null;
@@ -399,7 +435,7 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
     const bersaglioPrec = renderer.getRenderTarget();
 
     for (let i = 0; i < n; i++) {
-      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      const azimuth = (i / n) * Math.PI * 2 + azimuthBase;
       // ⚠️ L'ALTEZZA COMANDA SULL'ANGOLO, quando viene dichiarata.
       //
       //    Un angolo non basta a dire dove sta l'occhio: dipende da quanto
@@ -512,6 +548,72 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
  * lunga e stretta, ma non taglia mai niente da nessun angolo di ripresa — e
  * un arredo tagliato a meta' e' peggio di un arredo un po' piu' piccolo.
  */
+/**
+ * RIEMPIRE LA FINESTRA — Raffaella, 07/09/2026, e non è la prima volta:
+ *
+ * > *«ci sono alcune viste, tipo proprio la due, che vedono l'oggetto
+ * > piccolino al centro e non va bene. Così si perdono tanti particolari, te
+ * > l'ho detto non so quante volte questa cosa qui. Imponi che lo scorcio vada
+ * > a riempire completamente la finestra.»*
+ *
+ * ⚠️ PERCHÉ NON RIEMPIVA, ed è aritmetica, non una svista.
+ *    `distanzaPerInquadrare` inquadra la **sfera** che contiene la scatola. Su
+ *    una scatola cubica va bene. Su una **lunga e bassa** — e la fila dei taxi
+ *    è lunga 26 m e alta 2 — la sfera ha raggio 13 m, la telecamera va a 35 m,
+ *    e a 35 m la finestra è alta **32,6 m**. Un soggetto alto 2 m occupa il
+ *    **6% dell'altezza**: un filo di macchine in mezzo a un quadrato vuoto.
+ *    Ecco perché i taxi non si vedono — ci sono, sono sei pixel.
+ *
+ * COSA FA INVECE: proietta gli **otto spigoli** della scatola sugli assi della
+ * telecamera (destra e su, per QUELL'azimuth e QUELL'elevazione) e trova la
+ * distanza a cui il soggetto tocca i bordi. Niente sfera, niente stima: la
+ * misura vera dell'ombra che il soggetto fa sulla finestra.
+ *
+ * ⚠️ E CAMBIA ANCHE LA FORMA DELLA FINESTRA. Un soggetto lungo e basso in
+ *    una finestra quadrata non può riempirla **per definizione**: o tocca i
+ *    lati e lascia vuoto sopra e sotto, o viceversa. Quindi la finestra prende
+ *    la forma del soggetto (entro due volte e mezzo, per non fare striscioline
+ *    illeggibili), a parità di pixel spesi.
+ *
+ * @returns {{distanza:number, aspetto:number}} distanza dal CENTRO, e larghezza/altezza
+ */
+export function riempiLaFinestra(dimensioni, azimuth, elevRad, fovGradi = 60, margine = 1.05) {
+  const d = dimensioni || [0, 0, 0];
+  const hx = Math.abs(d[0]) / 2, hy = Math.abs(d[1]) / 2, hz = Math.abs(d[2]) / 2;
+
+  // Gli assi della telecamera, per come `scorciTreQuarti` la mette: sta a
+  // (cos az, sin elev, sin az) rispetto al centro, e guarda il centro.
+  const ce = Math.cos(elevRad), se = Math.sin(elevRad);
+  const ca = Math.cos(azimuth), sa = Math.sin(azimuth);
+  // dalla telecamera VERSO il centro
+  const fx = -ce * ca, fy = -se, fz = -ce * sa;
+  // destra = normalizza(avanti × su), con su = (0,1,0)
+  const nr = Math.hypot(fz, fx) || 1;
+  const rx = fz / nr, ry = 0, rz = -fx / nr;
+  // su della telecamera = destra × avanti
+  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+
+  // ⚠️ L'OMBRA DI UNA SCATOLA SU UN ASSE è la somma dei semilati per il valore
+  //    assoluto delle componenti: vale per tutti e otto gli spigoli insieme,
+  //    senza doverli enumerare.
+  const semiL = hx * Math.abs(rx) + hy * Math.abs(ry) + hz * Math.abs(rz);
+  const semiA = hx * Math.abs(ux) + hy * Math.abs(uy) + hz * Math.abs(uz);
+  const semiP = hx * Math.abs(fx) + hy * Math.abs(fy) + hz * Math.abs(fz);
+
+  // La finestra prende la forma del soggetto, entro due volte e mezzo.
+  const LIMITE = 2.5;
+  const aspetto = Math.max(1 / LIMITE, Math.min(LIMITE,
+    semiA > 1e-6 ? semiL / semiA : 1));
+
+  const tanV = Math.tan(fovGradi * Math.PI / 360);
+  const tanO = aspetto * tanV;
+  // ⚠️ `semiP` va SOMMATO: la faccia vicina del soggetto sta mezza profondità
+  //    davanti al centro, e senza questo termine sborda dai bordi.
+  const perLargo = semiL / Math.max(1e-6, tanO) + semiP;
+  const perAlto = semiA / Math.max(1e-6, tanV) + semiP;
+  return { distanza: Math.max(0.5, Math.max(perLargo, perAlto) * (margine || 1.05)), aspetto };
+}
+
 export function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15) {
   const d = dimensioni || [0, 0, 0];
   const raggio = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 2;
@@ -734,9 +836,15 @@ export function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) 
       altezzaTelecamera: opzioni.altezzaTelecamera != null
         ? opzioni.altezzaTelecamera
         : g.min[1] + (opzioni.altezzaSezione != null ? opzioni.altezzaSezione : ALTEZZA_SEZIONE),
-      // ogni grappolo si guarda da un lato diverso: se fossero tutti dallo
-      // stesso azimuth, meta' degli arredi resterebbe sempre dietro a qualcosa
-      azimuthIniziale: (i / Math.max(1, grappoli.length)) * Math.PI * 2,
+      // ⚠️ DI LATO, SEMPRE. Prima ogni grappolo si guardava da un angolo
+      //    diverso su tutto il giro — l'idea era che se fossero tutti dallo
+      //    stesso verso meta' degli arredi resterebbe dietro a qualcosa. Vera,
+      //    ma pagata troppo cara: meta' dei grappoli finiva inquadrata di
+      //    punta. Adesso il verso di base e' perpendicolare al lato lungo, e
+      //    la varietà si prende con uno scarto di quaranta gradi a destra e a
+      //    sinistra: nessun grappolo di punta, e nessuno visto come il vicino.
+      diLato: true,
+      scartoGradi: -40 + 80 * (i / Math.max(1, grappoli.length - 1)),
       etichetta: 'grappolo di ' + g.pezzi + ' pezzi (' + g.etichetta + ')',
     });
     for (const v of viste) fuori.push(v);
@@ -1191,8 +1299,8 @@ export function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
       azimuthIniziale: azimuth,
       elevazioneGradi,
       distanza,                        // ← sette metri, non uno di più
-      larghezza: opzioni.larghezza || 768,
-      altezza: opzioni.altezza || 768,
+      larghezza: opzioni.larghezza,
+      altezza: opzioni.altezza,
       etichetta: 'passata ' + (i + 1) + ' di ' + passi + ', dal metro '
         + Math.round(centro - da - passo / 2) + ' al metro '
         + Math.round(centro - da + passo / 2) + ' in asse',
@@ -1204,4 +1312,5 @@ export function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
 
 export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
-  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine };
+  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine,
+  riempiLaFinestra };

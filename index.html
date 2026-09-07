@@ -12646,15 +12646,51 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const fovGradi = opzioni.fovGradi || 50;
   // Sul modello intero resta la distanza di sempre, che e' tarata e funziona;
   // su un bersaglio piu' piccolo si calcola perche' lo RIEMPIA.
-  const distanza = opzioni.distanza
-    || (opzioni.bersaglio
-        ? distanzaPerInquadrare([dimInq.x, dimInq.y, dimInq.z], fovGradi, opzioni.margine)
-        : diagonale * 0.8);
   const elevazioneGradi = opzioni.elevazioneGradi != null ? opzioni.elevazioneGradi : 35;
   const elevRad = elevazioneGradi * Math.PI / 180;
 
-  const larghezza = opzioni.larghezza || 768;
-  const altezza = opzioni.altezza || 768;
+  // ⚠️ IL SOGGETTO RIEMPIE LA FINESTRA — richiesta di Raffaella, ripetuta piu'
+  //    volte e finalmente misurata il 07/09. Si inquadra proiettando gli
+  //    spigoli sugli assi della telecamera, non la sfera che contiene la
+  //    scatola: su una fila di taxi lunga 26 m e alta 2 la sfera mandava la
+  //    telecamera a 35 m, dove la finestra e' alta 32,6 m e le macchine sono
+  //    il sei per cento dell'immagine.
+  // ⚠️ E SI GUARDA DI LATO, NON DI PUNTA — ed è l'altra metà dello stesso
+  //    guasto, saltata fuori facendo il conto il 07/09.
+  //
+  //    L'angolo da cui si guardava un grappolo era **arbitrario**: il numero
+  //    d'ordine del grappolo diviso il totale, per 360 gradi. Su una fila di
+  //    taxi lunga 26 m e larga 4, metà degli angoli la inquadrano **di
+  //    punta**: sullo schermo restano i 4 m di larghezza, e i 26 di fila
+  //    finiscono nella profondità, dove non si contano. Nessuna distanza può
+  //    riparare un angolo sbagliato: si vede una macchina e dietro il nulla.
+  //
+  //    `diLato` mette la telecamera **perpendicolare al lato lungo**, cioè
+  //    dove il soggetto fa l'ombra più larga sulla finestra. Lo scarto
+  //    (`scartoGradi`) resta, perché serve a non guardare tutti i grappoli
+  //    dallo stesso punto — ma dentro pochi gradi, mai di punta.
+  let azimuthBase = opzioni.azimuthIniziale || 0;
+  if (opzioni.bersaglio && opzioni.diLato) {
+    const diTraverso = dimInq.x >= dimInq.z ? Math.PI / 2 : 0;
+    azimuthBase = diTraverso + (opzioni.scartoGradi || 0) * Math.PI / 180;
+  }
+
+  const riempi = opzioni.bersaglio
+    ? riempiLaFinestra([dimInq.x, dimInq.y, dimInq.z],
+        azimuthBase, elevRad, fovGradi, opzioni.margine)
+    : null;
+  const distanza = opzioni.distanza
+    || (riempi ? riempi.distanza : diagonale * 0.8);
+
+  // ⚠️ E LA FINESTRA PRENDE LA FORMA DEL SOGGETTO, a parita' di pixel spesi:
+  //    un soggetto lungo e basso in una finestra quadrata non puo' riempirla
+  //    per definizione. Se la misura viene chiesta esplicitamente, comanda
+  //    quella e non si tocca niente.
+  const PIXEL = 768;
+  const asp = riempi && opzioni.larghezza == null && opzioni.altezza == null
+    ? riempi.aspetto : 1;
+  const larghezza = opzioni.larghezza || Math.round(PIXEL * Math.sqrt(asp));
+  const altezza = opzioni.altezza || Math.round(PIXEL / Math.sqrt(asp));
 
   const scena = new THREE.Scene();
   scena.background = null;
@@ -12674,7 +12710,7 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
     const bersaglioPrec = renderer.getRenderTarget();
 
     for (let i = 0; i < n; i++) {
-      const azimuth = (i / n) * Math.PI * 2 + (opzioni.azimuthIniziale || 0);
+      const azimuth = (i / n) * Math.PI * 2 + azimuthBase;
       // ⚠️ L'ALTEZZA COMANDA SULL'ANGOLO, quando viene dichiarata.
       //
       //    Un angolo non basta a dire dove sta l'occhio: dipende da quanto
@@ -12787,6 +12823,72 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
  * lunga e stretta, ma non taglia mai niente da nessun angolo di ripresa — e
  * un arredo tagliato a meta' e' peggio di un arredo un po' piu' piccolo.
  */
+/**
+ * RIEMPIRE LA FINESTRA — Raffaella, 07/09/2026, e non è la prima volta:
+ *
+ * > *«ci sono alcune viste, tipo proprio la due, che vedono l'oggetto
+ * > piccolino al centro e non va bene. Così si perdono tanti particolari, te
+ * > l'ho detto non so quante volte questa cosa qui. Imponi che lo scorcio vada
+ * > a riempire completamente la finestra.»*
+ *
+ * ⚠️ PERCHÉ NON RIEMPIVA, ed è aritmetica, non una svista.
+ *    `distanzaPerInquadrare` inquadra la **sfera** che contiene la scatola. Su
+ *    una scatola cubica va bene. Su una **lunga e bassa** — e la fila dei taxi
+ *    è lunga 26 m e alta 2 — la sfera ha raggio 13 m, la telecamera va a 35 m,
+ *    e a 35 m la finestra è alta **32,6 m**. Un soggetto alto 2 m occupa il
+ *    **6% dell'altezza**: un filo di macchine in mezzo a un quadrato vuoto.
+ *    Ecco perché i taxi non si vedono — ci sono, sono sei pixel.
+ *
+ * COSA FA INVECE: proietta gli **otto spigoli** della scatola sugli assi della
+ * telecamera (destra e su, per QUELL'azimuth e QUELL'elevazione) e trova la
+ * distanza a cui il soggetto tocca i bordi. Niente sfera, niente stima: la
+ * misura vera dell'ombra che il soggetto fa sulla finestra.
+ *
+ * ⚠️ E CAMBIA ANCHE LA FORMA DELLA FINESTRA. Un soggetto lungo e basso in
+ *    una finestra quadrata non può riempirla **per definizione**: o tocca i
+ *    lati e lascia vuoto sopra e sotto, o viceversa. Quindi la finestra prende
+ *    la forma del soggetto (entro due volte e mezzo, per non fare striscioline
+ *    illeggibili), a parità di pixel spesi.
+ *
+ * @returns {{distanza:number, aspetto:number}} distanza dal CENTRO, e larghezza/altezza
+ */
+function riempiLaFinestra(dimensioni, azimuth, elevRad, fovGradi = 60, margine = 1.05) {
+  const d = dimensioni || [0, 0, 0];
+  const hx = Math.abs(d[0]) / 2, hy = Math.abs(d[1]) / 2, hz = Math.abs(d[2]) / 2;
+
+  // Gli assi della telecamera, per come `scorciTreQuarti` la mette: sta a
+  // (cos az, sin elev, sin az) rispetto al centro, e guarda il centro.
+  const ce = Math.cos(elevRad), se = Math.sin(elevRad);
+  const ca = Math.cos(azimuth), sa = Math.sin(azimuth);
+  // dalla telecamera VERSO il centro
+  const fx = -ce * ca, fy = -se, fz = -ce * sa;
+  // destra = normalizza(avanti × su), con su = (0,1,0)
+  const nr = Math.hypot(fz, fx) || 1;
+  const rx = fz / nr, ry = 0, rz = -fx / nr;
+  // su della telecamera = destra × avanti
+  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+
+  // ⚠️ L'OMBRA DI UNA SCATOLA SU UN ASSE è la somma dei semilati per il valore
+  //    assoluto delle componenti: vale per tutti e otto gli spigoli insieme,
+  //    senza doverli enumerare.
+  const semiL = hx * Math.abs(rx) + hy * Math.abs(ry) + hz * Math.abs(rz);
+  const semiA = hx * Math.abs(ux) + hy * Math.abs(uy) + hz * Math.abs(uz);
+  const semiP = hx * Math.abs(fx) + hy * Math.abs(fy) + hz * Math.abs(fz);
+
+  // La finestra prende la forma del soggetto, entro due volte e mezzo.
+  const LIMITE = 2.5;
+  const aspetto = Math.max(1 / LIMITE, Math.min(LIMITE,
+    semiA > 1e-6 ? semiL / semiA : 1));
+
+  const tanV = Math.tan(fovGradi * Math.PI / 360);
+  const tanO = aspetto * tanV;
+  // ⚠️ `semiP` va SOMMATO: la faccia vicina del soggetto sta mezza profondità
+  //    davanti al centro, e senza questo termine sborda dai bordi.
+  const perLargo = semiL / Math.max(1e-6, tanO) + semiP;
+  const perAlto = semiA / Math.max(1e-6, tanV) + semiP;
+  return { distanza: Math.max(0.5, Math.max(perLargo, perAlto) * (margine || 1.05)), aspetto };
+}
+
 function distanzaPerInquadrare(dimensioni, fovGradi = 50, margine = 1.15) {
   const d = dimensioni || [0, 0, 0];
   const raggio = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 2;
@@ -13009,9 +13111,15 @@ function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) {
       altezzaTelecamera: opzioni.altezzaTelecamera != null
         ? opzioni.altezzaTelecamera
         : g.min[1] + (opzioni.altezzaSezione != null ? opzioni.altezzaSezione : ALTEZZA_SEZIONE),
-      // ogni grappolo si guarda da un lato diverso: se fossero tutti dallo
-      // stesso azimuth, meta' degli arredi resterebbe sempre dietro a qualcosa
-      azimuthIniziale: (i / Math.max(1, grappoli.length)) * Math.PI * 2,
+      // ⚠️ DI LATO, SEMPRE. Prima ogni grappolo si guardava da un angolo
+      //    diverso su tutto il giro — l'idea era che se fossero tutti dallo
+      //    stesso verso meta' degli arredi resterebbe dietro a qualcosa. Vera,
+      //    ma pagata troppo cara: meta' dei grappoli finiva inquadrata di
+      //    punta. Adesso il verso di base e' perpendicolare al lato lungo, e
+      //    la varietà si prende con uno scarto di quaranta gradi a destra e a
+      //    sinistra: nessun grappolo di punta, e nessuno visto come il vicino.
+      diLato: true,
+      scartoGradi: -40 + 80 * (i / Math.max(1, grappoli.length - 1)),
       etichetta: 'grappolo di ' + g.pezzi + ' pezzi (' + g.etichetta + ')',
     });
     for (const v of viste) fuori.push(v);
@@ -13466,8 +13574,8 @@ function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
       azimuthIniziale: azimuth,
       elevazioneGradi,
       distanza,                        // ← sette metri, non uno di più
-      larghezza: opzioni.larghezza || 768,
-      altezza: opzioni.altezza || 768,
+      larghezza: opzioni.larghezza,
+      altezza: opzioni.altezza,
       etichetta: 'passata ' + (i + 1) + ' di ' + passi + ', dal metro '
         + Math.round(centro - da - passo / 2) + ' al metro '
         + Math.round(centro - da + passo / 2) + ' in asse',
@@ -13479,7 +13587,8 @@ function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
 
 window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
-  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine };
+  ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine,
+  riempiLaFinestra };
 </script>
 <script type="module">
 // veritas_percorso.js — da ambienti misurati a tappe di un percorso.
@@ -17635,7 +17744,41 @@ function segmentZones(grid, ft, opts = {}) {
     || (typeof window !== "undefined" && window.__veritasVisto
         && window.__veritasVisto.ok && Array.isArray(window.__veritasVisto.viste)
         ? window.__veritasVisto.viste : []);
-  const testimoni = viste.filter((v) => v && v.ariaAperta && v.centro);
+  /*
+   * ⚠️ MODIFICA AUTORIZZATA DA RAFFAELLA IL 07/09/2026, dentro la milestone
+   *    chiusa il 06/09 (passo 5). Regola 7: misurato, portato il numero,
+   *    discusso, autorizzato. Il numero era questo, sulla pagina viva:
+   *
+   *      l'occhio consegna 16 testimonianze legate a una REGIONE — 8 dicono
+   *      «qui si e' all'aperto» — e il confine non si muove di un metro
+   *      quadro: 3.364 m² e 9 ambienti prima, 3.364 m² e 9 ambienti dopo,
+   *      zero accessi «da fuori» prima e dopo.
+   *
+   * ⚠️ IL PERCHE', in una riga: qui si accettava SOLO `v.centro`, cioe' solo
+   *    le testimonianze che portano un PUNTO. Ma una testimonianza legata a
+   *    una regione ha `centro: null` **per costruzione**, perche' la Regola 0
+   *    vieta di ricavare una posizione da una prospettiva. Quindi tutte e otto
+   *    venivano buttate, `quotaAperta` restava `null`, e il passo 5 della
+   *    milestone non scattava mai. Sintomo:
+   *    `[VERITAS zone] dentro/fuori: 5 dentro, 0 all'aperto`.
+   *
+   * ⚠️ E LA SORELLA LO FACEVA GIA' GIUSTO, venti righe piu' sotto:
+   *    `CALPESTIO_DI` legge `__veritasVisteRegione` e accetta
+   *    `(v.centro || v.regione)`. Qui si fa la stessa identica cosa, con lo
+   *    stesso pennello: un punto si dipinge come un cerchio di raggio noto,
+   *    una regione si dipinge tutta, perche' «in quest'area ho visto del
+   *    cielo» vuol dire esattamente quell'area.
+   *
+   * ⚠️ QUELLO CHE **NON** CAMBIA, e va detto: senza occhio non cambia
+   *    niente, come prima. Se nessuno ha guardato, `testimoni` resta vuoto,
+   *    `quotaAperta` resta `null`, e la geometria si comporta come si e'
+   *    sempre comportata. Un difetto di vista non diventa un difetto di
+   *    geometria — la riga della milestone regge parola per parola.
+   */
+  const apertoDaVicino = (typeof window !== "undefined"
+    && Array.isArray(window.__veritasVisteRegione)) ? window.__veritasVisteRegione : [];
+  const testimoni = (o.ariaAperta || viste.concat(apertoDaVicino))
+    .filter((v) => v && v.ariaAperta && (v.centro || v.regione));
 
   let quotaAperta = null;
   if (testimoni.length) {
@@ -17644,16 +17787,38 @@ function segmentZones(grid, ft, opts = {}) {
     const raggio = o.raggioAriaAperta != null ? o.raggioAriaAperta : 6;
     const apertaCella = new Uint8Array(w * h);
     for (const t of testimoni) {
-      const cx = Math.round((t.centro[0] - minX) / cellSize);
-      const cz = Math.round((t.centro[2] - minZ) / cellSize);
-      const r = Math.ceil(raggio / cellSize);
-      for (let dz = -r; dz <= r; dz++)
-        for (let dx = -r; dx <= r; dx++) {
-          if (dx * dx + dz * dz > r * r) continue;
-          const nx = cx + dx, nz = cz + dz;
-          if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
-          apertaCella[nz * w + nx] = 1;
-        }
+      if (t.centro) {
+        const cx = Math.round((t.centro[0] - minX) / cellSize);
+        const cz = Math.round((t.centro[2] - minZ) / cellSize);
+        const r = Math.ceil(raggio / cellSize);
+        for (let dz = -r; dz <= r; dz++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dz * dz > r * r) continue;
+            const nx = cx + dx, nz = cz + dz;
+            if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+            apertaCella[nz * w + nx] = 1;
+          }
+        continue;
+      }
+      // La regione si dipinge TUTTA: non e' un punto con un alone, e' l'area
+      // che la telecamera aveva davvero inquadrato quando ha visto il cielo.
+      const Rg = t.regione;
+      if (!Rg || !Rg.min || !Rg.max) continue;
+      const x0 = Math.max(0, Math.floor((Rg.min[0] - minX) / cellSize));
+      const x1 = Math.min(w - 1, Math.ceil((Rg.max[0] - minX) / cellSize));
+      const z0 = Math.max(0, Math.floor((Rg.min[2] - minZ) / cellSize));
+      const z1 = Math.min(h - 1, Math.ceil((Rg.max[2] - minZ) / cellSize));
+      for (let nz = z0; nz <= z1; nz++)
+        for (let nx = x0; nx <= x1; nx++) apertaCella[nz * w + nx] = 1;
+    }
+    // ⚠️ SI DICHIARA DA DOVE VIENE LA PROVA. Un punto dice DOVE, una regione
+    //    dice SOLO IN QUALE AREA: non sono la stessa qualita' di prova, e chi
+    //    legge il referto deve poterlo sapere senza aprire il codice.
+    if (typeof console !== "undefined") {
+      const punti = testimoni.filter((t) => t.centro).length;
+      console.log("[VERITAS zone] l'aria aperta la dicono " + testimoni.length
+        + " testimonianze: " + punti + " da un punto, " + (testimoni.length - punti)
+        + " da una regione. Le seconde dicono in quale AREA, non dove.");
     }
     // Per ogni bacino: la maggioranza delle sue celle sta all'aperto, si' o no.
     // Una maggioranza non e' una soglia tarata: e' la domanda stessa.
@@ -27377,7 +27542,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=21"></script>
+<script type="module" src="./veritas_montaggio.js?v=22"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>
