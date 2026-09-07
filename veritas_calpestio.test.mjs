@@ -94,6 +94,94 @@ console.log('\n6. senza testimonianza non si inventa una risposta');
 check('nessuna vista', calpestioVisto([0, 0, 0], { viste: [] }), null);
 check('nessun punto', calpestioVisto(null, { viste: piazzale }), null);
 
+// ===========================================================================
+// 7. LA PROVA CHE SERVE A RAFFAELLA — 07/09/2026
+// ===========================================================================
+//
+// > *«Io ho sempre paura che ragioniamo su due livelli diversi: quando io ti
+// >  parlo penso a una piattaforma in cui ci metto qualsiasi cosa, anche la
+// >  chiesa, anche la scuola. Quando tu mi parli del piazzale dell'aeroporto ho
+// >  sempre il timore che quello che fai sia legato solo a questo modello. Io ti
+// >  dico di mettere il RAGIONAMENTO, non la parola, perche' se no rischi che non
+// >  valga quando cambieremo il modello. Rassicurami su questo punto.»*
+//
+// ⚠️ E LA RASSICURAZIONE NON PUO' ESSERE UNA FRASE: dev'essere una prova che
+//    gira. Qui sotto la stessa identica regola — **le stesse 21 parole, senza
+//    cambiarne una** — viene messa davanti a cinque edifici che non sono un
+//    aeroporto. Se un giorno qualcuno fara' rientrare l'aeroporto nel registro,
+//    una di queste righe si spegne, e si vede.
+//
+//    Il posto giusto per questa prova e' qui e non in un documento: un documento
+//    dice che vale ovunque, una prova lo dimostra a ogni esecuzione.
+console.log('\n7. LA STESSA REGOLA SU CINQUE EDIFICI CHE NON SONO UN AEROPORTO');
+console.log('   (nessuna parola cambiata, nessun ramo diverso: e\' lo stesso registro)');
+
+const V = (termine, calp, aria) => (x, z) => ({
+  termine, nome: termine, calpestio: calp, ariaAperta: aria || null,
+  score: 0.5, centro: [x, 0, z],
+});
+
+const edifici = [
+  { nome: 'SCUOLA — la corsia dei pullman davanti al cancello',
+    viste: [V('bus', 'mezzi', 'quasi sempre')(0, 0), V('road', 'mezzi', 'sempre')(2, 0)],
+    dove: [0, 0, 0], atteso: 'mezzi' },
+  { nome: 'SCUOLA — il portico coperto fra due corpi di fabbrica',
+    viste: [V('bridge', 'passaggio')(0, 0), V('sidewalk', 'passaggio', 'sempre')(3, 0)],
+    dove: [0, 0, 0], atteso: 'passaggio' },
+  { nome: 'OSPEDALE — la rampa delle ambulanze',
+    viste: [V('van', 'mezzi', 'quasi sempre')(1, 0), V('car', 'mezzi', 'quasi sempre')(2, 1)],
+    dove: [0, 0, 0], atteso: 'mezzi' },
+  { nome: 'OSPEDALE — il corridoio sopraelevato fra due padiglioni',
+    viste: [V('car', 'mezzi', 'quasi sempre')(1, 0), V('bridge', 'passaggio')(4, 0)],
+    dove: [0, 0, 0], atteso: 'passaggio' },   // il passaggio vince sui mezzi sotto
+  { nome: 'STAZIONE — il binario',
+    viste: [V('a train', 'mezzi')(1, 0)],
+    dove: [0, 0, 0], atteso: 'mezzi' },
+  { nome: 'STAZIONE — il sottopasso verso la banchina',
+    viste: [V('a train', 'mezzi')(1, 0), V('stairs', 'passaggio')(2, 0), V('path', 'passaggio')(3, 0)],
+    dove: [0, 0, 0], atteso: 'passaggio' },
+  { nome: 'CENTRO COMMERCIALE — la banchina di carico e scarico',
+    viste: [V('truck', 'mezzi', 'quasi sempre')(1, 0)],
+    dove: [0, 0, 0], atteso: 'mezzi' },
+  { nome: 'PORTO — la passerella d\'imbarco sopra la banchina',
+    viste: [V('ship', 'mezzi', 'quasi sempre')(1, 0), V('a jet bridge', 'passaggio')(5, 0)],
+    dove: [0, 0, 0], atteso: 'passaggio' },
+];
+for (const e of edifici) {
+  const r = calpestioVisto(e.dove, { viste: e.viste, raggioVista: 12 });
+  check(e.nome, r && r.regola, e.atteso);
+}
+
+// ⚠️ E LA PROVA PIU' IMPORTANTE E' QUELLA CHE DEVE DIRE DI NO.
+//    In una chiesa non ci sono mezzi e non ci sono tubi. Un registro agnostico
+//    deve TACERE, non trovare qualcosa per forza. Una regola che risponde sempre
+//    non e' una regola: e' un rumore che conferma se stesso.
+console.log('\n   e dove non c\'e' + '’' + ' niente di tutto questo, TACE:');
+const chiesa = [
+  { termine: 'bench', nome: 'panche', calpestio: null, ariaAperta: null, score: 0.7, centro: [0, 0, 0] },
+  { termine: 'column', nome: 'colonne', calpestio: null, ariaAperta: null, score: 0.6, centro: [1, 0, 1] },
+  { termine: 'painting', nome: 'quadri', calpestio: null, ariaAperta: null, score: 0.5, centro: [2, 0, 0] },
+];
+check('CHIESA — panche, colonne, quadri: il registro non dice niente',
+      calpestioVisto([0, 0, 0], { viste: chiesa, raggioVista: 12 }), null);
+
+// ⚠️ E IL GUARDIANO CHE IMPEDISCE ALL'AEROPORTO DI RIENTRARE DI NASCOSTO.
+//    Non basta che oggi non ci sia: deve restare impossibile domani. Questa
+//    prova legge le CHIAVI del registro e boccia qualunque nome di tipo di
+//    edificio, in italiano e in inglese. Se un giorno qualcuno scrivesse
+//    `"airport apron": "mezzi"` sembrerebbe ragionevole — e questa riga
+//    fallirebbe.
+console.log('\n   e nessuna chiave e\' un tipo di edificio:');
+const TIPOLOGIE = [
+  'airport', 'aeroporto', 'school', 'scuola', 'hospital', 'ospedale',
+  'church', 'chiesa', 'museum', 'museo', 'station', 'stazione', 'mall',
+  'terminal', 'supermarket', 'office', 'ufficio', 'stadium', 'stadio',
+  'hotel', 'library', 'biblioteca', 'theatre', 'teatro', 'port', 'porto',
+];
+const colpevoli = Object.keys(CALPESTIO_DI)
+  .filter((k) => TIPOLOGIE.some((t) => k.toLowerCase().includes(t)));
+check('nessun tipo di edificio fra le chiavi', colpevoli, []);
+
 console.log('\nregistro: ' + Object.keys(CALPESTIO_DI).length + ' parole ('
   + Object.values(CALPESTIO_DI).filter((x) => x === 'mezzi').length + ' mezzi, '
   + Object.values(CALPESTIO_DI).filter((x) => x === 'passaggio').length + ' passaggio)');

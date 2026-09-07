@@ -1060,10 +1060,72 @@ in due settimane.
 cosa. **Una riga di log che non puo' distinguere «ho filtrato» da «non ho
 trovato la funzione» e' rumore rassicurante** — stessa lezione del 02/09.
 
-**Provato al banco: `veritas_calpestio.test.mjs`, 21 controlli, tutti passano.**
-E c'e' dentro **il tetto della direttiva 12**: se il registro supera le 30
-parole la prova **fallisce**, perche' un registro che cresce e' il tipo di
-edificio che rientra una parola per volta.
+**Provato al banco: `veritas_calpestio.test.mjs`, 32 controlli, tutti passano.**
+
+### 🔒 «RASSICURAMI CHE VALGA ANCHE PER LA CHIESA E LA SCUOLA» — 07/09/2026
+
+> Raffaella: *«Io ho sempre paura che ragioniamo su due livelli diversi. Quando
+> io ti parlo penso a una piattaforma in cui ci metto qualsiasi cosa, anche la
+> chiesa, anche la scuola. Quando tu mi parli del piazzale dell'aeroporto ho
+> sempre il timore che quello che fai sia legato solo a questo modello. Io ti
+> dico di mettere il RAGIONAMENTO, non la parola, perche' se no rischi che non
+> valga quando cambieremo il modello. Rassicurami su questo punto, se no
+> perdiamo tempo inutilmente.»*
+
+⚠️ **E LA RASSICURAZIONE NON PUO' ESSERE UNA FRASE: dev'essere una prova che
+gira.** Un documento che dice «vale ovunque» e' un'opinione; una prova che
+gira lo dimostra a ogni esecuzione, e si spegne il giorno in cui non e' piu'
+vero. **Sta in `veritas_calpestio.test.mjs` §7**, e mette lo stesso identico
+registro — **le stesse parole, nessun ramo diverso** — davanti a:
+
+| edificio | cosa vede | cosa dice |
+|---|---|---|
+| **scuola** | la corsia dei pullman al cancello | non ci si cammina |
+| **scuola** | il portico fra due corpi di fabbrica | ci si cammina |
+| **ospedale** | la rampa delle ambulanze | non ci si cammina |
+| **ospedale** | il corridoio sopraelevato fra due padiglioni | ci si cammina *(e vince sulle auto sotto)* |
+| **stazione** | il binario | non ci si cammina |
+| **stazione** | il sottopasso verso la banchina | ci si cammina |
+| **centro commerciale** | la banchina di carico e scarico | non ci si cammina |
+| **porto** | la passerella d'imbarco sopra la banchina | ci si cammina |
+| **chiesa** | panche, colonne, quadri | **tace** |
+
+📌 **E l'ultima riga e' la piu' importante.** Una regola che risponde sempre non
+e' una regola: e' un rumore che conferma se stesso. In una chiesa non ci sono
+mezzi e non ci sono tubi, e il registro **non trova niente**, invece di trovare
+qualcosa per forza.
+
+**E due guardiani automatici, perche' oggi valga anche domani:**
+- **il tetto della direttiva 12** — se il registro supera le **30 parole** la
+  prova fallisce: un registro che cresce e' il tipo di edificio che rientra una
+  parola per volta;
+- **nessuna chiave puo' essere un tipo di edificio** — la prova legge le chiavi
+  e boccia 26 nomi di tipologia in italiano e in inglese. Se domani qualcuno
+  scrivesse `"airport apron": "mezzi"` sembrerebbe ragionevole, **e questa riga
+  fallirebbe.**
+
+### 🔴 E LA PAURA DI RAFFAELLA ERA GIUSTIFICATA: UNA PAROLA ERA CHIUSA SULL'AEROPORTO
+
+Cercandola, e' saltata fuori una fuga vera, e non l'aveva introdotta questo
+lavoro: era li' da prima. `a jet bridge` — **la parola su cui si regge tutta la
+seconda invariante** — era dichiarata `domini: "aeroporto"`, con scritto accanto
+*«fuori da un aeroporto non esiste»*.
+
+⚠️ **Quella ragione e' falsa**, e il costo era esattamente quello che Raffaella
+temeva: `vocabolarioPer()` filtra per dominio, quindi **su un porto o su una
+stazione quella parola all'occhio non veniva nemmeno chiesta**. Lo stesso
+oggetto — un tubo chiuso fra un mezzo fermo e un edificio — c'e' sulla nave e
+c'e' sul binario. **L'invariante era agnostica; una delle sue parole no.**
+
+✅ Liberata a `domini: "*"` il 07/09. E non c'era niente da risparmiare: **le
+parole non costano** (misurato il 04/09 — 4 parole 201,3 s, 158 parole 201,3 s).
+Chiederla su una scuola costa zero e non trova niente, che e' il comportamento
+giusto.
+📌 Aggiunto anche **`a train`**: ADE20K-150 non ha nessun mezzo su rotaia, e un
+binario e' il caso da manuale di «dove passano i mezzi». ⚠️ **E' un VEICOLO, non
+un tipo di edificio** — la differenza fra le due cose e' tutta la Regola 0-bis.
+Resta una sola voce chiusa su un dominio, `an airport departure gate`, ed e' un
+**nome di luogo**: sta in `LUOGHI` e non nomina niente.
 
 🟠 **COSA RESTA DA GUARDARE SUL VIVO, e va fatto per primo alla ripresa.** Il
 giro completo con il registro acceso non e' ancora stato letto fino in fondo: la

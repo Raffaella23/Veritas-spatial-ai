@@ -384,7 +384,8 @@ const CALPESTIO_DI = Object.freeze({
   //     spazio e' di chi si muove su ruote o ali, non di chi ha i piedi.
   airplane: "mezzi", runway: "mezzi", road: "mezzi",
   car: "mezzi", truck: "mezzi", bus: "mezzi", van: "mezzi",
-  minibike: "mezzi", ship: "mezzi", boat: "mezzi",
+  minibike: "mezzi", bicycle: "mezzi", ship: "mezzi", boat: "mezzi",
+  "a train": "mezzi",
   // ⚠️ `pier` (molo) sta di qua e non di la': in ADE20K e' la banchina su cui
   //    ormeggia una nave, cioe' il bordo dell'acqua, non il tubo d'imbarco.
   //    Il tubo e' `a jet bridge`, qui sotto.
@@ -516,11 +517,36 @@ export const AGGIUNTE = Object.freeze([
   { chiedi: "a luggage trolley", postura: null, nome: "carrelli", funzione: null,
     domini: "*", perche: "non implica una funzione, ma dice che li' si trascina qualcosa" },
 
-  // --- le uniche due che restano legate a un dominio -----------------------
+  // 🔴 LIBERATA IL 07/09/2026, E LA RAGIONE SCRITTA QUI ERA FALSA.
+  //
+  //    Diceva «fuori da un aeroporto non esiste», e non e' vero: lo stesso
+  //    oggetto — un tubo chiuso che unisce un mezzo fermo a un edificio — c'e'
+  //    su una nave (la passerella d'imbarco) e su una stazione (il tunnel
+  //    coperto verso il binario). Il nome commerciale e' «passenger boarding
+  //    bridge», e nessuno dei tre settori lo chiama in un modo solo.
+  //
+  // ⚠️ E CHIUDERLA COSTAVA CARO, ed e' esattamente la paura di Raffaella
+  //    (07/09): *«tu metti le parole, io ti dico i ragionamenti — se no rischi
+  //    che non valga quando cambieremo il modello»*. Con `domini: "aeroporto"`
+  //    la seconda invariante del calpestio («un tubo che unisce un mezzo a un
+  //    edificio e' un passaggio») **non poteva scattare su un porto o su una
+  //    stazione**, perche' all'occhio quella parola non veniva nemmeno chiesta.
+  //    L'invariante era agnostica; una delle sue parole no.
+  //
+  // 📌 E non c'e' nessun motivo di risparmiare: **le parole non costano**
+  //    (misurato il 04/09 — 4 parole 201,3 s, 158 parole 201,3 s: si paga il
+  //    guardare la figura, una volta sola). Chiederla su una scuola costa zero
+  //    e non trova niente, che e' il comportamento giusto.
   { chiedi: "a jet bridge", postura: "passa", nome: "pontile d'imbarco", funzione: "destinazione",
-    domini: "aeroporto", perche: "fuori da un aeroporto non esiste: il punto in cui il cammino finisce" },
+    domini: "*", perche: "un tubo chiuso fra un mezzo fermo e un edificio: c'e' anche su una nave e su una stazione" },
+  // --- l'unica che resta legata a un dominio -------------------------------
   { chiedi: "an airport departure gate", postura: "in piedi", nome: "gate d'imbarco", funzione: "destinazione",
-    domini: "aeroporto", perche: "idem: la meta di chi parte, e non significa niente altrove" },
+    domini: "aeroporto", perche: "e' un NOME DI LUOGO, non un oggetto: sta in LUOGHI e non nomina niente" },
+  // Un mezzo che ADE20K-150 non ha, e senza il quale la prima invariante non
+  // scatta su una stazione: dove passa un treno, la gente non cammina.
+  // ⚠️ E' un VEICOLO, non un tipo di edificio. La differenza e' tutta qui.
+  { chiedi: "a train", postura: null, nome: "treno", funzione: null,
+    domini: "*", perche: "ADE20K-150 non ha nessun mezzo su rotaia, e un binario e' il caso da manuale di «dove passano i mezzi»" },
 ]);
 
 /**
