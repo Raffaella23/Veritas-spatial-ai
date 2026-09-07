@@ -94,6 +94,15 @@ come gia' fa `CALPESTIO_DI`?**
 | **4** | il cammino dedotto deve usare le **strade misurate** | oggi va in linea retta: attraversa i muri e non sale la scala mobile |
 | **5** | l'ordine delle tappe **funzionale**, non geometrico | e' l'ultimo pezzo del viaggio «dal taxi all'aereo» |
 
+🟠 **E IL TRATTO DEL FILM È ANCORA TROPPO CORTO** — Raffaella, 07/09 sera,
+guardandolo: *«il tratto del video è ancora troppo breve»*. **Non è la durata**
+(quella si adatta già, fra `FILM_MIN_MS` e `FILM_MAX_MS`, e dichiara di quanto
+si cammina più veloce del vero): è **la strada**. Il cammino dedotto va in linea
+retta da una tappa all'altra, quindi attraversa i muri, non sale la scala mobile
+e al tunnel non ci arriva mai — sono i lavori **4** e **5** qui sopra, ed è lo
+stesso guasto visto da fuori. Finché il cammino non usa le **strade misurate**,
+allungare il film non allunga il viaggio: lo rallenta e basta.
+
 ### Cosa e' entrato il 07/09, e in che stato
 
 | | |
@@ -108,6 +117,7 @@ come gia' fa `CALPESTIO_DI`?**
 | il film: ombreggiatura e contorno degli oggetti | ✅ gli shader compilano · 🟠 **come si vede, da guardare** |
 | la musica (organo, frase, canto) | 🟠 **da ascoltare** |
 | la chat vocale nel film | ✅ riparata e provata (28 controlli) · 🟠 da usare |
+| **il microfono ascoltava sempre in inglese** | ✅ riparato: la lingua si legge in `localStorage.veritasLang`, dove la scrive lo schermo · 🟠 da riprovare a voce |
 
 ### Due cose misurate che fanno perdere un'ora se non si sanno
 
