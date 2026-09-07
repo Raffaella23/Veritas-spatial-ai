@@ -535,6 +535,78 @@ export function segmentZones(grid, ft, opts = {}) {
   }
   const allAperto = (L) => quotaAperta ? quotaAperta.get(L) >= 0.5 : null;
 
+  /*
+   * ⚠️ IL PIAZZALE ESCE DALL'AREA CALPESTABILE — Raffaella, 07/09/2026:
+   *    «togli il piazzale».
+   *
+   * Fino a oggi il piazzale degli aerei stava dentro l'area misurata come
+   * navigabile, e da li' non usciva piu': la simulazione ci faceva camminare i
+   * passeggeri, il film li seguiva, e quei metri quadri finivano nel referto
+   * come se fossero calpestabili. Raffaella lo ha visto in tre secondi
+   * guardando il film — «stavamo camminando sull'ala di un aereo».
+   *
+   * ⚠️ E LA RIPARAZIONE VA FATTA QUI, non nel film. Fatta qui vale per la
+   *    simulazione, per i referti e per il film insieme; fatta nel film vale
+   *    solo per il film, e il numero dei metri quadri continuerebbe a mentire.
+   *
+   * ⚠️ NESSUNA MISURA IN METRI, come per l'aria aperta: si legge la conseguenza
+   *    che la parola porta con se' (`calpestio` in `veritas_riconosce.js`, che
+   *    a sua volta la prende da Uniclass 2015 tabella SL). Qui non si decide
+   *    niente, si legge.
+   *
+   * ⚠️ E IL PASSAGGIO SALVA IL BACINO. Un pontile d'imbarco sta in mezzo agli
+   *    aerei apposta: togliendo tutto cio' che sta vicino a un mezzo si
+   *    toglierebbe l'unica strada per arrivarci. Un bacino dove l'occhio ha
+   *    visto un passaggio NON si toglie, per quanti aerei ci siano attorno.
+   *
+   * ⚠️ E DUE SORGENTI, perche' una sola non basta: dall'alto le automobili non
+   *    si vedono (misurato il 06/09: zero in pianta, 83 da vicino). Le
+   *    rilevazioni della pianta portano un PUNTO, quelle dei primi piani un
+   *    RETTANGOLO — e un rettangolo si dipinge tutto, che e' esattamente cio'
+   *    che «in quest'area ho visto dei taxi» vuol dire.
+   */
+  const daVicino = (typeof window !== "undefined" && Array.isArray(window.__veritasVisteRegione))
+    ? window.__veritasVisteRegione : [];
+  const testimoniCalpestio = (o.calpestio || viste.concat(daVicino))
+    .filter((v) => v && v.calpestio && (v.centro || v.regione));
+
+  // ⚠️ Le maschere si tengono, i CONTI no: le etichette qui sono ancora quelle
+  //    prima della fusione, e dopo `find()` cambiano tutte. Contare adesso
+  //    vorrebbe dire contare su nomi che fra venti righe non esistono piu' —
+  //    ed e' un errore che non darebbe nessun sintomo: verrebbero fuori dei
+  //    numeri, semplicemente riferiti a un'altra cosa.
+  let mezziCella = null, passCella = null;
+  if (testimoniCalpestio.length) {
+    const raggioC = o.raggioAriaAperta != null ? o.raggioAriaAperta : 6;
+    mezziCella = new Uint8Array(w * h);
+    passCella = new Uint8Array(w * h);
+    const dipingi = (mask, t) => {
+      if (t.centro) {
+        const cx = Math.round((t.centro[0] - minX) / cellSize);
+        const cz = Math.round((t.centro[2] - minZ) / cellSize);
+        const r = Math.ceil(raggioC / cellSize);
+        for (let dz = -r; dz <= r; dz++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dz * dz > r * r) continue;
+            const nx = cx + dx, nz = cz + dz;
+            if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+            mask[nz * w + nx] = 1;
+          }
+        return;
+      }
+      const R = t.regione;
+      if (!R || !R.min || !R.max) return;
+      const x0 = Math.max(0, Math.floor((R.min[0] - minX) / cellSize));
+      const x1 = Math.min(w - 1, Math.ceil((R.max[0] - minX) / cellSize));
+      const z0 = Math.max(0, Math.floor((R.min[2] - minZ) / cellSize));
+      const z1 = Math.min(h - 1, Math.ceil((R.max[2] - minZ) / cellSize));
+      for (let nz = z0; nz <= z1; nz++)
+        for (let nx = x0; nx <= x1; nx++) mask[nz * w + nx] = 1;
+    };
+    for (const t of testimoniCalpestio)
+      dipingi(t.calpestio === 'passaggio' ? passCella : mezziCella, t);
+  }
+
   const pairs = [...gw.values()].sort((p, q) => q.clearance - p.clearance);
   let tenutiSeparati = 0;
   for (const p of pairs) {
@@ -586,6 +658,62 @@ export function segmentZones(grid, ft, opts = {}) {
   }
 
   for (let i = 0; i < w * h; i++) if (labels[i] !== -1) labels[i] = find(labels[i]);
+
+  /*
+   * ⚠️ QUI IL PIAZZALE ESCE DAVVERO — e adesso le etichette sono quelle finali.
+   *
+   * Un bacino dove la maggioranza delle celle sta dove l'occhio ha visto i
+   * MEZZI, e dove non ha visto nessun PASSAGGIO, smette di essere area
+   * calpestabile: le sue celle tornano a -1, come un muro.
+   *
+   * ⚠️ Una maggioranza non e' una soglia tarata: e' la domanda stessa. «Questo
+   *    ambiente sta dove passano i mezzi, si' o no?»
+   *
+   * ⚠️ E CI SONO DUE GUARDIE, perche' un difetto di vista non deve diventare un
+   *    difetto di geometria (stessa regola dell'aria aperta):
+   *      · se resterebbe meno di UN ambiente, non si toglie niente;
+   *      · se si portasse via piu' di meta' dell'area, non si toglie niente —
+   *        vorrebbe dire che l'occhio ha visto mezzi dappertutto, e allora il
+   *        difetto e' nella vista, non nella pianta.
+   *    In tutti e due i casi lo si DICHIARA, invece di consegnare in silenzio
+   *    un edificio dimezzato.
+   */
+  let toltiPerMezzi = 0, m2Tolti = 0;
+  if (mezziCella) {
+    const nM = new Map(), nP = new Map(), nT = new Map();
+    for (let i = 0; i < w * h; i++) {
+      const L = labels[i];
+      if (L === -1) continue;
+      nT.set(L, (nT.get(L) || 0) + 1);
+      if (mezziCella[i]) nM.set(L, (nM.get(L) || 0) + 1);
+      if (passCella[i]) nP.set(L, (nP.get(L) || 0) + 1);
+    }
+    const daTogliere = new Set();
+    let celleTolte = 0, celleTutte = 0;
+    nT.forEach((n, L) => {
+      celleTutte += n;
+      const mezzi = (nM.get(L) || 0) / n, pass = (nP.get(L) || 0) / n;
+      if (mezzi >= 0.5 && pass < 0.5) { daTogliere.add(L); celleTolte += n; }
+    });
+    const restano = nT.size - daTogliere.size;
+    const troppo = celleTutte > 0 && celleTolte / celleTutte > 0.5;
+    if (daTogliere.size && restano >= 1 && !troppo) {
+      for (let i = 0; i < w * h; i++) if (daTogliere.has(labels[i])) labels[i] = -1;
+      toltiPerMezzi = daTogliere.size;
+      m2Tolti = celleTolte * cellSize * cellSize;
+      if (typeof console !== "undefined")
+        console.log("[VERITAS zone] " + toltiPerMezzi
+          + " ambiente/i tolto/i dall'area calpestabile — " + Math.round(m2Tolti)
+          + " m²: li' l'occhio ha visto i mezzi e nessun passaggio,"
+          + " quindi la gente non ci cammina. Restano " + restano + " ambienti.");
+    } else if (daTogliere.size && typeof console !== "undefined") {
+      console.warn("[VERITAS zone] avrei tolto " + daTogliere.size + " ambiente/i su "
+        + nT.size + " (" + Math.round(100 * celleTolte / Math.max(1, celleTutte))
+        + "% dell'area) perche' l'occhio ci ha visto i mezzi: NON lo faccio."
+        + (troppo ? " Sarebbe piu' di meta' dell'edificio: il difetto e' nella vista, non nella pianta."
+                  : " Non resterebbe nessun ambiente."));
+    }
+  }
 
   // Statistiche per zona.
   const cellArea = cellSize * cellSize;

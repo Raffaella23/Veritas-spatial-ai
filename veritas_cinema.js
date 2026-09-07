@@ -59,6 +59,14 @@ const PAROLE = {
     riprendi: 'Riprendi', rivedi: 'Rivedi', suono: 'Musica', chiudi: 'Chiudi',
     senzaNome: 'senza nome', punti: 'punti misurati',
     niente: 'Non c’è ancora niente di misurato da mostrare.',
+    dialogo: 'Parla',
+    chiedo: 'Ho misurato $A m² e non so che spazio sia. Secondo te che cos’è?',
+    forse: 'Qui potrebbe esserci $N, ma non ne sono sicuro. È giusto?',
+    grazie: 'Segnato: $N.',
+    tutteNominate: 'Ho un nome per tutti gli ambienti che ho misurato.',
+    scrivi: 'scrivi, oppure premi il microfono',
+    ascolto: 'ti ascolto…',
+    nonSento: 'Il microfono non è disponibile in questo browser: scrivi pure.',
   },
   en: {
     pulsante: 'Live view',
@@ -69,6 +77,14 @@ const PAROLE = {
     riprendi: 'Resume', rivedi: 'Replay', suono: 'Music', chiudi: 'Close',
     senzaNome: 'unnamed', punti: 'measured points',
     niente: 'Nothing measured to show yet.',
+    dialogo: 'Talk',
+    chiedo: 'I measured $A m² and I don’t know what this space is. What do you say?',
+    forse: 'This could be $N, but I’m not sure. Is that right?',
+    grazie: 'Noted: $N.',
+    tutteNominate: 'I have a name for every space I measured.',
+    scrivi: 'type, or press the microphone',
+    ascolto: 'listening…',
+    nonSento: 'The microphone is not available in this browser: please type.',
   },
 };
 // ⚠️ NON si guarda `document.documentElement.lang`: misurato il 06/09, diceva
@@ -146,7 +162,14 @@ const S = {
   porta: [0, 0], quotaOcchio: 0, sguardo: null,
   fotogrammi: 0,
   centro: [0, 0, 0], angolo0: 0,
-  audio: null, musica: true, lancio: null,
+  // ⚠️ LA MUSICA NASCE SPENTA — Raffaella, 07/09: «taglia quella musica
+  //    orribile». Due tentativi a orecchio chiuso hanno prodotto prima un
+  //    rombo d'aereo e poi un film horror: chi non puo' sentire non deve
+  //    decidere come suona la cosa. Il bottone resta, e la accende chi ha le
+  //    orecchie. ⚠️ Non si e' CANCELLATO il motore: cancellarlo vorrebbe dire
+  //    ricostruirlo da zero il giorno in cui si trova la musica giusta.
+  audio: null, musica: false, lancio: null,
+  chat: null, chiestaZona: null, ascolto: null, voce: true,
 };
 
 // ---------------------------------------------------------------------------
@@ -1456,8 +1479,16 @@ function plancia(v) {
     + 'style="width:200px;height:3px;-webkit-appearance:none;appearance:none;'
     + 'border-radius:3px;background:#E3E5EE;cursor:pointer">'
     + '<div style="width:1px;height:22px;background:#E3E5EE"></div>'
+    // ⚠️ IL DIALOGO STA ACCANTO A «RIVEDI» — Raffaella, 07/09: «abilita accanto
+    //    dove dice replay, nella stessa schermata, la chat vocale col simbolo
+    //    del dialogo». Sta con i comandi del film perche' e' un comando del
+    //    film: si parla di quello che si sta guardando, mentre lo si guarda.
+    + '<button id="el-chat" style="display:flex;align-items:center;gap:7px;font:inherit;'
+    + 'border:0;background:none;cursor:pointer;color:inherit;padding:6px 2px;white-space:nowrap">'
+    + '<span style="font-size:15px;line-height:1">💬</span>' + P().dialogo + '</button>'
+    + '<div style="width:1px;height:22px;background:#E3E5EE"></div>'
     + '<button id="el-suono" style="font:inherit;border:0;background:none;cursor:pointer;'
-    + 'color:inherit;padding:6px 2px;white-space:nowrap">' + P().suono + ': on</button>'
+    + 'color:inherit;padding:6px 2px;white-space:nowrap">' + P().suono + ': off</button>'
     + '<div style="width:1px;height:22px;background:#E3E5EE"></div>'
     + '<button id="el-chiudi" style="font:inherit;border:0;background:none;cursor:pointer;'
     + 'color:' + NEBBIA + ';padding:6px 2px">' + P().chiudi + ' ✕</button>';
@@ -1469,7 +1500,175 @@ function plancia(v) {
     e.target.textContent = P().suono + ': ' + (S.musica ? 'on' : 'off');
     if (S.musica && S.corre) musicaSu(); else musicaGiu();
   };
+  // ⚠️ Il microfono e la voce nascono DENTRO il clic, come il motore audio:
+  //    fuori dalla catena del gesto dell'utente il browser non li fa partire.
+  //    E' la trappola gia' pagata il 06/09 con la musica.
+  d.querySelector('#el-chat').onclick = () => apriChat(v);
   d.querySelector('#el-chiudi').onclick = () => chiudi();
+  return d;
+}
+
+// ---------------------------------------------------------------------------
+// LA CHAT VOCALE — Raffaella, 07/09/2026
+// ---------------------------------------------------------------------------
+//
+// > *«Dare una voce, la voce dell'AI che dice: questo potrebbe essere una sala
+// >  d'attesa. E la finestra chat contestuale a questo elemento, in cui l'utente
+// >  puo' dire si', hai ragione, e' una sala d'attesa. E quindi quei metri quadri
+// >  senza nome automaticamente possono essere rinominati durante la
+// >  costruzione.»*
+// >
+// > *«Metti anche la possibilita' del dialogo direttamente vocale senza
+// >  scrivere. Una finestra di dialogo semplicissima, linguaggio naturale.»*
+//
+// ⚠️ E' LA REGOLA 0 PUNTO 5 CHE FINALMENTE ARRIVA A QUALCUNO. «Se non sa,
+//    chiede» e' scritto dal 24/08, e la domanda finiva in un riquadro dove non
+//    si poteva rispondere. Qui la domanda si sente, la risposta si dice, e il
+//    nome si posa sul volume mentre il film scorre.
+//
+// ⚠️ IL CONDIZIONALE NON E' GENTILEZZA, E' LA DIRETTIVA 10. Una voce calda
+//    persuade piu' di un'etichetta: un cartellino pallido si legge come
+//    incerto, una voce che afferma no. Quindi la voce dice sempre «non so che
+//    spazio sia» o «potrebbe essere», mai «questa e'». E dove non sa niente
+//    TACE — che e' il grigio «non misurato», parlato.
+//
+// ⚠️ E IL NOME CHE SI POSA E' DI RAFFAELLA, NON NOSTRO. Non e' una deduzione
+//    del programma travestita da conferma: e' una persona che guarda e dice.
+//    Per questo il volume si marca `origine: 'detto da chi guarda'` — la
+//    fonte piu' alta che esista, e nel referto deve restare scritta.
+//
+// ⚠️ Tutto sta nel browser (Web Speech): niente si scarica e niente si manda a
+//    nessuno. Stessa regola della musica — si usa quello che c'e'.
+function voceDi(testo) {
+  if (!S.voce || !testo) return;
+  try {
+    const s = window.speechSynthesis;
+    if (!s) return;
+    s.cancel();
+    const u = new SpeechSynthesisUtterance(testo);
+    u.lang = lingua() === 'it' ? 'it-IT' : 'en-GB';
+    u.rate = 0.95; u.pitch = 1.0; u.volume = 0.9;
+    s.speak(u);
+  } catch (e) { /* una voce che non parte non deve fermare il film */ }
+}
+
+// L'ambiente di cui parlare: il piu' grande fra quelli che non hanno un nome.
+// ⚠️ Il piu' grande e non il piu' vicino: se l'AI deve chiedere una cosa sola,
+//    chiede quella che pesa di piu' nel referto.
+function zonaDaChiedere() {
+  const zz = S.zone || [];
+  let scelta = null;
+  for (const Z of zz) if (!Z.nome && (!scelta || Z.area > scelta.area)) scelta = Z;
+  return scelta;
+}
+
+function apriChat(v) {
+  if (S.chat) {
+    S.chat.remove(); S.chat = null;
+    try { if (S.ascolto) S.ascolto.stop(); } catch (e) {}
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    return;
+  }
+  const d = document.createElement('div');
+  // ⚠️ «Un'unica finestra di dialogo ottimizzata nelle dimensioni» — quindi una
+  //    sola, stretta, e sopra la barra invece che in mezzo alla scena: il film
+  //    resta la cosa che si guarda.
+  d.style.cssText = [
+    'position:absolute', 'right:34px', 'bottom:104px', 'z-index:11',
+    'width:330px', 'max-width:calc(100vw - 68px)', 'box-sizing:border-box',
+    'padding:16px 18px 14px', 'border-radius:20px',
+    'background:rgba(255,255,255,.94)', 'backdrop-filter:blur(18px)',
+    '-webkit-backdrop-filter:blur(18px)',
+    'box-shadow:0 1px 2px rgba(20,26,51,.06),0 16px 44px rgba(20,26,51,.14)',
+    'font-size:13px', 'line-height:1.55', 'color:#1b1b20',
+  ].join(';');
+  d.innerHTML =
+    '<div id="ec-testo" style="min-height:42px;margin-bottom:12px"></div>'
+    + '<div style="display:flex;align-items:center;gap:8px">'
+    + '<input id="ec-in" type="text" placeholder="' + P().scrivi + '" '
+    + 'style="flex:1;min-width:0;font:inherit;border:1px solid #E3E5EE;border-radius:100px;'
+    + 'padding:8px 13px;outline:none;background:#fff;color:inherit">'
+    + '<button id="ec-mic" title="microfono" style="width:34px;height:34px;flex:0 0 34px;'
+    + 'border:0;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;'
+    + 'background:#F1F2F6;color:#1b1b20">🎤</button>'
+    + '<button id="ec-ok" style="width:34px;height:34px;flex:0 0 34px;border:0;border-radius:50%;'
+    + 'cursor:pointer;color:#fff;font-size:12px;background:linear-gradient(125deg,'
+    + '#2B5CE6,#7B2FD4 45%,#E0348B 72%,#F9721F)">➤</button></div>';
+  v.appendChild(d);
+  S.chat = d;
+
+  const testo = d.querySelector('#ec-testo');
+  const input = d.querySelector('#ec-in');
+  const dico = (t) => { testo.textContent = t; voceDi(t); };
+
+  const chiedi = () => {
+    const Z = zonaDaChiedere();
+    S.chiestaZona = Z;
+    if (!Z) { dico(P().tutteNominate); return; }
+    dico(P().chiedo.replace('$A', Math.round(Z.area)));
+  };
+  chiedi();
+
+  const rispondi = () => {
+    const t = (input.value || '').trim();
+    if (!t) return;
+    input.value = '';
+    const Z = S.chiestaZona;
+    if (Z) {
+      // ⚠️ Il nome si posa SUBITO: il cartellino lo legge a ogni fotogramma
+      //    (`Z.nome || senza nome`), quindi si vede mentre il film scorre —
+      //    che e' esattamente «rinominati durante la costruzione».
+      Z.nome = t;
+      Z.origine = 'detto da chi guarda';
+      console.log('[EIDETICA live] ' + Math.round(Z.area) + ' m² rinominati a voce: «'
+        + t + '». Origine: detto da chi guarda — la fonte piu\' alta che esista,'
+        + ' e nel referto resta scritta.');
+      dico(P().grazie.replace('$N', t));
+      setTimeout(chiedi, 2200);
+    } else {
+      dico(P().tutteNominate);
+    }
+  };
+  d.querySelector('#ec-ok').onclick = rispondi;
+  input.onkeydown = (e) => { if (e.key === 'Enter') rispondi(); };
+
+  // ── IL MICROFONO
+  const mic = d.querySelector('#ec-mic');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    mic.disabled = true; mic.style.opacity = '.4'; mic.title = P().nonSento;
+  } else {
+    mic.onclick = () => {
+      if (S.ascolto) { try { S.ascolto.stop(); } catch (e) {} S.ascolto = null; return; }
+      // ⚠️ Mentre si ascolta, la voce TACE: se no il microfono si sente parlare
+      //    da solo e trascrive quello che l'AI ha appena detto.
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+      const r = new SR();
+      r.lang = lingua() === 'it' ? 'it-IT' : 'en-GB';
+      r.interimResults = true; r.continuous = false;
+      r.onresult = (ev) => {
+        let t = '';
+        for (let i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript;
+        input.value = t.trim();
+      };
+      const spento = () => {
+        S.ascolto = null;
+        mic.style.background = '#F1F2F6'; mic.textContent = '🎤';
+        input.placeholder = P().scrivi;
+        // ⚠️ Non si invia da soli: il parlato si sbaglia, e un nome messo per
+        //    sbaglio su un volume e' peggio di nessun nome. Si rilegge e si
+        //    conferma — e' la stessa regola dei nomi inventati.
+      };
+      r.onend = spento; r.onerror = spento;
+      try {
+        r.start();
+        S.ascolto = r;
+        mic.style.background = '#E0348B'; mic.textContent = '●';
+        input.placeholder = P().ascolto;
+      } catch (e) { spento(); }
+    };
+  }
+  input.focus();
   return d;
 }
 
@@ -2092,6 +2291,14 @@ export function chiudi() {
   if (S.rintocco) { clearTimeout(S.rintocco); S.rintocco = null; }
   if (S.accordo) { clearTimeout(S.accordo); S.accordo = null; }
   musicaGiu();
+  // ⚠️ Il microfono e la voce si spengono con la finestra. Un microfono che
+  //    resta acceso dopo che l'utente ha chiuso e' la cosa peggiore che questo
+  //    programma possa lasciare in giro.
+  try { if (S.ascolto) S.ascolto.stop(); } catch (e) {}
+  S.ascolto = null;
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  if (S.chat) { try { S.chat.remove(); } catch (e) {} S.chat = null; }
+  S.chiestaZona = null;
   removeEventListener('keydown', S.esc);
   if (S.geom) S.geom.dispose();
   if (S.mat) S.mat.dispose();
