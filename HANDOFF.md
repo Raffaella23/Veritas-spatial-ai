@@ -1,6 +1,65 @@
 # HANDOFF.md — EIDETICA *(il prodotto si chiamava VERITAS)*
 
-**Aggiornato il 06/09/2026. Questo è l'unico documento di stato del progetto.**
+**Aggiornato il 07/09/2026. Questo è l'unico documento di stato del progetto.**
+
+---
+
+## 🚩 SI RIPARTE DA QUI — 07/09/2026, sera
+
+**Il documento è lungo. Non si legge tutto: si legge questo blocco, le sei regole
+ferree qui sotto, le direttive 18-19-20, e poi SOLO la sezione del fronte che si
+tocca.** *(Leggerlo per intero è costato una sessione intera il 30/08: serviva
+una volta sola, ed è già stata fatta.)*
+
+### La prima cosa da fare, ed è mezz'ora
+
+**Aprire il progetto sulla pagina viva, aspettare, e leggere il referto della
+catena in console** — nove righe, si stampa da solo:
+
+```
+window.__veritasCatena.stampa()
+```
+
+Dice **dove si è staccata**, e indica il PRIMO anello rotto (gli altri sono la
+sua ombra). È nuovo del 07/09 ed è la cosa che impedisce di ripetere la
+settimana appena passata.
+
+### Le due domande a cui rispondere prima di scrivere una riga
+
+1. 🔴 **L'occhio consegna ancora?** La mattina del 07/09 dava 73 rilevazioni
+   dalla pianta e 14 legate a un'area; la sera, due giri di fila, **zero** dopo
+   sette-otto minuti. Se l'anello 2 è `ok` e il 3 resta `attesa` per più di un
+   quarto d'ora, **non è lentezza**: la sua catena si è staccata di nuovo.
+2. 🟠 **`veritas_comando.js` scatta davvero?** È in linea e risponde, ma non l'ho
+   mai visto partire (l'occhio non è arrivato in fondo). Le righe da cercare
+   stanno nella direttiva 18.
+
+### Poi, in quest'ordine
+
+| | il lavoro | perché |
+|---|---|---|
+| **1** | **direttiva 19 — l'occhio guarda dove guarda chi cammina** | è la cura vera del problema dei tempi: niente più attesa di otto minuti, la testimonianza arriva dove il corpo è. La REGIONE di una vista la dà l'**isovista**, già misurata e mai usata per questo |
+| **2** | il piazzale fuori dal calpestabile, **verificato sul vivo** | scritto e provato al banco, mai visto scattare su questo modello |
+| **3** | il cammino dedotto deve usare le **strade misurate** | oggi va in linea retta: attraversa i muri e non sale la scala mobile, quindi al tunnel non ci arriva mai |
+| **4** | l'ordine delle tappe **funzionale**, non geometrico | è l'ultimo pezzo del viaggio «dal taxi all'aereo» |
+
+### Cosa è entrato il 07/09, e in che stato
+
+| | |
+|---|---|
+| `CALPESTIO_DI` — la terza sorella (dove si mettono i piedi) | ✅ 20 parole, provata su 5 edifici non-aeroporto |
+| la testimonianza legata a una **regione** (i primi piani) | ✅ misurata sul vivo: 14 testimonianze, 2 regioni |
+| il piazzale fuori dall'area calpestabile | 🟠 scritto, provato al banco, **non visto scattare** |
+| il referto della catena | ✅ girato sul modello vero |
+| l'occhio comanda (`veritas_comando.js`) | 🟠 in linea, **mai visto partire** |
+| il film: ombreggiatura e contorno degli oggetti | ✅ gli shader compilano · 🟠 **come si vede, da guardare** |
+| la musica (organo, frase, canto) | 🟠 **da ascoltare** |
+| la chat vocale nel film | ✅ riparata e provata (28 controlli) · 🟠 da usare |
+
+⚠️ **E la lezione che è costata di più questa settimana, in una riga:** *usare
+una cosa che non esiste non è un errore di sintassi*. Tre volte in sette giorni,
+e ogni volta il programma ha continuato a produrre numeri plausibili. Le prove
+provano i pezzi; **il referto della catena è l'unica cosa che prova la catena.**
 
 ---
 
