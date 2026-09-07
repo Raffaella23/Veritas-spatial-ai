@@ -13018,9 +13018,185 @@ function scorciRavvicinati(THREE, renderer, radice, posti, opzioni = {}) {
   }
   return fuori;
 }
+
+/**
+ * LA VISTA DI CHI CAMMINA - direttiva 19, 07/09/2026.
+ *
+ * Raffaella: *«l'occhio dell'osservatore che si muove nello spazio, quello che
+ * vediamo nella live view, deve renderizzare pian piano che cammina, man mano
+ * che si muove, in maniera tale che non deve mettere in memoria tutto un giro.
+ * Tutti i programmi di rendering che vogliono fare il rendering istantaneo
+ * lavorano su quello che vede l'osservatore in quel momento. Quello che c'e'
+ * alle sue spalle non viene analizzato.»*
+ *
+ * ⚠️ E' L'OPPOSTO DI `scorciTreQuarti`, ed e' voluto. Quelli girano il modello
+ *    fra le mani da fuori, tutti insieme, e finche' non hanno finito il giro
+ *    l'occhio non ha detto niente a nessuno: sul banco di prova sono minuti.
+ *    Questa e' UNA fotografia sola, da dove il corpo si trova adesso, e vale
+ *    da sola: la testimonianza arriva dove il corpo e', mentre ci arriva.
+ *
+ * ⚠️ LE STESSE OTTICHE DEL FILM, e non e' un dettaglio estetico: occhio a
+ *    1,65 m e lente da 60 gradi (`LENTE` in veritas_cinema.js). Se l'occhio
+ *    guardasse con una lente diversa da quella che si vede sullo schermo,
+ *    starebbe testimoniando su un'altra scena - e nessuno potrebbe
+ *    contestarlo guardando.
+ *
+ * ⚠️ E LA REGOLA 0 REGGE, ma va detto come. Da una prospettiva NON si ricava
+ *    una posizione, e qui non si ricava: `centro` non esiste. Quello che si sa
+ *    - e si sa PRIMA di scattare, dalla geometria e non dai pixel - e' quale
+ *    pezzo di pavimento sta dentro il campo visivo: e' l'ISOVISTA, che
+ *    `veritas_visibility` misura da sempre e che nessuno aveva mai usato per
+ *    questo. Ristretta al cono della lente, e' il ventaglio davanti ai piedi.
+ *    «Da qui ho visto dei taxi» = testimonianza legata a CIO' CHE SI VEDE DA
+ *    QUESTO PUNTO, misurato, non a un pixel.
+ *
+ * ⚠️ IL RETTANGOLO E' PIU' LARGO DEL VENTAGLIO, e sta scritto qui perche' non
+ *    diventi una bugia silenziosa. `regione` e' il rettangolo che contiene il
+ *    ventaglio, ed e' l'unica forma che i lettori di oggi sanno dipingere
+ *    (`veritas_perception.js`, `veritas_accessi.js`). Il ventaglio vero esce
+ *    accanto, in `poligono`, insieme a `quantoPiuLargo`: chi vorra' essere
+ *    esatto ha gia' il dato in mano e non deve rifare niente.
+ *
+ * @param {object} opzioni
+ *   posizione     [x,y,z] l'OCCHIO, non i piedi (la telecamera del film lo e' gia')
+ *   direzione     [dx,dy,dz] dove guarda; oppure `azimuth` in radianti
+ *   altezzaOcchio quota d'occhio per l'occlusione dell'isovista (default 1,65)
+ *   fovGradi      la lente (default 60, come il film)
+ *   portata       fin dove ha senso dire di aver visto (default 40 m)
+ *   isovista      funzione (pos, opts) -> isovista; default window.__veritasPerception
+ */
+function vistaDalCamminatore(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return null;
+  const posizione = opzioni.posizione;
+  if (!posizione || posizione.length < 3) return null;
+
+  const dir = opzioni.direzione;
+  const azimuth = typeof opzioni.azimuth === 'number'
+    ? opzioni.azimuth
+    : (dir ? Math.atan2(dir[2], dir[0]) : 0);
+  // Il beccheggio si conserva se c'e': un camminatore che scende una rampa
+  // guarda in basso, e appiattirlo vorrebbe dire fotografare un'altra scena.
+  const dy = dir && dir.length > 2 ? dir[1] : 0;
+  const orizz = dir ? Math.hypot(dir[0], dir[2]) : 1;
+
+  const fovGradi = opzioni.fovGradi || 60;
+  const larghezza = opzioni.larghezza || 768;
+  const altezza = opzioni.altezza || 768;
+  const portata = opzioni.portata || 40;
+  const altezzaOcchio = opzioni.altezzaOcchio != null ? opzioni.altezzaOcchio : 1.65;
+
+  // ---- la REGIONE, presa dalla geometria e non dai pixel -------------------
+  const misuraIsovista = opzioni.isovista
+    || (typeof window !== 'undefined' && window.__veritasPerception
+        && window.__veritasPerception.isovist) || null;
+  let iso = null;
+  if (misuraIsovista) {
+    try {
+      iso = misuraIsovista(posizione, {
+        eyeHeight: altezzaOcchio, range: portata,
+        direzione: azimuth, ampiezzaGradi: fovGradi,
+        // un raggio ogni due gradi dentro il cono: piu' fitto del giro intero,
+        // perche' qui il ventaglio e' tutto quello che c'e'
+        rays: Math.max(8, Math.round(fovGradi / 2)),
+      });
+    } catch (e) { iso = null; }
+  }
+  let regione = null, quantoPiuLargo = null;
+  if (iso && iso.polygon && iso.polygon.length > 2) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of iso.polygon) {
+      if (p[0] < x0) x0 = p[0];
+      if (p[0] > x1) x1 = p[0];
+      if (p[1] < z0) z0 = p[1];
+      if (p[1] > z1) z1 = p[1];
+    }
+    const piedi = posizione[1] - altezzaOcchio;
+    regione = { min: [x0, piedi, z0], max: [x1, piedi + 3, z1] };
+    const areaRett = Math.max(1e-6, (x1 - x0) * (z1 - z0));
+    quantoPiuLargo = +(areaRett / Math.max(1e-6, iso.area)).toFixed(2);
+  }
+
+  // ---- la fotografia -------------------------------------------------------
+  const scena = new THREE.Scene();
+  scena.background = null;
+  const rimetti = spegniLuci(THREE, radice);
+  const genitore = radice.parent;
+  const indice = genitore ? genitore.children.indexOf(radice) : -1;
+  let fuori = null;
+  try {
+    scena.add(radice);
+    const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+      colorSpace: THREE.SRGBColorSpace || undefined,
+    });
+    const bersaglioPrec = renderer.getRenderTarget();
+    // near piccolo: la telecamera sta DENTRO l'edificio, non fuori a guardarlo
+    const cam = new THREE.PerspectiveCamera(fovGradi, larghezza / altezza, 0.05, portata * 2 + 10);
+    cam.position.set(posizione[0], posizione[1], posizione[2]);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(posizione[0] + Math.cos(azimuth) * orizz,
+               posizione[1] + dy,
+               posizione[2] + Math.sin(azimuth) * orizz);
+    cam.updateProjectionMatrix();
+    cam.updateMatrixWorld(true);
+
+    const pixel = new Uint8Array(larghezza * altezza * 4);
+    renderer.setRenderTarget(bersaglio);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(scena, cam);
+    renderer.readRenderTargetPixels(bersaglio, 0, 0, larghezza, altezza, pixel);
+    renderer.setRenderTarget(bersaglioPrec);
+    try { bersaglio.dispose(); } catch (e) {}
+
+    // ⚠️ QUANTO E' FITTA LA FIGURA, e in prospettiva non e' un numero solo:
+    //    un tavolo a due metri e' grande, lo stesso tavolo a trenta e' una
+    //    macchia. Si dichiara la densita' ALLA DISTANZA MEDIA DI CIO' CHE SI
+    //    VEDE (il raggio medio dell'isovista), che e' l'unico punto in cui
+    //    quel numero significa qualcosa. Senza isovista non si inventa: resta
+    //    `null`, e chi legge sa di non saperlo.
+    const distanzaTipica = iso ? iso.meanRadius : null;
+    const pixelPerMetro = distanzaTipica
+      ? +(altezza / (2 * distanzaTipica * Math.tan(fovGradi * Math.PI / 360))).toFixed(1)
+      : null;
+
+    fuori = {
+      pixel: raddrizza(pixel, larghezza, altezza),
+      larghezza, altezza,
+      azimuth,
+      elevazioneGradi: 0,
+      etichetta: opzioni.etichetta || 'da dove cammina',
+      // la stessa forma di uno scorcio ravvicinato: chi la legge non deve
+      // sapere da dove viene
+      regione,
+      // ...e il ventaglio vero, per chi vorra' essere esatto
+      poligono: iso ? iso.polygon : null,
+      quantoPiuLargo,
+      areaVista: iso ? iso.area : null,
+      chiusura: iso ? iso.occlusivity : null,
+      raggioMedio: distanzaTipica,
+      pixelPerMetro,
+      altezzaTelecamera: +posizione[1].toFixed(2),
+      daCamminatore: true,
+    };
+  } finally {
+    // Il modello TORNA dov'era, sempre - stessa regola di scorciTreQuarti.
+    if (genitore) {
+      if (indice >= 0) genitore.children.splice(indice, 0, radice);
+      else genitore.add(radice);
+      radice.parent = genitore;
+    } else {
+      scena.remove(radice);
+    }
+    rimetti();
+  }
+  return fuori;
+}
+
 window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
-  ALTEZZA_SEZIONE };
+  ALTEZZA_SEZIONE, vistaDalCamminatore };
 </script>
 <script type="module">
 // veritas_percorso.js — da ambienti misurati a tappe di un percorso.
@@ -16305,10 +16481,40 @@ function isovist(pos, opts) {
   const maxRange = opts.range || ISOVIST_MAX_RANGE;
   const rays = opts.rays || ISOVIST_RAYS;
 
+  // ⚠️ SI PUO' GUARDARE SOLO DAVANTI — direttiva 19, 07/09/2026.
+  //
+  //    Raffaella: «tutti i programmi di rendering che vogliono fare il
+  //    rendering istantaneo lavorano su quello che vede l'osservatore in quel
+  //    momento. Quello che c'e' alle sue spalle non viene analizzato.»
+  //
+  //    L'isovista classica (Benedikt) e' a giro intero: e' giusta per una
+  //    ZONA, che non ha una faccia. Ma un camminatore ce l'ha, e la regione
+  //    della sua testimonianza deve essere quello che gli sta DAVANTI, non
+  //    quello che ha alle spalle. Con `direzione` e `ampiezzaGradi` i raggi si
+  //    tirano solo dentro il cono, e il poligono si chiude sul punto
+  //    dell'osservatore: e' un ventaglio, non un anello.
+  //
+  // ⚠️ IL GIRO INTERO RESTA IL COMPORTAMENTO NORMALE. Senza `direzione` non
+  //    cambia niente per nessuno dei chiamanti di prima — verificato: le due
+  //    chiamate esistenti (analyzeZoneVisibility, perceive) non la passano.
+  const settore = (typeof opts.direzione === 'number')
+    ? { direzione: opts.direzione,
+        ampiezzaGradi: Math.max(1, Math.min(360, opts.ampiezzaGradi || 60)) }
+    : null;
+
   const poly = [];
+  // Il vertice del ventaglio e' il punto da cui si guarda: senza, il poligono
+  // si chiuderebbe con una corda e conterebbe come «visto» un pezzo di mondo
+  // che sta dietro le spalle.
+  if (settore) poly.push([pos[0], pos[2]]);
   let blockedRays = 0, sum = 0, min = Infinity, max = 0;
   for (let i = 0; i < rays; i++) {
-    const a = (i / rays) * Math.PI * 2;
+    const a = settore
+      // estremi compresi: il primo raggio e' il bordo sinistro del cono,
+      // l'ultimo il bordo destro
+      ? settore.direzione + (settore.ampiezzaGradi * Math.PI / 180)
+          * ((rays > 1 ? i / (rays - 1) : 0.5) - 0.5)
+      : (i / rays) * Math.PI * 2;
     const dx = Math.cos(a), dz = Math.sin(a);
     const r = castRay(g, pos[0], pos[2], dx, dz, eyeHeight, maxRange);
     poly.push([pos[0] + dx * r.dist, pos[2] + dz * r.dist]);
@@ -16339,6 +16545,10 @@ function isovist(pos, opts) {
     // dominante di apertura, cioe' dove lo spazio "spinge" lo sguardo
     drift: +Math.hypot(cx - pos[0], cz - pos[2]).toFixed(2),
     eyeHeight,
+    // ⚠️ `null` = giro intero. Se c'e', questa NON e' un'isovista completa ma
+    //    il ventaglio davanti a chi guarda: area e compattezza vanno lette
+    //    sapendolo, o si confronta un ventaglio con un anello.
+    settore,
   };
 }
 
@@ -16637,7 +16847,6 @@ window.__veritasPerceive = perceive;
 })();
 
 console.log("[VERITAS Perception] layer percettivo pronto — window.__veritasPerception");
-
 </script>
 <script type="module">
 /**
@@ -26886,5 +27095,6 @@ if (typeof window !== 'undefined') {
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
 <script type="module" src="./veritas_montaggio.js?v=19"></script>
+<script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>

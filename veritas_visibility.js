@@ -385,10 +385,40 @@ function isovist(pos, opts) {
   const maxRange = opts.range || ISOVIST_MAX_RANGE;
   const rays = opts.rays || ISOVIST_RAYS;
 
+  // ⚠️ SI PUO' GUARDARE SOLO DAVANTI — direttiva 19, 07/09/2026.
+  //
+  //    Raffaella: «tutti i programmi di rendering che vogliono fare il
+  //    rendering istantaneo lavorano su quello che vede l'osservatore in quel
+  //    momento. Quello che c'e' alle sue spalle non viene analizzato.»
+  //
+  //    L'isovista classica (Benedikt) e' a giro intero: e' giusta per una
+  //    ZONA, che non ha una faccia. Ma un camminatore ce l'ha, e la regione
+  //    della sua testimonianza deve essere quello che gli sta DAVANTI, non
+  //    quello che ha alle spalle. Con `direzione` e `ampiezzaGradi` i raggi si
+  //    tirano solo dentro il cono, e il poligono si chiude sul punto
+  //    dell'osservatore: e' un ventaglio, non un anello.
+  //
+  // ⚠️ IL GIRO INTERO RESTA IL COMPORTAMENTO NORMALE. Senza `direzione` non
+  //    cambia niente per nessuno dei chiamanti di prima — verificato: le due
+  //    chiamate esistenti (analyzeZoneVisibility, perceive) non la passano.
+  const settore = (typeof opts.direzione === 'number')
+    ? { direzione: opts.direzione,
+        ampiezzaGradi: Math.max(1, Math.min(360, opts.ampiezzaGradi || 60)) }
+    : null;
+
   const poly = [];
+  // Il vertice del ventaglio e' il punto da cui si guarda: senza, il poligono
+  // si chiuderebbe con una corda e conterebbe come «visto» un pezzo di mondo
+  // che sta dietro le spalle.
+  if (settore) poly.push([pos[0], pos[2]]);
   let blockedRays = 0, sum = 0, min = Infinity, max = 0;
   for (let i = 0; i < rays; i++) {
-    const a = (i / rays) * Math.PI * 2;
+    const a = settore
+      // estremi compresi: il primo raggio e' il bordo sinistro del cono,
+      // l'ultimo il bordo destro
+      ? settore.direzione + (settore.ampiezzaGradi * Math.PI / 180)
+          * ((rays > 1 ? i / (rays - 1) : 0.5) - 0.5)
+      : (i / rays) * Math.PI * 2;
     const dx = Math.cos(a), dz = Math.sin(a);
     const r = castRay(g, pos[0], pos[2], dx, dz, eyeHeight, maxRange);
     poly.push([pos[0] + dx * r.dist, pos[2] + dz * r.dist]);
@@ -419,6 +449,10 @@ function isovist(pos, opts) {
     // dominante di apertura, cioe' dove lo spazio "spinge" lo sguardo
     drift: +Math.hypot(cx - pos[0], cz - pos[2]).toFixed(2),
     eyeHeight,
+    // ⚠️ `null` = giro intero. Se c'e', questa NON e' un'isovista completa ma
+    //    il ventaglio davanti a chi guarda: area e compattezza vanno lette
+    //    sapendolo, o si confronta un ventaglio con un anello.
+    settore,
   };
 }
 

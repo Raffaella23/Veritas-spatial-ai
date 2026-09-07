@@ -687,13 +687,22 @@ window.__veritasComprendi = async function (opz = {}) {
 
     const pannello = anteprima(document);
 
+    // ⚠️ L'OCCHIO ACCESO SI PRESTA — direttiva 19, 07/09/2026.
+    //    Chi guarda dal camminatore (`veritas_passo.js`) deve usare QUESTO
+    //    rilevatore, non accenderne un secondo: due copie di OWLv2 nella
+    //    stessa pagina sono il guasto del 06/09 — tre occhi accesi, e a
+    //    scrivere le maniglie era l'ultima che finiva di caricarsi, cioe' a
+    //    caso. Una chiusura sola, usata da tutti e due.
+    const guardaUnaTela = (immagine, parole) => rilevatore(telaDa(immagine), parole);
+    window.__veritasRileva = guardaUnaTela;
+
     const ctx = pannello.collega({
       posti: trovate.posti,
       pianta,                    // grezza: la vuole cosi' il pannello
       inquadratura: pianta,      // stessa cosa: porta dentro la proiezione
       scorci,                    // le altre inquadrature dello stesso posto
       dominio: opz.dominio || window.__veritasProjectType || null,
-      rileva: (immagine, parole) => rilevatore(telaDa(immagine), parole),
+      rileva: guardaUnaTela,
       cervello: opz.cervello || cervello,
     });
 
