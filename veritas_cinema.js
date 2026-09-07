@@ -140,7 +140,7 @@ const S = {
   aperto: false, t: 0, corre: false, ultimo: 0, raf: null,
   velo: null, tela: null, sopra: null, plancia: null, pannello: null,
   ren: null, scena: null, cam: null, geom: null, mat: null,
-  zone: [], via: null, attore: null, piani: [], durata: FILM_MS, rintocco: null,
+  zone: [], via: null, attore: null, piani: [], durata: FILM_MS, rintocco: null, accordo: null,
   muriMesh: null, muriFilo: null, pavMesh: null, oggMesh: null, oggFilo: null,
   tettoMesh: null, reticolo: null,
   porta: [0, 0], quotaOcchio: 0, sguardo: null,
@@ -1438,15 +1438,42 @@ function creaMusica() {
 
   // due voci appena stonate fra loro fanno il battimento che tiene vivo
   // l'accordo senza aggiungere note
-  const voci = [
-    [73.42, 'sine', 0.34], [110.0, 'sine', 0.26], [110.35, 'sine', 0.20],
-    [146.83, 'triangle', 0.16], [220.0, 'sine', 0.11], [293.66, 'triangle', 0.06],
+  // ⚠️ UNA MUSICA CHE SI MUOVE, non un accordo fermo — Raffaella, 06/09:
+  //    «mi piace tantissimo, accompagna proprio questa danza dei puntini, solo
+  //    che vuole una musica più evocativa». Un accordo che non cambia mai è un
+  //    ronzio intonato: è il CAMBIO che fa la musica.
+  //    Tre accordi senza terza — re minore, si bemolle, fa — che si passano il
+  //    posto sciogliendosi l'uno nell'altro in nove secondi. Senza terza non
+  //    dicono né allegro né triste: dicono grande.
+  const ACCORDI = [
+    [73.42, 110.00, 110.35, 146.83, 220.00, 293.66],   // re
+    [58.27,  87.31,  87.59, 116.54, 174.61, 233.08],   // si bemolle
+    [87.31, 130.81, 131.22, 174.61, 261.63, 349.23],   // fa
   ];
-  for (const v of voci) {
-    const o = ac.createOscillator(); o.type = v[1]; o.frequency.value = v[0];
-    const g = ac.createGain(); g.gain.value = v[2];
+  const TIMBRI = ['sine', 'sine', 'sine', 'triangle', 'sine', 'triangle'];
+  const VOLUMI = [0.34, 0.26, 0.20, 0.16, 0.11, 0.06];
+  const osc = [];
+  for (let i = 0; i < TIMBRI.length; i++) {
+    const o = ac.createOscillator(); o.type = TIMBRI[i];
+    o.frequency.value = ACCORDI[0][i];
+    const g = ac.createGain(); g.gain.value = VOLUMI[i];
     o.connect(g); g.connect(respiro); o.start();
+    osc.push(o);
   }
+  let accordo = 0;
+  const cambia = () => {
+    if (!S.aperto || !S.audio) return;
+    accordo = (accordo + 1) % ACCORDI.length;
+    const t = ac.currentTime;
+    for (let i = 0; i < osc.length; i++) {
+      const f = osc[i].frequency;
+      f.cancelScheduledValues(t);
+      f.setValueAtTime(f.value, t);
+      f.exponentialRampToValueAtTime(ACCORDI[accordo][i], t + 9);
+    }
+    S.accordo = setTimeout(cambia, 19000);
+  };
+  S.accordo = setTimeout(cambia, 15000);
 
   // il filtro che si apre e si chiude piano: lo spazio che si allarga
   const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.037;
@@ -1455,16 +1482,16 @@ function creaMusica() {
 
   // un rintocco lontano ogni tanto, sulle note dell'accordo: e' quello che da'
   // il senso di qualcosa di grande e di vuoto
-  const note = [587.33, 440.0, 659.25, 493.88];
   let quale = 0;
   const rintocco = () => {
     if (!S.aperto || !S.audio) return;
     const t = ac.currentTime;
     const o = ac.createOscillator(); o.type = 'sine';
-    o.frequency.value = note[quale % note.length]; quale++;
+    // il rintocco sta SULL'accordo di adesso: se no suona contro
+    o.frequency.value = ACCORDI[accordo][3 + (quale % 3)] * 2; quale++;
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.08, t + 0.9);
+    g.gain.exponentialRampToValueAtTime(0.13, t + 0.9);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 7.5);
     o.connect(g); g.connect(gn);
     o.start(t); o.stop(t + 8);
@@ -1480,7 +1507,7 @@ function musicaSu() {
   if (!S.audio) return;
   if (S.audio.ac.state === 'suspended') S.audio.ac.resume();
   S.audio.gn.gain.cancelScheduledValues(S.audio.ac.currentTime);
-  S.audio.gn.gain.linearRampToValueAtTime(0.34, S.audio.ac.currentTime + 3.5);
+  S.audio.gn.gain.linearRampToValueAtTime(0.62, S.audio.ac.currentTime + 3.5);
 }
 function musicaGiu() {
   if (!S.audio) return;
@@ -1836,6 +1863,7 @@ export function chiudi() {
   S.aperto = false; S.corre = false;
   if (S.raf) cancelAnimationFrame(S.raf);
   if (S.rintocco) { clearTimeout(S.rintocco); S.rintocco = null; }
+  if (S.accordo) { clearTimeout(S.accordo); S.accordo = null; }
   musicaGiu();
   removeEventListener('keydown', S.esc);
   if (S.geom) S.geom.dispose();

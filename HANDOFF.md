@@ -965,6 +965,68 @@ pavimento, figure in oro). Da `v=30` in poi e' scritto e non guardato.
    browser che ha gia' usato la piattaforma in italiano resta italiano finche'
    non si preme EN.
 
+### 🔴 IL PROSSIMO LAVORO — «dovrebbe fare due più due»: DOVE SI METTONO I PIEDI
+
+> Raffaella, 06/09, dopo aver visto il camminatore attraversare il piazzale:
+> *«Dovrebbe fare anche due piu' due, l'AI. Nel senso: ci sono gli aerei. Si
+> cammina in mezzo agli aerei? Non lo so. Ci sono i tubi attaccati agli aerei
+> che portano a una struttura. E questo dovrebbe far parte della conoscenza
+> semantica, della conoscenza delle architetture che avevo detto di mettere
+> dentro come libreria.»*
+
+⚠️ **E' la direttiva 17 portata sul CAMMINO**, come «sedute → ci si ferma» lo e'
+sul comportamento e «automobili → sei fuori» sullo spazio. Il registro ha gia'
+due sorelle in `veritas_riconosce.js` — `POSTURA_DI` (riga 229) e
+`ARIA_APERTA_DI` (riga 284). **Ne manca la terza: dove si mettono i piedi.**
+
+**Le due invarianti, e sono agnostiche — non si scrive «aeroporto» da nessuna
+parte:**
+
+1. **dove passano i mezzi, la gente non cammina** — aereo, pista, strada,
+   corsia. Vale per il piazzale di un aeroporto, la rampa delle ambulanze di un
+   ospedale, il carico e scarico di un centro commerciale;
+2. **un tubo che unisce un mezzo a un edificio e' un passaggio** — di li' si
+   cammina. E' il pontile d'imbarco, ed e' anche la passerella di una nave o il
+   tunnel di una stazione.
+
+📌 **E l'occhio le vede gia'**: «pontile d'imbarco» e' la parola piu' frequente
+su questo modello, e le cinque stanzine misurate a +3,64 m **sono** i tubi. Sa
+che ci sono. Non tira la conseguenza.
+
+⚠️ **La libreria e' gia' decisa e non si inventa:** **Uniclass 2015 tabella SL**
+— gratuita, ISO 12006-2, in CSV su GitHub (`buildig/uniclass-2015`), la stessa
+con cui si classificano gli oggetti IFC. Neufert e i manuali editoriali no: sono
+opere protette e in un prodotto che si vende diventano un problema legale.
+
+**E chiude DUE problemi con un lavoro solo** — Raffaella: *«i due fronti vanno
+affrontati insieme»*:
+
+- **si cammina in mezzo agli aerei**: se il piazzale smette di essere un posto
+  per i piedi, il camminatore non ci passa;
+- **non parte dalle macchine**: il film parte da un accesso marcato «da fuori»,
+  e su questo modello lo sono solo i due dal lato aerei. Quello dalla strada
+  resta interno perche' **dall'alto le automobili non si vedono** (zero in
+  pianta, 83 rilevazioni da vicino) e da uno scorcio non si prende una
+  posizione. La strada per chiuderlo e' gia' scritta e non viola la Regola 0:
+  uno scorcio non da' un punto, ma si sa **quale rettangolo di mondo ha
+  inquadrato** — il grappolo. «In quest'area ho visto dei taxi» e' una
+  testimonianza legata a una REGIONE, non una misura ricavata da un pixel.
+
+### 🎵 LA MUSICA — e Raffaella l'ha voluta piu' forte e piu' evocativa
+
+> *«Mi piace tantissimo l'idea della musica, accompagna proprio questa danza dei
+> puntini. Solo che vuole una musica piu' evocativa, e un volume leggermente
+> piu' alto: l'ho messo al massimo per sentirlo.»*
+
+⚠️ **Un accordo che non cambia mai e' un ronzio intonato: e' il CAMBIO che fa la
+musica.** Ora sono tre accordi senza terza — re minore, si bemolle, fa — che si
+sciolgono l'uno nell'altro in nove secondi, e i rintocchi stanno sull'accordo
+del momento invece di suonare sempre le stesse quattro note. Volume da 0,34 a
+**0,62**.
+⚠️ **Tutta sintetizzata, nota per nota**, ed e' una scelta obbligata: la musica
+dei film non si puo' usare in un prodotto che si vende. Stessa regola di
+Neufert per le tabelle. **Si suona, non si prende.**
+
 ### 📋 LE TIPOLOGIE DI RESA — idea di Raffaella, da fare dopo
 
 > *«Potrebbe essere utile avere delle tipologie diverse di renderizzazione. Nei
