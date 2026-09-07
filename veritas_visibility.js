@@ -678,6 +678,27 @@ window.__veritasPerception = {
   perceive,
   perceiveAllProfiles,
   profiles: PERCEPTION_PROFILES,
+
+  // ⚠️ L'ALTEZZA DEI MURI SI MISURA SUL MODELLO — deciso da Raffaella il 06/09.
+  //    «Li' dove ci sono i muri li mette all'altezza del muro, che poi si
+  //    regola in base all'altezza delle figure umane presenti nel modello.
+  //    Dove non c'e' il muro non lo mettiamo, perche' altrimenti crei un
+  //    precedente che ti puo' danneggiare quando avrai un'architettura formata
+  //    in tutto e per tutto.»
+  //    Questa griglia esisteva gia' e non era interrogabile da nessuno.
+  //    `altezze[i]` e' la quota della SOMMITA' della superficie verticale piu'
+  //    alta caduta in quella cella, misurata per estensione verticale del
+  //    triangolo (non per vertice: un muro a scatola non ha vertici a meta'
+  //    altezza), ed e' in metri veri perche' il modello e' gia' scalato col
+  //    righello umano. Cella a 0 = li' non sta in piedi niente, e li' non si
+  //    disegna nessun muro.
+  //    ⚠️ Questa nota SOSTITUISCE quella del 30/08 «l'altezza non si misura, si
+  //       dichiara»: non vale piu', e non si lascia accanto alla nuova.
+  griglia: () => (ensureGrid()
+    ? { minX: grid.minX, minZ: grid.minZ, nx: grid.nx, nz: grid.nz,
+        cella: CELL, altezze: grid.heights, quotaPavimento: grid.floorY }
+    : null),
+
   isReady: () => !!grid,
   reset: () => { grid = null; },
   stats: () => (grid ? { source: grid.source, cells: grid.nx * grid.nz, occupied: grid.occupied, occluders: grid.occluderCount, floorY: grid.floorY } : null),

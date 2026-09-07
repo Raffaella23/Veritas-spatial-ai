@@ -711,27 +711,343 @@ conoscenza, poi — *«e poi infine»* — la simulazione vista dagli occhi di c
 scende dal taxi, entra e segue le frecce verdi. **Quella e' la controprova che
 tutto funziona**, ed e' l'ultimo atto, non il primo.
 
-## 🔴 IL PROSSIMO LAVORO, e l'ha definito Raffaella meglio di chi scriveva
+## ✅ I PUNTI SI CONDENSANO IN SUPERFICI, E SI STA A 1,65 m — CHIUSO IL 06/09
 
-> *«Penso che il problema sia nella distanza fra i punti: si devono radunare e
-> condensare a formare delle MESH. Per questo tu hai sentito la necessita' di
-> alzarti in alto — ma se i punti arrivano dal nulla e si condensano, vanno a
-> formare la mesh effettivamente? Cosi' puoi stare all'altezza dell'uomo, nello
-> sguardo di uno che cammina. Diversamente crei una vista prospettica che
-> replica quella dall'alto. Invece noi vogliamo l'occhio dell'osservatore.»*
+> Raffaella, 06/09: *«Penso che il problema sia nella distanza fra i punti: si
+> devono radunare e condensare a formare delle MESH. Cosi' puoi stare
+> all'altezza dell'uomo, nello sguardo di uno che cammina.»*
+>
+> *«Pensa a questi puntini come agli atomi che costituiscono il volume, una
+> serie abbastanza fitti, e tieni presente l'altezza media della persona: una
+> volta stabilito il pavimento, piu' o meno dovresti avere dei riferimenti.»*
 
-⚠️ **Alzare la telecamera e' la cura sbagliata, ed e' stata provata due volte
-oggi.** Finche' la nuvola resta sparsa, a 1,65 m non c'e' niente da guardare —
-e alzandosi si ottiene solo un'altra vista dall'alto, cioe' proprio quella che
-la finestra non deve essere.
+**Fatto, e misurato sulla pagina viva.** I muri nascono dal confine fra cella
+libera e cella occupata nella griglia del motore percettivo; i punti si posano
+sopra; la telecamera sta all'altezza dell'uomo e **non si alza mai**.
 
-**La strada, ed e' gia' misurata:** nella griglia del motore percettivo
-(`buildOccupancyGrid`, celle libere/occupate) **il confine fra una cella libera
-e una occupata E' IL MURO**. Da li' si alzano superfici vere — misurate, non
-inventate — la nuvola ci si addensa sopra, e si sta in piedi dentro uno spazio
-che si costruisce attorno.
-⚠️ L'ALTEZZA di quelle superfici il programma NON la misura (vale dal 30/08,
-`f4ff56a`): va dichiarata, e va detto che e' dichiarata.
+### 🔒 L'ALTEZZA DEI MURI SI MISURA SUL MODELLO — regola di Raffaella, 06/09
+
+> *«Il modello deve raccontare la verita' del modello. Questo e' uno spaccato,
+> quindi niente soffitto. Li' dove ci sono i muri li mette all'altezza del muro,
+> che poi si regola in base all'altezza delle figure umane presenti nel modello.
+> Dove non c'e' il muro non lo mettiamo, perche' altrimenti crei un precedente
+> che ti puo' danneggiare quando avrai un'architettura formata in tutto e per
+> tutto. La traduzione e' rispetto al modello che viene caricato: non necessita
+> di avere per forza un tetto, ma necessita di un piano di calpestio e di altri
+> riferimenti — altri piani, scale mobili, oggetti, muri.»*
+
+⚠️ **Questa regola CANCELLA la riga «l'altezza va dichiarata» del 30/08**
+(`f4ff56a`), che stava proprio qui. Non vale piu' e non si lascia accanto.
+
+- l'altezza il programma **la misurava gia'** e non l'aveva mai interrogata
+  nessuno: sta in `veritas_visibility`, superfici verticali campionate per
+  **estensione del triangolo** (un muro a scatola non ha vertici a mezza
+  altezza), celle da 40 cm, in metri veri perche' il modello e' gia' scalato col
+  **righello umano**. Ora e' interrogabile: `window.__veritasPerception.griglia()`;
+- **cella a zero = niente muro.** Su uno spaccato il lato tagliato ha lo stesso
+  confine libero/occupato di un muro vero, ma sopra non sta in piedi niente: li'
+  si mostra aria. E' il filtro che impedisce di inventare un edificio chiuso
+  dove c'e' una sezione;
+- **niente soffitto**, per la stessa ragione.
+
+### Misurato sulla pagina viva, 06/09/2026
+
+| | |
+|---|---|
+| confini fra cella libera e occupata | **2.232** |
+| di cui **NON alzati** (li' non sta in piedi niente) | **1.111** — meta' esatta, ed e' lo spaccato |
+| superfici costruite | **366** |
+| altezza massima **misurata** | **4,24 m** |
+| punti nella nuvola del film | da 21.267 a **32.950** (i muri ne portano ~11.700, 18 al m²) |
+| quota dell'occhio | **1,65 m sul pavimento misurato**, su tutti e due i livelli (2,20 e 4,28 m) |
+
+⚠️ **Un muro e' una cosa LUNGA.** Prima le altezze si raggruppavano in bande
+fisse da 75 cm e 1.121 confini diventavano 412 tronconi da 68 cm: a occhio
+d'uomo si leggevano come un mazzo di carte in piedi. Ora la corsa si spezza solo
+quando l'altezza cambia di piu' di 1,2 m — e i muri sono 366, piu' lunghi.
+
+### 🔒 I PUNTINI SONO I VERTICI DEI TRIANGOLI — regola di Raffaella, 06/09
+
+> *«Nei software di renderizzazione 3D le mesh derivano da dei triangoli:
+> questi puntini dovrebbero essere i VERTICI di questi triangoli, per darti la
+> proporzione. Altrimenti il dettaglio si perde per forza.»*
+>
+> Detto dopo aver guardato la prima versione: *«ci sono tanti particolari che
+> non vedo, vedo solo dei solidi. Le immagini che lui vede sono scorci
+> prospettici dettagliati, anche viste da vicino: mi sembra strano che si veda
+> cosi' in maniera semplificata.»*
+
+⚠️ **Aveva ragione, e la causa non era la vista.** Il programma aveva gia'
+misurato **2.416 pezzi** e la loro geometria, e il film ne disegnava tre cose in
+croce: la nuvola navigabile, le impronte delle zone, i muri. Non vedeva
+semplificato: **stavamo mostrando una frazione di cio' che era gia' misurato.**
+
+**Ora la polvere sono i vertici veri.** Misurato: **89.062 punti presi da
+164.682 vertici su 2.416 mesh**. Un punto campionato a caso su una scatola non
+ha forma; un vertice del modello **e' la forma** — una seduta viene come una
+seduta, un aereo come un aereo, una persona come una persona. E la densita' non
+la scegliamo noi: la decide quanto dettaglio ha messo chi ha fatto il file.
+
+- ⚠️ **il passo di campionamento e' PROPORZIONALE**, non uguale per tutti: con un
+  passo unico una figura da 900 vertici e un piazzale da 4 conterebbero uguale,
+  e il dettaglio sparirebbe proprio dalle cose piccole. Ogni mesh porta almeno
+  otto vertici;
+- ⚠️ **non e' disegnare il modello dell'utente**, e la regola del 06/09 regge:
+  nella finestra non entra una sola mesh sua. Entrano i suoi vertici come
+  polvere. Le SUPERFICI che si accendono restano quelle che il programma ha
+  ricavato — pavimento e muri dalla griglia — non le sue;
+- ⚠️ **non entrano i disegni di VERITAS** (`__veritasHelper`): rimandarli in
+  scena sarebbe guardarsi allo specchio.
+
+### 🔒 IL PAVIMENTO E' UNA SUPERFICIE, non sei punti al metro quadro
+
+> Raffaella, 06/09: *«perche' non hanno il pavimento? Il pavimento dovrebbe
+> essere una delle prime cose che l'occhio misura.»*
+
+E infatti lo misura — **3.363 m²** — ma il film lo mostrava solo come nuvola
+navigabile: **6,3 punti al metro quadro**, che a 1,65 m, visti di taglio, non
+sono un pavimento. Senza pavimento non si legge nessun volume.
+Ora le **celle libere** della stessa griglia da cui vengono i muri diventano una
+superficie misurata (468 strisce), coi punti sopra a **9 al m²**.
+⚠️ **Sui soli vertici il pavimento sparirebbe**: un piano grande ha quattro
+vertici in tutto. Le due sorgenti servono tutte e due.
+
+### 🔒 SI CAMMINA A PASSO D'UOMO — e quando non si puo', si dichiara
+
+> Raffaella: *«dovrebbe essere piu' lento, a misura d'uomo.»*
+
+La durata del film non e' piu' un numero scelto: e' **la lunghezza del percorso
+misurato diviso 1,35 m/s** (Fruin, la stessa fonte con cui questo programma
+misura il corpo in movimento). Tetto a 150 s e fondo a 24 s — e **quando si tocca
+il tetto il log dice di quante volte si sta correndo**, invece di far finta che
+sia un passo vero.
+
+### 🔒 LO SPAZIO SI COSTRUISCE DOVE IL CORPO PASSA
+
+Il momento in cui un punto si posa non e' un effetto: e' **quando il camminatore
+gli arriva a portata** — 30 m, la stessa portata con cui il programma calcola
+gia' cosa si vede da un punto. ⚠️ E cio' che il camminatore **non incontra mai
+non entra nemmeno nella polvere**: non si fa restare a mezz'aria a fare da
+nebbia. Il vuoto resta vuoto, e quel vuoto e' un'informazione.
+📌 Il conto si fa su una griglia da due metri, una volta sola: punto per punto
+sarebbero quattordici milioni di distanze a ogni apertura della finestra.
+
+### 🔒 PRIMA I PUNTI, POI IL SOLIDO, POI I PROFILI — e l'avevo invertito
+
+> Raffaella, 06/09, guardando: *«nel caso delle superfici come muri verticali
+> sembra che si generino prima e poi arrivano i puntini. Nella teoria dovrebbero
+> generarsi i solidi DOPO che arrivano i puntini, ed e' giusto che poi si vedano
+> i profili.»*
+
+E' la riga 3 della grammatica, ed era violata: la superficie partiva **due
+centesimi** dopo il punto e finiva di accendersi **mentre i punti erano ancora
+per aria**. I punti impiegano 0,16 a posarsi: ora la superficie comincia a 0,17.
+
+> *«Le ali risultano come delle sezioni non collegate fra di loro, e invece
+> dovrebbero: cosi' come i muri vengono delineati con un bordo — ci sono i
+> puntini e poi i bordi — cosi' dovrebbe avvenire anche per gli oggetti, per
+> dare un minimo di leggibilita'.»*
+
+⚠️ **I vertici da soli sono una nuvola che CONTIENE una forma; i triangoli che
+li uniscono SONO la forma.** Ora ogni oggetto prende il suo profilo: **24.878
+triangoli** campionati proporzionalmente (almeno due per pezzo, se no una figura
+umana sparisce), con la faccia pallida e i bordi accesi, esattamente come i muri.
+
+📌 **E le figure umane si distinguono**: sono **344**, riconosciute da
+`veritas_controprova` e non dal film, e prendono l'**oro** del marchio. E' un
+colore, cioe' rappresentazione: non afferma niente che non sia gia' misurato.
+*(Raffaella, prima di questa modifica: «non ho visto neanche figure umane».)*
+
+### 🔒 L'EIDETICO SI TIENE — e il difetto non erano i puntini
+
+> Raffaella, 06/09: *«io ho la renderizzazione eidetica, la volevo fare anche per
+> una questione di marchio e d'immagine. Pero' c'e' un problema: deve essere
+> comprensibile, e con questa rarefazione dei puntini non si capisce niente.
+> Quindi dobbiamo o ottimizzare questo sistema dei puntini, oppure dire che non
+> serve a nulla e riproporre la stessa immagine.»*
+
+**Deciso: si tiene l'eidetico.** Una resa normale mostrerebbe **il modello che
+l'utente ha dato** — cioe' esattamente la cosa che la finestra non deve essere
+(*«se vedo gia' tutto il modello in partenza non mi serve»*, 06/09). Il valore
+del prodotto e' che mostra **cio' che la macchina ha capito**, non cio' che c'e'
+nel file. Buttare l'eidetico sarebbe buttare il prodotto per riparare un difetto
+di disegno.
+
+⚠️ **E il difetto di disegno era un altro: vicino e lontano avevano lo stesso
+peso.** A 1,65 m dentro un edificio lungo cento metri quasi tutto quello che si
+inquadra e' lontano; centomila segni tutti uguali diventano rumore, e il rumore
+copre la stanza in cui sei. La cura e' la regola con cui un architetto disegna:
+**la sezione e' nera, lo sfondo e' chiaro.** Sotto i 10 m si vede tutto, oltre i
+55 resta un accenno.
+
+⚠️ **E il film non ARRIVAVA.** *«La costruzione progressiva ci piace perche' fa
+scena, pero' il finale deve essere intelligibile.»* Finiva nella stessa polvere
+con cui cominciava. Ora nell'ultimo quinto le superfici si chiudono e la polvere
+si calma: si passa da *polvere che si posa* a *disegno che si legge*, ed e' la
+fase «spazio ricomposto» che finalmente ricompone.
+
+⚠️ **[DA VERIFICARE]** Profondita' e finale sono **scritti e non ancora visti**:
+il server locale si e' spento a meta' sessione e il browser di Raffaella non
+raggiunge quello di riparazione. Vanno guardati alla ripresa, ed e' la prima
+cosa: se il finale non e' leggibile, la decisione di tenere l'eidetico va
+riportata a Raffaella con l'immagine davanti.
+
+### 🔒 IL TETTO DOVE C'E' · IL RETICOLO · LA MUSICA — 06/09, tutto [DA VERIFICARE]
+
+> Raffaella, 06/09, guardando: *«sono tutti senza soffitto i volumi che vengono
+> disegnati. Dobbiamo far si' che quei pochi volumi che sono chiusi abbiano un
+> tetto, chiudere tutti i volumi che si possono chiudere. Il fondo completamente
+> bianco non ci aiuta ad avere l'effetto tridimensionale: dobbiamo avere la
+> sensazione dello spazio anche alle spalle del modello, sia pure con una
+> griglia leggerissima, fondo bianco con delle sottili linee grigie. Abbiamo
+> musica on, ma non abbiamo musica.»*
+
+**1. Il tetto, e non contraddice lo spaccato: lo completa.** Non si mette un
+soffitto dove non c'e', si mette **dove il modello ne ha uno**. La misura la
+danno i triangoli quasi ORIZZONTALI sopra i 2,1 m: un solaio e' orizzontale, il
+fianco di un aereo no.
+⚠️ **Su questo modello devono essere POCHI**, e il numero lo dice il log. La
+voce «il tetto che finisce» di `veritas_accessi` su questo GLB e' MUTA — 36
+campioni coperti su 1.544, il **2%**. Se qui uscisse un soffitto dappertutto,
+vorrebbe dire che lo stiamo inventando.
+
+**2. Il reticolo.** Su carta bianca l'occhio non ha appigli: senza un piano di
+riferimento, un muro a cinque metri e uno a cinquanta stanno allo stesso posto.
+Linee grigie ogni 5 m, che sfumano vicino (se no si vede sotto i piedi) e
+svaniscono lontano.
+⚠️ **E' l'unica cosa disegnata che NON e' misurata**, quindi si dichiara con
+l'unico modo che ha un disegno per dichiararsi: **sparisce**. Si spegne man mano
+che lo spazio si ricompone, e alla fine resta solo il misurato.
+
+**3. La musica c'era e non suonava**, per una ragione che vale oltre l'audio:
+il motore nasceva dentro un `setTimeout` due secondi dopo il clic, cioe' **fuori
+dalla catena del gesto dell'utente** — e li' il browser lo crea sospeso e non lo
+fa ripartire. Ora nasce dentro il clic. Ed era un ronzio: adesso e' un organo in
+RE minore a quinta vuota che respira, col basso sotto e un rintocco lontano.
+⚠️ **Tutta sintetizzata, nota per nota.** Raffaella ha chiesto *«una musica di
+fantascienza»* dicendo lei stessa che quella dei film non si puo' usare: un
+pezzo protetto dentro un prodotto che si vende e' lo stesso problema legale di
+Neufert per le tabelle. **Si suona, non si prende.**
+
+**4. Il cammino non passa piu' sul piazzale.** Il difetto della zonizzazione
+resta aperto, ma il film non lo aspetta: gli ambienti dove **l'occhio ha visto
+l'aria aperta** (`ariaApertaVista`, direttiva 17) escono dal percorso. Nessuna
+soglia in metri — lo dice l'occhio.
+
+⚠️ **[DA VERIFICARE] — TUTTI E QUATTRO, piu' profondita' e finale.** Il server
+locale su cui si verificava si e' spento a meta' sessione, e il Chrome di
+Raffaella non raggiunge quello riavviato dalla parte di Claude: girano in due
+contesti diversi. **Ultima cosa vista davvero: `v=29`** (vertici, triangoli,
+pavimento, figure in oro). Da `v=30` in poi e' scritto e non guardato.
+📌 Per riprendere: server locale sulla cartella del repo, `python -m http.server
+5173`, poi `http://localhost:5173/index.html`.
+
+### 📋 LE TIPOLOGIE DI RESA — idea di Raffaella, da fare dopo
+
+> *«Potrebbe essere utile avere delle tipologie diverse di renderizzazione. Nei
+> motori di rendering c'era la freccetta che dava la possibilita' di scegliere
+> fra filo di ferro, low poly, oppure high resolution. Sono opzioni che magari
+> devono essere attivate dopo il primo studio.»*
+
+📌 **E adesso costa poco**, perche' la scena e' gia' fatta di quei tre strati
+separati: la polvere (i vertici), i fili (i bordi dei triangoli e dei muri) e le
+facce. Una tendina che pesa i tre strati da' *eidetico* / *filo di ferro* /
+*pieno* senza ricostruire niente.
+⚠️ **Dopo il primo studio, non prima**: sono modi di guardare una comprensione
+che deve gia' esserci.
+
+📌 **E l'utente deve poter salvare o rivedere il filmato.** «Rivedi» c'e' gia'
+(barra, pausa, trascinamento); **salvare no**, ed e' un lavoro suo.
+
+### 🔴 SI CAMMINA IN MEZZO AGLI AEREI — visto nel film il 06/09
+
+> *«Il modello ci fa vedere gli errori: sta camminando in mezzo alle aree, cosa
+> impossibile. Li' c'e' un problema proprio di zone che dobbiamo ancora
+> risolvere.»*
+
+⚠️ **Non e' un difetto del film: e' la direttiva 15 che funziona.** L'area
+navigabile misurata comprende il piazzale degli aerei, quindi il camminatore ci
+passa dentro. E' lo stesso difetto gia' aperto — *«il fronte strada non e'
+ancora una zona sua»* e *«le aree all'aperto: si tengono quelle dal lato
+dell'arrivo»* — ma finora era un numero in un log, e adesso **si vede in tre
+secondi da dentro**.
+
+### 🔴 TRE GUASTI TROVATI DAL FILM, e due non erano del film
+
+Sono la prova della direttiva 15: **la finestra rende visibile in tre secondi
+quello che al banco costa una giornata.**
+
+1. **TUTTI E 28 I CAMMINATORI STANNO FUORI DALLO SPAZIO MISURATO.** Misurato: il
+   migliore ci sta dentro il **13%** dei passi, il peggiore il **6%**, tutti a
+   quota **zero**, e uno arriva a **x = 48** mentre lo spazio misurato finisce a
+   **x = 21**. Non sono passeggeri di questo aeroporto: sono i **361 fotogrammi
+   della sequenza dimostrativa cablata nel bundle**, che risponde anche quando
+   la simulazione non e' mai partita — difetto gia' noto («i 361 fotogrammi e i
+   180 secondi sono i numeri del bundle, non i nostri»), ma **nessuno sapeva che
+   `__veritasGetTrajectory()` la restituisce come se fosse vera.**
+   ⚠️ Il film ora la rifiuta, e la prova **non nomina il bundle e non conta i
+   fotogrammi**: guarda se quei passi cadono sul calpestabile MISURATO. Regge
+   anche il giorno in cui la sequenza finta cambia forma.
+   🔴 **Resta aperto per chi tocca la simulazione**: perche' quella traiettoria
+   arriva a chi la chiede senza dichiararsi finta.
+2. **Il passeggero vero si pianta.** Quando la simulazione e' partita davvero
+   (795 passi), l'agente percorre **59,2 m** e poi trema sul posto: fra il 75% e
+   il 94% del film la telecamera si spostava di **sei centimetri**. E' il trap
+   del motore fisico (`unreachable`), gia' noto. Il film taglia la coda ferma —
+   mezzo metro, non cinque centimetri, perche' un agente piantato **trema**, non
+   si ferma — e dichiara nel log quanti metri ha fatto davvero.
+3. **`lookAt` su se' stessi cancella la scena intera.** Con l'agente fermo, il
+   punto «otto passi avanti» coincideva con la telecamera, l'orientamento non
+   aveva una direzione da cui nascere, e **spariva tutto**: schermo bianco con
+   tutto il resto funzionante. Ora si cerca in avanti finche' non si trova un
+   punto lontano almeno un passo e mezzo, e se non c'e' si tiene l'ultima
+   direzione buona.
+   ⚠️ **La lezione:** un difetto che si presenta come «non funziona niente» puo'
+   essere una riga sola. La diagnosi l'ha data `veritasCinema.stato()`, che
+   **restituisce** posizione della telecamera, direzione, punti arrivati e muri
+   — non li stampa dopo tre secondi.
+
+### E l'occhio resta acceso finche' la lettura non e' pronta
+
+> Raffaella, 06/09: *«avevo suggerito di mettere la schermata nel frattempo che
+> partono tutti i sistemi per la lettura, l'occhio con l'animazione per il
+> loading, se non vogliamo tenere questo schermo bianco indefinitamente»*.
+
+L'apertura col marchio durava un tempo **fisso** (2,2 s) e poi si toglieva
+comunque: se la scena non aveva ancora niente da mostrare, dietro c'era il
+bianco. Ora si toglie quando **lo stato vero** dice che c'e' qualcosa da vedere
+— scena montata e almeno un fotogramma dipinto — e mai prima del tempo delle
+ali. ⚠️ E non aspetta all'infinito: dopo **12 secondi** parte lo stesso e **lo
+dichiara nel log**, invece di lasciare l'utente davanti a un marchio che gira
+per sempre.
+
+### Cosa resta da guardare, su questa finestra
+
+- 🟠 **la velocita' della camminata.** Il film dura 30 s e attraversa tutto lo
+  spazio: e' piu' veloce di un passo vero. E' una scelta di regia, non una
+  misura — **da decidere con Raffaella guardando**;
+- 🟠 **il cammino dedotto attraversa i muri.** Quando non c'e' un passeggero
+  vero si va in linea retta da un ambiente all'altro, e la quota la da' il
+  pavimento misurato sotto i piedi, ma il tracciato non evita gli ostacoli;
+- 🟠 **il piano superiore e quello terra si alternano** nell'ordine delle tappe:
+  si sale e si scende piu' volte;
+- 🔴 **IL FILM NON SI AGGIORNA MENTRE L'OCCHIO CONTINUA A GUARDARE.** Domanda di
+  Raffaella, 06/09: *«deve avere il tempo di raccogliere altre informazioni nel
+  momento in cui gira: se nel frattempo ha fatto altri giri e riconosciuto altri
+  elementi, lo fa gia'?»* **Risposta onesta: no.** `dati()` gira **una volta
+  sola**, quando si preme il pulsante, e fotografa quello che si sa in quel
+  momento. Se l'occhio chiude un altro giro mentre il film scorre, i nomi nuovi
+  non entrano.
+  📌 **E il gancio c'e' gia'**: l'evento `veritas:vista` sulla finestra, acceso
+  il 05/09 apposta per questo (direttiva 15, *«mentre si misura, si mostra»*).
+  Va ascoltato dal film: i cartellini nuovi si posano mentre gira, senza
+  rimontare la scena. **E' il prossimo lavoro su questa finestra.**
+
+---
+
+*(La strada l'aveva indicata Raffaella e non chi scriveva codice: alzare la
+telecamera era la cura sbagliata, provata due volte il 06/09. La cura erano le
+superfici. Chiuso; il come sta nella sezione qui sopra.)*
 
 ## ⚠️ Le trappole pagate il 06/09 su questa finestra — non si ripagano
 
