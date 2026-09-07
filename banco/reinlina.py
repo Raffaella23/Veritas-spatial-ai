@@ -10,6 +10,7 @@ e poi verifica che il blocco 3 sia byte-per-byte quello di sempre.
 Si individua il blocco per CONTENUTO (la firma window.__veritasX), mai per
 numero: gli indici cambiano a ogni inserimento (§13.1).
 """
+import os
 import hashlib
 import re
 import sys
@@ -24,6 +25,7 @@ from html.parser import HTMLParser
 #    piu': quel giorno il bundle e' stato modificato a mano per aggiungere il
 #    carattere Jura ai font del vestito EIDETICA. Ventitre caratteri, voluti,
 #    verificati uno per uno: e' l'unica differenza in 872.517.
+NL = chr(10)
 SHA_BUNDLE = "beb4953744b92c5b"
 
 
@@ -90,6 +92,22 @@ def sorgente_inline(percorso, legatura):
     return fuori
 
 
+def chiavi_esportate(testo, firma):
+    """Le chiavi del blocco `window.__veritasX = { ... }`.
+
+    Serve a capire se il blocco che si sta per sostituire e' davvero il gemello
+    di questo modulo: due moduli diversi non esportano le stesse funzioni.
+    """
+    i = testo.find(firma)
+    if i < 0:
+        return set()
+    corpo = testo[i + len(firma):]
+    fine = corpo.find(chr(10) + "};")
+    if fine >= 0:
+        corpo = corpo[:fine]
+    return set(re.findall(r"^\s*([A-Za-z_$][\w$]*)\s*[,:]", corpo, flags=re.M))
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
@@ -108,6 +126,47 @@ def main():
             "atteso esattamente 1 (individuazione per contenuto)"
         )
     if bersagli:
+        # ⚠️ LA GUARDIA CHE MANCAVA, pagata il 07/09/2026.
+        #
+        #    Il blocco si trova per la firma `window.__veritasX`, e la firma da
+        #    sola non basta: se si sbaglia il nome della legatura si sovrascrive
+        #    IL MODULO DI QUALCUN ALTRO. Il 07/09 e' stato chiesto
+        #    `veritas_perception.js __veritasPerception`, ma quella legatura e'
+        #    del modulo della VISIBILITA' (isovista, linea di vista, altezza dei
+        #    muri): la percezione ci e' finita sopra e l'ha cancellato.
+        #    Il comando ha detto «blocco reinlinato, bundle intatto» e sembrava
+        #    andato bene. Il guasto e' uscito sulla pagina viva come
+        #    `__veritasPerception.reset is not a function`, e aveva fermato
+        #    tutta la catena dopo il righello umano: 83,34 m² invece di 3.363.
+        #    La legatura giusta era `__veritasPerceptionEngine`.
+        #
+        #    Regola: si confrontano le CHIAVI ESPORTATE. Il blocco che sta in
+        #    pagina e quello che si sta per scrivere devono esportare piu' o meno
+        #    le stesse cose — se non hanno quasi niente in comune, quel blocco e'
+        #    di un altro modulo e non si tocca.
+        #    ⚠️ NON si guarda il nome del file: meta' dei moduli non si nomina
+        #       nella propria intestazione (`veritas_perception.js` comincia con
+        #       «VERITAS — Motore di Percezione» e basta), e una guardia che
+        #       boccia anche il caso giusto viene disattivata il giorno dopo.
+        vecchie = chiavi_esportate(bersagli[0][0], firma)
+        nuove = chiavi_esportate(nuovo_corpo, firma)
+        comuni = vecchie & nuove
+        if nuove and vecchie and len(comuni) * 2 < len(nuove):
+            raise SystemExit(NL.join([
+                f"RIFIUTO: il blocco con la firma {firma} esporta",
+                f"  {sorted(vecchie)}",
+                f"mentre {os.path.basename(modulo)} esporta",
+                f"  {sorted(nuove)}",
+                f"In comune: {sorted(comuni) or 'NIENTE'}. E' un ALTRO modulo,",
+                "e sovrascriverlo lo cancellerebbe in silenzio.",
+                "Successo il 07/09/2026 con __veritasPerception (che e' la",
+                "VISIBILITA': isovista, linea di vista, altezza dei muri) al",
+                "posto di __veritasPerceptionEngine. Il comando disse «blocco",
+                "reinlinato, bundle intatto», e il guasto usci' due ore dopo",
+                "sulla pagina viva: 83,34 m2 invece di 3.363.",
+                "Per trovare la legatura giusta:",
+                "  grep -n 'window.__veritas[A-Za-z]* = {' index.html",
+            ]))
         _, inizio, fine = bersagli[0]
         documento = documento[:inizio] + "\n" + nuovo_corpo + documento[fine:]
     else:
