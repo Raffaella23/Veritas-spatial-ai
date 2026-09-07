@@ -145,6 +145,15 @@ uno, stai leggendo istruzioni di venti giorni fa. **Non sono qui.**
   dentro Claude **non regge** l'applicazione 3D: si pianta. Per guardare si usa
   **Chrome**, e i log te li leggi da solo con `mcp__claude-in-chrome__*` —
   **non si chiede a Raffaella di copiare la console.**
+- ⛔ **E NON LE SI LASCIANO I PROMEMORIA.** Raffaella, 07/09/2026: *«invece di
+  dirlo a me, lo devi dire a te stesso della nuova chat, perché quello che si
+  dimentica le cose sei tu. Stiamo perdendo un sacco di tempo perché da una chat
+  all'altra si perdono le informazioni.»*
+  Ogni volta che sta per uscire un *«ricordati di controllare…»* rivolto a lei,
+  quella riga va scritta **nel prompt della chat successiva o in questo
+  documento**, non in un messaggio. Chi perde la memoria fra una chat e l'altra
+  è chi scrive, non chi legge — e scaricarle addosso il ricordo è il modo più
+  veloce di ripagare due volte lo stesso lavoro.
 - **Dopo ogni modifica a `veritas_carta.js`: `node banco/sistema_carta.mjs`.**
 - **Ogni volta che apri o chiudi una finestra, dillo.** E il link alla pagina si
   dà sempre, senza farselo chiedere.
