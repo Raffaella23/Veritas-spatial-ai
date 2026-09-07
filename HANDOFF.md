@@ -532,6 +532,98 @@ ripresa.
 
 ---
 
+## 18. L'OCCHIO VIENE ASCOLTATO PER PRIMO, E NON È UNA METAFORA
+
+> Raffaella, 07/09/2026: *«E allora imponi che l'occhio venga ascoltato prima di
+> qualsiasi altra cosa. Avevo già chiesto — e lo troverai scritto da qualche
+> parte — che l'occhio deve avere dei superpoteri. Ma non mi sembra che abbia dei
+> suoi poteri.»*
+
+⚠️ **Ed era scritto davvero** — direttiva 17 e Regola 0 punto 2. Il potere stava
+sulla carta e non nei fatti, **per una ragione sola e meccanica: i tempi.**
+Gli spazi si misurano appena il modello è entrato; l'occhio ci mette minuti (su
+questo modello guarda **24 viste**); e quando finalmente parla **nessuno lo
+riascolta** — gli ingressi sì, gli ambienti no. Quindi la sua testimonianza
+arriva sempre a cose già decise, e tutto ciò che dovrebbe discenderne — il
+confine dentro/fuori, il piazzale tolto dal calpestabile, l'accesso dalla strada
+— non succede mai.
+
+📌 **Misurato il 07/09 col referto della catena**: anelli 3, 5 e 6 tutti in
+attesa dello stesso anello che non veniva mai riletto. Non era un difetto di
+logica: **era che nessuno lo ascoltava.**
+
+✅ **Imposto** (`veritas_comando.js`): quando l'occhio consegna qualcosa di
+NUOVO, l'analisi si rifà, con l'autorità di riscrivere le assegnazioni. E lo
+**dichiara coi numeri di prima e di dopo** — una rianalisi silenziosa che sposta
+i metri quadri sotto i piedi di chi guarda è peggio di non farla. ⚠️ E se non
+cambia niente lo dice: un giro che non cambia niente è un dato, non un successo.
+
+## 19. L'OCCHIO GUARDA DOVE GUARDA CHI CAMMINA — e non tiene niente in memoria
+
+> Raffaella, 07/09/2026: *«Se abbiamo dei problemi di tempistica: l'occhio
+> dell'osservatore che si muove nello spazio, quello che vediamo nella live view,
+> deve renderizzare pian piano che cammina, man mano che si muove, in maniera
+> tale che non deve mettere in memoria tutto un giro. Tutti i programmi di
+> rendering che vogliono fare il rendering istantaneo lavorano su quello che vede
+> l'osservatore in quel momento. Quello che c'è alle sue spalle non viene
+> analizzato. Tutti così lavorano.»*
+
+⚠️ **Ha ragione, ed è esattamente come funziona il rendering in tempo reale**
+(si chiama *view-dependent*: si calcola solo ciò che sta dentro il campo visivo).
+Applicato all'occhio, **scioglie il problema dei tempi invece di aggirarlo**:
+oggi si preparano 24 viste e si aspettano otto minuti prima che serva a
+qualcosa; così invece **la testimonianza arriva dove il corpo è, mentre ci
+arriva**, e non si aspetta mai un giro intero.
+
+📌 **E combacia con tre cose già decise**: la direttiva 15 (*«mentre si misura,
+si mostra»*), «lo spazio si costruisce dove il corpo passa» — che il film fa già,
+i punti si posano quando il camminatore arriva a portata — e la Regola 0, perché
+l'occhio continua a guardare per primo.
+
+⚠️ **E LA REGOLA 0 REGGE ANCHE QUI, ma va detto come.** Da una prospettiva non
+si prende una posizione, e non si prenderà. Ma una vista dal camminatore **sa
+quale pezzo di mondo ha davanti**: è il tronco di piramide visiva appoggiato sul
+pavimento. È la stessa idea della REGIONE dei primi piani (07/09), generalizzata
+— e la forma esatta il programma la sa già calcolare: è **l'isovista**, che
+`veritas_visibility` misura da sempre e che nessuno ha mai usato per questo.
+Quindi: *«da qui ho visto dei taxi»* = testimonianza legata a **ciò che si vede
+da questo punto**, misurato, non a un pixel.
+
+**Da fare, e non è ancora fatto:** una vista dal camminatore (occhio a 1,65 m,
+lente 60°, la stessa del film) resa in `veritas_vista.js`, data all'occhio una
+alla volta mentre cammina, con la sua regione presa dall'isovista.
+
+## 20. MOLTI OCCHI, UN SOLO MODELLO — la direzione, non il lavoro di adesso
+
+> Raffaella, 07/09/2026: *«Paradossalmente noi seguiamo il percorso che fa solo
+> un'AI nella nostra live view. Ma quando sarà un sistema super potente, potrebbe
+> generare tutto il modello molto più velocemente se questi occhi virtuali
+> renderizzassero le parti del loro percorso e costruissero praticamente questo
+> modello condiviso, di coscienza condivisa delle singole AI. In futuro — non te
+> lo chiedo adesso, però secondo me è questa la sua.»*
+
+⚠️ **NON SI COSTRUISCE ADESSO**, e lo ha detto lei. Sta scritto perché è la
+direzione, e perché il lavoro della direttiva 19 va fatto in modo da non
+chiuderle la porta.
+
+📌 **E non è fantascienza: metà del meccanismo esiste già.** Nel modello
+camminano **28 agenti** su percorsi diversi; l'occhio produce già una
+testimonianza legata a una regione; le testimonianze di due sorgenti diverse —
+pianta e primi piani — **si sommano già** in un elenco solo, che è un modello
+condiviso primitivo. Passare da un osservatore a molti vuol dire far depositare
+tutti nello stesso registro, invece che uno solo.
+
+⚠️ **La cosa da tenere ferma quando si arriverà lì**, e va scritta adesso perché
+è il punto in cui un'architettura del genere si rovina: **due occhi che vedono
+la stessa cosa non la rendono più vera.** Se dieci agenti passano nello stesso
+corridoio e tutti e dieci dicono «sedute», è **una** testimonianza vista dieci
+volte, non dieci prove. È lo stesso errore contro cui il documento mette in
+guardia dal 02/09 — *«farle votare una seconda volta alzerebbe l'affidabilità con
+lo stesso indizio detto due volte»*. La coscienza condivisa deve contare i
+**punti di vista diversi**, non le ripetizioni.
+
+---
+
 # 🔒 MILESTONE — IL CONFINE LO DICE L'OCCHIO. 06/09/2026
 
 > Raffaella, 06/09/2026: *«Questo deve essere scritto come milestone. Non deve
