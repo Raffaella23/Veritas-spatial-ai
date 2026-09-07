@@ -544,7 +544,14 @@
     .v-proj-item .name{font-size:13px;font-weight:600;}
     .v-proj-item .meta{font-size:10px;color:#64748b;margin-top:2px;}
     .v-proj-list{max-height:280px;overflow:auto;margin-bottom:14px;}
-    .v-logout{position:absolute;top:16px;right:16px;font-size:10px;color:#64748b;cursor:pointer;}
+    /* ⚠️ L'INDIRIZZO STA A SINISTRA, I BOTTONI IT/EN A DESTRA — 06/09.
+   Stavano tutti e due in alto a destra, e con un indirizzo lungo
+   («cianiraffaella@gmail.com») si sovrapponevano: Raffaella l'ha visto
+   sullo schermo. Due cose che si toccano non sono solo brutte — quella
+   sopra si mangia il clic di quella sotto. */
+    .v-logout{position:absolute;top:16px;left:16px;right:auto;max-width:calc(100% - 90px);
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-size:10px;color:#64748b;cursor:pointer;}
 
     /* Una riga deve dire di che spazio parla: il file, quando e' stata aperta,
        e — la piu' importante — SE il modello ce l'ha. Prima un progetto pieno
@@ -617,14 +624,27 @@
   const card = overlay.querySelector("#v-card");
 
   function langSwitcherHtml() {
-    return `<div style="position:absolute;top:16px;right:16px;display:flex;gap:4px;">
+    return `<div style="position:absolute;top:16px;right:16px;z-index:5;display:flex;gap:4px;">
       <button class="v-lang" data-l="it" style="font-size:9px;padding:3px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "it" ? "#fff" : "transparent"};color:${LANG === "it" ? "#000" : "#94a3b8"};cursor:pointer;">IT</button>
       <button class="v-lang" data-l="en" style="font-size:9px;padding:3px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:${LANG === "en" ? "#fff" : "transparent"};color:${LANG === "en" ? "#000" : "#94a3b8"};cursor:pointer;">EN</button>
     </div>`;
   }
+  // ⚠️ LA LINGUA SI CAMBIA PER TUTTA LA PIATTAFORMA, non per la schermata che
+  //    si sta guardando — Raffaella, 06/09: «clicco English e mi da' sempre in
+  //    italiano». Non era un difetto di traduzione: la scelta veniva scritta e
+  //    la schermata si ridisegnava, ma gli ALTRI blocchi di questa pagina hanno
+  //    letto la lingua una volta sola all'avvio e non la rileggono. Quindi
+  //    mezza applicazione restava com'era, ed e' quella meta' che si vede.
+  //    Si ricarica la pagina, che e' la stessa cosa che fa gia' il selettore
+  //    del pannello: cosi' tutti la rileggono insieme.
   function wireLangSwitcher(container, onChange) {
     container.querySelectorAll(".v-lang").forEach((el) => {
-      el.onclick = () => { setLang(el.getAttribute("data-l")); onChange(); };
+      el.onclick = () => {
+        const l = el.getAttribute("data-l");
+        setLang(l);
+        try { if (localStorage.getItem("veritasLang") === l) { location.reload(); return; } } catch (e) {}
+        onChange();
+      };
     });
   }
 
@@ -763,7 +783,7 @@
     card.style.position = "relative";
     card.innerHTML = `
       ${langSwitcherHtml()}
-      <div class="v-logout" id="v-logout" style="right:60px;">${esc(userEmail)} · ${t("logout_label")}</div>
+      <div class="v-logout" id="v-logout">${esc(userEmail)} · ${t("logout_label")}</div>
       <h1>${t("projects_title")}</h1>
       <p class="sub">${t("projects_subtitle_2")}</p>
       ${error ? `<div class="v-error">${esc(error.message)}</div>` : ""}
