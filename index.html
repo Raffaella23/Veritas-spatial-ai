@@ -13247,42 +13247,90 @@ function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
     || (typeof window !== 'undefined' && window.__veritasPerception
         && window.__veritasPerception.isovist) || null;
 
+  // ⚠️ QUANTO BISOGNA VEDERE PERCHÉ VALGA LA PENA DI SCATTARE. Misurato sul
+  //    banco di prova il 07/09: dal baricentro delle stanze piccole (10-23 m²)
+  //    l'isovista vedeva **1,0-1,7 m²** con un raggio medio di **1,3-1,8 m** —
+  //    cioè il naso contro un armadio, a 470 pixel al metro. Fotografie
+  //    bellissime di una superficie, e ognuna si mangia un turno dell'occhio
+  //    (decine di secondi) senza portare nessuna testimonianza.
+  //    ⚠️ **PRIMA TARATURA, NON UNA MISURA.** Quattro metri quadri è poco più
+  //       di un bagno: sotto, non si sta guardando un luogo, si sta guardando
+  //       una parete.
+  const UTILE_M2 = opzioni.utileM2 != null ? opzioni.utileM2 : 4;
+
   // Dal più grande al più piccolo: se il tetto taglia, taglia gli sgabuzzini.
   const ordinati = ambienti.slice()
     .filter((z) => z && typeof z.centroidX === 'number' && typeof z.centroidZ === 'number')
     .sort((a, b) => (b.areaM2 || 0) - (a.areaM2 || 0));
 
-  // Prima si decide DOVE guardare (costa raggi), poi si scatta (costa pixel).
-  const daScattare = [];
-  for (const z of ordinati) {
-    const occhio = [z.centroidX, (z.y || 0) + altezzaOcchio, z.centroidZ];
-    const nome = (z.nome || z.label != null ? 'ambiente ' + (z.nome || z.label) : 'un ambiente')
-      + ' (' + Math.round(z.areaM2 || 0) + ' m²)';
-    let direzioni = [];
-    if (misuraIsovista) {
-      for (let i = 0; i < sonde; i++) {
-        const a = (i / sonde) * Math.PI * 2;
-        let area = 0;
-        try {
-          const iso = misuraIsovista(occhio, { eyeHeight: altezzaOcchio, range: portata,
-            direzione: a, ampiezzaGradi: fovGradi, rays: 10 });
-          area = iso ? iso.area : 0;
-        } catch (e) { area = 0; }
-        direzioni.push({ a, area });
-      }
-      direzioni.sort((p, q) => q.area - p.area);
-      // ⚠️ Una direzione che vede meno di un metro quadro è il muro: si scarta,
-      //    perché una fotografia di un muro occupa un turno dell'occhio (decine
-      //    di secondi) e non porta nessuna testimonianza.
-      direzioni = direzioni.filter((d) => d.area >= 1);
-    } else {
-      // Senza isovista non si indovina: quattro direzioni cardinali, e lo si dice.
-      direzioni = [0, 1, 2, 3].map((k) => ({ a: k * Math.PI / 2, area: null }));
+  /** Prova un punto: restituisce le direzioni ordinate per quanto si vede. */
+  function provaPunto(occhio) {
+    if (!misuraIsovista) {
+      // Senza isovista non si indovina: quattro direzioni cardinali, e si dice.
+      return [0, 1, 2, 3].map((k) => ({ a: k * Math.PI / 2, area: null }));
     }
-    direzioni.slice(0, perAmbiente).forEach((d, k) => {
-      daScattare.push({ occhio, a: d.a, area: d.area, nome, primo: k === 0 });
-    });
+    const out = [];
+    for (let i = 0; i < sonde; i++) {
+      const a = (i / sonde) * Math.PI * 2;
+      let area = 0;
+      try {
+        const iso = misuraIsovista(occhio, { eyeHeight: altezzaOcchio, range: portata,
+          direzione: a, ampiezzaGradi: fovGradi, rays: 10 });
+        area = iso ? iso.area : 0;
+      } catch (e) { area = 0; }
+      out.push({ a, area });
+    }
+    return out.sort((p, q) => q.area - p.area);
   }
+
+  // Prima si decide DOVE STARE e DOVE GUARDARE (costa raggi, non pixel), poi
+  // si scatta. È il motivo per cui si può provare più di un punto per stanza
+  // senza pagarlo: una sonda è dieci raggi, una fotografia è mezzo milione di
+  // pixel piu' un turno dell'occhio.
+  const daScattare = [];
+  const saltati = [];
+  ordinati.forEach((z, idx) => {
+    const nome = 'il ' + (idx + 1) + 'º ambiente di ' + ordinati.length
+      + ' (' + Math.round(z.areaM2 || 0) + ' m²)';
+    const quota = (z.y || 0) + altezzaOcchio;
+    // ⚠️ IL BARICENTRO NON È SEMPRE UN POSTO DOVE SI PUÒ STARE. In una stanza
+    //    a L cade nel muro; in una stanza piena cade dentro un mobile. Si
+    //    provano anche quattro punti su un anello attorno, largo quanto la
+    //    stanza lo consente, e si tiene il migliore — sempre a raggi, quindi
+    //    quasi gratis.
+    const raggioAnello = Math.max(1, Math.min(3, Math.sqrt(z.areaM2 || 1) / 3));
+    const candidati = [[z.centroidX, quota, z.centroidZ]];
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2;
+      candidati.push([z.centroidX + Math.cos(a) * raggioAnello, quota,
+                      z.centroidZ + Math.sin(a) * raggioAnello]);
+    }
+    let meglio = null;
+    for (const c of candidati) {
+      const dir = provaPunto(c);
+      const quanto = dir.length ? (dir[0].area == null ? Infinity : dir[0].area) : 0;
+      if (!meglio || quanto > meglio.quanto) meglio = { occhio: c, direzioni: dir, quanto };
+    }
+    if (!meglio || meglio.quanto < UTILE_M2) {
+      saltati.push({ nome, visto: meglio ? meglio.quanto : 0 });
+      return;
+    }
+    meglio.direzioni
+      .filter((d) => d.area == null || d.area >= UTILE_M2)
+      .slice(0, perAmbiente)
+      .forEach((d, k) => {
+        daScattare.push({ occhio: meglio.occhio, a: d.a, area: d.area, nome, primo: k === 0 });
+      });
+  });
+
+  // ⚠️ QUELLO CHE NON SI È GUARDATO SI DICE. Un ambiente saltato in silenzio
+  //    diventa, per chi legge il referto, un ambiente in cui non c'era niente.
+  if (saltati.length && typeof console !== 'undefined')
+    console.log('[VERITAS dentro] ' + saltati.length + ' ambienti non fotografati da dentro:'
+      + ' da nessun punto si vedono ' + UTILE_M2 + ' m² ('
+      + saltati.map((x) => x.nome + ': ' + x.visto + ' m²').join(' · ')
+      + '). Non è che non ci sia niente: è che non ci si sta in piedi a guardare.');
+
   // Il tetto taglia in coda, ma prima i PRIMI scatti di tutti gli ambienti:
   // meglio nove stanze viste una volta che tre viste tre volte.
   daScattare.sort((p, q) => (q.primo ? 1 : 0) - (p.primo ? 1 : 0));
