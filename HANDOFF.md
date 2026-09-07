@@ -558,6 +558,26 @@ NUOVO, l'analisi si rifà, con l'autorità di riscrivere le assegnazioni. E lo
 i metri quadri sotto i piedi di chi guarda è peggio di non farla. ⚠️ E se non
 cambia niente lo dice: un giro che non cambia niente è un dato, non un successo.
 
+🟠 **[DA VERIFICARE] CHE SCATTI DAVVERO.** Il modulo è in linea e risponde
+(`window.__veritasComando` c'è), ma **non l'ho mai visto partire**: per vederlo
+serve che l'occhio finisca, e in due giri di fila del 07/09 sera **non ha
+consegnato niente in sette-otto minuti** (`quantoHaDetto()` = 0), poi Chrome si
+è scollegato. La prima cosa da fare alla ripresa è aprire il progetto, aspettare
+l'occhio, e cercare in console:
+
+```
+[VERITAS comando] l’occhio ha parlato (N cose viste): rifaccio l’analisi
+[VERITAS comando] dopo aver ascoltato l’occhio: 3364 m² · 9 → N ambienti · 0 → N accessi «da fuori»
+```
+
+🔴 **E c'è un fatto da guardare, che potrebbe essere un guasto nuovo:** la
+mattina del 07/09 l'occhio aveva consegnato **73 rilevazioni dalla pianta e 14-16
+legate a un'area**; la sera, due giri di fila, **zero** dopo sette-otto minuti.
+Può essere solo lentezza — 24 viste a 20-90 secondi l'una fanno anche dodici
+minuti — oppure la catena dell'occhio si è staccata di nuovo. **Il referto della
+catena lo dice in cinque secondi**: se l'anello 2 è `ok` e il 3 resta `attesa`
+per più di un quarto d'ora, non è lentezza.
+
 ## 19. L'OCCHIO GUARDA DOVE GUARDA CHI CAMMINA — e non tiene niente in memoria
 
 > Raffaella, 07/09/2026: *«Se abbiamo dei problemi di tempistica: l'occhio
