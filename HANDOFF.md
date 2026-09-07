@@ -4,14 +4,14 @@
 
 ---
 
-## 🚩 SI RIPARTE DA QUI — 07/09/2026, sera
+## 🚩 SI RIPARTE DA QUI — 07/09/2026, notte
 
-**Il documento è lungo. Non si legge tutto: si legge questo blocco, le sei regole
+**Il documento e' lungo. Non si legge tutto: si legge questo blocco, le sei regole
 ferree qui sotto, le direttive 18-19-20, e poi SOLO la sezione del fronte che si
-tocca.** *(Leggerlo per intero è costato una sessione intera il 30/08: serviva
-una volta sola, ed è già stata fatta.)*
+tocca.** *(Leggerlo per intero e' costato una sessione intera il 30/08: serviva
+una volta sola, ed e' gia' stata fatta.)*
 
-### La prima cosa da fare, ed è mezz'ora
+### La prima cosa da fare, ed e' mezz'ora
 
 **Aprire il progetto sulla pagina viva, aspettare, e leggere il referto della
 catena in console** — nove righe, si stampa da solo:
@@ -20,46 +20,120 @@ catena in console** — nove righe, si stampa da solo:
 window.__veritasCatena.stampa()
 ```
 
-Dice **dove si è staccata**, e indica il PRIMO anello rotto (gli altri sono la
-sua ombra). È nuovo del 07/09 ed è la cosa che impedisce di ripetere la
-settimana appena passata.
+Dice **dove si e' staccata**, e indica il PRIMO anello rotto (gli altri sono la
+sua ombra).
 
-### Le due domande a cui rispondere prima di scrivere una riga
+### ✅ LE DUE DOMANDE DEL 07/09 SERA HANNO RISPOSTA, MISURATA
 
-1. 🔴 **L'occhio consegna ancora?** La mattina del 07/09 dava 73 rilevazioni
-   dalla pianta e 14 legate a un'area; la sera, due giri di fila, **zero** dopo
-   sette-otto minuti. Se l'anello 2 è `ok` e il 3 resta `attesa` per più di un
-   quarto d'ora, **non è lentezza**: la sua catena si è staccata di nuovo.
-2. 🟠 **`veritas_comando.js` scatta davvero?** È in linea e risponde, ma non l'ho
-   mai visto partire (l'occhio non è arrivato in fondo). Le righe da cercare
-   stanno nella direttiva 18.
+**1. L'occhio consegna ancora? SI'.** Girato sul modello vero il 07/09 a
+sera: **5 viste, 16 testimonianze legate a una regione** — 8 dicono *«qui si e'
+all'aperto»*, 5 *«qui passano i mezzi»*, 7 *«di qui si cammina»*. Ci ha messo
+**nove minuti** dal caricamento del modello. Non era una catena staccata: era
+lentezza. Il referto della catena non aveva **nessun anello rotto** — modello
+106,4 × 59,4 m alto 11,1 · 9 ambienti · 3.364 m² · 6 varchi · 5 tappe.
+
+**2. `veritas_comando.js` scatta davvero? SI', E NON SERVE A NIENTE.** — ed e'
+questa la notizia. Chiamato a mano ha fatto esattamente quello che promette:
+
+```
+[VERITAS comando] l’occhio ha parlato (16 cose viste): rifaccio l’analisi
+[VERITAS comando] dopo aver ascoltato l’occhio: 3364 m² · 9 ambienti · 0 accessi «da fuori»
+[VERITAS comando] ascoltato, e non e' cambiato niente.
+```
+
+**Prima e dopo sono lo stesso numero, in tutte e tre le colonne.** Le 16
+testimonianze arrivano, e il confine non si muove di un metro quadro.
+
+⚠️ **E DA SOLO NON PARTE MENTRE L'OCCHIO LAVORA.** Il suo respiro di nove
+secondi e' un `setTimeout`, e l'inferenza dell'occhio su WASM affama la coda dei
+timer. Misurato con una sonda: **un timer da 9 secondi non era ancora scattato
+dopo 40**, e nello stesso minuto anche Chrome ha mollato la pagina
+(`Runtime.evaluate timed out after 45000ms`). E' anche la spiegazione del
+«Chrome si e' scollegato» del 07/09 sera: **non e' un guasto della catena, e' il
+filo unico del browser tenuto occupato dall'occhio.**
+
+### 🔴 PERCHE' ASCOLTARE L'OCCHIO NON CAMBIA NIENTE — trovato, e NON TOCCATO
+
+`veritas_perception.js`, dentro `segmentZones`, una riga sola:
+
+```js
+const testimoni = viste.filter((v) => v && v.ariaAperta && v.centro);
+```
+
+**`&& v.centro` butta via TUTTE le testimonianze legate a una regione** — e una
+testimonianza di regione ha `centro: null` **per costruzione**, perche' la Regola
+0 vieta di ricavare una posizione da una prospettiva. Quindi le 8 che dicono
+«qui si e' all'aperto» non arrivano mai a `quotaAperta`, che resta `null`,
+`allAperto()` risponde `null` su tutto, e **il passo 5 della milestone non
+scatta**. Il sintomo e' `[VERITAS zone] dentro/fuori: 5 dentro, 0 all'aperto`.
+
+⚠️ **E VENTI RIGHE PIU' SOTTO, NELLO STESSO FILE, LA SORELLA LO FA GIUSTO:**
+
+```js
+const daVicino = window.__veritasVisteRegione;
+const testimoniCalpestio = (o.calpestio || viste.concat(daVicino))
+  .filter((v) => v && v.calpestio && (v.centro || v.regione));
+```
+
+`CALPESTIO_DI` legge il registro delle regioni e accetta `centro` **oppure**
+`regione`. `ARIA_APERTA_DI` non fa ne' l'una ne' l'altra cosa. **La terza
+sorella ascolta le regioni, la seconda no.**
+
+⛔ **NON L'HO TOCCATA: e' il passo 5 della milestone del 06/09, e la regola 7
+dice di misurare, portare il numero e discutere prima.** Il numero e' qui sopra.
+La domanda per Raffaella e' una sola: **`ARIA_APERTA_DI` deve leggere le regioni
+come gia' fa `CALPESTIO_DI`?**
 
 ### Poi, in quest'ordine
 
-| | il lavoro | perché |
+| | il lavoro | perche' |
 |---|---|---|
-| **1** | **direttiva 19 — l'occhio guarda dove guarda chi cammina** | è la cura vera del problema dei tempi: niente più attesa di otto minuti, la testimonianza arriva dove il corpo è. La REGIONE di una vista la dà l'**isovista**, già misurata e mai usata per questo |
-| **2** | il piazzale fuori dal calpestabile, **verificato sul vivo** | scritto e provato al banco, mai visto scattare su questo modello |
-| **3** | il cammino dedotto deve usare le **strade misurate** | oggi va in linea retta: attraversa i muri e non sale la scala mobile, quindi al tunnel non ci arriva mai |
-| **4** | l'ordine delle tappe **funzionale**, non geometrico | è l'ultimo pezzo del viaggio «dal taxi all'aereo» |
+| **1** | **la riga qui sopra**, se Raffaella autorizza | e' l'unica cosa che separa 16 testimonianze dal confine dentro/fuori |
+| **2** | **direttiva 19 sul film**: `veritas_passo.js` ha girato a mano, non ancora dietro al camminatore | la fotografia c'e' e costa 370 ms; manca di vederla scattare mentre il film cammina |
+| **3** | il piazzale fuori dal calpestabile, **verificato sul vivo** | scritto e provato al banco, mai visto scattare su questo modello |
+| **4** | il cammino dedotto deve usare le **strade misurate** | oggi va in linea retta: attraversa i muri e non sale la scala mobile |
+| **5** | l'ordine delle tappe **funzionale**, non geometrico | e' l'ultimo pezzo del viaggio «dal taxi all'aereo» |
 
-### Cosa è entrato il 07/09, e in che stato
+### Cosa e' entrato il 07/09, e in che stato
 
 | | |
 |---|---|
 | `CALPESTIO_DI` — la terza sorella (dove si mettono i piedi) | ✅ 20 parole, provata su 5 edifici non-aeroporto |
-| la testimonianza legata a una **regione** (i primi piani) | ✅ misurata sul vivo: 14 testimonianze, 2 regioni |
+| la testimonianza legata a una **regione** (i primi piani) | ✅ misurata sul vivo: 16 testimonianze, 5 viste |
+| il referto della catena | ✅ girato sul modello vero, nessun anello rotto |
+| l'occhio comanda (`veritas_comando.js`) | ✅ scatta e dichiara · 🔴 **ma non cambia niente**, vedi sopra |
+| **la vista dal camminatore** (direttiva 19) | ✅ misurata sul vivo: **370 ms, 96 pixel al metro** · 🟠 da vedere scattare dentro il film |
+| l'isovista a cono (il ventaglio davanti) | ✅ misurata: giro intero 71,4 m², quattro coni da 60° 1,5 / 4,8 / 21,9 / 35,0 |
 | il piazzale fuori dall'area calpestabile | 🟠 scritto, provato al banco, **non visto scattare** |
-| il referto della catena | ✅ girato sul modello vero |
-| l'occhio comanda (`veritas_comando.js`) | 🟠 in linea, **mai visto partire** |
 | il film: ombreggiatura e contorno degli oggetti | ✅ gli shader compilano · 🟠 **come si vede, da guardare** |
 | la musica (organo, frase, canto) | 🟠 **da ascoltare** |
 | la chat vocale nel film | ✅ riparata e provata (28 controlli) · 🟠 da usare |
 
-⚠️ **E la lezione che è costata di più questa settimana, in una riga:** *usare
-una cosa che non esiste non è un errore di sintassi*. Tre volte in sette giorni,
-e ogni volta il programma ha continuato a produrre numeri plausibili. Le prove
-provano i pezzi; **il referto della catena è l'unica cosa che prova la catena.**
+### Due cose misurate che fanno perdere un'ora se non si sanno
+
+⚠️ **`window.__veritasVisto` lo scrive UNO SOLO, e non e' il giro normale.**
+`veritas_riconosce.js:1162`, cioe' la strada manuale `__veritasGuarda()`. Nel
+giro che parte da solo all'apertura del modello **resta vuoto** — misurato:
+`__veritasVisto.viste = 0` con 16 testimonianze gia' consegnate. Lo LEGGONO in
+sei: `veritas_comando.js` (il conteggio), `veritas_catena.js` (anello 3, la
+testimonianza «dalla pianta»), `veritas_cinema.js` (due volte),
+`veritas_perception.js`, `veritas_accessi.js` (due volte). Tutti e sei leggono
+sempre una lista vuota. **E' il «73 rilevazioni dalla pianta» della mattina del
+07/09: veniva da li', a mano, non dal giro.**
+
+⚠️ **Il banco e' rosso su `main`, e non per colpa di chi arriva.**
+`veritas_vista.test.mjs` fa **48 verifiche su 49**; quella che casca e' *«il
+volume da 60 m viene scartato: non e' un arredo»*, ed e' una prova **vecchia che
+contraddice il passo 4 della milestone** (il tetto dei 25 m e' stato tolto
+apposta, il gruppo delle corsie e' lungo 26,13 m). Verificato con `git stash`:
+casca identica anche senza nessuna modifica. **Non e' un guasto da riparare, e'
+una prova da riscrivere.**
+
+⚠️ **E la lezione che e' costata di piu' questa settimana, in una riga:**
+*usare una cosa che non esiste non e' un errore di sintassi*. Le prove provano i
+pezzi; **il referto della catena e' l'unica cosa che prova la catena** — e
+nemmeno lui vede il caso di oggi, in cui ogni anello e' `ok` e il risultato non
+si muove lo stesso.
 
 ---
 
@@ -677,9 +751,38 @@ pavimento. È la stessa idea della REGIONE dei primi piani (07/09), generalizzat
 Quindi: *«da qui ho visto dei taxi»* = testimonianza legata a **ciò che si vede
 da questo punto**, misurato, non a un pixel.
 
-**Da fare, e non è ancora fatto:** una vista dal camminatore (occhio a 1,65 m,
-lente 60°, la stessa del film) resa in `veritas_vista.js`, data all'occhio una
-alla volta mentre cammina, con la sua regione presa dall'isovista.
+✅ **FATTA E MISURATA SULLA PAGINA VIVA, 07/09/2026 notte.** Tre pezzi, e
+nessuno di loro giudica niente di nuovo:
+
+| dove | che cosa |
+|---|---|
+| `veritas_visibility.js` | `isovist` accetta un **cono** (`direzione`, `ampiezzaGradi`): restituisce il ventaglio davanti a chi guarda invece dell'anello a giro intero, chiuso sul punto dell'osservatore. Senza `direzione` **non cambia niente** per i chiamanti di prima. |
+| `veritas_vista.js` | `vistaDalCamminatore` — **una** fotografia da dove il corpo è adesso, occhio a 1,65 m e lente 60° (le stesse del film), con la **regione presa dall'isovista**. |
+| `veritas_passo.js` | tiene il passo: decide **quando** scattare, non che cosa vale. Parole, soglie e conseguenze restano quelle di `occhioSuTutteLeViste`, e a rifare l'analisi è `veritas_comando.js`. Presta il rilevatore già acceso (`window.__veritasRileva`) invece di accenderne un secondo. |
+
+📌 **I NUMERI, misurati sul modello vero il 07/09:**
+- **370 ms** una vista — contro i **nove minuti** del giro completo prima che
+  qualcuno abbia in mano qualcosa. È la cura dei tempi, non un aggiramento.
+- **96,1 pixel al metro** a 6,92 m — contro i **6 pixel al metro** del modello
+  intero visto da lontano. È sedici volte, ed è la differenza fra una seduta e
+  una macchia di tre pixel.
+- Il ventaglio: **35,0 m²** visti da quel punto guardando a 270°. Dallo stesso
+  punto, a 90°, se ne vedono **1,5**. *Quello che c'è alle spalle è un altro
+  mondo*, e adesso il programma lo misura invece di dare per scontato il giro.
+- Il giro intero da li' è 71,4 m²: i quattro coni ne coprono 63,2 su 240 gradi.
+
+⚠️ **IL RETTANGOLO È 1,9 VOLTE IL VENTAGLIO, e lo dichiara.** `regione` esce
+come rettangolo perché è l'unica forma che i lettori di oggi sanno dipingere
+(`veritas_perception.js`, `veritas_accessi.js`); il ventaglio vero esce accanto
+in `poligono`, e `quantoPiuLargo` dice di quanto si sta allargando la verità.
+Chi vorrà essere esatto ha già il dato in mano e non deve rifare niente.
+
+🟠 **QUELLO CHE MANCA:** vederla scattare **dietro al camminatore mentre il
+film cammina**. `veritas_passo.js` è acceso e legge la posizione dal film
+(`veritasCinema.stato()`, che dà già telecamera e direzione: il film non è stato
+toccato), ma il giro provato finora è quello a mano
+(`window.__veritasPasso.unPasso()`). Il passo è tarato a **una vista ogni 6 m**
+e mai più spesso di **4 secondi**: è una **prima taratura, non una misura.**
 
 ## 20. MOLTI OCCHI, UN SOLO MODELLO — la direzione, non il lavoro di adesso
 
