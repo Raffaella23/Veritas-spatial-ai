@@ -550,6 +550,19 @@ function vetrifica() {
     if (b.textContent.trim() === "Splat 3D") {
       b.classList.add("va-vetrificato");
       b.dataset.va = "splat";
+      // ⚠️ IL DOPPIONE SI TOGLIE — Raffaella, 06/09: «Splat 3D lo togli di la'
+      //    proprio: quando all'inizio la persona entra col suo progetto
+      //    l'opzione Splat 3D c'e' gia', non vedo il motivo di averne
+      //    un'altra». Si nasconde SOLO quello che galleggia sopra il modello
+      //    (posizione fissa): quello che sta dentro la schermata di
+      //    caricamento e' l'originale e resta. Non si cancella il bottone —
+      //    porta il suo campo file — si toglie dalla vista.
+      try {
+        if (getComputedStyle(b).position === "fixed") {
+          b.style.setProperty("display", "none", "important");
+          b.dataset.vaDoppione = "1";
+        }
+      } catch (e) {}
     }
   }
 }

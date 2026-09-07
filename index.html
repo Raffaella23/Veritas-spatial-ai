@@ -274,8 +274,11 @@
   });
   function deposito() { return depositoPronto; }
 
-  let LANG = "it";
-  try { LANG = localStorage.getItem("veritasLang") || "it"; } catch (e) {}
+  // ⚠️ INGLESE DI PARTENZA — deciso da Raffaella il 06/09: «avere tutta la
+  //    piattaforma in inglese, per non ritornare piu' su questo». Chi ha gia'
+  //    scelto se la tiene: la scelta batte il valore di partenza.
+  let LANG = "en";
+  try { LANG = localStorage.getItem("veritasLang") || "en"; } catch (e) {}
 
   const I18N = {
     it: {
@@ -13780,8 +13783,11 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
   } catch (e) {}
 
   const MAX_UPLOAD_MB = window.__veritasMaxUploadMB || 150;
-  let LANG = "it";
-  try { LANG = localStorage.getItem("veritasLang") || "it"; } catch (e) {}
+  // ⚠️ INGLESE DI PARTENZA — deciso da Raffaella il 06/09: «avere tutta la
+  //    piattaforma in inglese, per non ritornare piu' su questo». Chi ha gia'
+  //    scelto se la tiene: la scelta batte il valore di partenza.
+  let LANG = "en";
+  try { LANG = localStorage.getItem("veritasLang") || "en"; } catch (e) {}
 
   const ARCHETYPE_LABELS = {
     it: [
@@ -19757,6 +19763,19 @@ function vetrifica() {
     if (b.textContent.trim() === "Splat 3D") {
       b.classList.add("va-vetrificato");
       b.dataset.va = "splat";
+      // ⚠️ IL DOPPIONE SI TOGLIE — Raffaella, 06/09: «Splat 3D lo togli di la'
+      //    proprio: quando all'inizio la persona entra col suo progetto
+      //    l'opzione Splat 3D c'e' gia', non vedo il motivo di averne
+      //    un'altra». Si nasconde SOLO quello che galleggia sopra il modello
+      //    (posizione fissa): quello che sta dentro la schermata di
+      //    caricamento e' l'originale e resta. Non si cancella il bottone —
+      //    porta il suo campo file — si toglie dalla vista.
+      try {
+        if (getComputedStyle(b).position === "fixed") {
+          b.style.setProperty("display", "none", "important");
+          b.dataset.vaDoppione = "1";
+        }
+      } catch (e) {}
     }
   }
 }
@@ -26636,7 +26655,7 @@ if (typeof window !== 'undefined') {
      gia' quando il resto si disegna, e non si vede il salto. -->
 <script type="module" src="./veritas_carta.js?v=6"></script>
 <script type="module" src="./veritas_accessi.js?v=7"></script>
-<script type="module" src="./veritas_cinema.js?v=32"></script>
+<script type="module" src="./veritas_cinema.js?v=33"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo

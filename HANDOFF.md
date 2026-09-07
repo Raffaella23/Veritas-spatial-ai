@@ -942,6 +942,29 @@ pavimento, figure in oro). Da `v=30` in poi e' scritto e non guardato.
 📌 Per riprendere: server locale sulla cartella del repo, `python -m http.server
 5173`, poi `http://localhost:5173/index.html`.
 
+### 🔒 TRE DECISIONI D'INTERFACCIA — Raffaella, 06/09, indicando sullo schermo
+
+1. **Il pulsante «Lettura dal vivo» va nella barra, accanto a x1/x2.** *«Il
+   tasto della visione dal vivo te l'ho messo vicino a x1.»* Sta con i comandi
+   della riproduzione perche' e' quello che fa: far partire un filmato. Appeso
+   da solo in un angolo sopra il modello era un oggetto senza famiglia.
+   ⚠️ Il posto **non si trova a coordinate**: i comandi x1/x2 stanno nel bundle,
+   che non si tocca mai. Si cerca il bottone **per testo** e ci si mette accanto
+   — la stessa strada gia' usata per «Splat 3D». Se domani cambiano nome, il
+   pulsante torna nel suo angolo invece di atterrare in mezzo allo schermo.
+2. **«Splat 3D» che galleggia sul modello si toglie.** *«Lo togli di la'
+   proprio: quando all'inizio la persona entra col suo progetto l'opzione Splat
+   3D c'e' gia', non vedo il motivo di averne un'altra.»* Si nasconde **solo
+   quello a posizione fissa** — quello dentro la schermata di caricamento e'
+   l'originale e resta. Non si cancella il bottone (porta il suo campo file):
+   si toglie dalla vista, dentro `vetrifica()`, che gia' lo riconosce per testo.
+3. **La piattaforma parte in INGLESE.** *«Avevo detto di mettere tutto in
+   inglese, per non ritornare piu' su questo e poi dedicarci all'aspetto
+   tecnico.»* ⚠️ Chi ha gia' scelto una lingua se la tiene: **la scelta batte il
+   valore di partenza**, come dappertutto in questo programma. Quindi su un
+   browser che ha gia' usato la piattaforma in italiano resta italiano finche'
+   non si preme EN.
+
 ### 📋 LE TIPOLOGIE DI RESA — idea di Raffaella, da fare dopo
 
 > *«Potrebbe essere utile avere delle tipologie diverse di renderizzazione. Nei

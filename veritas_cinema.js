@@ -87,7 +87,15 @@ function lingua() {
         return (x.textContent || '').trim().toLowerCase();
     }
   } catch (e) {}
-  return 'it';
+  // ⚠️ INGLESE DI PARTENZA — Raffaella, 06/09: *«avevo detto di mettere tutto in
+  //    inglese, avere tutta la piattaforma in inglese, per non ritornare piu' su
+  //    questo»*. Chi ha gia' scelto una lingua se la tiene: la scelta batte il
+  //    valore di partenza, come dappertutto in questo programma.
+  try {
+    const l = localStorage.getItem('veritasLang');
+    if (l && PAROLE[String(l).toLowerCase().slice(0, 2)]) return String(l).toLowerCase().slice(0, 2);
+  } catch (e) {}
+  return 'en';
 }
 const P = () => PAROLE[lingua()] || PAROLE.it;
 
@@ -1843,6 +1851,38 @@ export function chiudi() {
 // nostro logo, in basso a destra sul riquadro perimetrale, con un minimo di
 // ombreggiatura». Non e' un comando in piu' fra venti: e' la porta del cinema.
 // ---------------------------------------------------------------------------
+// ⚠️ IL PULSANTE STA NELLA BARRA, ACCANTO A x1/x2 — Raffaella, 06/09, indicando
+//    sullo schermo: *«il tasto della visione dal vivo te l'ho messo vicino a
+//    x1»*. Sta accanto ai comandi della riproduzione perche' e' quello che fa:
+//    far partire un filmato. Da solo, appeso in un angolo sopra il modello, era
+//    un oggetto che non si sa a che famiglia appartiene.
+// ⚠️ Il posto NON si trova a coordinate: i comandi x1/x2 sono dentro il bundle,
+//    che non si tocca mai. Si cerca il bottone PER TESTO e ci si mette accanto —
+//    la stessa strada gia' usata per il bottone «Splat 3D». Se domani quei
+//    comandi cambiano nome, il pulsante torna nel suo angolo invece di
+//    atterrare in mezzo allo schermo.
+function accantoAllaBarra(b) {
+  try {
+    const q = Array.prototype.slice.call(document.querySelectorAll('button'))
+      .filter((x) => /^x[12]$/i.test((x.textContent || '').trim()));
+    if (!q.length) return false;
+    const ultimo = q[q.length - 1];
+    if (!ultimo.parentElement) return false;
+    b.style.cssText = [
+      'position:relative', 'margin:0 10px 0 0', 'vertical-align:middle',
+      'display:inline-flex', 'align-items:center', 'gap:9px',
+      'padding:6px 14px 6px 7px', 'border:0', 'border-radius:100px',
+      'cursor:pointer', 'background:rgba(255,255,255,.92)',
+      'box-shadow:0 1px 3px rgba(20,26,51,.10),0 6px 20px rgba(20,26,51,.12)',
+      'font-family:"Helvetica Neue",Helvetica,Arial,sans-serif', 'font-size:12.5px',
+      'font-weight:500', 'color:' + INCHIOSTRO, 'white-space:nowrap',
+      'transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease',
+    ].join(';');
+    ultimo.parentElement.insertBefore(b, q[0]);
+    return true;
+  } catch (e) { return false; }
+}
+
 function pulsante() {
   if (document.getElementById('eidetica-live-btn')) return;
   const b = document.createElement('button');
@@ -1868,7 +1908,18 @@ function pulsante() {
   };
   b.onmouseleave = () => { b.style.transform = ''; b.style.boxShadow = ''; };
   b.onclick = () => apri();
-  document.body.appendChild(b);
+
+  // ⚠️ La barra del bundle nasce dopo di noi: si riprova finche' c'e', e nel
+  //    frattempo il pulsante resta comunque raggiungibile nel suo angolo.
+  if (!accantoAllaBarra(b)) {
+    document.body.appendChild(b);
+    let tentativi = 0;
+    const riprova = () => {
+      if (tentativi++ > 40 || !document.getElementById('eidetica-live-btn')) return;
+      if (!accantoAllaBarra(b)) setTimeout(riprova, 700);
+    };
+    setTimeout(riprova, 700);
+  }
 }
 
 if (typeof window !== 'undefined') {
