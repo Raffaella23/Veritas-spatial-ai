@@ -55,7 +55,7 @@
 //
 // ===========================================================================
 
-import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio } from "./veritas_riconosce.js?v=2";
+import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio } from "./veritas_riconosce.js?v=3";
 
 // ---------------------------------------------------------------------------
 // 1. Le soglie. Dichiarate qui, una volta, e non sparse nel codice.
@@ -732,7 +732,9 @@ function annunciaVista(ctx, vista, quale, quante) {
 
 export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
 
-  const fuori = { esitoPianta: null, testimonianza: null, viste: [] };
+  // `regioni`: le testimonianze dei primi piani, ognuna legata al RETTANGOLO
+  // di mondo che quello scorcio ha inquadrato. Vedi il commento piu' sotto.
+  const fuori = { esitoPianta: null, testimonianza: null, viste: [], regioni: [] };
   if (typeof ctx.rileva !== "function") return fuori;
 
   // (a) la pianta: e' l'unica che da' posizioni, e passa dalla strada di sempre
@@ -751,16 +753,60 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
   const chiedi = voci.map((v) => v.chiedi);
   if (!chiedi.length) { fuori.testimonianza = riassuntoTestimonianza(fuori); return fuori; }
   const scorci = ctx.scorci || [];
+  // Per risalire dalla parola chiesta alla voce che porta le conseguenze.
+  const perChiedi = new Map(voci.map((v) => [v.chiedi, v]));
   for (let i = 0; i < scorci.length; i++) {
     let grezze = null;
     try { grezze = await ctx.rileva(scorci[i], chiedi); } catch (e) { grezze = null; }
     if (!Array.isArray(grezze)) continue;
-    const conta = new Map();
+    const conta = new Map(), meglio = new Map();
     for (const g of grezze) {
       if (!g || typeof g.score !== "number" || !g.label) continue;
       if (g.score < FIDUCIA_MINIMA_TESTIMONE) continue;
       conta.set(g.label, (conta.get(g.label) || 0) + 1);
+      if (!(meglio.get(g.label) >= g.score)) meglio.set(g.label, g.score);
     }
+
+    // ⚠️ LA TESTIMONIANZA DI UNO SCORCIO SI ATTACCA A UNA REGIONE — ed e' la
+    //    meta' che mancava per marcare il fronte strada.
+    //
+    //    Fino al 06/09 di qui usciva solo un elenco di parole senza nessun
+    //    posto nel mondo: buono per il cervello, inutile per chi deve decidere
+    //    dove si cammina o dove si entra. Le uniche rilevazioni con un posto
+    //    venivano dalla pianta — e dall'alto le automobili NON si vedono:
+    //    misurato il 06/09, **zero** in pianta contro **83** da vicino.
+    //
+    //    ⚠️ E NON E' UNA VIOLAZIONE DELLA REGOLA 0. Da una prospettiva non si
+    //       ricava una posizione, e qui non si ricava: `centro` resta `null`,
+    //       sempre. Quello che si sa — e si sapeva PRIMA di scattare — e' quale
+    //       rettangolo di mondo la telecamera ha inquadrato: e' il grappolo.
+    //       «In quest'area ho visto dei taxi» e' una testimonianza legata a una
+    //       REGIONE, non una misura ricavata da un pixel.
+    //
+    //    ⚠️ Solo i PRIMI PIANI hanno una regione. Un campo largo inquadra mezzo
+    //       modello, e dire «in quest'area» su mezzo modello non vuol dire piu'
+    //       niente: li' `regione` e' `null` e questo elenco resta vuoto.
+    const regione = scorci[i].regione || null;
+    if (regione) {
+      for (const [label, quante] of conta) {
+        const v = perChiedi.get(label);
+        if (!v) continue;
+        if (!v.ariaAperta && !v.calpestio) continue;   // senza conseguenza non serve a nessuno
+        fuori.regioni.push({
+          termine: v.termine, nome: v.nome,
+          ariaAperta: v.ariaAperta || null,
+          calpestio: v.calpestio || null,
+          luogo: !!v.luogo, controprova: !!v.controprova,
+          score: +(meglio.get(label) || 0).toFixed(3),
+          quante,
+          centro: null,                                 // ⚠️ e resta null
+          regione,
+          pixelPerMetro: scorci[i].pixelPerMetro || null,
+          vista: scorci[i].etichetta || ("scorcio " + (i + 1)),
+        });
+      }
+    }
+
     const gradi = typeof scorci[i].azimuth === "number"
       ? Math.round(scorci[i].azimuth * 180 / Math.PI) : null;
     // ⚠️ LA TESTIMONIANZA DICE ANCHE QUANTO ERA FITTA LA FIGURA. Senza,
@@ -1019,10 +1065,32 @@ export async function comprendiGuardando(ctx) {
       try {
         window.__veritasTestimonianza = visto;
         window.__veritasVisteOcchio = (visto && visto.viste) || [];
+        // ⚠️ SI LASCIA DOVE CHI DECIDE LO TROVA. Le testimonianze legate a una
+        //    regione sono l'unica cosa che sa qualcosa del fronte strada:
+        //    dall'alto le automobili non si vedono. Se restassero dentro
+        //    questo file, il registro del calpestio esisterebbe e nessuno lo
+        //    leggerebbe — che e' il difetto di `occhioSuTutteLeViste()`,
+        //    scritta giusta e mai chiamata per due settimane.
+        window.__veritasVisteRegione = (visto && visto.regioni) || [];
       } catch (e) {}
+      const regioni = (visto && visto.regioni) || [];
       console.log("[VERITAS occhio] ha guardato per primo "
         + (1 + (ctx.scorci || []).length) + " viste col vocabolario intero"
         + (visto && visto.viste ? " — testimonianze da " + visto.viste.length + " scorci" : ""));
+      if (regioni.length) {
+        const mezzi = regioni.filter((r) => r.calpestio === 'mezzi').length;
+        const pass = regioni.filter((r) => r.calpestio === 'passaggio').length;
+        const aria = regioni.filter((r) => r.ariaAperta).length;
+        console.log("[VERITAS occhio] " + regioni.length
+          + " testimonianze legate a una REGIONE di mondo (i primi piani): "
+          + aria + " dicono «qui si e' all'aperto», " + mezzi
+          + " «qui passano i mezzi», " + pass + " «di qui si cammina». "
+          + "Non sono posizioni — sono aree, e da uno scorcio non si prende un punto.");
+      } else {
+        console.log("[VERITAS occhio] nessuna testimonianza legata a una regione: "
+          + "o non ci sono stati primi piani, o quello che hanno visto non porta "
+          + "nessuna conseguenza. Il fronte strada resta senza voce.");
+      }
     } catch (e) {
       console.warn("[VERITAS occhio] non ha guardato: " + ((e && e.message) || e));
     }

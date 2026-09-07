@@ -214,45 +214,95 @@ function dati() {
   let viaVera = !!via;
   let percorso = via;
   if (!percorso) {
-    // ⚠️ NON SI CAMMINA SUL PIAZZALE DEGLI AEREI — Raffaella, 06/09: *«stiamo
-    //    ancora entrando dal lato del calpestio degli aerei e non va bene»*.
-    //    Il difetto vero sta nella zonizzazione ed e' aperto (l'area navigabile
-    //    misurata comprende il piazzale); ma il film non deve aspettare che sia
-    //    chiuso per smettere di passare di la'.
-    // ⚠️ E NON si tara una soglia in metri per sapere dov'e' il fuori: **lo ha
-    //    gia' detto l'occhio** (direttiva 17). Dove ha visto pista, cielo,
-    //    aereo o strada, li' si e' all'aperto — e li' non si cammina. Si chiede
-    //    a chi possiede la regola, non la si riscrive qui.
-    let fuoriDa = null;
+    // ⚠️ DOVE SI METTONO I PIEDI — Raffaella, 07/09, guardando il film:
+    //    *«stavamo camminando sull'ala di un aereo, quindi c'e' qualcosa che
+    //    non va nel riconoscimento del percorso. Se riconosci un aereo, e che
+    //    quello e' un aeroporto, devi sapere che non cammini in mezzo agli
+    //    aerei, ma che c'e' un tunnel a un livello piu' basso fra l'aereo e il
+    //    terminal»*.
+    //
+    //    Non si tara nessuna soglia in metri: **lo ha gia' detto l'occhio**
+    //    (direttiva 17). La conseguenza viaggia con la parola, nel registro
+    //    `CALPESTIO_DI` di `veritas_riconosce.js`, che a sua volta la prende da
+    //    Uniclass 2015 tabella SL. Qui si legge, non si decide.
+    //
+    // ⚠️ E NON BASTAVA «FUORI», ed e' il motivo per cui serviva un registro
+    //    nuovo invece di riusare `ariaApertaVista`. Un marciapiede sta
+    //    all'aperto e ci si cammina; un pontile d'imbarco sta all'aperto, in
+    //    mezzo agli aerei, ed e' l'unica strada per arrivarci. Chi togliesse
+    //    tutto cio' che sta fuori toglierebbe anche il tubo — cioe' proprio la
+    //    cosa che Raffaella ha chiesto di riconoscere.
+    //
+    // 🔴 E DUE GUASTI SILENZIOSI TROVATI QUI, tutti e due del 06/09, tutti e
+    //    due della stessa famiglia: codice giusto che non veniva mai eseguito.
+    //    1. si cercava `window.__veritasAccessi.ariaApertaVista`, ma
+    //       `__veritasAccessi` e' il RISULTATO di `trova()` e non ha nessuna
+    //       funzione dentro. Le funzioni stanno in `__veritasAccessiModulo`.
+    //       Quindi `fuoriDa` era **sempre** null, e il filtro non ha mai
+    //       girato nemmeno una volta;
+    //    2. si passavano `__veritasTestimonianza.viste`, che sono i riepiloghi
+    //       degli scorci — `{vista, cose:[...]}` — e non hanno ne' `centro`
+    //       ne' `ariaAperta`. Anche col primo guasto riparato, il filtro
+    //       avrebbe letto zero. Le rilevazioni vere stanno in
+    //       `__veritasVisto.viste` (dalla pianta, con la posizione) e in
+    //       `__veritasVisteRegione` (dai primi piani, legate a un'area).
+    //    Nessuno dei due dava errore. Il film continuava a camminare fra gli
+    //    aerei e in console usciva una riga che diceva un'altra cosa.
+    let calpestioIn = null, fuoriDa = null, testimoni = 0;
     try {
-      const A = window.__veritasAccessi;
-      const f = A && (A.ariaApertaVista || (A.modulo && A.modulo.ariaApertaVista));
-      const viste = ((window.__veritasTestimonianza || {}).viste) || [];
-      if (typeof f === 'function' && viste.length) {
-        fuoriDa = (Z) => !!f([Z.x, Z.y, Z.z], { viste, raggioVista: 12 });
-      }
-    } catch (e) { fuoriDa = null; }
+      const M = window.__veritasAccessiModulo || {};
+      const dalPiano = ((window.__veritasVisto || {}).viste) || [];
+      const daVicino = window.__veritasVisteRegione || [];
+      const viste = (Array.isArray(dalPiano) ? dalPiano : []).concat(
+                    Array.isArray(daVicino) ? daVicino : []);
+      testimoni = viste.length;
+      if (viste.length && typeof M.calpestioVisto === 'function')
+        calpestioIn = (Z) => M.calpestioVisto([Z.x, Z.y, Z.z], { viste, raggioVista: 12 });
+      if (viste.length && typeof M.ariaApertaVista === 'function')
+        fuoriDa = (Z) => M.ariaApertaVista([Z.x, Z.y, Z.z], { viste, raggioVista: 12 });
+    } catch (e) { calpestioIn = null; fuoriDa = null; }
 
     let dentro = zz;
-    if (fuoriDa) {
-      const soloDentro = zz.filter((Z) => !fuoriDa(Z));
+    if (calpestioIn || fuoriDa) {
+      const mezzi = [], passaggi = [];
+      const soloDentro = zz.filter((Z) => {
+        const c = calpestioIn ? calpestioIn(Z) : null;
+        // ⚠️ IL PASSAGGIO BATTE TUTTO. Un tubo d'imbarco e' circondato da aerei
+        //    e da pista: qualunque altra regola lo butterebbe.
+        if (c && c.regola === 'passaggio') { passaggi.push(Z.nome + ' (' + c.parola + ')'); return true; }
+        if (c && c.regola === 'mezzi') { mezzi.push(Z.nome + ' (' + c.parola + ')'); return false; }
+        // Dove il calpestio non dice niente resta la vecchia domanda: se li' si
+        // e' all'aperto, non e' un ambiente da attraversare a piedi.
+        return !(fuoriDa && fuoriDa(Z));
+      });
       // ⚠️ Se restassero meno di due ambienti non ci sarebbe piu' un viaggio:
       //    li' si tiene tutto e LO SI DICHIARA, invece di consegnare un film
       //    che non va da nessuna parte.
       if (soloDentro.length >= 2) {
-        if (soloDentro.length < zz.length) {
-          console.log('[EIDETICA live] ' + (zz.length - soloDentro.length)
-            + ' ambienti tolti dal cammino perché lì l’occhio ha visto l’aria aperta'
-            + ' (pista, cielo, aerei, strada): non ci si cammina dentro.');
-        }
+        if (mezzi.length)
+          console.log('[EIDETICA live] ' + mezzi.length
+            + ' ambienti tolti dal cammino: lì passano i mezzi e la gente non ci cammina — '
+            + mezzi.join(', '));
+        if (passaggi.length)
+          console.log('[EIDETICA live] ' + passaggi.length
+            + ' ambienti TENUTI anche se stanno all’aperto: sono passaggi, di lì si cammina — '
+            + passaggi.join(', '));
+        if (soloDentro.length < zz.length)
+          console.log('[EIDETICA live] restano ' + soloDentro.length + ' ambienti su '
+            + zz.length + ' (testimonianza di ' + testimoni + ' cose viste).');
         dentro = soloDentro;
       } else {
-        console.warn('[EIDETICA live] l’occhio dice che quasi tutto è all’aperto:'
+        console.warn('[EIDETICA live] l’occhio dice che quasi tutto è vietato ai piedi:'
           + ' tengo tutti gli ambienti, se no non resta un viaggio. Da guardare.');
       }
     } else {
-      console.log('[EIDETICA live] la testimonianza dell’occhio non è disponibile:'
-        + ' il cammino non sa ancora evitare le aree all’aperto.');
+      // ⚠️ E LO DICE FORTE. Un film che cammina fra gli aerei perché l'occhio
+      //    non ha ancora finito non è un difetto del film: è una cosa che chi
+      //    guarda deve sapere mentre la guarda.
+      console.warn('[EIDETICA live] l’occhio non ha ancora consegnato una testimonianza'
+        + ' (né dalla pianta né dai primi piani): il cammino NON sa evitare i piazzali'
+        + ' e le corsie, e può passare dove i piedi non si mettono.'
+        + ' Riapri la finestra quando l’analisi ha finito.');
     }
 
     const ordinate = dentro.slice().sort((a, b) => a.quando - b.quando);
@@ -1417,6 +1467,59 @@ function pannello(v) {
 //    che si vende e' lo stesso problema legale di Neufert per le tabelle.
 //    Quindi si SUONA, non si prende. RE minore a quinta vuota — nessuna terza,
 //    respiro lento: e' il registro che si sta cercando.
+// ⚠️ «SEMBRAVA IL ROMBO DI UN AEREO» — Raffaella, 07/09/2026: *«la musica
+//    sembrava un rombo di un aereo. Vorrei fosse un po' piu' ispirata, piu'
+//    evocativa»*. E non era un'impressione: era esattamente quello che il
+//    motore stava suonando, e si vede dai numeri della versione precedente.
+//
+//    1. **le fondamentali stavano a 58 e 73 Hz**, sotto un passa-basso a
+//       620 Hz. Un suono continuo con l'energia fra 50 e 600 Hz e' lo spettro
+//       di un turbofan in crociera. Non «somigliava» a un aereo: aveva la
+//       stessa firma;
+//    2. **due voci a 110,00 e 110,35 Hz** battevano a 0,35 Hz — cioe' un
+//       ondeggiamento ogni tre secondi. E' il battimento di due motori fuori
+//       sincrono, il rumore che si sente in cabina;
+//    3. **niente cominciava mai.** Tutto era tenuto: nessuna nota attaccava,
+//       nessuna finiva. Un suono che non comincia non e' musica, e' un motore
+//       acceso;
+//    4. **non c'era spazio.** Senza riverbero un accordo sta attaccato
+//       all'orecchio, e li' un pad diventa un ronzio.
+//
+//    La cura e' musicale, non tecnica, ed e' tutta e quattro insieme:
+//    · **si alza il registro** — niente sotto i 116 Hz, il peso fra 200 e
+//      800 Hz, dove l'orecchio sente un'ALTEZZA e non una vibrazione;
+//    · **il battimento stretto diventa uno scintillio** — non due note quasi
+//      uguali che pulsano, ma cinque voci scordate di pochi centesimi che si
+//      muovono ognuna col suo respiro;
+//    · **c'e' una MELODIA** — poche note, che cominciano e finiscono, con salti
+//      veri. E' la differenza fra un tappeto e una frase;
+//    · **c'e' una sala** — un riverbero lungo, sintetizzato qui dentro. Lo
+//      spazio e' meta' dell'emozione, e questo film parla di spazio.
+//
+// ⚠️ E RESTA TUTTA SINTETIZZATA, nota per nota. Raffaella ha chiesto *«una
+//    musica di fantascienza»* dicendo lei stessa che quella dei film non si
+//    puo' usare: un pezzo protetto dentro un prodotto che si vende e' lo stesso
+//    problema legale di Neufert per le tabelle. **Si suona, non si prende.**
+
+// La sala. Rumore che decade: e' il modo piu' onesto di fabbricare un
+// riverbero senza scaricare la registrazione di una cattedrale — che sarebbe
+// un file di qualcun altro dentro un prodotto che si vende.
+function salaSintetica(ac, secondi) {
+  const n = Math.floor(ac.sampleRate * secondi);
+  const buf = ac.createBuffer(2, n, ac.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < n; i++) {
+      const x = i / n;
+      // la coda scende come in una sala vera, e i primi 40 ms sono piu' radi:
+      // sono le riflessioni delle pareti, non ancora il riverbero
+      const primo = i < ac.sampleRate * 0.04 ? 0.35 : 1;
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - x, 2.6) * primo;
+    }
+  }
+  return buf;
+}
+
 function creaMusica() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
@@ -1425,39 +1528,63 @@ function creaMusica() {
   const gn = ac.createGain(); gn.gain.value = 0;
   gn.connect(ac.destination);
 
-  const flt = ac.createBiquadFilter();
-  flt.type = 'lowpass'; flt.frequency.value = 620; flt.Q.value = 0.8;
-  flt.connect(gn);
+  // ── LA SALA
+  const sala = ac.createConvolver();
+  try { sala.buffer = salaSintetica(ac, 5.2); } catch (e) {}
+  const salaG = ac.createGain(); salaG.gain.value = 0.85;
+  sala.connect(salaG); salaG.connect(gn);
+  const versoLaSala = (nodo, quanto) => {
+    const g = ac.createGain(); g.gain.value = quanto;
+    nodo.connect(g); g.connect(sala);
+  };
 
-  // il respiro dell'organo: e' quello che fa «film» e non «ronzio»
-  const respiro = ac.createGain(); respiro.gain.value = 0.72;
+  // ── IL TAPPETO, e non deve rombare
+  const flt = ac.createBiquadFilter();
+  flt.type = 'lowpass'; flt.frequency.value = 1100; flt.Q.value = 0.7;
+  // ⚠️ IL PASSA-ALTO E' LA RIGA CHE TOGLIE L'AEREO. Sotto i 110 Hz non passa
+  //    piu' niente: e' li' che vive il rombo, ed e' li' che non serve nessuna
+  //    delle note che stiamo suonando.
+  const hp = ac.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 110; hp.Q.value = 0.6;
+  flt.connect(hp); hp.connect(gn);
+  versoLaSala(hp, 0.5);
+
+  const respiro = ac.createGain(); respiro.gain.value = 0.66;
   respiro.connect(flt);
-  const lfoR = ac.createOscillator(); lfoR.frequency.value = 0.085;
-  const lfoRg = ac.createGain(); lfoRg.gain.value = 0.28;
+  const lfoR = ac.createOscillator(); lfoR.frequency.value = 0.062;
+  const lfoRg = ac.createGain(); lfoRg.gain.value = 0.22;
   lfoR.connect(lfoRg); lfoRg.connect(respiro.gain); lfoR.start();
 
-  // due voci appena stonate fra loro fanno il battimento che tiene vivo
-  // l'accordo senza aggiungere note
-  // ⚠️ UNA MUSICA CHE SI MUOVE, non un accordo fermo — Raffaella, 06/09:
-  //    «mi piace tantissimo, accompagna proprio questa danza dei puntini, solo
-  //    che vuole una musica più evocativa». Un accordo che non cambia mai è un
-  //    ronzio intonato: è il CAMBIO che fa la musica.
-  //    Tre accordi senza terza — re minore, si bemolle, fa — che si passano il
-  //    posto sciogliendosi l'uno nell'altro in nove secondi. Senza terza non
-  //    dicono né allegro né triste: dicono grande.
+  // ⚠️ QUATTRO ACCORDI, E VANNO DA QUALCHE PARTE. Prima erano tre e giravano
+  //    in tondo: girare in tondo e' un'altra maniera di stare fermi. Qui c'e'
+  //    una cadenza — re minore, si bemolle, fa, do sospeso — e il do sospeso
+  //    CHIEDE di tornare al re. E' quella domanda che tira avanti l'ascolto.
+  //    Nessuna terza in nessuno dei quattro: senza terza non dicono ne'
+  //    allegro ne' triste, dicono grande.
   const ACCORDI = [
-    [73.42, 110.00, 110.35, 146.83, 220.00, 293.66],   // re
-    [58.27,  87.31,  87.59, 116.54, 174.61, 233.08],   // si bemolle
-    [87.31, 130.81, 131.22, 174.61, 261.63, 349.23],   // fa
+    [146.83, 220.00, 293.66, 329.63, 440.00],   // re    (re la re mi la)
+    [116.54, 174.61, 233.08, 261.63, 349.23],   // sib   (sib fa sib do fa)
+    [174.61, 261.63, 349.23, 392.00, 523.25],   // fa    (fa do fa sol do)
+    [130.81, 196.00, 261.63, 349.23, 392.00],   // do4   (do sol do fa sol)
   ];
-  const TIMBRI = ['sine', 'sine', 'sine', 'triangle', 'sine', 'triangle'];
-  const VOLUMI = [0.34, 0.26, 0.20, 0.16, 0.11, 0.06];
+  const TIMBRI = ['sine', 'sine', 'triangle', 'sine', 'triangle'];
+  const VOLUMI = [0.30, 0.24, 0.13, 0.16, 0.07];
+  // ⚠️ SCORDATE DI POCHI CENTESIMI, NON DI UN TERZO DI HERTZ. Cinque valori
+  //    diversi e nessuno multiplo dell'altro: quello che ne esce e' uno
+  //    scintillio, non una pulsazione. Il battimento stretto era l'aereo.
+  const SCARTI = [-6, 4, -3, 7, -9];
   const osc = [];
   for (let i = 0; i < TIMBRI.length; i++) {
     const o = ac.createOscillator(); o.type = TIMBRI[i];
     o.frequency.value = ACCORDI[0][i];
+    o.detune.value = SCARTI[i];
     const g = ac.createGain(); g.gain.value = VOLUMI[i];
     o.connect(g); g.connect(respiro); o.start();
+    // ogni voce respira col suo passo: cinque respiri diversi non fanno
+    // un'onda sola
+    const l = ac.createOscillator(); l.frequency.value = 0.03 + i * 0.017;
+    const lg = ac.createGain(); lg.gain.value = 3.5;
+    l.connect(lg); lg.connect(o.detune); l.start();
     osc.push(o);
   }
   let accordo = 0;
@@ -1469,35 +1596,63 @@ function creaMusica() {
       const f = osc[i].frequency;
       f.cancelScheduledValues(t);
       f.setValueAtTime(f.value, t);
-      f.exponentialRampToValueAtTime(ACCORDI[accordo][i], t + 9);
+      f.exponentialRampToValueAtTime(ACCORDI[accordo][i], t + 7);
     }
-    S.accordo = setTimeout(cambia, 19000);
+    S.accordo = setTimeout(cambia, 16000);
   };
-  S.accordo = setTimeout(cambia, 15000);
+  S.accordo = setTimeout(cambia, 13000);
 
   // il filtro che si apre e si chiude piano: lo spazio che si allarga
-  const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.037;
-  const lfoFg = ac.createGain(); lfoFg.gain.value = 420;
+  const lfoF = ac.createOscillator(); lfoF.frequency.value = 0.031;
+  const lfoFg = ac.createGain(); lfoFg.gain.value = 520;
   lfoF.connect(lfoFg); lfoFg.connect(flt.frequency); lfoF.start();
 
-  // un rintocco lontano ogni tanto, sulle note dell'accordo: e' quello che da'
-  // il senso di qualcosa di grande e di vuoto
-  let quale = 0;
-  const rintocco = () => {
+  // ── LA FRASE, ed e' la differenza fra un tappeto e una musica.
+  //
+  // ⚠️ Prima c'era un «rintocco» che pescava una nota dell'accordo e la
+  //    ribatteva: sempre la stessa altezza, sempre lo stesso gesto. Una nota
+  //    ripetuta e' un segnale, non una frase. Qui le note sono scelte da una
+  //    scala di cinque suoni — re, fa, sol, la, do, la pentatonica minore, che
+  //    e' consonante con tutti e quattro gli accordi — e ogni tanto **salta**
+  //    invece di andare per gradi. Il salto e' quello che si ricorda.
+  //
+  // ⚠️ Timbro di campana, non di organo: due parziali (1 e 2,76 volte) e una
+  //    coda lunghissima. Il 2,76 non e' un numero a caso, e' il rapporto del
+  //    primo parziale inarmonico delle campane vere: e' quello che fa «campana»
+  //    invece di «flauto». E va quasi tutta in sala: la coda e' lo spazio.
+  const SCALA = [587.33, 698.46, 783.99, 880.00, 1046.50];  // re fa sol la do
+  let grado = 2, versoSu = true;
+  const frase = () => {
     if (!S.aperto || !S.audio) return;
     const t = ac.currentTime;
-    const o = ac.createOscillator(); o.type = 'sine';
-    // il rintocco sta SULL'accordo di adesso: se no suona contro
-    o.frequency.value = ACCORDI[accordo][3 + (quale % 3)] * 2; quale++;
+    // per gradi quasi sempre, un salto ogni tanto: e' cosi' che una melodia
+    // respira invece di camminare
+    const salta = Math.random() < 0.3;
+    const passo = salta ? 2 + Math.floor(Math.random() * 2) : 1;
+    grado += versoSu ? passo : -passo;
+    if (grado >= SCALA.length) { grado = SCALA.length - 2; versoSu = false; }
+    if (grado < 0) { grado = 1; versoSu = true; }
+    if (Math.random() < 0.25) versoSu = !versoSu;
+    const f = SCALA[grado];
+
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.13, t + 0.9);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 7.5);
-    o.connect(g); g.connect(gn);
-    o.start(t); o.stop(t + 8);
-    S.rintocco = setTimeout(rintocco, 7600 + Math.random() * 4200);
+    g.gain.exponentialRampToValueAtTime(0.11, t + 0.05);   // attacco di campana
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 9);    // coda lunga
+    g.connect(gn); versoLaSala(g, 1.15);
+
+    for (const [rap, vol] of [[1, 1], [2.76, 0.38], [5.4, 0.10]]) {
+      const o = ac.createOscillator(); o.type = 'sine';
+      o.frequency.value = f * rap;
+      const gv = ac.createGain(); gv.gain.value = vol;
+      o.connect(gv); gv.connect(g);
+      o.start(t); o.stop(t + 9.5);
+    }
+    // il respiro fra una nota e l'altra non e' regolare: una frase non e' un
+    // metronomo
+    S.rintocco = setTimeout(frase, 3400 + Math.random() * 5200);
   };
-  S.rintocco = setTimeout(rintocco, 3200);
+  S.rintocco = setTimeout(frase, 2400);
 
   return { ac, gn };
 }

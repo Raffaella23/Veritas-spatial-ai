@@ -458,9 +458,31 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
       //    numero solo se in quella figura un arredo si puo' vedere o no:
       //    sotto una decina di pixel al metro una seduta e' una macchia, e
       //    qualunque parola l'occhio ci metta sopra e' un'ipotesi sul rumore.
+      // ⚠️ E OGNI SCORCIO PORTA IL RETTANGOLO DI MONDO CHE HA INQUADRATO.
+      //
+      //    Non e' una posizione, e non lo diventa: la Regola 0 dice che da una
+      //    prospettiva non si ricava dove sta una cosa, e resta vero. Ma
+      //    l'inquadratura si sa PRIMA di scattare — e' il bersaglio, cioe' il
+      //    grappolo, e le sue misure erano gia' state prese.
+      //
+      //    «In quest'area ho visto dei taxi» e' una testimonianza legata a una
+      //    REGIONE, non una misura ricavata da un pixel. E' la differenza fra
+      //    dire «li' c'e' una macchina, a quel metro» — che sarebbe falso — e
+      //    «in questo rettangolo ci sono delle macchine» — che e' vero e
+      //    verificabile. Senza questa riga il fronte strada resta interno per
+      //    sempre: dall'alto le automobili non si vedono (misurato: ZERO in
+      //    pianta, 83 da vicino), e da vicino non si prendeva niente.
+      //
+      //    Dove non c'e' un bersaglio la regione e' `null`, e chi legge deve
+      //    saper vivere senza: un campo largo inquadra mezzo modello e dire
+      //    «in quest'area» non significherebbe piu' niente.
+      const regione = (opzioni.bersaglio && opzioni.bersaglio.min && opzioni.bersaglio.max)
+        ? { min: opzioni.bersaglio.min.slice(), max: opzioni.bersaglio.max.slice() }
+        : null;
       risultati.push({ pixel: raddrizza(pixel, larghezza, altezza),
                        larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
                        etichetta: opzioni.etichetta || null,
+                       regione,
                        altezzaTelecamera: +quotaTelecamera.toFixed(2),
                        pixelPerMetro: +(altezza / (2 * distanza
                          * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });

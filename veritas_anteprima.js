@@ -58,8 +58,8 @@
 //
 // ===========================================================================
 
-import { piantaInTela } from "./veritas_riconosce.js?v=2";
-import { mondoAPixel } from "./veritas_vista.js?v=7";
+import { piantaInTela } from "./veritas_riconosce.js?v=3";
+import { mondoAPixel } from "./veritas_vista.js?v=8";
 
 const COLORI = {
   // ⚠️ TARATI SUL CHIARO, e presi dalla tavolozza del marchio invece che

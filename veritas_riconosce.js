@@ -295,6 +295,112 @@ const ARIA_APERTA_DI = Object.freeze({
   tree: "quasi sempre",
 });
 
+// ⚠️ LA TERZA SORELLA — DOVE SI METTONO I PIEDI.
+//
+// Raffaella, 06/09/2026, dopo aver visto il camminatore attraversare il
+// piazzale: «Dovrebbe fare anche due piu' due, l'AI. Nel senso: ci sono gli
+// aerei. Si cammina in mezzo agli aerei? Non lo so. Ci sono i tubi attaccati
+// agli aerei che portano a una struttura».
+//
+// E il 07/09, guardando il film dal vivo: «stavamo camminando sull'ala di un
+// aereo. Se riconosci un aereo, e che quello e' un aeroporto, devi sapere che
+// non cammini in mezzo agli aerei, ma che c'e' un tunnel a un livello piu'
+// basso fra l'aereo e il terminal».
+//
+// E' la stessa forma di POSTURA_DI e ARIA_APERTA_DI: una parola, una
+// conseguenza. Le tre insieme dicono tre cose diverse sulla stessa parola:
+//   · POSTURA_DI      — che cosa fa il CORPO davanti a quell'oggetto;
+//   · ARIA_APERTA_DI  — dove si TROVA chi lo vede (dentro o fuori);
+//   · CALPESTIO_DI    — se li' i piedi ci si possono mettere.
+//
+// ⚠️ E NON SONO LA STESSA COSA, ed e' il motivo per cui ne serviva una terza.
+//    Un marciapiede sta all'aperto e ci si cammina; una carreggiata sta
+//    all'aperto e non ci si cammina. «Fuori» non risponde alla domanda «ci
+//    passo?»: sono due domande diverse e vogliono due registri diversi.
+//
+// LE DUE INVARIANTI, dette da Raffaella, e sono AGNOSTICHE:
+//   1. «dove passano i mezzi, la gente non cammina» -> "mezzi".
+//      Vale per il piazzale di un aeroporto, la rampa delle ambulanze di un
+//      ospedale, il carico e scarico di un centro commerciale, la corsia di
+//      una strada davanti a una scuola.
+//   2. «un tubo che unisce un mezzo a un edificio e' un passaggio: di li' si
+//      cammina» -> "passaggio". E' il pontile d'imbarco, ed e' anche la
+//      passerella di una nave e il sottopasso di una stazione.
+//
+// ⚠️ IL PASSAGGIO BATTE I MEZZI, SEMPRE, ed e' il cuore della seconda
+//    invariante. Un pontile d'imbarco sta SOPRA il piazzale e in mezzo agli
+//    aerei: chi guardasse solo la prima invariante lo butterebbe via —
+//    cancellando proprio l'unica strada per cui un passeggero puo' passare.
+//    Chi legge questo registro deve far vincere "passaggio".
+//
+// ⚠️ NESSUNA MISURA IN METRI, come per le sorelle. Un tubo non si riconosce
+//    perche' e' lungo 30 m e largo 3: si riconosce perche' l'occhio lo NOMINA.
+//    Una soglia in metri e' tarata su una scala, e la scala di questo progetto
+//    e' gia' cambiata una volta (7,3x -> 5,272x).
+//
+// ⚠️ QUI NON SI SCRIVE «AEROPORTO», e non ci si scrive nessun tipo di
+//    edificio (Regola 0-bis). Le chiavi sono OGGETTI che l'occhio sa nominare.
+//
+// 📌 LA FONTE, ED E' QUELLA DECISA: **Uniclass 2015, tabella SL**
+//    (Spaces/locations) — gratuita, ISO 12006-2, la stessa con cui si
+//    classificano gli oggetti IFC. Scaricata e letta il 07/09/2026 da
+//    github.com/buildig/uniclass-2015 -> uniclass2015/Uniclass2015_SL.csv,
+//    1.041 voci. Neufert e i manuali editoriali NO: sono opere protette, e in
+//    un prodotto che si vende diventano un problema legale.
+//
+//    Uniclass classifica gli spazi per l'ATTIVITA' che ospitano, ed e'
+//    esattamente la distinzione che Raffaella ha chiesto. Le due invarianti
+//    hanno un corrispondente citabile, e queste sono le voci vere:
+//
+//    "mezzi"     SL_80_05    Aerospace ground spaces
+//                SL_80_05_03 Aeroplane runways · SL_80_05_02 landing strips
+//                SL_80_05_05 Aircraft manoeuvring areas
+//                SL_80_05_06 Aircraft standing areas   <- il piazzale
+//                SL_80_35_13 Carriageways · SL_80_35_45 Lanes
+//                SL_80_35_08 Bus manoeuvring · SL_80_35_11 Car manoeuvring
+//
+//    "passaggio" SL_80_10_09 Boarding areas             <- il pontile
+//                SL_80_10_80 Ship gangways
+//                SL_80_10_16 Concourses
+//                SL_80_35_62 Pedestrian crossings
+//                SL_80_35_63 Pedestrian routes
+//                SL_80_96_60 Passageway tunnels
+//                SL_90_10_95 Walkways
+//                SL_90_10_16 Covered walkways and internal bridges
+//
+// ⚠️ E QUELLO CHE UNICLASS **NON** HA, detto perche' non si scopra domani:
+//    non esiste una voce «jet bridge» / «air bridge». La piu' vicina e'
+//    SL_80_10_09 «Boarding areas». Quindi la parola che l'occhio usa
+//    (`a jet bridge`) resta nostra, dichiarata fra le AGGIUNTE; e' la
+//    CONSEGUENZA che viene dalla tabella, non il nome.
+//
+// ⚠️ E NON SI COPIANO I TITOLI DI UNICLASS DENTRO IL VOCABOLARIO. Sono nomi
+//    di LUOGO («Departure lounges», «Passenger gates»), e il 05/09 quattro
+//    nomi di luogo nel vocabolario hanno prodotto quattordici sale d'attesa
+//    dove ce n'erano sei. Da Uniclass si prende il criterio, non le parole.
+const CALPESTIO_DI = Object.freeze({
+  // (1) DOVE PASSANO I MEZZI, LA GENTE NON CAMMINA.
+  //     Il mezzo e la sua superficie di manovra dicono la stessa cosa: quello
+  //     spazio e' di chi si muove su ruote o ali, non di chi ha i piedi.
+  airplane: "mezzi", runway: "mezzi", road: "mezzi",
+  car: "mezzi", truck: "mezzi", bus: "mezzi", van: "mezzi",
+  minibike: "mezzi", ship: "mezzi", boat: "mezzi",
+  // ⚠️ `pier` (molo) sta di qua e non di la': in ADE20K e' la banchina su cui
+  //    ormeggia una nave, cioe' il bordo dell'acqua, non il tubo d'imbarco.
+  //    Il tubo e' `a jet bridge`, qui sotto.
+  pier: "mezzi",
+
+  // (2) UN TUBO CHE UNISCE UN MEZZO A UN EDIFICIO E' UN PASSAGGIO.
+  //     E vince sui mezzi: sta in mezzo a loro apposta.
+  "a jet bridge": "passaggio",   // il pontile — Uniclass SL_80_10_09
+  bridge: "passaggio",           // la passerella — SL_90_10_16
+  sidewalk: "passaggio",         // SL_80_35_63, ed e' il caso che dimostra
+                                 // perche' «fuori» non basta: sta all'aperto
+                                 // e ci si cammina eccome
+  path: "passaggio",
+  stairs: "passaggio", stairway: "passaggio", escalator: "passaggio",
+});
+
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
 // piu' onesto di una traduzione inventata, e succede solo per gli oggetti che
 // non diventano mai il nome di una zona.
@@ -438,6 +544,14 @@ export const VOCABOLARIO = Object.freeze(
     controprova: t === "person",
   })).concat(AGGIUNTE.map((a) => ({ ...a, termine: a.chiedi, luogo: LUOGHI.has(a.chiedi),
     fonte: "aggiunta dichiarata" })))
+    // ⚠️ IL CALPESTIO SI ATTACCA DOPO, e a tutte e due le sorgenti insieme.
+    //    Le parole di ADE20K e le AGGIUNTE dichiarate arrivano da due strade
+    //    diverse: se la conseguenza si scrivesse solo dentro il primo `map`,
+    //    `a jet bridge` — che e' un'aggiunta, ed e' proprio la parola per cui
+    //    questo registro esiste — resterebbe senza. Una passata sola su
+    //    entrambe, e nessuna parola puo' restare indietro per la porta da cui
+    //    e' entrata.
+    .map((v) => ({ ...v, calpestio: v.calpestio || CALPESTIO_DI[v.termine] || null }))
 );
 
 /**
@@ -773,6 +887,12 @@ export async function riconosci(posti, opz = {}) {
       termine: r.voce.termine,
       nome: r.voce.nome,
       ariaAperta: r.voce.ariaAperta || null,
+      // ⚠️ E LA TERZA CONSEGUENZA VIAGGIA COL RESTO: «mezzi» dove la gente non
+      //    cammina, «passaggio» dove si cammina anche se sta all'aperto. Senza
+      //    questa riga il registro esisterebbe e non lo leggerebbe nessuno —
+      //    che e' lo stesso identico difetto di `occhioSuTutteLeViste()`,
+      //    scritta giusta e mai chiamata per due settimane.
+      calpestio: r.voce.calpestio || null,
       luogo: !!r.voce.luogo,
       controprova: !!r.voce.controprova,
       score: +r.score.toFixed(3),
@@ -1181,7 +1301,7 @@ if (typeof window !== "undefined") {
 }
 
 const ESPORTATE = {
-  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI,
+  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,

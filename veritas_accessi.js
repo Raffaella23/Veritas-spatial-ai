@@ -530,25 +530,110 @@ export function coseFerme(pezzi, opz = {}) {
  *    visto, con la sua fiducia accanto. Chi la usa lo dichiara nel referto.
  */
 export function ariaApertaVista(centro, opz = {}) {
-  const viste = opz.viste || [];
-  if (!centro || !viste.length) return null;
-  // Lo stesso raggio con cui due voci si trovano d'accordo: se la' dentro c'e'
-  // una strada, questo gruppo di oggetti sta sulla strada.
   const raggio = opz.raggioVista != null ? opz.raggioVista : (opz.raggioAccordo || 6);
   let migliore = null;
-  for (const v of viste) {
-    if (!v || !v.ariaAperta || !v.centro) continue;
-    const d = Math.hypot(v.centro[0] - centro[0], v.centro[2] - centro[2]);
-    if (d > raggio) continue;
+  for (const t of testimoniQui(centro, opz.viste, raggio)) {
+    const v = t.vista;
+    if (!v.ariaAperta) continue;
     const forte = v.ariaAperta === 'sempre';
     const eraForte = migliore && migliore.forza === 'sempre';
     if (!migliore || (forte && !eraForte) || (forte === eraForte && v.score > migliore.score))
       migliore = {
         parola: v.nome || v.termine, forza: v.ariaAperta,
-        score: v.score, distanza: +d.toFixed(1),
+        score: v.score, distanza: +t.distanza.toFixed(1), da: t.da,
       };
   }
   return migliore;
+}
+
+/**
+ * DA QUALE PARTE UNA TESTIMONIANZA PARLA DI QUESTO PUNTO — e sono due strade.
+ *
+ * ⚠️ QUESTA E' LA META' CHE MANCAVA, ed e' il motivo per cui il fronte strada
+ *    non si e' mai marcato «da fuori». Le rilevazioni con una POSIZIONE
+ *    vengono solo dalla pianta ortografica; dall'alto le automobili non si
+ *    vedono (misurato il 06/09: **zero** in pianta, **83** da vicino). Le vede
+ *    il primo piano — ma da uno scorcio in prospettiva **non si prende una
+ *    posizione**, e quella e' la Regola 0, che non si tocca.
+ *
+ * 📌 E NON SERVE UNA POSIZIONE. Uno scorcio non da' un punto, ma si sa
+ *    benissimo **quale rettangolo di mondo ha inquadrato**: e' il grappolo da
+ *    cui e' nato, e le sue misure erano gia' state prese prima di scattare.
+ *    «In quest'area ho visto dei taxi» e' una testimonianza legata a una
+ *    REGIONE — non una misura ricavata da un pixel. La Regola 0 vieta la
+ *    seconda cosa, non la prima.
+ *
+ * ⚠️ E LA DIFFERENZA RESTA SCRITTA (`da: 'punto' | 'regione'`), perche' non
+ *    sono la stessa qualita' di prova: un punto dice DOVE, una regione dice
+ *    SOLO IN QUALE AREA. Chi la usa lo dichiara nel referto, e la distanza di
+ *    una testimonianza di regione e' 0 per costruzione — sta dentro, non
+ *    «vicino».
+ */
+function testimoniQui(centro, viste, raggio) {
+  const fuori = [];
+  if (!centro || !Array.isArray(viste) || !viste.length) return fuori;
+  for (const v of viste) {
+    if (!v) continue;
+    if (v.centro) {
+      const d = Math.hypot(v.centro[0] - centro[0], v.centro[2] - centro[2]);
+      if (d <= raggio) fuori.push({ vista: v, distanza: d, da: 'punto' });
+      continue;
+    }
+    const r = v.regione;
+    if (r && r.min && r.max
+        && centro[0] >= r.min[0] && centro[0] <= r.max[0]
+        && centro[2] >= r.min[2] && centro[2] <= r.max[2]) {
+      fuori.push({ vista: v, distanza: 0, da: 'regione' });
+    }
+  }
+  return fuori;
+}
+
+/**
+ * DOVE SI METTONO I PIEDI — la terza sorella, letta.
+ *
+ * Raffaella, 06/09: «ci sono gli aerei. Si cammina in mezzo agli aerei? Non lo
+ * so. Ci sono i tubi attaccati agli aerei che portano a una struttura».
+ * E il 07/09, guardando: «non cammini in mezzo agli aerei, ma c'e' un tunnel a
+ * un livello piu' basso fra l'aereo e il terminal».
+ *
+ * Qui non si decide niente: si legge la conseguenza che la parola porta gia'
+ * con se' (`calpestio` nel registro di `veritas_riconosce.js`, che a sua volta
+ * la prende da Uniclass 2015 tabella SL — le voci sono citate li').
+ *
+ * ⚠️ IL PASSAGGIO BATTE I MEZZI, e non e' un dettaglio di implementazione: e'
+ *    la seconda invariante. Un pontile d'imbarco sta SOPRA il piazzale, in
+ *    mezzo agli aerei, e per forza — serve a raggiungerli. Chi tenesse solo la
+ *    prima invariante butterebbe via l'unica strada percorribile a piedi di
+ *    tutto quel lato dell'edificio. Quindi il passaggio vince sempre, anche
+ *    quando i mezzi sono piu' vicini, piu' numerosi e visti meglio.
+ *
+ * ⚠️ NON RISPONDE ALLA STESSA DOMANDA DI `ariaApertaVista`. Un marciapiede sta
+ *    all'aperto e ci si cammina; una carreggiata sta all'aperto e non ci si
+ *    cammina. Chi usasse «fuori» per decidere dove si passa toglierebbe il
+ *    marciapiede e terrebbe la strada.
+ *
+ * ⚠️ E' una TESTIMONIANZA, non una misura: e' cio' che l'occhio dice di aver
+ *    visto. Se l'occhio non ha guardato qui, torna `null` — e chi la chiama
+ *    deve dichiararlo, non fingere un «si cammina».
+ */
+export function calpestioVisto(centro, opz = {}) {
+  const raggio = opz.raggioVista != null ? opz.raggioVista : (opz.raggioAccordo || 6);
+  let mezzi = null, passaggio = null;
+  for (const t of testimoniQui(centro, opz.viste, raggio)) {
+    const v = t.vista;
+    if (!v.calpestio) continue;
+    const voce = {
+      regola: v.calpestio, parola: v.nome || v.termine,
+      score: v.score, distanza: +t.distanza.toFixed(1), da: t.da,
+    };
+    if (v.calpestio === 'passaggio') {
+      if (!passaggio || v.score > passaggio.score) passaggio = voce;
+    } else if (v.calpestio === 'mezzi') {
+      if (!mezzi || v.score > mezzi.score) mezzi = voce;
+    }
+  }
+  return passaggio || mezzi || null;
 }
 
 export function voceOggetti(cose, opz = {}) {
@@ -790,7 +875,7 @@ export function raccontaAccessi(r) {
 export default {
   PASSO, CAMPIONI_MAX, VICINO, VOCI_MINIME, COPERTURA_CIECA, CATENA,
   campiona, copertura, accessiDaCopertura, profondita,
-  capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme, ariaApertaVista,
+  capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme, ariaApertaVista, calpestioVisto,
   voceTetto, voceSegnaletica, vocePersone, voceOggetti, uniscoVoci,
   raggiungibili, trova, raccontaAccessi,
 };
@@ -878,14 +963,26 @@ if (typeof window !== 'undefined') {
         //    entrato, lui ci mette un paio di minuti. Vedi `rifaiCoiVisti`
         //    qui sotto: quando l'occhio finisce, si torna a chiedere.
         const visto = window.__veritasVisto;
-        const viste = (visto && visto.ok && Array.isArray(visto.viste)) ? visto.viste : [];
+        // ⚠️ DUE SORGENTI, E LA SECONDA E' L'UNICA CHE VEDE LA STRADA.
+        //    La pianta da' rilevazioni con una POSIZIONE, ed e' l'unica che
+        //    puo' darla; ma dall'alto le automobili non si vedono — misurato
+        //    il 06/09: **zero** in pianta, **83** da vicino. I primi piani le
+        //    vedono, e portano un RETTANGOLO invece di un punto (Regola 0: da
+        //    una prospettiva non si prende una posizione). Le due si mettono
+        //    insieme perche' rispondono alla stessa domanda, non perche' siano
+        //    la stessa cosa: `centro` contro `regione`, e chi legge lo sa.
+        const dalPiano = (visto && visto.ok && Array.isArray(visto.viste)) ? visto.viste : [];
+        const daVicino = Array.isArray(window.__veritasVisteRegione) ? window.__veritasVisteRegione : [];
+        const viste = dalPiano.concat(daVicino);
         const r = trova(THREE, root, nm, { viste });
         r.ms = Math.round(performance.now() - t0);
         r.viste = viste.length;
         window.__veritasAccessi = r;
         console.log('[VERITAS accessi] ' + raccontaAccessi(r) + ' (' + r.ms + ' ms)');
         console.log('[VERITAS accessi] ' + (viste.length
-          ? 'l\'occhio aveva gia\' guardato: ' + viste.length + ' cose viste, '
+          ? 'l\'occhio aveva gia\' guardato: ' + viste.length + ' cose viste ('
+            + dalPiano.length + ' dalla pianta, con una posizione; '
+            + daVicino.length + ' dai primi piani, legate a un\'area), '
             + viste.filter((v) => v.ariaAperta).length + ' delle quali dicono «qui si e\' all\'aperto»'
           : 'l\'occhio non aveva ancora guardato: il «da fuori» resta sul ripiego '
             + 'misurato, e si rifara\' quando lui avra\' finito'));
@@ -930,10 +1027,16 @@ if (typeof window !== 'undefined') {
         attesa = setTimeout(function () {
           attesa = null;
           const v = window.__veritasVisto;
-          if (!v || !v.ok || !Array.isArray(v.viste) || !v.viste.length) return;
-          const aperte = v.viste.filter((x) => x.ariaAperta).length;
+          const reg = Array.isArray(window.__veritasVisteRegione) ? window.__veritasVisteRegione : [];
+          const dalPiano = (v && v.ok && Array.isArray(v.viste)) ? v.viste : [];
+          // ⚠️ Basta UNA delle due sorgenti. Prima si aspettava la pianta, e
+          //    sulla pianta la strada non c'e': chi porta la testimonianza del
+          //    fronte strada e' il primo piano, e da solo non svegliava nessuno.
+          if (!dalPiano.length && !reg.length) return;
+          const aperte = dalPiano.concat(reg).filter((x) => x.ariaAperta).length;
           console.log('[VERITAS accessi] l\'occhio ha finito di guardare ('
-            + v.viste.length + ' cose viste, ' + aperte
+            + dalPiano.length + ' cose viste in pianta, ' + reg.length
+            + ' legate a un\'area dai primi piani, ' + aperte
             + ' che parlano di aria aperta): rifaccio gli ingressi con la sua testimonianza');
           tentativi = 0;
           prova();
@@ -944,7 +1047,7 @@ if (typeof window !== 'undefined') {
   };
   window.__veritasAccessiModulo = {
     PASSO, VICINO, VOCI_MINIME, campiona, copertura, accessiDaCopertura, profondita,
-    capi, raggruppa, segnaleticaDallaScena, coseFerme, ariaApertaVista,
+    capi, raggruppa, segnaleticaDallaScena, coseFerme, ariaApertaVista, calpestioVisto,
     voceTetto, voceSegnaletica,
     vocePersone, voceOggetti, uniscoVoci, raggiungibili, trova, raccontaAccessi,
   };
