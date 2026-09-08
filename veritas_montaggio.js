@@ -1,4 +1,4 @@
-import "./veritas_manuale.js";
+import "./veritas_manuale.js?v=2";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================

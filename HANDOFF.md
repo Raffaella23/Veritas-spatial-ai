@@ -46,24 +46,97 @@ si è scollegato»: **non è un guasto della catena, è il filo unico del browse
 tenuto occupato dall'occhio.** 🟠 Da riguardare: se valga la pena spostare
 l'inferenza su un worker, o se basta che il comando scatti a fine giro.
 
-**3. Il confine adesso ascolta le regioni — autorizzato da Raffaella.** Vedi la
-sezione della milestone: la riga è stata cambiata **con il numero in mano e il
-permesso**, come chiede la regola 7. 🟠 **DA MISURARE SUL VIVO: se dopo questa
-riga i 3.364 m² e i 9 ambienti si muovono davvero.** È la prima cosa da guardare.
+**3. Il confine ascolta le regioni — MISURATO SUL VIVO L'08/09, e non basta.**
+Prima che l'occhio parli: 9 ambienti · 3.364 m² · 6 varchi. Dopo: **10 ambienti
+· 3.364 m² · 9 varchi**. Gli ambienti e i varchi si muovono, **i metri quadri no**.
+Anello 5 del referto: *«0 ambienti tolti perché ci passano i mezzi (0 m²)»*.
+🔴 **La riga ha ascoltato e non ha sentito niente**, perché l'occhio non dice
+mai «qui ci passano i mezzi» su un ambiente preciso.
 
-**4. La modalità di ripresa è cambiata** — direttiva 21 e 22, scritte stasera.
-🟠 **DA GUARDARE CON GLI OCCHI: le fotografie che l'occhio riceve adesso.**
-Nessuno le ha ancora viste girare sulla pagina viva.
+**4. Le fotografie — GUARDATE UNA PER UNA L'08/09.** Passata in ordine: **13
+scatti, 7 senza un metro quadro di terminal** (cielo, un'ala, un pontile,
+asfalto — uno vuoto all'89%); i 6 buoni coperti dal **5 al 21%** dalle frecce.
+Giro dentro: **8 viste da soli 4 ambienti su 10**, e **metà guarda aerei e
+pontili** — due dei quattro «ambienti» (23 m² e 14 m²) sono sacche di piazzale.
 
-### Poi, in quest'ordine
+**5. 🔴 IL VERDETTO DELL'OCCHIO, in 38,6 s: cinque nomi, quattro lato aeroporto.**
+*pista di decollo* · *pista di atterraggio* · *area di manovra* · *terminal
+passeggeri* · *parcheggio auto* — e il **parcheggio è dichiarato DENTRO**. Il
+terminal, 3.364 m² e dieci ambienti, sta in una parola sola. Ecco da dove
+vengono i passeggeri che camminano sulle ali.
+
+**6. LA CAUSA GEOMETRICA, misurata.** Il **costruito misura 81,2 × 31,7 m alto
+5,9**; il modello intero 106,4 × 59,4 × 11,1. **Gli aerei gonfiano il modello di
+un terzo in lunghezza e dell'87% in larghezza.** `passataInOrdine` inquadra
+sull'**ingombro intero**: solo la posizione *di traverso* usa il baricentro del
+calpestabile, la **lunghezza e il punto di partenza no**. La direttiva 21 è
+rispettata di fianco e non per il lungo.
+
+**7. ⛔ LE FRECCE NON SI TOLGONO — Raffaella, 08/09.** *«il significato della
+freccia è indicare un percorso: se l'occhio non le vede, questo percorso lo
+intuisce con più fatica»*. Era stato proposto di spegnerle come rumore: **è
+sbagliato, sono segnaletica.** Il rumore di cui parla lei sono **i punti che si
+condensano sugli oggetti**, ed è un'altra cosa: quando si condensano devono
+lasciare un'immagine **più pulita e ombreggiata**.
+
+**8. ✅ L'ABACO DA ARCHITETTO GIRA — provato dal vivo l'08/09, 4,9 secondi.**
+**2 piante** (una per livello, taglio a 1,10 m sopra quota 0,55 e 2,63 — 2.759 e
+604 m²) + **4 prospetti** + **2 sezioni** sul baricentro del calpestabile, tutte
+in proiezione ortogonale, inquadrate sul **costruito** e non sull'ingombro.
+Tutto il livello 1 — 2.759 m² — **in un disegno solo**, contro 13 fotografie di
+cui 7 vuote. Le frecce restano e **si leggono**: tre flussi distinti in pianta.
+**I taxi si vedono** nel prospetto est (direttiva 22).
+🟠 Limite misurato: prospetti nord/sud e sezione longitudinale escono a **16
+px/m** (94 pixel per 5,9 m di altezza): troppo bassi. Rimedio — **spezzare il
+prospetto lungo in segmenti in ordine**, cioè la passata applicata al disegno.
+🔴 **Scritto solo dal vivo in console: NON è ancora un modulo.**
+
+**9. 🔴 QUELLO CHE MANCA DAVVERO, e Raffaella lo dice da giorni:
+LA LIBRERIA SEMANTICA.** L'occhio ha **nove categorie astratte di
+comportamento** (`__veritasOcchi.CATEGORIE`: origine, accoglienza, filtro,
+sosta…) e **non sa che cos'è un aeroporto**. Non gli viene mai detto dove si
+trova. *«Deve capire che si trova in un aeroporto, dopodiché deve sapere già
+quali sono i comportamenti, deve cercare le parti che compongono un aeroporto
+normalmente»* — prima il **tipo**, poi la **libreria di quel tipo**, poi la
+**ricerca mirata**. Vale anche per l'abaco: quante piante, a che quota, quanti
+prospetti — **il sapere da architetto va messo dentro**, non deciso a occhio.
+
+**10. ✅ IL MANUALE DELL'ARCHITETTO È CARICATO — 08/09, chiesto da Raffaella.**
+*«carica il manuale dell'architetto: tutto ciò che riguarda le misure, le
+architetture, le caratteristiche tipologiche di ogni architettura, tutto»*.
+`veritas_manuale.js` passa da **12 voci in 4 capitoli a 56 voci in 7**:
+corpo 10 · arredo 6 · circolazione 12 · deflusso 4 · **visione 4** · **disegno 11**
+· **comportamenti 9**. Ogni voce porta fonte e stato: **13 validate, 43 da
+ricontrollare sul testo originale** — e vanno ricontrollate, non date per buone.
+• **`disegno`** è la regola dell'abaco: quota di taglio 1,10 (ammesso 1,00-1,50),
+una pianta per livello, 4 prospetti, 2 sezioni che passano per i collegamenti
+verticali, inquadratura sul **costruito**, e oltre **6:1 la tavola si spezza in
+segmenti in ordine**. Prima queste scelte si facevano a occhio.
+• **`comportamenti`** è la firma DIMENSIONALE delle nove categorie astratte
+(un filtro è stretto, lungo, obbligato, con la coda a monte). ⛔ **Non contiene
+un solo nome di tipologia**: la regola 0-bis regge. I nomi delle parti di un
+tipo restano da CHIEDERE al cervello — il manuale dà il metro, non il nome.
+⚠️ **Neufert non è stato copiato e non va copiato**: è opera protetta, e la
+fonte primaria (Fruin, DM 236/1989, Blondel, DM 03/08/2015) regge di più.
+🟠 **Scritto e provato in node, NON ancora visto girare sulla pagina viva**:
+serve una spinta. `veritas_montaggio.js` importa il manuale, e l'import è stato
+versionato (`?v=2`, montaggio `?v=23`) perché il browser non serva la copia vecchia.
+
+⚠️ **E c'è una SECONDA prova vecchia rossa su `main`**, oltre a quella già nota:
+`veritas_occhi.test.mjs` chiede a `veritas_occhi.js` un export `FUNZIONI` che non
+esiste più. Verificato con `git stash`: **rossa anche senza nessuna modifica.**
+Da riscrivere, non da riparare.
+
+### Poi, in quest'ordine — riscritto l'08/09 dopo la prova dal vivo
 
 | | il lavoro | perché |
 |---|---|---|
-| **1** | **guardare le fotografie nuove** e i numeri dopo la riga della milestone | due lavori grossi entrati stasera e **mai visti girare sul vivo** |
-| **2** | **direttiva 19 dietro al camminatore**: `veritas_passo.js` ha girato a mano, non ancora dietro al film | la fotografia c'è e costa 370 ms; manca di vederla scattare mentre si cammina |
-| **3** | il piazzale fuori dal calpestabile, **verificato sul vivo** | scritto e provato al banco, mai visto scattare su questo modello |
-| **4** | il cammino dedotto deve usare le **strade misurate** | è il «tratto del video troppo breve»: oggi va in linea retta, attraversa i muri, non sale la scala mobile |
-| **5** | l'ordine delle tappe **funzionale**, non geometrico | ultimo pezzo del viaggio «dal taxi all'aereo» |
+| **1** | **la libreria semantica: prima il tipo di edificio, poi le sue parti** | è la richiesta che Raffaella ripete da giorni. Nove categorie astratte non bastano: davanti al piazzale l'occhio risponde «pista di decollo» e ha ragione lui |
+| **2** | **l'abaco diventa un modulo**, con dentro la regola d'architettura (quante piante, a che quota, quanti prospetti, dove si taglia) | gira già, ma solo scritto a mano in console. 4,9 s per 8 tavole contro 38,6 s per cinque parole |
+| **3** | **inquadrare sul costruito, non sull'ingombro** — e spezzare il prospetto lungo in segmenti in ordine | 81,2 m contro 106,4: è la riga che manda la passata sul piazzale, ed è anche il rimedio ai 16 px/m |
+| **4** | **il piazzale e il parcheggio fuori dal calpestabile** | il parcheggio è dichiarato *dentro*: è da lì che i passeggeri camminano sulle ali |
+| **5** | i punti che si condensano devono lasciare **un'immagine più pulita e ombreggiata** | chiesto da Raffaella l'08/09. Le frecce **restano**: sono segnaletica, non rumore |
+| **6** | il microfono: la chat scritta va, **il parlato no** | riprovato dall'utente l'08/09 |
 
 ### Cosa è entrato il 07/09, e in che stato
 
