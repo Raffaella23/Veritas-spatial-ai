@@ -4,6 +4,29 @@
 
 ---
 
+## ⛔ LE COSE CHE RAFFAELLA HA GIÀ DETTO — SI LEGGONO QUI E NON SI RICHIEDONO
+
+**Questo blocco esiste perché il documento è lungo 6.400 righe e una chat nuova
+ne legge duecento.** Le sue indicazioni erano scritte, ma sepolte: le ha dovute
+ripetere, e ripeterle le costa gettoni che ha contati. *«tutte le indicazioni
+che do vengono perse»*, 08/09/2026. **Chi arriva legge queste dodici righe
+prima di qualunque altra cosa, e non le rimette ai voti.**
+
+| | detto da Raffaella, e vale |
+|---|---|
+| **1** | **Gli oggetti sono gli indizi.** Dopo l'architettura si guardano le cose che stanno dentro — **le frecce, le sedie, i metal detector** — si riconoscono, e da quelle si deduce la funzione dello spazio. Non si parte dal nome: si parte dall'oggetto |
+| **2** | **Prima il TIPO, poi le parti di quel tipo, poi la ricerca mirata.** L'occhio deve sapere dove si trova e andare a cercare le parti che quel tipo ha normalmente |
+| **3** | **Le frecce sono segnaletica, non rumore.** Indicano il percorso: spegnerle toglie significato. Il rumore sono **i punti che si condensano sugli oggetti**, e quando si condensano devono lasciare un'immagine **più pulita e ombreggiata** |
+| **4** | **Se l'occhio sbaglia, la prima domanda è che cosa gli è stato dato da guardare** — non quali parole gli sono state chieste |
+| **5** | **Piante, prospetti e sezioni** sono l'elaborato giusto, e le regole (quanti livelli, a che quota si taglia, quanti fronti) stanno nel **manuale**, non nella testa di chi disegna |
+| **6** | **Si parla da architetto**: metri quadri e disegni, mai nomi di funzioni. **Due righe in grassetto in cima** con quello che si vuole chiedere, e **il link alla pagina si dà sempre** |
+| **7** | **Non si apre, non si ricarica, non si chiude niente nel suo Chrome senza chiederlo** |
+| **8** | **Quando ha già deciso, non si rimette ai voti: si costruisce.** Un menù di opzioni su una cosa già detta è tempo e gettoni buttati |
+| **9** | **Si scrive corto.** *«riesco ad afferrare il quarantacinque per cento»*: se serve un glossario per leggere una risposta, la risposta è sbagliata |
+| **10** | **I promemoria non si lasciano a lei**: si scrivono qui. Chi perde la memoria fra una chat e l'altra è chi scrive |
+
+---
+
 ## 🚩 SI RIPARTE DA QUI — 08/09/2026
 
 **Il documento è lungo. Non si legge tutto: si legge questo blocco, le sei regole
@@ -146,6 +169,38 @@ tipologia vuol dire misurare cosa e' COPERTO, e costa raggi); e la sezione passa
 per il vano piu' grande ma **non e' garantito che tagli le scale**, perche' le
 scale non sono ancora riconosciute come tali.
 🔴 **Provato in node, NON ancora visto girare sulla pagina viva.**
+
+**12. 🔴 PERCHE' LE ZONE SONO MESSE MALE — trovato l'08/09, e non e' il modello.**
+Il misuratore separa le stanze **dove trova i muri**. In un terminal fra
+accettazione, controlli e lounge **i muri non ci sono**. Misurato: **una stanza
+da 2.759 m2, l'82% del calpestabile**, piu' otto ritagli da 7 a 39 m2. Al
+cervello si chiede *«che stanza e' questa?»* indicandogli l'82% dell'aeroporto,
+e lui risponde **«Aeroporto internazionale»** — che e' la risposta GIUSTA a una
+domanda sbagliata. ⛔ **Un modello piu' grosso darebbe un nome piu' elegante
+alla stessa stanza unica.** Verificato anche che quei nomi **non sono nel file
+di Raffaella**: zero nomi italiani fra le mesh.
+
+**13. ✅ LA DIVISIONE PER FUNZIONE — `veritas_divide.js`, provata dal vivo.**
+Raffaella: *«dopo aver visto l'architettura deve guardare gli indizi, che sono
+gli oggetti che stanno dentro — comprese le frecce, le sedie, i metal detector
+— riconoscerli e dedurre»*.
+**L'indizio non e' il NOME dell'oggetto: e' la sua QUOTA, la sua ripetizione e
+dove sta.** Un posto a sedere e' un piano a 0,45 m ripetuto; un banco e' un
+piano a 0,90-1,10 in fila; un varco e' alto due metri e tozzo. Le quote le
+porta il **manuale**, non questo modulo — quindi la regola 0-bis regge: qui non
+c'e' «aeroporto» e non c'e' nemmeno «sedia».
+📌 **MISURATO sul modello vero:** da **1 stanza** a **41 campi di funzione**
+letti da 844 indizi — **7 accoglienze** (una da 57 oggetti a 1,16 m in fila: i
+banchi), **13 soste** (le sedute a 0,66-0,83 m), **10 filtri**, **5 code**,
+5 servizi. Ogni campo porta la sua prova: quanti oggetti, a che quota, su quanti m2.
+⚠️ **La prima versione scambiava le persone per metal detector** — 267 figure
+in fila diventavano un «filtro» da 199 m2. Si separano sulla **spalla**
+(ellisse corporea, gia' nel manuale): la persona e' slanciata, il varco e'
+tozzo. E le persone **non sono rumore, sono la prova**: un mucchio fitto e' la
+**coda a monte** che il manuale chiede per riconoscere un'accoglienza o un filtro.
+🟠 **NON e' ancora collegato alle zone.** Oggi misura e stampa; i 41 campi non
+sostituiscono ancora la stanza unica che il cervello va a nominare. E' il passo
+successivo, ed e' quello che si vedra' sullo schermo.
 
 ### Poi, in quest'ordine — riscritto l'08/09 dopo la prova dal vivo
 
