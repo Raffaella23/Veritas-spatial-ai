@@ -1,5 +1,6 @@
 import "./veritas_manuale.js?v=2";
 import { abaco } from "./veritas_tavole.js?v=1";
+import "./veritas_divide.js?v=1";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================

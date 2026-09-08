@@ -111,12 +111,19 @@ export function dividiPerFunzione(THREE, radice, opzioni = {}) {
   const scartati = { grandi: 0, fuoriQuota: 0, senzaGeometria: 0 };
   const b = new THREE.Box3(), dim = new THREE.Vector3(), cen = new THREE.Vector3();
 
+  // ⚠️ UN LIVELLO ALLA VOLTA. Senza questa banda, l'arredo del soppalco viene
+  //    misurato rispetto al pavimento di sotto e finisce fra i «varchi alti due
+  //    metri»: un piano intero diventa un filtro. La banda e' l'altezza in cui
+  //    puo' stare l'arredo di QUEL piano, e sopra c'e' il piano dopo.
+  const banda = opzioni.banda || 3.0;
   radice.traverse((o) => {
     if (!o.isMesh || !o.visible) return;
     b.setFromObject(o);
     if (b.isEmpty()) { scartati.senzaGeometria++; return; }
     b.getSize(dim); b.getCenter(cen);
     if (dim.x * dim.z > tetto) { scartati.grandi++; return; }
+    const appoggio = b.min.y - pavimento;
+    if (appoggio < -0.4 || appoggio > banda) { scartati.altroPiano = (scartati.altroPiano || 0) + 1; return; }
     const h = b.max.y - pavimento;
     const fam = famigliaDi(h, dim);
     if (!fam) { scartati.fuoriQuota++; return; }
@@ -214,6 +221,95 @@ export function dividiPerFunzione(THREE, radice, opzioni = {}) {
   return { campi, scartati, indizi: indizi.length, prova: riassunto };
 }
 
+/**
+ * IL COLLEGAMENTO. Sostituisce la stanza che non e' una stanza con i campi di
+ * funzione che ci stanno dentro.
+ *
+ * ⚠️ QUANDO SCATTA, E NON E' UNA PAROLA DI TIPOLOGIA. Scatta quando un solo
+ *    ambiente misurato si prende una fetta enorme del calpestabile: sotto quel
+ *    numero e' una stanza grande, sopra non e' piu' una stanza, e' l'edificio.
+ *    Misurato sul terminal: 2.759 m2 su 3.364, cioe' l'82%.
+ *
+ * ⚠️ E SE NON C'E' NIENTE DA DIVIDERE, NON DIVIDE. Su un edificio con i muri —
+ *    una scuola, un ospedale, un convento — nessun ambiente arriva alla soglia
+ *    e le zone restano quelle misurate. La divisione per funzione serve dove i
+ *    muri non ci sono, e si accende da sola solo li'.
+ *
+ * @param {Array} zone      gli ambienti misurati
+ * @param {Object} radice   il modello
+ * @param {Array} livelli   i livelli misurati (per il pavimento di ciascuno)
+ * @returns {Array} le zone, con quella dominante sostituita dai suoi campi
+ */
+export function dividiZoneGrandi(THREE, zone, radice, livelli, opzioni = {}) {
+  if (!THREE || !radice || !Array.isArray(zone) || !zone.length) return zone;
+  const soglia = opzioni.soglia || 0.40;
+  const quanti = opzioni.massimoCampi || 12;
+  const totale = zone.reduce((s, z) => s + (z.areaM2 || 0), 0);
+  if (!(totale > 0)) return zone;
+
+  const dominanti = zone.filter((z) => (z.areaM2 || 0) / totale >= soglia);
+  if (!dominanti.length) {
+    nota("nessun ambiente si prende piu' del " + Math.round(soglia * 100)
+      + "% del calpestabile: i muri ci sono, non c'e' niente da dividere");
+    return zone;
+  }
+
+  const fuori = [];
+  for (const z of zone) {
+    if (dominanti.indexOf(z) < 0) { fuori.push(z); continue; }
+
+    // Il pavimento di QUESTO ambiente: la quota del suo livello.
+    let pav = z.y != null ? z.y : 0;
+    if (Array.isArray(livelli) && livelli.length) {
+      let vicino = livelli[0];
+      for (const l of livelli)
+        if (Math.abs((l.levelY || 0) - pav) < Math.abs((vicino.levelY || 0) - pav)) vicino = l;
+      pav = vicino.levelY != null ? vicino.levelY : pav;
+    }
+
+    const esito = dividiPerFunzione(THREE, radice, Object.assign({ pavimento: pav }, opzioni));
+    const campi = (esito.campi || []).slice(0, quanti);
+    if (campi.length < 2) {
+      nota("l'ambiente da " + Math.round(z.areaM2) + " m2 vale il "
+        + Math.round(100 * z.areaM2 / totale) + "% del calpestabile, ma dentro non ci sono"
+        + " abbastanza indizi per dividerlo: lo lascio com'e'");
+      fuori.push(z);
+      continue;
+    }
+
+    // ⚠️ L'AREA NON SI INVENTA. I campi coprono solo la parte arredata: il
+    //    resto dell'ambiente e' pavimento libero, e resta un ambiente suo. Cosi'
+    //    la somma non cresce e il referto non racconta metri quadri che non ci
+    //    sono.
+    let coperta = 0;
+    for (const c of campi) coperta += c.areaM2;
+    const libera = Math.max(0, (z.areaM2 || 0) - coperta);
+
+    for (const c of campi) {
+      fuori.push({
+        label: null, areaM2: c.areaM2,
+        centroidX: c.centroX, centroidZ: c.centroZ, y: pav,
+        maxClearanceM: z.maxClearanceM, floorIdx: z.floorIdx,
+        kind: c.comportamento, comportamento: c.comportamento,
+        prova: c.prova, daDivisione: true,
+      });
+    }
+    if (libera > 0) {
+      fuori.push(Object.assign({}, z, {
+        areaM2: libera, kind: "distribuzione", comportamento: "distribuzione",
+        prova: "quello che resta dell'ambiente da " + Math.round(z.areaM2)
+          + " m2 una volta tolti i " + campi.length + " campi arredati: pavimento libero,"
+          + " cioe' dove si cammina", daDivisione: true,
+      }));
+    }
+    nota("l'ambiente da " + Math.round(z.areaM2) + " m2 (il "
+      + Math.round(100 * z.areaM2 / totale) + "% del calpestabile) non e' una stanza:"
+      + " lo sostituisco con " + campi.length + " campi di funzione + "
+      + Math.round(libera) + " m2 di pavimento libero");
+  }
+  return fuori;
+}
+
 if (typeof window !== "undefined") {
-  window.__veritasDivide = { dividiPerFunzione };
+  window.__veritasDivide = { dividiPerFunzione, dividiZoneGrandi };
 }
