@@ -127,6 +127,26 @@ versionato (`?v=2`, montaggio `?v=23`) perché il browser non serva la copia vec
 esiste più. Verificato con `git stash`: **rossa anche senza nessuna modifica.**
 Da riscrivere, non da riparare.
 
+**11. ✅ L'ABACO E' DIVENTATO IL MODO NORMALE DI LAVORARE — 08/09, chiesto da
+Raffaella:** *«pianta prospetto e sezioni, se funzionano devono diventare
+default del programma e vanno spinti e committati»*.
+`veritas_tavole.js` — nuovo modulo. Disegna **una pianta per livello** (taglio a
+1,10), **quattro prospetti**, **due sezioni** sul baricentro del calpestabile,
+tutte in **proiezione ortogonale**. Non decide niente da solo: **ogni regola la
+legge da `MANUALE.disegno`**. Se domani si taglia a 1,20 si cambia il manuale.
+• **Entra in testa alla fila che arriva all'occhio**, subito dopo la veduta
+d'insieme: in coda non sarebbe mai stato guardato (il guasto del 05/09).
+• **La regola del 6:1 ripara i 16 px/m**: un prospetto 81,2 x 5,9 si spezza in
+**3 segmenti in ordine** e ogni segmento esce a **48 px/m** — sopra i 40 che il
+manuale chiama buoni. E' la passata di Raffaella applicata al disegno.
+🟠 **Due limiti scritti nell'intestazione del modulo, non nascosti:**
+`inquadratura_su: "il costruito"` non e' implementato (si inquadra l'ingombro:
+106,4 m invece di 81,2, perche' distinguere il costruito senza nominare una
+tipologia vuol dire misurare cosa e' COPERTO, e costa raggi); e la sezione passa
+per il vano piu' grande ma **non e' garantito che tagli le scale**, perche' le
+scale non sono ancora riconosciute come tali.
+🔴 **Provato in node, NON ancora visto girare sulla pagina viva.**
+
 ### Poi, in quest'ordine — riscritto l'08/09 dopo la prova dal vivo
 
 | | il lavoro | perché |

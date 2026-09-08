@@ -1,4 +1,5 @@
 import "./veritas_manuale.js?v=2";
+import { abaco } from "./veritas_tavole.js?v=1";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================
@@ -770,8 +771,36 @@ window.__veritasComprendi = async function (opz = {}) {
     //    nell'ordine in cui sono stati presi, dal primo metro all'ultimo.
     //    Rimescolarli vorrebbe dire perdere l'unica cosa che li rende una
     //    sequenza invece di un mucchio.
-    if (dentro.length || vicini.length || passata.length) {
+    // ⚠️ L'ABACO VA PER PRIMO, SUBITO DOPO LA VEDUTA D'INSIEME — 08/09/2026.
+    //    Raffaella: *«se funzionano devono diventare default del programma»*.
+    //    All'occhio arrivano solo le prime viste della fila: una tavola in coda
+    //    non viene guardata mai. E sono l'unica cosa che gli fa vedere
+    //    l'edificio TUTTO — misurato l'08/09: della passata in ordine sette
+    //    scatti su tredici non contenevano un metro quadro di terminal, mentre
+    //    una pianta sola porta all'occhio 2.759 m2 in una figura.
+    let tavole = [];
+    if (typeof abaco === "function") {
+      try {
+        tavole = abaco(THREE, rend, radice, opz.tavole || {}) || [];
+        if (tavole.length) {
+          const f = tavole.map((t) => t.pixelPerMetro);
+          log("l'abaco: " + tavole.length + " tavole ("
+            + tavole.filter((t) => t.genere === "pianta").length + " piante, "
+            + tavole.filter((t) => t.genere === "prospetto").length + " prospetti, "
+            + tavole.filter((t) => t.genere === "sezione").length + " sezioni) — da "
+            + Math.round(Math.min.apply(null, f)) + " a "
+            + Math.round(Math.max.apply(null, f)) + " pixel al metro");
+        } else {
+          log("nessuna tavola: non sono riuscito a misurare i livelli dell'edificio");
+        }
+      } catch (e) {
+        log("non sono riuscito a disegnare l'abaco: " + ((e && e.message) || e));
+      }
+    }
+
+    if (dentro.length || vicini.length || passata.length || tavole.length) {
       const misti = scorci.slice(0, 1);
+      for (const t of tavole) misti.push(t);
       const giri = Math.max(passata.length, dentro.length);
       for (let i = 0; i < giri; i++) {
         if (i < passata.length) misti.push(passata[i]);
@@ -780,7 +809,8 @@ window.__veritasComprendi = async function (opz = {}) {
       for (const v of vicini) misti.push(v);
       scorci = misti;
       log("all'occhio vanno " + scorci.length + " viste, in quest'ordine: 1 veduta"
-        + " d'insieme, " + passata.length + " della passata in ordine, " + dentro.length
+        + " d'insieme, " + tavole.length + " tavole dell'abaco, "
+        + passata.length + " della passata in ordine, " + dentro.length
         + " da dentro, " + vicini.length + " primi piani — le prime quattro sono "
         + scorci.slice(0, 4).map((v) => v.etichetta || "veduta d'insieme").join(" · "));
     }
