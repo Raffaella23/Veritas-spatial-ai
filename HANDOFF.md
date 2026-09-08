@@ -198,9 +198,24 @@ in fila diventavano un «filtro» da 199 m2. Si separano sulla **spalla**
 (ellisse corporea, gia' nel manuale): la persona e' slanciata, il varco e'
 tozzo. E le persone **non sono rumore, sono la prova**: un mucchio fitto e' la
 **coda a monte** che il manuale chiede per riconoscere un'accoglienza o un filtro.
-🟠 **NON e' ancora collegato alle zone.** Oggi misura e stampa; i 41 campi non
-sostituiscono ancora la stanza unica che il cervello va a nominare. E' il passo
-successivo, ed e' quello che si vedra' sullo schermo.
+✅ **COLLEGATO E MISURATO SULLA PAGINA VIVA — 08/09, ore 11:19.**
+`dividiZoneGrandi` entra in testa a `applyAutoAssignment`: quando un ambiente
+supera il **40% del calpestabile** non e' una stanza, e' l'edificio.
+📌 **Sul modello vero:** *«l'ambiente da 2759 m2 (l'82%) non e' una stanza: lo
+sostituisco con 12 campi di funzione + 1712 m2 di pavimento libero»* — **da 9 a
+21 ambienti**, poi ridotti a **7 tappe** (erano 5).
+📌 **E I PUNTI SULLO SCHERMO SONO CAMBIATI DAVVERO:**
+| prima | dopo |
+|---|---|
+| Reception · **Aeroporto internazionale** · Pista d'atterraggio · Area di controllo del traffico aereo · Origin | Ingresso/Parcheggio · **Accettazione** · **Controllo** · **Lounge** · **Imbarco A** · **Gate A1** |
+Dietro ci sono le misure: l'accettazione e' **57 oggetti col piano a 1,16 m in
+fila**, la sosta **5 a 0,56 m**, e restano **1.712 m2 di pavimento libero**
+dichiarati come distribuzione — l'area non e' cresciuta.
+🟠 **Due cose da guardare:** un campo da **784 m2 fatto di 139 persone**
+(«passaggio di gente») e' un ambiente strano, va deciso se conta come stanza; e i
+nomi finali («Accettazione», «Controllo», «Lounge», «Gate») escono da
+`LESSICO_ZONE` dentro `index.html`, che **e' vocabolario di tipologia nel
+codice** — tensione con la regola 0-bis che esisteva gia' prima, e ora si vede.
 
 ### Poi, in quest'ordine — riscritto l'08/09 dopo la prova dal vivo
 
