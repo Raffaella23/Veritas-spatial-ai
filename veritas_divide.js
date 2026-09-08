@@ -207,6 +207,46 @@ export function dividiPerFunzione(THREE, radice, opzioni = {}) {
       + (c.allungamento >= lungoStretto ? ", in fila (" + c.allungamento.toFixed(1) + ":1)" : "");
   }
 
+  // --- 4. LA GENTE NON E' UNA STANZA: RINFORZA LA STANZA ------------------
+  // Raffaella, 08/09/2026: *«conta per rafforzare l'idea della zona funzionale
+  // (comportamento "ci si mette in fila")»*.
+  // ⚠️ Prima un mucchio di 139 persone diventava un ambiente da 784 m2, e un
+  //    ambiente fatto di persone non e' un ambiente. Addosso a un banco o a un
+  //    varco, invece, e' **esattamente la coda a monte** che il manuale chiede
+  //    per riconoscere un'accoglienza o un filtro: non e' rumore da togliere,
+  //    e' la prova che li' dentro ci si mette in fila.
+  const raggioCoda = opzioni.raggioCoda || 6;
+  const gente = campi.filter((c) => c.famiglia === "persona");
+  const luoghi = campi.filter((c) => c.famiglia !== "persona");
+  const orfani = [];
+  for (const g of gente) {
+    let vicino = null, minima = Infinity;
+    for (const l of luoghi) {
+      const centri = Math.hypot(g.centroX - l.centroX, g.centroZ - l.centroZ);
+      const bordo = (Math.max(g.larghezza, g.profondita) + Math.max(l.larghezza, l.profondita)) / 2;
+      const d = centri - bordo;
+      if (d < minima) { minima = d; vicino = l; }
+    }
+    if (vicino && minima <= raggioCoda) {
+      vicino.inFila = true;
+      vicino.personeInFila = (vicino.personeInFila || 0) + g.oggetti;
+      vicino.prova += " — e ci si mette in fila: " + g.oggetti
+        + " persone a " + Math.max(0, Math.round(minima)) + " m";
+    } else {
+      // Nessun luogo vicino: la fila resta, ma resta come COMPORTAMENTO, non
+      // come «passaggio di gente». Da qualche parte, li', si aspetta.
+      g.comportamento = "sosta";
+      g.inFila = true;
+      g.prova = g.oggetti + " persone ferme su " + Math.round(g.areaM2)
+        + " m2 (" + g.densita.toFixed(2).replace(".", ",") + " al m2): ci si mette in fila,"
+        + " e non c'e' un banco o un varco vicino a cui appoggiarla";
+      orfani.push(g);
+    }
+  }
+  campi.length = 0;
+  for (const l of luoghi) campi.push(l);
+  for (const o of orfani) campi.push(o);
+
   campi.sort((a, b2) => b2.areaM2 - a.areaM2);
 
   const per = {};

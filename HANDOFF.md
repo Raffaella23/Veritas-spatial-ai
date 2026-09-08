@@ -217,6 +217,36 @@ nomi finali («Accettazione», «Controllo», «Lounge», «Gate») escono da
 `LESSICO_ZONE` dentro `index.html`, che **e' vocabolario di tipologia nel
 codice** — tensione con la regola 0-bis che esisteva gia' prima, e ora si vede.
 
+**14. ✅ LA GENTE RINFORZA LA ZONA, NON È UNA ZONA — 08/09, deciso da Raffaella.**
+*«conta per rafforzare l'idea della zona funzionale (comportamento "ci si mette
+in fila")»*. Un mucchio di 139 persone diventava un ambiente da 784 m2, e un
+ambiente fatto di persone non è un ambiente. Adesso un campo di persone entro
+**6 m** da un banco o da un varco **non diventa una stanza**: marca quella
+stanza come `inFila` e ci scrive addosso quante persone. È la **coda a monte**
+che il manuale chiede per riconoscere un'accoglienza o un filtro. Se non c'è
+niente vicino resta, ma come **sosta in cui ci si mette in fila**, non come
+«passaggio di gente».
+
+**15. ✅ IL LESSICO VALE PER TUTTI I TIPI — `veritas_lessico.js`, 08/09.**
+Raffaella: *«ti avevo già detto che le poche parole erano assolutamente
+insufficienti»*. `LESSICO_ZONE` dentro `index.html` ha **tre tipi**: aeroporto,
+museo, gaming. Su scuola, ospedale, stazione, chiesa — cioè su quasi tutto —
+cascava sul generico e chiamava «Filtro» quello che un medico chiama «triage».
+⛔ **Non si ripara allungando la tabella**: sarebbe la regola 0-bis violata per
+iscritto, e una lista che non finisce mai.
+⚠️ **E il manuale non può darli.** Le fonti caricate sono **dimensionali**
+(Fruin, DM 236/1989, Blondel): dicono quanto è largo un passaggio, non come si
+chiama in un ospedale. Le raccolte con dentro le tipologie — il Neufert — sono
+**opere protette** e in un prodotto che si vende non si ricopiano. Sta scritto
+nell'intestazione del manuale dal giorno in cui è nato.
+✅ **Come si fa invece:** il nome **si chiede al cervello una volta sola per
+tipo** — *«questo è un X: uno spazio dove <comportamento misurato> come lo
+chiama chi ci lavora?»* — e si tiene nella cache del browser. Nel codice non
+entra nessuna parola di nessuna tipologia: entra solo la **descrizione del
+comportamento**, uguale in un aeroporto e in un convento. **Così i tipi coperti
+non sono tre: sono tutti.** Se il cervello non c'è o risponde male (parole
+ripetute, JSON rotto) si ricade sulla tabella di prima, e lo si dice.
+
 ### Poi, in quest'ordine — riscritto l'08/09 dopo la prova dal vivo
 
 | | il lavoro | perché |

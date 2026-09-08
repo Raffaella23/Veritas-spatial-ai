@@ -3909,8 +3909,15 @@
     // Stessa lettura di assegnaZoneMisurate: il tipo di progetto e' gia'
     // salvato in italiano ("aeroporto"/"museo"/"gaming"), e quando manca si
     // usano nomi che descrivono la funzione invece di indovinare l'edificio.
-    const dominio = LESSICO_ZONE[window.__veritasProjectType] ? window.__veritasProjectType : "generico";
-    const voc = LESSICO_ZONE[dominio];
+    // ⚠️ PRIMA IL LESSICO IMPARATO — 08/09/2026. La tabella qui sotto ha tre
+    //    tipi soli: su una scuola, un ospedale o una chiesa cascava sul
+    //    generico. `veritas_lessico.js` chiede al cervello, una volta sola per
+    //    tipo, come chiama chi ci lavora ognuno degli otto comportamenti, e se
+    //    lo tiene. Cosi' i tipi coperti non sono tre: sono tutti.
+    const tipoDichiarato = window.__veritasProjectType;
+    const imparato = window.__veritasLessico && window.__veritasLessico.ora(tipoDichiarato);
+    const dominio = (imparato || LESSICO_ZONE[tipoDichiarato]) ? tipoDichiarato : "generico";
+    const voc = imparato || LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
 
     let cambiati = 0;
     const scartati = [];
@@ -4267,7 +4274,10 @@
 
   function assegnaZoneMisurate(zones, root, dominio) {
     if (!zones || zones.length < 2) return null;
-    const voc = LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
+    // Prima il lessico imparato per questo tipo di edificio, poi la tabella
+    // dei tre tipi, poi il generico (vedi la nota piu' sopra).
+    const voc = (window.__veritasLessico && window.__veritasLessico.ora(dominio))
+      || LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
 
     // 1. I nomi, quando ci sono. Non sono la fonte della posizione: sono
     //    un'etichetta da appoggiare sopra una zona gia' misurata.
@@ -27568,7 +27578,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=25"></script>
+<script type="module" src="./veritas_montaggio.js?v=26"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>
