@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-09-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-09-f";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -21427,6 +21427,213 @@ function costruisciFlussi(nodi, opz = {}) {
   return flussi;
 }
 
+// ---------------------------------------------------------------------------
+// LE MISSIONI — 09/09/2026. E' il «passo 3» promesso qui sopra.
+// ---------------------------------------------------------------------------
+//
+// Raffaella, guardando la simulazione: *«tutte le varie tipologie fanno tutti
+// in fila indiana, tutte le tappe. Quelli che lavorano agli aerei rimangono sul
+// piazzale, quelli che arrivano arrivano al lato strada, quelli che atterrano
+// arrivano dagli aerei e passano attraverso i tunnel. Adesso tutti fanno tutto,
+// ed e' un tour panoramico di tutte le zone.»*
+//
+// E poi, ad alta voce, la cosa che cambia l'impianto:
+// *«in base alla tipologia la categoria viene assegnata a ciascun agente, ma in
+// sostanza la categoria e' un TARGET, un obiettivo. E' come se lo stessimo
+// gamificando: sa che deve entrare, fare il check-in, lasciare il bagaglio,
+// fino alla sala d'aspetto, al gate, al tubo, all'aereo.»*
+//
+// QUINDI: UN PROFILO NON E' UN PERCORSO, E' UNA MISSIONE.
+// Non una linea da seguire, ma un elenco di tappe da COMPIERE. E la conseguenza
+// vera e' che la simulazione smette di essere un filmato e diventa una PROVA:
+// l'edificio o permette di completare la missione, o no — e dove non lo
+// permette, quella e' la scoperta.
+//
+// ⛔ DUE DIFETTI CHE QUESTO SOSTITUISCE, misurati il 09/09 sul log:
+//   1. `mezzo` prendeva UNA zona per categoria (con `find`) e la dava a TUTTI
+//      i flussi: cambiavano la porta d'ingresso e il punto finale, il mezzo era
+//      identico. La fila indiana era scritta li'.
+//   2. Senza nemmeno una tappa marcata «destinazione» si cadeva su «flusso
+//      unico»: una fila sola con dentro tutto. E' quello che e' successo
+//      sull'aeroporto — otto profili distanti 1,2 m l'uno dall'altro.
+//
+// COME SI RICAVA L'ORDINE, SENZA UNA PAROLA DI TIPOLOGIA
+// Non da un elenco cablato (ORDINE_DI_MEZZO era «accoglienza, filtro, sosta»,
+// cioe' un aeroporto scritto nel codice). Si ricava dallo SPAZIO: si tira la
+// retta fra l'entrata e la meta di QUESTA missione, si tengono le zone che
+// stanno lungo quella retta, e si ordinano per quanto sono avanti. L'ordine e'
+// quello in cui le cose si incontrano davvero camminando.
+// Cosi' due missioni con porte diverse attraversano zone diverse, ed e'
+// esattamente la differenza fra chi entra dalla strada e chi scende dall'aereo.
+// In un ospedale la stessa riga produce accettazione-triage-attesa-ambulatorio;
+// in una chiesa, ingresso-acquasantiera-navata-banco. Regola 0-bis intatta.
+
+/** Quanto larga e' la strada: una zona piu' lontana di cosi' dalla retta non e'
+ *  «sulla via», e' un'altra parte dell'edificio.
+ *  ⚠️ PRIMA TARATURA, NON UNA MISURA, e il tetto e' la parte che conta: senza,
+ *     su un tragitto di 70 m la strada diventava larga 24 e si portava dentro
+ *     il piazzale — misurato al banco il 09/09, con «Piazzale sud» infilato in
+ *     mezzo al percorso dei passeggeri. Un corridoio d'edificio non e' largo
+ *     venti metri: oltre quelli si sta attraversando un'altra cosa. */
+function corridoio(lungo) { return Math.max(8, Math.min(20, lungo / 4)); }
+
+/** Una tappa per categoria, la piu' vicina alla propria strada.
+ *
+ *  ⚠️ E' IL CUORE DELLA MISSIONE, ed e' la differenza fra un obiettivo e un
+ *     itinerario. L'obiettivo e' «fai il check-in», non «passa da tutti i
+ *     banchi dell'aeroporto»: chi cammina va a UN banco, attraversa UN
+ *     controllo, aspetta in UNA sala — quello che gli capita sulla sua strada.
+ *     Misurato al banco il 09/09 senza questa riga: le due andate, entrando da
+ *     due porte diverse, attraversavano gli stessi identici sei ambienti. Era
+ *     ancora la fila indiana, solo con due porte.
+ *     Adesso chi entra dalla strada trova la sua accettazione e chi entra da
+ *     ovest la propria: due missioni, due percorsi, e le zone si dividono la
+ *     gente invece di riceverla tutta. */
+function unaPerCategoria(candidati) {
+  const meglio = new Map();
+  for (const c of candidati) {
+    const cat = c.n.type || 'sosta';
+    const gia = meglio.get(cat);
+    if (!gia || c.scarto < gia.scarto) meglio.set(cat, c);
+  }
+  return Array.from(meglio.values()).sort((p, q) => p.t - q.t);
+}
+
+/** Le zone che stanno lungo il tragitto entrata->meta, in ordine di cammino. */
+function tappeLungoLaVia(tutte, entrata, meta, opz = {}) {
+  const ax = entrata.pos[0], az = entrata.pos[2];
+  const bx = meta.pos[0],    bz = meta.pos[2];
+  const dx = bx - ax, dz = bz - az;
+  const lungo = Math.hypot(dx, dz);
+  if (!(lungo > 0)) return [];
+  const largo = opz.corridoioM || corridoio(lungo);
+  const dentro = [];
+  for (const n of tutte) {
+    if (n === entrata || n === meta) continue;
+    if (n.type === 'origine' || n.type === 'destinazione') continue;
+    const px = n.pos[0] - ax, pz = n.pos[2] - az;
+    // t = quanto e' avanti lungo la strada (0 all'entrata, 1 alla meta)
+    const t = (px * dx + pz * dz) / (lungo * lungo);
+    if (t <= 0.02 || t >= 0.98) continue;   // dietro l'entrata, o oltre la meta
+    // scarto = quanto e' fuori strada
+    const scarto = Math.abs(px * dz - pz * dx) / lungo;
+    if (scarto > largo) continue;
+    dentro.push({ n, t, scarto });
+  }
+  return unaPerCategoria(dentro).map((x) => x.n);
+}
+
+/** Le mete, quando nessuno le ha dichiarate: la tappa piu' lontana da ogni
+ *  entrata. E' la definizione operativa di «dove si va a finire» quando il
+ *  modello non porta un nodo di tipo destinazione — ed e' il caso NORMALE:
+ *  sull'aeroporto di prova erano zero, ed e' per questo che c'era una fila
+ *  sola per tutti. */
+function meteDedotte(tutte, entrate, quante) {
+  const scelte = [];
+  for (const e of entrate) {
+    let meglio = null, dist = -1;
+    for (const n of tutte) {
+      if (n.type === 'origine' || scelte.indexOf(n) >= 0) continue;
+      const d = Math.hypot(n.pos[0] - e.pos[0], n.pos[2] - e.pos[2]);
+      if (d > dist) { dist = d; meglio = n; }
+    }
+    if (meglio) scelte.push(meglio);
+    if (scelte.length >= quante) break;
+  }
+  return scelte;
+}
+
+/** Gli obiettivi di una missione: che cosa l'agente DEVE compiere, in ordine.
+ *  Non e' una polilinea: e' l'elenco che permette di chiedere «e' arrivato in
+ *  fondo?» invece di «ha percorso la linea?». */
+function obiettiviDa(tappe) {
+  return tappe.map((n, k) => ({
+    ordine: k, tipo: n.type || 'sosta', nome: nomeDi(n), pos: n.pos.slice(),
+  }));
+}
+
+/**
+ * LE MISSIONI del modello: tre famiglie, e nessuna porta un nome di tipologia.
+ *
+ *   andata   — attraversa in avanti:    entrata -> le tappe sulla via -> meta
+ *   ritorno  — attraversa all'indietro: meta -> le stesse tappe al contrario
+ *   presidio — non attraversa: resta dov'e', ed e' chi ci lavora
+ *
+ * In un aeroporto si leggono chi parte, chi atterra, chi lavora sul piazzale.
+ * In un ospedale: chi entra, chi viene dimesso, il personale. In una chiesa:
+ * chi entra, chi esce, il sacrestano. La stessa riga di codice.
+ *
+ * ⚠️ LE QUOTE SONO UNA PRIMA TARATURA, NON UNA MISURA, ed e' dichiarato qui:
+ *    meta' va in avanti, tre decimi tornano indietro, due decimi presidiano.
+ *    Quando il conteggio delle persone gia' nel modello sara' affidabile per
+ *    zona, le quote verranno da li' e questa riga sparisce.
+ */
+function missioni(nodi, opz = {}) {
+  const tutte = (nodi || []).filter((n) => n && n.pos);
+  if (tutte.length < 2) return [];
+
+  let entrate = tutte.filter((n) => n.type === 'origine');
+  const accessi = opz.accessi || (typeof window !== 'undefined'
+    && window.__veritasAccessi && window.__veritasAccessi.accessi) || [];
+  for (const a of accessi) {
+    if (!a || !a.centro) continue;
+    const gia = entrate.some((n) =>
+      Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
+        < (opz.stessoIngressoM || 8));
+    if (gia) continue;
+    entrate.push({ label: a.nome || 'Accesso', type: 'origine', origine: 'accesso',
+                   pos: a.centro.slice(), larghezza: a.larghezza });
+  }
+  if (!entrate.length) return [];
+
+  let mete = tutte.filter((n) => n.type === 'destinazione');
+  if (!mete.length) mete = meteDedotte(tutte, entrate, Math.max(1, entrate.length));
+  if (!mete.length) return [];
+
+  const fuori = [];
+  const quante = Math.min(opz.massimo || 6, Math.max(entrate.length, mete.length));
+  for (let i = 0; i < quante; i++) {
+    const entrata = entrate[i % entrate.length];
+    const meta = mete[i % mete.length];
+    const via = tappeLungoLaVia(tutte, entrata, meta, opz);
+    if (!via.length) continue;
+    const avanti = [entrata].concat(via, [meta]);
+    fuori.push({ nome: 'va: ' + nomeDi(entrata) + ' → ' + nomeDi(meta),
+                 verso: 'andata', tappe: avanti, quota: 0,
+                 entrata: entrata, uscita: meta, obiettivi: obiettiviDa(avanti) });
+    const indietro = [meta].concat(via.slice().reverse(), [entrata]);
+    fuori.push({ nome: 'torna: ' + nomeDi(meta) + ' → ' + nomeDi(entrata),
+                 verso: 'ritorno', tappe: indietro, quota: 0,
+                 entrata: meta, uscita: entrata, obiettivi: obiettiviDa(indietro) });
+  }
+  if (!fuori.length) return [];
+
+  // CHI NON ATTRAVERSA. Le zone che nessuna via ha toccato: chi ci lavora ci
+  // resta, e non fa il giro dell'edificio. Sull'aeroporto sono le squadre sul
+  // piazzale — la ragione per cui c'erano tappe fra i due aerei.
+  const toccate = new Set();
+  for (const m of fuori) for (const t of m.tappe) toccate.add(t);
+  const presidi = tutte.filter((n) => !toccate.has(n) && n.type !== 'origine');
+  if (presidi.length) {
+    const p = presidi.slice(0, 2);
+    const giro = p.length > 1 ? p : p.concat(p);
+    fuori.push({ nome: 'presidia: ' + p.map(nomeDi).join(' e '),
+                 verso: 'presidio', tappe: giro, quota: 0,
+                 entrata: giro[0], uscita: giro[giro.length - 1],
+                 obiettivi: obiettiviDa(giro) });
+  }
+
+  const nAnd = fuori.filter((m) => m.verso === 'andata').length;
+  const nRit = fuori.filter((m) => m.verso === 'ritorno').length;
+  const nPre = fuori.filter((m) => m.verso === 'presidio').length;
+  for (const m of fuori) {
+    m.quota = m.verso === 'andata'  ? 0.5 / Math.max(1, nAnd)
+            : m.verso === 'ritorno' ? 0.3 / Math.max(1, nRit)
+            :                         0.2 / Math.max(1, nPre);
+  }
+  return fuori;
+}
+
 /** Riassunto in italiano normale, da dire in chat o nel log. */
 function raccontaFlussi(flussi) {
   const f = flussi || [];
@@ -21453,6 +21660,26 @@ function imposta(flussi) {
 
 /** I flussi da percorrere adesso: quelli dichiarati, o quelli delle tappe. */
 function per(nodi, opz = {}) {
+  // ⚠️ PRIMA LE MISSIONI — 09/09/2026. Se il modello permette di costruirle
+  //    (almeno un'entrata, almeno una meta, e qualcosa in mezzo) sono quelle:
+  //    ognuna ha il SUO percorso, non il mezzo condiviso di tutti.
+  //    Il vecchio costruisciFlussi resta sotto come ripiego per i modelli
+  //    troppo poveri, e quando scatta si vede nel nome («flusso unico»).
+  if (!DICHIARATI) {
+    try {
+      const m = missioni(nodi, opz);
+      if (m && m.length > 1) {
+        try {
+          console.log('[VERITAS flussi] ' + m.length + ' missioni: '
+            + m.map((x) => x.nome + ' (' + x.tappe.length + ' tappe)').join('; '));
+        } catch (e) {}
+        return m;
+      }
+    } catch (e) {
+      try { console.warn('[VERITAS flussi] missioni non costruite: '
+        + ((e && e.message) || e) + ' — resto sui flussi di prima'); } catch (x) {}
+    }
+  }
   if (DICHIARATI) {
     // Un flusso dichiarato vale solo se le sue tappe esistono ancora: le zone
     // si cancellano e si rifanno a ogni rilettura del modello.
@@ -21474,6 +21701,7 @@ function flussoDelGruppo(flussi, gruppo) {
 if (typeof window !== 'undefined') {
   window.__veritasFlussi = {
     ORDINE_DI_MEZZO, costruisciFlussi, raccontaFlussi, imposta, per, flussoDelGruppo,
+    missioni,
   };
   console.log('[VERITAS flussi] pronto — window.__veritasFlussi');
 }
