@@ -4,6 +4,38 @@
 
 ---
 
+## 🔴 SI RIPARTE DA QUI — 09/09/2026: DOVE SI SPEZZA LA CATENA DEI NOMI
+
+**Raffaella, 08/09 sera:** *«le zone non vengono riconosciute. L'occhio vede le
+38 fotografie? Le interpreta e condivide con il cervello? Il cervello comunica
+all'editor delle zone? Dove si spezza la catena? Fai un controllo capillare.»*
+
+⚠️ **E il contesto in cui la domanda nasce, che vale quanto la domanda:**
+*«abbiamo complicato le cose in un modo inaccettabile»*. L'08/09 sono entrati
+**quattro moduli in un giorno** (manuale, tavole, divide, lessico), ognuno
+verificato **da solo** e **nessuno guardato insieme agli altri**. Sullo schermo
+di Raffaella le etichette risultano moltiplicate e illeggibili, e **quella foto
+non e' ancora stata guardata da nessuno**. ⛔ **NON SI AGGIUNGE NIENTE finche'
+questa catena non e' chiusa e lo schermo non e' pulito.**
+
+### I QUATTRO PASSAGGI DI MANO, e cosa misurare a ognuno
+
+| | il passaggio | dove si rompe | il numero da leggere |
+|---|---|---|---|
+| **1** | le fotografie → **l'occhio** | 🔴 `VISTE_PER_GIRO = 4` in `veritas_comprensione.js:78`. Il montaggio ne prepara **37**, all'occhio ne arrivano **QUATTRO per giro**: le altre 33 aspettano giri che spesso non arrivano mai (l'occhio e' lento, Chrome molla la pagina) | quanti giri sono stati fatti davvero, e quali viste sono state guardate |
+| **2** | l'occhio → **il cervello** | dalla **pianta** i riquadri diventano **posizioni** (proiezione ortogonale); dagli **scorci** si prende solo la **testimonianza**, senza posizione, per scelta del 26/08 — in prospettiva un riquadro non ha corrispondente a terra. 🟠 **MA QUESTA REGOLA E' SCADUTA CON L'ABACO:** le piante e i prospetti sono ORTOGONALI, i loro riquadri **avrebbero** un corrispondente a terra, e oggi la posizione **viene buttata** | quante testimonianze, e quante con posizione |
+| **3** | il cervello → **i nomi** | `comprendi(ctx)` → `c.posti`. Se il cervello non risponde o risponde male, `capito: false` | `window.__veritasComprensione` |
+| **4** | i nomi → **l'editor delle zone** | 🔴 **E' IL PUNTO CHE SI E' GIA' ROTTO DUE VOLTE.** `applicaNomi` in `veritas_montaggio.js:893` accoppia i posti capiti alle tappe **per vicinanza**, con soglia = distanza fra i posti / 10, minimo 5 m, tetto 40 (su questo aeroporto **~15 m**). Un nome che cade piu' lontano **non viene applicato** | i contatori che ci sono gia': `perCampo`, `perVicinanza`, `troppoLontane`, `senzaNome`, `fuoriElenco`, `volumiUtili`, `minimaVista`, `candidati` |
+
+### Come si fa il controllo, in ordine e senza aggiungere niente
+
+1. **Chiedere a Raffaella di aprire il browser** (regola 7), e guardare **prima di tutto le etichette moltiplicate della foto dell'08/09 sera**.
+2. Leggere i cinque contatori del passaggio 4: dicono se il travaso avviene o no, e perche'.
+3. Contare i giri fatti dall'occhio: se e' **uno solo**, ha visto **4 viste su 37**.
+4. Solo dopo, se serve, l'interruttore per spegnere la divisione dell'08/09 e tornare a com'era — tutto e' committato, si torna indietro senza perdere niente.
+
+---
+
 ## ⛔ LE COSE CHE RAFFAELLA HA GIÀ DETTO — SI LEGGONO QUI E NON SI RICHIEDONO
 
 **Questo blocco esiste perché il documento è lungo 6.400 righe e una chat nuova
