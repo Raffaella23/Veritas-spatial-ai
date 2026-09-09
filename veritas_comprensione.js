@@ -734,7 +734,8 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
 
   // `regioni`: le testimonianze dei primi piani, ognuna legata al RETTANGOLO
   // di mondo che quello scorcio ha inquadrato. Vedi il commento piu' sotto.
-  const fuori = { esitoPianta: null, testimonianza: null, viste: [], regioni: [] };
+  const fuori = { esitoPianta: null, esitiPianta: [], testimonianza: null,
+                  viste: [], regioni: [] };
   if (typeof ctx.rileva !== "function") return fuori;
 
   // (a) la pianta: e' l'unica che da' posizioni, e passa dalla strada di sempre
@@ -744,15 +745,53 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
         rileva: ctx.rileva, pianta: ctx.pianta, inquadratura: ctx.inquadratura,
         dominio: ctx.dominio, parole: parole || [], soloParole: !!soloQueste,
       });
-      if (e && e.ok) fuori.esitoPianta = e;
+      if (e && e.ok) {
+        fuori.esitoPianta = e;
+        fuori.esitiPianta.push({ vista: "pianta del pavimento", esito: e });
+      }
     } catch (e) { /* la pianta muta non deve fermare gli scorci */ }
   }
 
-  // (b) gli scorci: solo testimonianza
+  // (a-bis) ANCHE LE PIANTE DELL'ABACO DANNO POSIZIONI — 09/09/2026.
+  //
+  // ⚠️ LA REGOLA DEL 26/08 NON E' STATA TOLTA: E' STATA DETTA MEGLIO.
+  //    Diceva «dagli scorci non si prende una posizione», e per una prospettiva
+  //    e' vera oggi come allora. Ma quando sono arrivate le tavole canoniche
+  //    (l'08/09) sono entrate nella stessa fila degli scorci, e si sono prese
+  //    la stessa multa: una PIANTA — proiezione ortogonale dall'alto — ha il
+  //    suo corrispondente a terra pixel per pixel, e la posizione veniva
+  //    buttata lo stesso. Misurato il 09/09: l'occhio guardava la pianta del
+  //    livello 1 (2.759 m2 in un disegno solo), riconosceva i banchi, e non gli
+  //    era permesso dire dove fossero.
+  //
+  //    Quindi la regola non parla piu' di «scorci» e di «piante», che sono
+  //    nomi: parla di quello che una vista SA. Una vista che porta con se' il
+  //    proprio rettangolo di mondo (`inquadratura`) da' posizioni; una che non
+  //    ce l'ha da' testimonianza e basta. Prospetti e sezioni non ce l'hanno —
+  //    e infatti da una proiezione verticale un punto a terra non si ricava.
+  //    Nessuna tipologia, nessun nome di edificio: regola 0-bis intatta.
+  const tutteLeViste = (ctx.scorci || []).filter(Boolean);
+  const conTerra = tutteLeViste.filter((v) => v.inquadratura);
+  for (const v of conTerra) {
+    try {
+      const e = await riconosci(ctx.posti, {
+        rileva: ctx.rileva, pianta: v, inquadratura: v.inquadratura,
+        dominio: ctx.dominio, parole: parole || [], soloParole: !!soloQueste,
+      });
+      if (e && e.ok) {
+        if (!fuori.esitoPianta) fuori.esitoPianta = e;
+        fuori.esitiPianta.push({ vista: v.etichetta || "pianta", esito: e });
+      }
+    } catch (err) { /* una tavola muta non deve fermare le altre */ }
+  }
+
+  // (b) le viste senza terra: solo testimonianza
   const voci = soloQueste ? vociDaParole(parole) : vocabolarioPer(ctx.dominio, parole || []);
   const chiedi = voci.map((v) => v.chiedi);
   if (!chiedi.length) { fuori.testimonianza = riassuntoTestimonianza(fuori); return fuori; }
-  const scorci = ctx.scorci || [];
+  // ⚠️ Chi ha gia' dato le posizioni qui sopra non ripassa: sarebbe contato
+  //    due volte, una come misura e una come chiacchiera.
+  const scorci = tutteLeViste.filter((v) => !v.inquadratura);
   // Per risalire dalla parola chiesta alla voce che porta le conseguenze.
   const perChiedi = new Map(voci.map((v) => [v.chiedi, v]));
   for (let i = 0; i < scorci.length; i++) {
@@ -850,12 +889,15 @@ export const FIDUCIA_MINIMA_TESTIMONE = 0.2;
 
 function riassuntoTestimonianza(o) {
   const righe = [];
-  if (o.esitoPianta) {
+  // Ogni pianta dice la sua, con il suo nome: se il livello 1 riconosce i
+  // banchi e il livello 2 no, si vede quale dei due, invece di una riga sola
+  // che li impasta.
+  for (const e of (o.esitiPianta || [])) {
     const c = new Map();
-    for (const p of o.esitoPianta.posti || []) {
+    for (const p of e.esito.posti || []) {
       if (p && p.nome) c.set(p.nome, (c.get(p.nome) || 0) + 1);
     }
-    righe.push("pianta dall'alto: " + (c.size
+    righe.push(e.vista + ": " + (c.size
       ? [...c.entries()].map(([n, q]) => n + " x" + q).join(", ")
       : "niente di riconosciuto"));
   }
@@ -973,21 +1015,47 @@ export async function comprendiGuardando(ctx) {
   //    guarda ESATTAMENTE quello che e' andato al cervello, e non una vista in
   //    meno. Se questo si scollega, si torna al difetto del 26/08: il cervello
   //    con gli scorci e l'occhio con la sola pianta.
-  const scorciTutti = (ctx.scorci || []).filter(Boolean);
-  const perGiro = Math.max(1, ctx.vistePerGiro || VISTE_PER_GIRO);
+  const tutteQuante = (ctx.scorci || []).filter(Boolean);
+  // ⚠️ LA MAPPA NON RUOTA — trovato e riparato il 09/09/2026.
+  //
+  //    I mazzetti giravano TUTTI, pianta compresa. Conseguenza misurata sul
+  //    codice: la pianta capitava nel primo mazzetto, e il primo mazzetto va
+  //    alla domanda «che cosa vedi?». La domanda che assegna i NOMI e le
+  //    POSIZIONI ai volumi pescava il secondo e il terzo mazzetto — prospetti,
+  //    sezioni e primi piani. Cioe' si chiedeva «come si chiama questo posto e
+  //    dove sta» mostrando i FRONTI dell'edificio, senza mai la pianta davanti.
+  //
+  //    Raffaella, 09/09: «la pianta da sola non basta per le architetture, hai
+  //    bisogno di una sezione, hai bisogno degli elevati» — vero, e infatti
+  //    prospetti e sezioni restano. Ma il contrario e' altrettanto vero: senza
+  //    pianta non si legge niente. Quindi la pianta del livello principale sta
+  //    in OGNI mazzetto, come ci sta gia' la pianta del pavimento. Ruota il
+  //    resto: le sezioni, i fronti, gli scorci di conferma.
+  //
+  //    Si inchioda UNA pianta sola, non tutte: tre piante grandi in ogni
+  //    telefonata sono la finestra in ginocchio (misurato il 29/08). E' la
+  //    prima — il livello da cui si entra, che su questo modello sono 2.759
+  //    dei 3.364 m2 calpestabili. Le altre girano con gli altri.
+  const fisse = tutteQuante.filter((v) => v.genere === "pianta").slice(0, 1);
+  const scorciTutti = tutteQuante.filter((v) => !fisse.includes(v));
+  const perGiro = Math.max(1, (ctx.vistePerGiro || VISTE_PER_GIRO) - fisse.length);
   const mazzetti = Math.max(1, Math.ceil(scorciTutti.length / perGiro));
   function viste(k) {
     if (scorciTutti.length <= perGiro) {
-      ctx.scorci = scorciTutti;
+      ctx.scorci = [...fisse, ...scorciTutti];
     } else {
       const p = ((((k % mazzetti) + mazzetti) % mazzetti) * perGiro) % scorciTutti.length;
       const s = [];
       for (let i = 0; i < perGiro; i++) s.push(scorciTutti[(p + i) % scorciTutti.length]);
-      ctx.scorci = s;
+      ctx.scorci = [...fisse, ...s];
       try {
-        console.log("[VERITAS scorci] giro " + (k + 1) + ": porzioni "
+        console.log("[VERITAS scorci] mazzetto " + (k + 1) + " di " + mazzetti
+          + " — fisse: " + (fisse.map((v) => v.etichetta).join(", ") || "nessuna")
+          + " — a rotazione: "
+          + s.map((v) => v.etichetta || "veduta d'insieme").join(", ")
+          + " [porzioni "
           + ctx.scorci.map((v) => (v && v.porzione ? v.porzione.indice : "?")).join(", ")
-          + " di " + scorciTutti.length + " (piu' la pianta intera)");
+          + " di " + scorciTutti.length + "] (piu' la pianta del pavimento)");
       } catch (e) {}
     }
     return [ctx.pianta, ...ctx.scorci].filter(Boolean);
@@ -1142,7 +1210,17 @@ export async function comprendiGuardando(ctx) {
   const giri = [{ giro: 1, passo: "studio", cosaE: studio.tipo,
                   fiducia: studio.fiducia, nominati: 0, senzaNome: volumi.length,
                   capito: studio.capito, paroleChieste: [], dubbi: 0 }];
-  if (typeof ctx.onGiro === "function") ctx.onGiro(giri[0]);
+  // ⚠️ I VOLUMI VIAGGIANO COL GIRO — 09/09/2026, chiesto da Raffaella:
+  //    *«man mano che l'occhio si rende in grado di fare le ipotesi le deve
+  //    fare. Il problema e' che il cliente non puo' stare tre ore ad
+  //    aspettare.»* Fino a ora `onGiro` diceva soltanto A CHE PUNTO era —
+  //    numero del giro, fiducia, quanti senza nome — e chi ascoltava poteva
+  //    aggiornare una barra e niente altro. I NOMI arrivavano tutti insieme
+  //    alla fine, e prima di allora lo schermo restava quello del riempimento.
+  //    Adesso il giro porta anche i volumi come stanno in questo momento: chi
+  //    ascolta puo' scriverli a schermo subito. Sono ipotesi, e la loro
+  //    sicurezza viaggia gia' dentro ogni volume (`fiducia`).
+  if (typeof ctx.onGiro === "function") ctx.onGiro(giri[0], posti);
 
   // ⚠️ QUI C'ERA UN CANCELLO, ed e' stato tolto il 30/08 su decisione di
   //    Raffaella: «il cervello non deve bloccare la visione, ma chiedere
@@ -1267,7 +1345,7 @@ export async function comprendiGuardando(ctx) {
     giri.push({ giro: giri.length + 1, passo: "assegnazione", cosaE: studio.tipo,
                 fiducia: ass.fiducia, nominati, senzaNome,
                 capito: ass.capito, paroleChieste: [], dubbi: ass.senzaNome.length });
-    if (typeof ctx.onGiro === "function") ctx.onGiro(giri[giri.length - 1]);
+    if (typeof ctx.onGiro === "function") ctx.onGiro(giri[giri.length - 1], posti);
 
     // Il cancello: si esce quando e' sicuro, non quando e' finita.
     if (sicuro && coperto) break;

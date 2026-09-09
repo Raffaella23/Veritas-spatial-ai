@@ -128,9 +128,14 @@ function scatta(THREE, renderer, radice, cam, larghezza, altezza) {
   return dritto;
 }
 
+// Il filo d'aria attorno alla tavola. Sta qui, in un posto solo, perche' lo
+// usano in due: chi punta la telecamera e chi dichiara dove sta a terra. Due
+// copie di questo numero sono due tavole che non combaciano.
+const ARIA = 1.04;
+
 /** Telecamera ortogonale centrata sulla propria posizione. */
 function ortogonale(THREE, posizione, direzione, alto, larghezzaMondo, altezzaMondo, vicino, lontano) {
-  const m = 1.04;                                  // un filo d'aria attorno
+  const m = ARIA;                                  // un filo d'aria attorno
   const cam = new THREE.OrthographicCamera(
     -larghezzaMondo / 2 * m, larghezzaMondo / 2 * m,
     altezzaMondo / 2 * m, -altezzaMondo / 2 * m, vicino, lontano);
@@ -153,6 +158,25 @@ function tavola(THREE, renderer, radice, opts) {
   return {
     genere: opts.genere, etichetta: opts.etichetta,
     larghezza: W, altezza: H, pixelPerMetro: W / w,
+    // ⚠️ DOVE STA A TERRA — aggiunto il 09/09/2026, ed e' la riga che mancava.
+    //    Una pianta e' una proiezione ortogonale dall'alto: ogni pixel ha il
+    //    suo corrispondente a terra, esattamente come la pianta del pavimento.
+    //    Finche' questo campo non c'era, l'occhio riconosceva i banchi nella
+    //    pianta del livello 1 e non gli era PERMESSO dire dove fossero: la
+    //    tavola viaggiava nella fila degli scorci, e da uno scorcio — per la
+    //    regola giusta del 26/08 — la posizione si butta.
+    //    ⛔ Prospetti e sezioni non hanno questo campo, e su di loro la regola
+    //    del 26/08 resta in piedi: da una proiezione verticale un punto a terra
+    //    non si ricava, e qui non si finge di ricavarlo.
+    //    ⚠️ Il rettangolo e' quello VERO della telecamera, filo d'aria
+    //    compreso: `pixelPerMetro` qui sopra dichiara W/w e il margine lo
+    //    ignora — un 4% che sulle posizioni si sente.
+    inquadratura: (opts.genere === "pianta" && opts.posizione) ? {
+      larghezza: W, altezza: H,
+      metriPerPixel: (w * ARIA) / W,
+      origine: [opts.posizione.x - (w * ARIA) / 2,
+                opts.posizione.z - (h * ARIA) / 2],
+    } : null,
     pixel: scatta(THREE, renderer, radice, cam, W, H),
   };
 }

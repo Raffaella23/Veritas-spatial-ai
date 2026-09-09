@@ -1,5 +1,5 @@
 import "./veritas_manuale.js?v=2";
-import { abaco } from "./veritas_tavole.js?v=1";
+import { abaco } from "./veritas_tavole.js?v=2";
 import "./veritas_divide.js?v=1";
 import "./veritas_lessico.js?v=1";
 // ===========================================================================
@@ -64,7 +64,8 @@ import "./veritas_lessico.js?v=1";
 //   node --check veritas_montaggio.js
 // ===========================================================================
 
-import { comprendi, puoAgire, racconta } from "./veritas_comprensione.js?v=9"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+import { comprendi, puoAgire, racconta,
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=10"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
@@ -801,19 +802,66 @@ window.__veritasComprendi = async function (opz = {}) {
     }
 
     if (dentro.length || vicini.length || passata.length || tavole.length) {
-      const misti = scorci.slice(0, 1);
-      for (const t of tavole) misti.push(t);
-      const giri = Math.max(passata.length, dentro.length);
-      for (let i = 0; i < giri; i++) {
-        if (i < passata.length) misti.push(passata[i]);
-        if (i < dentro.length) misti.push(dentro[i]);
+      // ⚠️ L'ORDINE E' QUELLO DI UN PROGETTO — deciso da Raffaella il 09/09/2026.
+      //    *«Vogliamo fare pianta, prospetto e sezioni first e poi gli scorci
+      //    per dare ulteriore certezza? Perche' la pianta da sola non basta per
+      //    le architetture: hai bisogno di una sezione, hai bisogno degli
+      //    elevati.»*
+      //    Fino a ieri l'ordine era quello in cui i moduli sono NATI: prima gli
+      //    scorci, perche' esistevano da agosto, e le tavole canoniche infilate
+      //    dopo, perche' sono arrivate l'08/09. Non era una scelta, era un
+      //    sedimento.
+      //
+      //    ⚠️ E IL MUCCHIO SI ABBASSA — non si alza il tetto.
+      //    Ne partivano 37 e l'occhio ne guardava 16: ventuno disegni fatti,
+      //    misurati, e mai visti da nessuno. Raffaella: *«trentotto sono tante,
+      //    avevo detto facciamone il numero idoneo al tipo di modello»*.
+      //    Il numero idoneo lo detta l'abaco — una pianta per livello, quattro
+      //    fronti, due sezioni — e quelle ci sono TUTTE, perche' senza una di
+      //    esse l'architettura non si legge. Gli scorci no: sono la conferma, e
+      //    se ne tengono tanti quanti l'occhio ne guardera' davvero.
+      const piante    = tavole.filter((t) => t.genere === "pianta");
+      const sezioni   = tavole.filter((t) => t.genere === "sezione");
+      const prospetti = tavole.filter((t) => t.genere === "prospetto");
+      // Le piante dicono DOVE stanno le cose; le sezioni come e' fatto dentro e
+      // quanti piani ci sono; i prospetti i fronti. Poi la veduta d'insieme,
+      // che dice che cos'e' visto da fuori. Poi, ultime, le conferme.
+      const misti = [...piante, ...sezioni, ...prospetti, ...scorci.slice(0, 1)];
+      // Le conferme si alternano fra le tre sorgenti invece di svuotarne una
+      // per volta: cosi' i pochi che passano il taglio non sono tutti primi
+      // piani dello stesso grappolo di sedie.
+      const conferme = [];
+      const quanti = Math.max(passata.length, dentro.length, vicini.length);
+      for (let i = 0; i < quanti; i++) {
+        if (i < dentro.length)  conferme.push(dentro[i]);
+        if (i < vicini.length)  conferme.push(vicini[i]);
+        if (i < passata.length) conferme.push(passata[i]);
       }
-      for (const v of vicini) misti.push(v);
+      // ⚠️ QUANTE NE GUARDERA' DAVVERO, non quante ne so fare.
+      //    L'occhio riceve mazzetti: uno per il primo sguardo, uno per lo
+      //    studio, e poi uno per giro. Con GIRI_MASSIMI giri i mazzetti aperti
+      //    sono GIRI_MASSIMI + 2, e in ognuno una vista e' la pianta inchiodata
+      //    (vedi la funzione viste() in veritas_comprensione.js). Quello che avanza dopo
+      //    l'abaco e la veduta d'insieme e' lo spazio per le conferme: si
+      //    disegnano quelle, e non una di piu'. Un disegno che nessuno guarda
+      //    non e' prudenza, e' tempo del cliente.
+      const capienza = (GIRI_MASSIMI + 2) * Math.max(1, VISTE_PER_GIRO - 1);
+      // Una pianta sola resta fissa in ogni mazzetto (la prima, il livello da
+      // cui si entra): quella non occupa posto nella rotazione, tutte le altre
+      // viste si'.
+      const fisse = Math.min(1, piante.length);
+      const gia = misti.length - fisse;
+      const tenute = conferme.slice(0, Math.max(0, capienza - gia));
+      for (const v of tenute) misti.push(v);
       scorci = misti;
-      log("all'occhio vanno " + scorci.length + " viste, in quest'ordine: 1 veduta"
-        + " d'insieme, " + tavole.length + " tavole dell'abaco, "
-        + passata.length + " della passata in ordine, " + dentro.length
-        + " da dentro, " + vicini.length + " primi piani — le prime quattro sono "
+      log("all'occhio vanno " + scorci.length + " viste, in quest'ordine: "
+        + piante.length + " piante, " + sezioni.length + " sezioni, "
+        + prospetti.length + " prospetti, 1 veduta d'insieme, "
+        + tenute.length + " scorci di conferma"
+        + (conferme.length > tenute.length
+            ? " (ne avevo " + conferme.length + ": gli altri non li mando, "
+              + "l'occhio non arriverebbe a guardarli)" : "")
+        + " — le prime quattro sono "
         + scorci.slice(0, 4).map((v) => v.etichetta || "veduta d'insieme").join(" · "));
     }
 
@@ -841,6 +889,27 @@ window.__veritasComprendi = async function (opz = {}) {
       dominio: opz.dominio || window.__veritasProjectType || null,
       rileva: guardaUnaTela,
       cervello: opz.cervello || cervello,
+      // ⚠️ LO SCHERMO SI AGGIORNA A OGNI GIRO, non alla fine — 09/09/2026.
+      //    Raffaella: *«man mano che l'occhio si rende in grado di fare le
+      //    ipotesi le deve fare. Il problema e' che il cliente non puo' stare
+      //    tre ore ad aspettare.»*
+      //    `applicaNomi` girava una volta sola, a cose finite: per tutta
+      //    l'analisi il cliente guardava le tappe del riempimento iniziale
+      //    — «Zona 4 · 541 m2» — senza modo di sapere se stesse succedendo
+      //    qualcosa. Adesso ogni giro che produce nomi li scrive subito, e il
+      //    giro dopo li corregge: correggere un nome sbagliato costa meno che
+      //    non vedere niente per tre ore.
+      //    ⚠️ E' lo STESSO travaso di sempre, chiamato piu' spesso — non un
+      //    secondo meccanismo. Due meccanismi divergono alla prima modifica, e
+      //    questo progetto l'ha gia' pagato due volte.
+      onGiro: (info, posti) => {
+        if (!posti || !posti.length) return;
+        try {
+          const n = applicaNomi(posti);
+          if (n) log("giro " + (info && info.giro != null ? info.giro : "?")
+                     + ": " + n + " tappe scritte a schermo, in ipotesi");
+        } catch (e) { /* un'ipotesi che non si applica non ferma l'analisi */ }
+      },
     });
 
     const c = await comprendi(ctx);
