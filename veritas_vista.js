@@ -1340,3 +1340,61 @@ export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, p
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
   ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine,
   riempiLaFinestra };
+
+// ---------------------------------------------------------------------------
+// LA GUARDIA CONTRO LE DUE COPIE — 09/09/2026
+// ---------------------------------------------------------------------------
+//
+// ⚠️ QUESTO FILE NON E' QUELLO CHE GIRA. Il codice qui sopra esiste DUE volte:
+//    qui, come modulo, e inlinato dentro `index.html` (righe ~12391-13736), che
+//    e' la copia che definisce `window.__veritasVista` e che il programma usa
+//    davvero. Questo file viene caricato lo stesso, perche' `veritas_anteprima`
+//    ne importa `mondoAPixel`, e per il banco di prova.
+//
+//    Raffaella, 09/09: *«queste due copie non e' che confliggono? Non vorrei
+//    che ci stesse rammentando.»* Misurato quel giorno: **non confliggono, sono
+//    identiche riga per riga** — l'unica differenza e' la parola `export`. Ma
+//    una modifica fatta in una sola delle due le farebbe divergere IN SILENZIO,
+//    ed e' un difetto che questo progetto ha gia' pagato tre volte.
+//
+//    Unificarle si puo' e si deve: si cancella il blocco da `index.html` e si
+//    carica questo file come modulo. Costa 19 punti da riscrivere — `index.html`
+//    chiama `inquadratura`, `mondoAPixel` e `piantaDelPavimento` per nome nudo,
+//    approfittando di stare nello stesso blocco. ⛔ Non si fa alla cieca: si fa
+//    con la pagina viva davanti, perche' se salta uno dei 19 la pianta non si
+//    disegna piu' e non se ne accorge nessuno fino al modello dopo.
+//
+//    Finche' non e' fatto, questa guardia toglie il silenzio: confronta il
+//    testo di ogni funzione con quella della copia viva e, se una e' cambiata,
+//    lo dice in cima al log accanto alla versione. Costa un confronto di
+//    stringhe all'avvio.
+(function guardiaDueCopie() {
+  if (typeof window === "undefined" || !window.__veritasVista) return;
+  const viva = window.__veritasVista;
+  const mia = {
+    inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza,
+    piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
+    distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati,
+    vistaDalCamminatore, giroDentro, passataInOrdine, riempiLaFinestra,
+  };
+  const diverse = [];
+  for (const nome of Object.keys(mia)) {
+    const a = viva[nome], b = mia[nome];
+    if (typeof a !== "function") { diverse.push(nome + " (manca nella copia viva)"); continue; }
+    // Il testo di una funzione e' identico fra le due copie tranne la parola
+    // `export`, che sta davanti alla dichiarazione e non entra in toString().
+    if (String(a) !== String(b)) diverse.push(nome);
+  }
+  try {
+    if (diverse.length) {
+      console.warn("[VERITAS vista] ⚠️ LE DUE COPIE SONO DIVERSE — " + diverse.length
+        + " funzion" + (diverse.length === 1 ? "e" : "i") + ": " + diverse.join(", ")
+        + ". Quella che gira e' la copia dentro index.html; il file"
+        + " veritas_vista.js e' rimasto indietro (o viceversa), e il banco di"
+        + " prova sta provando codice che nessuno esegue. Allinearle.");
+    } else {
+      console.log("[VERITAS vista] le due copie combaciano ("
+        + Object.keys(mia).length + " funzioni)");
+    }
+  } catch (e) {}
+})();
