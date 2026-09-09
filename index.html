@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
+window.__EIDETICA_COSTRUZIONE = "2026-09-09-i";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6313,7 +6313,14 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
             partenza = "ingresso_" + i + "_fila" + v;
             out.nodes[partenza] = {
               pos: veritasSnapToFloor([a[0] + nx * off, a[1], a[2] + nz * off]),
-              meta: { type: "origine", label: f.nome },
+              // ⚠️ IL NOME DELLA PORTA, NON QUELLO DEL FLUSSO — 09/09/2026.
+              //    Qui stava `label: f.nome`, e da quando i flussi si chiamano
+              //    «va: Accesso 1 → Area di attesa 1» la pagella diceva cose
+              //    come «si ferma prima di «va: Zona 1 → Zona 5»»: il nome di
+              //    un VIAGGIO al posto del nome di un POSTO. Questa fila nasce
+              //    accanto alla sua entrata: porta il nome di quella.
+              meta: { type: "origine",
+                      label: ((out.nodes[ids[0]] || {}).meta || {}).label || f.nome },
             };
           }
           out.mission_profiles["flusso_" + i + "_" + v] = [partenza].concat(coda);
@@ -7354,8 +7361,20 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
         if (mappa && Object.keys(mappa).length) {
           const VICINO_M = 6;
           const fatti = {};
+          // ⚠️ DUE MOTORI, DUE MODI DI CHIAMARE LO STESSO AGENTE — 09/09/2026.
+          //    Al motore vero gli agenti partono come `agent_id: "a0"`; il
+          //    generatore JS locale, che subentra quando Render dorme, li
+          //    numera `id: 0`. La pagella cercava solo la forma con la lettera:
+          //    col generatore locale NESSUN agente combaciava, e il verdetto
+          //    usciva «28 agenti · 0 hanno compiuto la missione · 28 si
+          //    fermano prima della PRIMA tappa». Falso, e con la faccia di una
+          //    scoperta — la merce avariata che questo progetto non tiene.
+          const suo = (a) => (a && (mappa[a.id] !== undefined ? mappa[a.id]
+                                  : mappa["a" + a.id])) || null;
+          let combaciati = 0;
           for (const f of fresh.frames) for (const a of (f.agents || [])) {
-            const m = a && mappa[a.id];
+            const m = suo(a);
+            if (m) combaciati++;
             if (!m || !a.pos || !m.obiettivi.length) continue;
             let k = fatti[a.id] || 0;
             while (k < m.obiettivi.length) {
@@ -7364,6 +7383,19 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
               k++;
             }
             fatti[a.id] = k;
+          }
+          // ⚠️ SE NESSUNO COMBACIA, NON SI DA' UN VERDETTO. Un «zero su
+          //    ventotto» quando in realta' non si e' potuto guardare nessuno
+          //    non e' un risultato prudente: e' un risultato falso, e manda a
+          //    cercare un difetto dell'edificio dove c'e' solo un difetto qui.
+          if (!combaciati) {
+            console.warn("[VERITAS missioni] non posso giudicare: nessuno degli "
+              + Object.keys(mappa).length + " agenti con una missione compare "
+              + "nella traiettoria (i due motori li chiamano in modi diversi). "
+              + "Nessun verdetto e' meglio di un verdetto inventato.");
+            window.__veritasMissioniEsito = { totale: 0, compiute: 0, fermi: [],
+                                              perche: "agenti non riconosciuti" };
+            throw new Error("__missioni_non_giudicabili__");
           }
           const ids = Object.keys(mappa);
           const compiute = [], fermi = new Map();
@@ -7396,7 +7428,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
           };
         }
       } catch (e) {
-        console.warn("[VERITAS missioni] pagella non calcolata: " + ((e && e.message) || e));
+        // il caso «non giudicabile» ha gia' detto la sua sopra, e non e' un guasto
+        if (!e || e.message !== "__missioni_non_giudicabili__")
+          console.warn("[VERITAS missioni] pagella non calcolata: " + ((e && e.message) || e));
       }
       if (!arrivati.size) {
         console.warn("[VERITAS numeri] NESSUN agente dichiara di essere arrivato: "
