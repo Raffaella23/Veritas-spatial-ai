@@ -144,11 +144,34 @@ export async function impara(tipo, opzioni = {}) {
   const url = L && L.cfg && L.cfg.url;
   if (!url) { nota("nessun cervello collegato: resta la tabella di prima"); return null; }
 
+  // ⚠️ IL NOME DEL MODELLO E' QUELLO ACCESO, NON IL SEGNAPOSTO — 09/09/2026.
+  //    Sul log di Raffaella questa chiamata tornava sempre **400**, e il
+  //    lessico ricadeva sulla tabella di tre tipi: cioe' la funzione nata
+  //    l'08/09 per coprire scuola, ospedale, stazione e chiesa non ha mai
+  //    parlato col cervello nemmeno una volta, e nessuno se n'era accorto
+  //    perche' il ripiego funziona ed e' silenzioso.
+  //    Il motivo era una parola: `L.cfg.model` vale «local-model», che e' il
+  //    segnaposto scritto nella configurazione. Il modello davvero acceso si
+  //    chiamava `qwen2.5-vl-7b-instruct`, e LM Studio rifiuta un nome che non
+  //    ha. Il nome vero lo scopre gia' il montaggio e lo lascia su window; se
+  //    non c'e' ancora, si chiede alla stessa rotta che usa lui.
+  const base = url.replace(/\/+$/, "");
+  let nome = (typeof window !== "undefined" && window.__veritasModelloCervello) || null;
+  if (!nome) {
+    try {
+      const e = await fetch(base + "/models");
+      const d = e.ok ? await e.json() : null;
+      nome = ((d && d.data ? d.data : []).map((m) => m.id).filter(Boolean))[0] || null;
+      if (nome) { try { window.__veritasModelloCervello = nome; } catch (x) {} }
+    } catch (x) { /* si prova col segnaposto: se sbaglia, lo dice */ }
+  }
+  if (!nome) nome = (L.cfg && L.cfg.model) || "local-model";
+
   try {
-    const r = await fetch(url.replace(/\/$/, "") + "/chat/completions", {
+    const r = await fetch(base + "/chat/completions", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: (L.cfg && L.cfg.model) || "local-model",
+        model: nome,
         temperature: 0.1,
         messages: [{ role: "user", content: domanda(tipo) }],
       }),

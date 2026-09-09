@@ -2,6 +2,51 @@
 <html lang="en">
 <head>
 
+<!-- ⚠️ LA PAGINA VECCHIA NON DEVE ESSERE UN PROBLEMA DI CHI USA — 09/09/2026.
+     Raffaella: «dovresti tu fare in modo che io non abbia qualcosa di non
+     aggiornato». Aveva ragione: due prove intere sono state fatte su codice
+     vecchio senza che niente lo dicesse, e le ha pagate lei in gettoni.
+     Da qui in avanti la pagina lo dichiara da sola, in cima al log, e se il
+     sito ne ha una piu' nuova si ricarica — MA SOLO A PAGINA APPENA APERTA,
+     quando non c'e' ancora nessun modello dentro e non si butta via niente.
+     Non si ricarica mai sotto le mani di chi sta lavorando. -->
+<script>
+window.__EIDETICA_COSTRUZIONE = "2026-09-09-c";
+(function () {
+  var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
+  console.log("%c[EIDETICA versione] costruzione " + mia,
+              "font-weight:bold");
+  var chiave = "eidetica_ricaricata_" + mia;
+  fetch("./index.html?fresco=" + aperta, { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.text() : null; })
+    .then(function (t) {
+      var m = t && t.match(/__EIDETICA_COSTRUZIONE\s*=\s*"([^"]+)"/);
+      if (!m || m[1] === mia) return;
+      console.warn("[EIDETICA versione] ⚠️ QUESTA PAGINA E' LA " + mia
+        + ", MA IL SITO SERVE LA " + m[1] + ": quello che vedi e' vecchio.");
+      var occupata = !!(window.__veritasModelRoot)
+                  || (Date.now() - aperta) > 15000;
+      var gia = false;
+      try { gia = !!sessionStorage.getItem(chiave); } catch (e) {}
+      if (gia) {
+        console.warn("[EIDETICA versione] ho gia' ricaricato una volta e resta "
+          + "vecchia: e' la cache del tuo browser. Ricarica tenendo premuto shift.");
+        return;
+      }
+      if (occupata) {
+        console.warn("[EIDETICA versione] non ricarico: c'e' un modello aperto "
+          + "e lo butterei via. Ricarica tu quando hai finito.");
+        return;
+      }
+      try { sessionStorage.setItem(chiave, "1"); } catch (e) {}
+      console.warn("[EIDETICA versione] ricarico da sola, una volta sola, "
+        + "prima che tu perda tempo su codice vecchio.");
+      location.replace(location.pathname + "?fresco=" + Date.now());
+    })
+    .catch(function () {});
+})();
+</script>
+
 <!--
   ⚠ NON ALZARE LA VERSIONE DI @huggingface/transformers SENZA RIPROVARE L'OCCHIO.
 
@@ -5200,6 +5245,12 @@
     // la fine della passata a comunicarlo alla sequenza - qui siamo ancora a
     // meta' del lavoro.
     window.__veritasCorrezioneApplicata = "scala " + scala.fattore + "x";
+    // ⚠️ IL SEGNAPOSTO DELLA SCALA — 09/09/2026.
+    //    Chi sta misurando in questo momento sta misurando un modello che da
+    //    qui in avanti non esiste piu'. Questo numero cresce a ogni correzione,
+    //    e chi ha cominciato prima se ne accorge e butta il proprio lavoro
+    //    invece di pubblicarlo. Vedi `runStructuralAnalysis`.
+    window.__veritasGenerazioneScala = (window.__veritasGenerazioneScala || 0) + 1;
     return window.__veritasScaleModel(scala.fattore, spiegazione);
   }
 
@@ -5388,7 +5439,35 @@
 }
 
   function runStructuralAnalysis(root) {
+    // ⚠️ NON SI PUBBLICA UNA MISURA PRESA SU UN MODELLO CHE NEL FRATTEMPO E'
+    //    CAMBIATO — 09/09/2026, chiesto da Raffaella.
+    //
+    //    Misurato sul suo log: il modello entra a 20,2 x 11,3 m, l'analisi
+    //    parte, e MENTRE la nuvola si estrae il righello umano scopre che le
+    //    persone sono alte 32 cm e corregge di 5,272x. La correzione rientra
+    //    da `__veritasOnModelLoaded`, ma questa analisi era gia' partita: va
+    //    avanti sui punti vecchi e pubblica «4 zone, 83 m2 navigabili» su un
+    //    edificio che ne misura 3.364. Poi la sequenza se ne accorge, rifa'
+    //    la nuvola, e ricomincia da capo.
+    //
+    //    Il primo giro non e' solo sbagliato: costa. Ci girano sopra il motore
+    //    geometrico, la divisione per funzione (36 campi su un ambiente da
+    //    49 m2 che in realta' ne fa 2.759), la riduzione a tappe e il montaggio
+    //    delle zone — tutto da buttare. E' una fetta dei sette minuti che il
+    //    cliente aspetta.
+    //
+    //    Quindi: si segna la generazione della scala PRIMA di estrarre, e se
+    //    e' cambiata mentre si estraeva si lascia perdere. Non e' un guasto e
+    //    non si tace: lo si dice, e chi ha corretto la scala rifa' l'analisi
+    //    da solo (`__veritasPassataConclusa` -> `__veritasRianalizzaModello`).
+    const generazione = window.__veritasGenerazioneScala || 0;
     const extraction = extractNavigablePoints(root);
+    if ((window.__veritasGenerazioneScala || 0) !== generazione) {
+      console.warn("[VERITAS scala] la scala e' cambiata mentre misuravo: "
+        + "butto questa misura invece di pubblicarla. La rifaccio sul modello "
+        + "nuovo, e questa volta e' l'unica che conta.");
+      return null;
+    }
     // L'ingombro di cio' che sta dentro viaggia su window perche' chi
     // classifica le zone sta in un altro blocco: e' il modo che questo
     // programma usa gia' per tutto il resto.
@@ -27578,7 +27657,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=27"></script>
+<script type="module" src="./veritas_montaggio.js?v=28"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>

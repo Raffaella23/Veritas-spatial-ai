@@ -1,7 +1,7 @@
 import "./veritas_manuale.js?v=2";
 import { abaco } from "./veritas_tavole.js?v=2";
 import "./veritas_divide.js?v=2";
-import "./veritas_lessico.js?v=1";
+import "./veritas_lessico.js?v=2";
 // ===========================================================================
 // VERITAS — IL MONTAGGIO. Occhio e cervello, accesi da soli sul modello vero.
 // ===========================================================================
@@ -189,6 +189,15 @@ async function nomeModello() {
     const nomi = (d && d.data ? d.data : []).map((m) => m.id).filter(Boolean);
     if (!nomi.length) throw new Error("nessun modello caricato in LM Studio");
     modelloScoperto = nomi.find(modelloVede) || nomi[0];
+    // ⚠️ IL NOME VERO LO SANNO ANCHE GLI ALTRI — 09/09/2026.
+    //    Misurato sul log di Raffaella: `veritas_lessico.js` chiedeva a LM
+    //    Studio un modello chiamato «local-model», che e' il segnaposto della
+    //    configurazione e non esiste. LM Studio rispondeva 400 e il lessico
+    //    ricadeva sulla tabella di tre tipi — cioe' la funzione nuova dell'08/09
+    //    non ha mai parlato col cervello nemmeno una volta.
+    //    Qui il nome vero c'e' gia': si mette dove chiunque possa leggerlo,
+    //    invece di far rifare a ognuno la stessa scoperta.
+    try { window.__veritasModelloCervello = modelloScoperto; } catch (e) {}
     log("modello acceso: " + modelloScoperto +
         (modelloVede(modelloScoperto) ? " — vede la pianta" : " — NON vede: giudica sui soli nomi"));
     return modelloScoperto;
