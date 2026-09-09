@@ -329,6 +329,21 @@ export function dividiZoneGrandi(THREE, zone, radice, livelli, opzioni = {}) {
       fuori.push({
         label: null, areaM2: c.areaM2,
         centroidX: c.centroX, centroidZ: c.centroZ, y: pav,
+        // ⚠️ DOVE STA, NELLA FORMA CHE USANO GLI ALTRI — 09/09/2026.
+        //    Un campo di funzione nasce qui con `centroidX/centroidZ`, che e'
+        //    la forma di un AMBIENTE MISURATO. Ma da qui i campi vanno dritti
+        //    in `applyAutoAssignment`, cioe' DOPO il punto in cui gli ambienti
+        //    misurati vengono convertiti in zone con `pos` — e la conversione
+        //    se la saltavano. Risultato: `lastZones` finiva con dentro zone
+        //    senza `pos`, e il calcolatore delle strade moriva su
+        //    `z.pos[0]` — «Cannot read properties of undefined».
+        //    ⚠️ Non moriva subito: solo quando qualcuno chiedeva davvero una
+        //    strada, cioe' quando i nomi capiti arrivavano e la scena veniva
+        //    rifatta. Per questo sembrava un guasto della catena dei nomi:
+        //    scattava nell'istante in cui la catena FUNZIONAVA.
+        //    E' il prezzo dei quattro moduli entrati in un giorno l'08/09,
+        //    ognuno provato da solo e nessuno provato con gli altri.
+        pos: [c.centroX, pav, c.centroZ],
         maxClearanceM: z.maxClearanceM, floorIdx: z.floorIdx,
         kind: c.comportamento, comportamento: c.comportamento,
         prova: c.prova, daDivisione: true,

@@ -38,20 +38,64 @@ testimonianza e basta. **Prospetti e sezioni non ce l'hanno, ed e' giusto:** da
 una proiezione verticale un punto a terra non si ricava. Nessun nome di
 tipologia entra nel codice: **regola 0-bis intatta.**
 
-### 🔴 QUELLO CHE RESTA, ed e' una cosa sola
+### ✅ MISURATO SUL VIVO — il log della pagina di Raffaella, 09/09
 
-**Niente di tutto questo e' stato visto girare sulla pagina viva.** E' provato
-in node e sul conto della fila, non davanti al modello — che e' esattamente
-l'errore che questo documento rimprovera da giorni. Da leggere sulla pagina, in
-quest'ordine:
+⛔ **LA CATENA DEI NOMI NON ERA ROTTA. Funzionava.** Il log lo dice riga per riga:
 
-1. `[VERITAS montaggio] all'occhio vanno N viste` — deve dire **13**, non 37, e
-   l'ordine deve cominciare con le piante;
-2. `[VERITAS scorci] mazzetto k di N — fisse: PIANTA livello 1...` — la pianta
-   deve comparire in **ognuno**;
-3. i contatori del travaso (`perCampo`, `perVicinanza`, `troppoLontane`,
-   `senzaNome`, `fuoriElenco`, `volumiUtili`, `minimaVista`, `candidati`):
-   dicono se sotto a questo c'e' anche un **secondo** guasto.
+| passaggio | cosa dice il log |
+|---|---|
+| 1. le fotografie → l'occhio | `all'occhio vanno 37 viste` · 11 tavole (2 piante, **6** prospetti, 3 sezioni) · 4 per giro |
+| 2. l'occhio → il cervello | `ha guardato per primo 5 viste` (la pianta + 4) · testimonianze da 4 scorci · **nessuna legata a una regione** |
+| 3. il cervello → i nomi | ✅ **capito: aeroporto (spaccato), fiducia 75%, 3 giri** — giro 2 e 3: **15 nominati su 20** |
+| 4. i nomi → l'editor | ✅ **2 rinominate per vicinanza + 13 tappe NUOVE nate dai volumi capiti = 15 zone a schermo.** perCampo 0 · troppoLontane 0 · senzaNome 4 · soglia 10 m · 6 confrontate dove erano state misurate |
+
+### 🔴 IL GUASTO VERO, ed e' del 08/09 — riparato il 09/09
+
+Nell'istante in cui i nomi arrivano, la scena si rifa' e il calcolatore delle
+strade muore:
+
+```
+TypeError: Cannot read properties of undefined (reading '0')
+  at findRoute (index.html:2256)  ->  z.pos[0]
+  ... at applicaNomi (veritas_montaggio.js:1220)
+```
+
+**Causa:** i campi di funzione nati da `veritas_divide.js` (il modulo dell'08/09)
+si costruivano con `centroidX/centroidZ` — la forma di un **ambiente misurato** —
+e finivano dritti in `applyAutoAssignment`, cioe' **dopo** il punto in cui gli
+ambienti misurati vengono convertiti in zone con `pos`. La conversione se la
+saltavano. `lastZones` si riempiva di zone senza `pos`.
+
+⚠️ **E non moriva subito: moriva quando la catena FUNZIONAVA.** Finche' nessuno
+chiedeva una strada il difetto dormiva; si svegliava all'arrivo dei nomi. Per
+questo sembrava un guasto del riconoscimento. E' il prezzo dei quattro moduli
+entrati in un giorno, ognuno provato da solo e nessuno provato con gli altri.
+**Riparato:** i campi nascono con `pos`, come ogni altra zona.
+
+### 🟠 ALTRE TRE COSE CHE IL LOG DICE, e nessuna e' piccola
+
+1. **L'analisi supera i sette minuti** — `[VERITAS accessi] nessuna tappa dopo
+   sette minuti: flussi non rifatti`. E' il *«il cliente non puo' stare tre ore
+   ad aspettare»* di Raffaella, misurato.
+2. **Il modello viene analizzato DUE VOLTE, la prima a scala sbagliata**: 20,2 x
+   11,3 m e **83 m² navigabili**, poi il righello umano corregge di 5,272x e si
+   rifa' tutto (3.364 m²). Il primo giro e' lavoro buttato, e non e' gratis.
+3. **Il motore fisico va in trappola**: `memory access out of bounds` sulla
+   ricerca del punto libero, due volte. Il corpo non viene applicato.
+   E `veritas_lessico` ha ricevuto **400** dal cervello: e' ricaduto sulla
+   tabella di prima, come promesso.
+
+### 🔴 QUELLO CHE RESTA
+
+**Le riparazioni del 09/09 non sono ancora state viste girare.** Il log qui sopra
+e' il **prima**: la pagina serviva `montaggio?v=26` e `comprensione?v=9`. La
+versione in `index.html` e' stata portata a **v=27** apposta. Alla prossima
+apertura devono comparire:
+
+1. `all'occhio vanno 13 viste` (non 37), e l'ordine comincia con le piante;
+2. `[VERITAS scorci] mazzetto k di N — fisse: PIANTA livello 1...` in **ognuno**;
+3. i nomi a schermo **a ogni giro**, non solo alla fine;
+4. **nessun** `Cannot read properties of undefined` dopo `applicaNomi`.
 
 ⚠️ **E il banco e' piu' rosso di quanto questo documento dichiarasse:** non due
 prove vecchie ma **dieci** — `corpo`, `corpo_collegato`, `marker`, `navmesh`,
