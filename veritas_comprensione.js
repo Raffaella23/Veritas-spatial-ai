@@ -75,7 +75,12 @@ export const GIRI_MASSIMI = 2;
 // 29/08: 6358 token su 16384, e il contesto non si puo' alzare. Le porzioni
 // pero' sono una dozzina (vedi scorciTreQuarti), quindi si mandano a mazzetti,
 // un mazzetto per giro, con la pianta INTERA sempre presente in ognuno.
-export const VISTE_PER_GIRO = 4;
+// ⚠️ CINQUE, NON QUATTRO — 09/09/2026. Una delle cinque e' la pianta
+//    inchiodata (vedi `viste()`), quindi i posti che RUOTANO sono quattro.
+//    Con quattro fisse+ruotanti l'interno non entrava mai: l'abaco di questo
+//    aeroporto fa undici tavole e si prendeva tutto. Il quinto posto e' quello
+//    che permette all'occhio di entrare dentro l'edificio.
+export const VISTE_PER_GIRO = 5;
 
 // Quanti volumi si chiedono in UNA telefonata. Non e' una preferenza: e' la
 // resa misurata del modello locale. Il 30/08 gli sono stati passati 23 volumi

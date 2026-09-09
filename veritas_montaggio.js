@@ -65,7 +65,7 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=10"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=11"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
@@ -746,7 +746,19 @@ window.__veritasComprendi = async function (opz = {}) {
     if (typeof vista.giroDentro === "function") {
       try {
         const ambienti = ((window.__veritasPercezione || {}).zones) || [];
-        dentro = vista.giroDentro(THREE, rend, radice, ambienti, opz.dentro || {}) || [];
+        // ⚠️ GRANDANGOLO E SGUARDO ALZATO — 09/09/2026, chiesto da Raffaella:
+        //    *«usa il grandangolo, se possibile usare un grandangolo amplia la
+        //    visione e forse puoi ridurre il numero delle prospettive»*.
+        //    A 60 gradi una sala grande vuole quattro scatti per essere letta;
+        //    a 90 ne basta uno, che e' la lente con cui si fotografano gli
+        //    interni. Si paga in pixel al metro — il fattore e' tan(45)/tan(30),
+        //    cioe' il 42% in meno — e va guardato: il manuale chiama buoni i 40
+        //    px/m e accettabili i 10. Se scende sotto, lo dice la riga qui
+        //    sotto e si torna a 60.
+        //    Lo sguardo alzato risponde ai cinque dubbi del cervello, che erano
+        //    tutti «cosa c'e' SOPRA questo volume».
+        dentro = vista.giroDentro(THREE, rend, radice, ambienti,
+          Object.assign({ fovGradi: 90, sguardoInSuGradi: 18 }, opz.dentro || {})) || [];
         if (dentro.length) {
           const fitto = dentro.map((v) => v.pixelPerMetro).filter((n) => typeof n === "number");
           log("entro dentro l'edificio: " + dentro.length + " viste da "
@@ -832,46 +844,86 @@ window.__veritasComprendi = async function (opz = {}) {
       const piante    = tavole.filter((t) => t.genere === "pianta");
       const sezioni   = tavole.filter((t) => t.genere === "sezione");
       const prospetti = tavole.filter((t) => t.genere === "prospetto");
-      // Le piante dicono DOVE stanno le cose; le sezioni come e' fatto dentro e
-      // quanti piani ci sono; i prospetti i fronti. Poi la veduta d'insieme,
-      // che dice che cos'e' visto da fuori. Poi, ultime, le conferme.
-      const misti = [...piante, ...sezioni, ...prospetti, ...scorci.slice(0, 1)];
-      // Le conferme si alternano fra le tre sorgenti invece di svuotarne una
-      // per volta: cosi' i pochi che passano il taglio non sono tutti primi
-      // piani dello stesso grappolo di sedie.
-      const conferme = [];
-      const quanti = Math.max(passata.length, dentro.length, vicini.length);
-      for (let i = 0; i < quanti; i++) {
-        if (i < dentro.length)  conferme.push(dentro[i]);
-        if (i < vicini.length)  conferme.push(vicini[i]);
-        if (i < passata.length) conferme.push(passata[i]);
-      }
-      // ⚠️ QUANTE NE GUARDERA' DAVVERO, non quante ne so fare.
-      //    L'occhio riceve mazzetti: uno per il primo sguardo, uno per lo
-      //    studio, e poi uno per giro. Con GIRI_MASSIMI giri i mazzetti aperti
-      //    sono GIRI_MASSIMI + 2, e in ognuno una vista e' la pianta inchiodata
-      //    (vedi la funzione viste() in veritas_comprensione.js). Quello che avanza dopo
-      //    l'abaco e la veduta d'insieme e' lo spazio per le conferme: si
-      //    disegnano quelle, e non una di piu'. Un disegno che nessuno guarda
-      //    non e' prudenza, e' tempo del cliente.
-      const capienza = (GIRI_MASSIMI + 2) * Math.max(1, VISTE_PER_GIRO - 1);
-      // Una pianta sola resta fissa in ogni mazzetto (la prima, il livello da
-      // cui si entra): quella non occupa posto nella rotazione, tutte le altre
-      // viste si'.
+      const veduta    = scorci.slice(0, 1);
+
+      // ⚠️ QUANTE NE GUARDERA' DAVVERO. L'occhio riceve mazzetti: uno per il
+      //    primo sguardo, uno per lo studio, uno per giro. Misurato sul log del
+      //    09/09: con GIRI_MASSIMI = 2 i mazzetti davvero chiesti sono TRE (il
+      //    quarto non e' mai stato aperto). In ognuno una vista e' la pianta
+      //    inchiodata, quindi ruotano VISTE_PER_GIRO - 1 posti.
       const fisse = Math.min(1, piante.length);
-      const gia = misti.length - fisse;
-      const tenute = conferme.slice(0, Math.max(0, capienza - gia));
-      for (const v of tenute) misti.push(v);
-      scorci = misti;
-      log("all'occhio vanno " + scorci.length + " viste, in quest'ordine: "
-        + piante.length + " piante, " + sezioni.length + " sezioni, "
-        + prospetti.length + " prospetti, 1 veduta d'insieme, "
-        + tenute.length + " scorci di conferma"
-        + (conferme.length > tenute.length
-            ? " (ne avevo " + conferme.length + ": gli altri non li mando, "
-              + "l'occhio non arriverebbe a guardarli)" : "")
-        + " — le prime quattro sono "
-        + scorci.slice(0, 4).map((v) => v.etichetta || "veduta d'insieme").join(" · "));
+      const rotanti = (GIRI_MASSIMI + 1) * Math.max(1, VISTE_PER_GIRO - 1);
+
+      // ⚠️ L'INTERNO HA UNA QUOTA SUA, NON GLI AVANZI — 09/09/2026.
+      //    Raffaella: *«tara l'interno... per guardare l'interno effettivamente
+      //    devi stare basso»*.
+      //    Com'era: le tavole si servivano per prime e l'interno prendeva
+      //    quello che restava. Su questo aeroporto l'abaco fa ELEVEN tavole
+      //    (2 piante, 3 sezioni, 6 prospetti, perche' i fronti lunghi si
+      //    spezzano in segmenti): si mangiava tutto, e da dentro passava UNA
+      //    vista su venticinque.
+      //    La prova che era tarato male l'ha data il cervello: ha chiuso
+      //    l'analisi con cinque dubbi, e sono tutti la stessa domanda — «cosa
+      //    c'e' SOPRA questo volume?». Non si vede da una pianta, non si vede
+      //    da un prospetto: si vede stando dentro, a 1,65 m, alzando gli occhi.
+      //
+      //    L'ordine adesso e' per RUOLO, e ogni ruolo ha il suo posto:
+      //      1. le piante    — dove stanno le cose          (tutte)
+      //      2. le sezioni   — a che quota, e quanti piani  (tutte)
+      //      3. da DENTRO    — che cosa c'e' davvero        (un terzo, RISERVATO)
+      //      4. la veduta    — che cos'e' visto da fuori    (una)
+      //      5. i prospetti  — i fronti                     (quello che resta)
+      //    I prospetti stanno in fondo non perche' valgano meno, ma perche' su
+      //    un INTERNO sono i piu' sacrificabili: un fronte in meno si intuisce
+      //    dalla pianta, una stanza mai vista no.
+      const quotaDentro = Math.max(2, Math.ceil(rotanti / 3));
+      let posti = rotanti;
+      const coda = [];
+      const prendi = function (elenco, quanti) {
+        const presi = (elenco || []).slice(0, Math.max(0, Math.min(quanti, posti)));
+        posti -= presi.length;
+        for (const v of presi) coda.push(v);
+        return presi.length;
+      };
+      const nPiante    = prendi(piante.slice(fisse), piante.length);
+      const nSezioni   = prendi(sezioni, sezioni.length);
+      const nDentro    = prendi(dentro, quotaDentro);
+      const nVeduta    = prendi(veduta, 1);
+      const nProspetti = prendi(prospetti, prospetti.length);
+      // Se avanza ancora posto lo prendono i primi piani e la passata: sono
+      // conferme, e le conferme vengono per ultime.
+      const nAltri = prendi(vicini.concat(passata), posti);
+
+      // ⚠️ E DOVE CADONO NELLA FILA CONTA QUANTO QUANTE SONO.
+      //    I mazzetti non vanno tutti alla stessa domanda: il primo va allo
+      //    sguardo libero («che cosa vedi?»), il secondo e il terzo alla
+      //    domanda che ASSEGNA i nomi e le posizioni. Le viste da dentro stanno
+      //    in mezzo APPOSTA, cosi' cadono nella domanda dei nomi invece che in
+      //    quella di cortesia. Con questa fila il mazzetto 1 porta piante e
+      //    sezioni, il 2 porta l'interno, il 3 i fronti e la veduta.
+      scorci = piante.slice(0, fisse).concat(coda);
+
+      log("all'occhio vanno " + scorci.length + " viste, per ruolo: "
+        + (fisse + nPiante) + " piante, " + nSezioni + " sezioni, "
+        + nDentro + " da dentro (quota riservata " + quotaDentro + "), "
+        + nVeduta + " veduta d'insieme, " + nProspetti + " prospetti"
+        + (nAltri ? ", " + nAltri + " conferme" : "")
+        + " — scartate perche' l'occhio non ci arriverebbe: "
+        + Math.max(0, (piante.length - fisse - nPiante)) + " piante, "
+        + (sezioni.length - nSezioni) + " sezioni, "
+        + (dentro.length - nDentro) + " da dentro, "
+        + (prospetti.length - nProspetti) + " prospetti, "
+        + (vicini.length + passata.length - nAltri) + " conferme");
+      if (nDentro) {
+        const px = coda.filter((v) => v && v.etichetta && /da dentro/.test(v.etichetta))
+          .map((v) => v.pixelPerMetro).filter((n) => typeof n === "number");
+        if (px.length)
+          log("le viste da dentro col grandangolo: da " + Math.min.apply(null, px).toFixed(1)
+            + " a " + Math.max.apply(null, px).toFixed(1) + " pixel al metro"
+            + (Math.min.apply(null, px) < 10
+                ? " — SOTTO i 10 che il manuale chiama accettabili: la lente e' troppo larga per questo modello"
+                : ""));
+      }
     }
 
     const O = occhioDellaPagina();

@@ -1152,7 +1152,8 @@ export function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
       .filter((d) => d.area == null || d.area >= UTILE_M2)
       .slice(0, perAmbiente)
       .forEach((d, k) => {
-        daScattare.push({ occhio: meglio.occhio, a: d.a, area: d.area, nome, primo: k === 0 });
+        daScattare.push({ occhio: meglio.occhio, a: d.a, area: d.area, nome,
+                          primo: k === 0, rango: idx });
       });
   });
 
@@ -1166,15 +1167,40 @@ export function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
 
   // Il tetto taglia in coda, ma prima i PRIMI scatti di tutti gli ambienti:
   // meglio nove stanze viste una volta che tre viste tre volte.
-  daScattare.sort((p, q) => (q.primo ? 1 : 0) - (p.primo ? 1 : 0));
+  // ⚠️ ALZARE GLI OCCHI — 09/09/2026, e la prova l'ha portata il cervello.
+  //    Finita l'analisi ha lasciato cinque dubbi, tutti la stessa domanda:
+  //    «cosa c'e' SOPRA questo volume?». Da una pianta non si vede, da un
+  //    prospetto neanche, e da qui dentro nemmeno — perche' questa telecamera
+  //    ha sempre guardato l'orizzonte (la Y della direzione era zero fissa).
+  //    Adesso: il PRIMO scatto di ogni ambiente resta dritto, ed e' la stanza;
+  //    il SECONDO alza lo sguardo, ed e' quello che le sta sopra — la
+  //    mezzanina, il controsoffitto, l'insegna appesa, il pontile.
+  const suGradi = opzioni.sguardoInSuGradi != null ? opzioni.sguardoInSuGradi : 0;
+  const suTan = Math.tan(suGradi * Math.PI / 180);
+
+  // ⚠️ E L'ORDINE CAMBIA DI CONSEGUENZA. Prima si mettevano davanti TUTTI i
+  //    primi scatti («meglio nove stanze viste una volta che tre viste tre
+  //    volte»), che resta giusto per il grosso dell'elenco — ma chi legge in
+  //    testa ne prende solo tre o quattro, e cosi' il secondo scatto non
+  //    arrivava mai a nessuno: lo sguardo alzato sarebbe nato morto.
+  //    I DUE ambienti piu' grandi tengono entrambi gli scatti (uno dritto e uno
+  //    in su): sono quelli su cui il cervello fa le domande. Dal terzo in poi
+  //    vale la regola di prima.
+  const testa = daScattare.filter((d) => d.rango < 2);
+  const resto = daScattare.filter((d) => d.rango >= 2)
+    .sort((p, q) => (q.primo ? 1 : 0) - (p.primo ? 1 : 0));
+  const inOrdine = testa.concat(resto);
 
   const fuori = [];
-  for (const d of daScattare.slice(0, massimo)) {
+  for (const d of inOrdine.slice(0, massimo)) {
+    const alza = (!d.primo && suTan > 0) ? suTan : 0;
     const v = vistaDalCamminatore(THREE, renderer, radice, {
       posizione: d.occhio,
-      direzione: [Math.cos(d.a), 0, Math.sin(d.a)],
+      direzione: [Math.cos(d.a), alza, Math.sin(d.a)],
       fovGradi, portata, altezzaOcchio,
-      etichetta: 'da dentro ' + d.nome + ', verso ' + Math.round(d.a * 180 / Math.PI) + '°',
+      etichetta: 'da dentro ' + d.nome + ', verso ' + Math.round(d.a * 180 / Math.PI) + '°'
+        + (alza ? ', sguardo alzato di ' + Math.round(suGradi) + '°' : '')
+        + (fovGradi >= 80 ? ', grandangolo ' + Math.round(fovGradi) + '°' : ''),
     });
     if (v) fuori.push(v);
   }
