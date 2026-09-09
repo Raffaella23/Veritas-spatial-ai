@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-09-f";
+window.__EIDETICA_COSTRUZIONE = "2026-09-09-g";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6773,6 +6773,31 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-f";
           group_id: "g" + Math.floor(i / 3),
         });
       }
+      // ⚠️ CHI HA QUALE MISSIONE — 09/09/2026, e serve per la pagella.
+      //    Raffaella: *«la categoria e' un TARGET, un obiettivo: sa che deve
+      //    entrare, fare il check-in, lasciare il bagaglio, fino alla sala
+      //    d'aspetto, al gate, al tubo, all'aereo.»*
+      //    Qui l'agente riceve gia' il suo `profile_id`, e il grafo sa quali
+      //    tappe compone quel profilo: si mette insieme la coppia e la si
+      //    lascia dove chi guarda la traiettoria possa leggerla. Senza questo,
+      //    a fine simulazione si sa solo che «28 agenti sono arrivati» —
+      //    arrivati DOVE, e avendo fatto cosa, non lo sapeva nessuno.
+      try {
+        const perAgente = {};
+        for (const a of agents) {
+          const ids = (graph.mission_profiles || {})[a.profile_id] || [];
+          perAgente[a.agent_id] = {
+            profilo: a.profile_id,
+            obiettivi: ids.map(function (id) {
+              const n = (graph.nodes || {})[id] || {};
+              return { id: id, pos: n.pos || null,
+                       nome: (n.meta && (n.meta.label || n.meta.type)) || id };
+            }).filter(function (o) { return o.pos; }),
+          };
+        }
+        window.__veritasMissioniPerAgente = perAgente;
+      } catch (e) { window.__veritasMissioniPerAgente = null; }
+
       // graph.nodes e' un DIZIONARIO (id -> {pos, meta}), non un array: la
       // versione precedente ne leggeva .length e stampava sempre "undefined".
       // Qui si stampano anche le coordinate spedite, perche' e' il confronto
@@ -7308,6 +7333,71 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-f";
       console.log("[VERITAS numeri] stati nella traiettoria: "
         + Object.keys(conti).map((k) => k + " " + conti[k]).join(", ")
         + " — agenti che arrivano: " + arrivati.size);
+      // ⚠️ LA PAGELLA DELLE MISSIONI — 09/09/2026. E' il punto in cui la
+      //    simulazione smette di essere un filmato e diventa una PROVA.
+      //
+      //    «Ventotto agenti arrivano» non dice niente: arrivano dove, avendo
+      //    fatto cosa? Adesso ogni agente porta una missione — un elenco di
+      //    obiettivi DA COMPIERE, in ordine — e qui si guarda la traiettoria
+      //    per vedere fin dove e' arrivato davvero. L'edificio o gli permette
+      //    di compierla, o no: e DOVE non glielo permette, quella e' la
+      //    scoperta che serve a chi progetta.
+      //
+      //    ⚠️ Gli obiettivi si contano IN ORDINE: passare vicino al gate senza
+      //       aver fatto il controllo non vale come averlo fatto. E' la
+      //       differenza fra una missione e un giro turistico.
+      //    ⚠️ PRIMA TARATURA, NON UNA MISURA: sei metri dal centro della zona
+      //       contano come «ci sono stato». Quando le zone porteranno con se'
+      //       la propria estensione fin qui, il raggio verra' da quella.
+      try {
+        const mappa = window.__veritasMissioniPerAgente;
+        if (mappa && Object.keys(mappa).length) {
+          const VICINO_M = 6;
+          const fatti = {};
+          for (const f of fresh.frames) for (const a of (f.agents || [])) {
+            const m = a && mappa[a.id];
+            if (!m || !a.pos || !m.obiettivi.length) continue;
+            let k = fatti[a.id] || 0;
+            while (k < m.obiettivi.length) {
+              const o = m.obiettivi[k];
+              if (Math.hypot(a.pos[0] - o.pos[0], a.pos[2] - o.pos[2]) > VICINO_M) break;
+              k++;
+            }
+            fatti[a.id] = k;
+          }
+          const ids = Object.keys(mappa);
+          const compiute = [], fermi = new Map();
+          for (const id of ids) {
+            const m = mappa[id], k = fatti[id] || 0;
+            if (!m.obiettivi.length) continue;
+            if (k >= m.obiettivi.length) { compiute.push(id); continue; }
+            const dove = m.obiettivi[k].nome;
+            if (!fermi.has(dove)) fermi.set(dove, []);
+            fermi.get(dove).push(id);
+          }
+          const inCoda = Array.from(fermi.entries())
+            .sort((p, q) => q[1].length - p[1].length);
+          // ⚠️ LE PAROLE QUI CONTANO, e la prima versione le aveva sbagliate.
+          //    La tappa che si nomina e' quella che NON e' stata raggiunta,
+          //    non quella dove l'agente si trova: dire «fermo al gate» di uno
+          //    che al gate non e' mai arrivato manda a cercare il difetto nel
+          //    posto sbagliato. Si dice «si ferma PRIMA di», che e' vero.
+          console.log("[VERITAS missioni] " + ids.length + " agenti · "
+            + compiute.length + " hanno compiuto la missione"
+            + (inCoda.length
+                ? " · " + (ids.length - compiute.length) + " no: "
+                  + inCoda.map((x) => x[1].length + " si ferma"
+                      + (x[1].length === 1 ? "" : "no") + " prima di «" + x[0] + "»").join(", ")
+                : " · nessuno si e' fermato per strada"));
+          window.__veritasMissioniEsito = {
+            totale: ids.length, compiute: compiute.length,
+            fermi: inCoda.map((x) => ({ tappa: x[0], quanti: x[1].length, agenti: x[1] })),
+            raggioM: VICINO_M,
+          };
+        }
+      } catch (e) {
+        console.warn("[VERITAS missioni] pagella non calcolata: " + ((e && e.message) || e));
+      }
       if (!arrivati.size) {
         console.warn("[VERITAS numeri] NESSUN agente dichiara di essere arrivato: "
           + "flusso e transito restano a zero per costruzione, non per un difetto "
