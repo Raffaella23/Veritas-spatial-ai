@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-09-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-09-h";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -13655,10 +13655,13 @@ function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
   //    Adesso il PRIMO scatto di ogni ambiente resta dritto, ed e' la stanza;
   //    il SECONDO alza lo sguardo, ed e' quello che le sta sopra: la mezzanina,
   //    il controsoffitto, l'insegna appesa, il pontile.
-  //    ⚠️ QUESTA E' LA COPIA CHE GIRA. `veritas_vista.js` esiste come file a
-  //       se', ma in pagina `window.__veritasVista` lo definisce QUI: una
-  //       modifica fatta solo nel file non arriva mai al modello. Tenerle
-  //       uguali, o un giorno divergono in silenzio.
+  //    ⚠️ DI QUESTA FUNZIONE ESISTONO DUE COPIE, e vanno tenute IDENTICHE:
+  //       il file veritas_vista.js e il blocco inlinato in index.html. In
+  //       pagina gira quella di index.html, perche' e' li' che nasce
+  //       window.__veritasVista: una modifica fatta solo nel file non arriva
+  //       mai al modello. La guardia in fondo a veritas_vista.js confronta le
+  //       due e lo dice all'avvio — e il 09/09 l'ha detto al primo colpo,
+  //       perche' le stesse righe erano state scritte con parole diverse.
   const suGradi = opzioni.sguardoInSuGradi != null ? opzioni.sguardoInSuGradi : 0;
   const suTan = Math.tan(suGradi * Math.PI / 180);
 

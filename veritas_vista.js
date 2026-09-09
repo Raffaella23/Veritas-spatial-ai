@@ -1172,20 +1172,25 @@ export function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
   //    «cosa c'e' SOPRA questo volume?». Da una pianta non si vede, da un
   //    prospetto neanche, e da qui dentro nemmeno — perche' questa telecamera
   //    ha sempre guardato l'orizzonte (la Y della direzione era zero fissa).
-  //    Adesso: il PRIMO scatto di ogni ambiente resta dritto, ed e' la stanza;
-  //    il SECONDO alza lo sguardo, ed e' quello che le sta sopra — la
-  //    mezzanina, il controsoffitto, l'insegna appesa, il pontile.
+  //    Adesso il PRIMO scatto di ogni ambiente resta dritto, ed e' la stanza;
+  //    il SECONDO alza lo sguardo, ed e' quello che le sta sopra: la mezzanina,
+  //    il controsoffitto, l'insegna appesa, il pontile.
+  //    ⚠️ DI QUESTA FUNZIONE ESISTONO DUE COPIE, e vanno tenute IDENTICHE:
+  //       il file veritas_vista.js e il blocco inlinato in index.html. In
+  //       pagina gira quella di index.html, perche' e' li' che nasce
+  //       window.__veritasVista: una modifica fatta solo nel file non arriva
+  //       mai al modello. La guardia in fondo a veritas_vista.js confronta le
+  //       due e lo dice all'avvio — e il 09/09 l'ha detto al primo colpo,
+  //       perche' le stesse righe erano state scritte con parole diverse.
   const suGradi = opzioni.sguardoInSuGradi != null ? opzioni.sguardoInSuGradi : 0;
   const suTan = Math.tan(suGradi * Math.PI / 180);
 
-  // ⚠️ E L'ORDINE CAMBIA DI CONSEGUENZA. Prima si mettevano davanti TUTTI i
-  //    primi scatti («meglio nove stanze viste una volta che tre viste tre
-  //    volte»), che resta giusto per il grosso dell'elenco — ma chi legge in
-  //    testa ne prende solo tre o quattro, e cosi' il secondo scatto non
-  //    arrivava mai a nessuno: lo sguardo alzato sarebbe nato morto.
-  //    I DUE ambienti piu' grandi tengono entrambi gli scatti (uno dritto e uno
-  //    in su): sono quelli su cui il cervello fa le domande. Dal terzo in poi
-  //    vale la regola di prima.
+  // ⚠️ E L'ORDINE CAMBIA DI CONSEGUENZA. Prima davanti andavano TUTTI i primi
+  //    scatti («meglio nove stanze viste una volta che tre viste tre volte»),
+  //    che resta giusto per il grosso dell'elenco — ma chi legge in testa ne
+  //    prende tre o quattro, e il secondo scatto non arrivava mai a nessuno:
+  //    lo sguardo alzato sarebbe nato morto. I DUE ambienti piu' grandi
+  //    tengono entrambi gli scatti, uno dritto e uno in su.
   const testa = daScattare.filter((d) => d.rango < 2);
   const resto = daScattare.filter((d) => d.rango >= 2)
     .sort((p, q) => (q.primo ? 1 : 0) - (p.primo ? 1 : 0));
