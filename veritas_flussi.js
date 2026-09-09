@@ -191,6 +191,37 @@ export function costruisciFlussi(nodi, opz = {}) {
 // In un ospedale la stessa riga produce accettazione-triage-attesa-ambulatorio;
 // in una chiesa, ingresso-acquasantiera-navata-banco. Regola 0-bis intatta.
 
+/** Chi si raggiunge a piedi da chi, chiedendolo alla mappa di cammino vera.
+ *
+ *  ⚠️ E' LA RIPARAZIONE DI «CAMMINANO SULL'AEREO» — 09/09/2026.
+ *     Raffaella: *«per prendere l'aereo invece di passare attraverso il tubo
+ *     passano per terra, camminano sull'aereo, camminano sul tubo che collega
+ *     il terminal con l'aereo stesso»*.
+ *     La causa e' che il dorso di un aereo e il tetto di un pontile sono
+ *     superfici orizzontali, e il programma ci mette sopra il calpestabile.
+ *     ⛔ E la prova del tetto NON puo' risolverlo su questo modello: il
+ *        cervello lo ha dichiarato «spaccato, manca soffitto e pareti
+ *        laterali», e il modulo accessi ha misurato 3 campioni coperti su 840.
+ *        Su un modello sezionato NIENTE ha qualcosa sopra la testa: chiedere
+ *        un soffitto cancellerebbe anche il piano superiore del terminal.
+ *     Quello che invece regge sempre e' il piede: sul dorso di un aereo non ci
+ *     si arriva CAMMINANDO da nessuna porta. Qui si chiede alla navmesh, che
+ *     il cammino lo calcola davvero, e le tappe irraggiungibili restano fuori.
+ *
+ *  Se la mappa di cammino non c'e' ancora torna `null`, e le missioni si
+ *  costruiscono come prima: meglio una missione ottimista che nessuna. */
+function gruppiDiCammino(nodi) {
+  const N = (typeof window !== 'undefined' && window.__veritasNavmesh) || null;
+  if (!N || typeof N.gruppiCollegati !== 'function' || nodi.length > 60) return null;
+  try {
+    const r = N.gruppiCollegati(nodi.map((n) => n.pos));
+    if (!r || !r.gruppo) return null;
+    const m = new Map();
+    nodi.forEach((n, i) => m.set(n, r.gruppo[i]));
+    return m;
+  } catch (e) { return null; }
+}
+
 /** Quanto larga e' la strada: una zona piu' lontana di cosi' dalla retta non e'
  *  «sulla via», e' un'altra parte dell'edificio.
  *  ⚠️ PRIMA TARATURA, NON UNA MISURA, e il tetto e' la parte che conta: senza,
@@ -223,7 +254,7 @@ function unaPerCategoria(candidati) {
 }
 
 /** Le zone che stanno lungo il tragitto entrata->meta, in ordine di cammino. */
-function tappeLungoLaVia(tutte, entrata, meta, opz = {}) {
+function tappeLungoLaVia(tutte, entrata, meta, opz = {}, gruppo) {
   const ax = entrata.pos[0], az = entrata.pos[2];
   const bx = meta.pos[0],    bz = meta.pos[2];
   const dx = bx - ax, dz = bz - az;
@@ -234,6 +265,8 @@ function tappeLungoLaVia(tutte, entrata, meta, opz = {}) {
   for (const n of tutte) {
     if (n === entrata || n === meta) continue;
     if (n.type === 'origine' || n.type === 'destinazione') continue;
+    // a piedi, o non e' una tappa di questa missione
+    if (gruppo && gruppo.get(n) !== gruppo.get(entrata)) continue;
     const px = n.pos[0] - ax, pz = n.pos[2] - az;
     // t = quanto e' avanti lungo la strada (0 all'entrata, 1 alla meta)
     const t = (px * dx + pz * dz) / (lungo * lungo);
@@ -251,12 +284,15 @@ function tappeLungoLaVia(tutte, entrata, meta, opz = {}) {
  *  modello non porta un nodo di tipo destinazione — ed e' il caso NORMALE:
  *  sull'aeroporto di prova erano zero, ed e' per questo che c'era una fila
  *  sola per tutti. */
-function meteDedotte(tutte, entrate, quante) {
+function meteDedotte(tutte, entrate, quante, gruppo) {
   const scelte = [];
   for (const e of entrate) {
     let meglio = null, dist = -1;
     for (const n of tutte) {
       if (n.type === 'origine' || scelte.indexOf(n) >= 0) continue;
+      // una meta che non si raggiunge a piedi non e' una meta: e' un posto
+      // dove si potrebbe solo atterrare.
+      if (gruppo && gruppo.get(n) !== gruppo.get(e)) continue;
       const d = Math.hypot(n.pos[0] - e.pos[0], n.pos[2] - e.pos[2]);
       if (d > dist) { dist = d; meglio = n; }
     }
@@ -309,8 +345,14 @@ export function missioni(nodi, opz = {}) {
   }
   if (!entrate.length) return [];
 
+  // Chi si raggiunge a piedi da chi: si chiede una volta sola, e da qui in
+  // avanti nessuna missione puo' contenere una tappa dove non ci si arriva.
+  const gruppo = gruppiDiCammino(entrate.concat(tutte.filter((n) => entrate.indexOf(n) < 0)));
+
   let mete = tutte.filter((n) => n.type === 'destinazione');
-  if (!mete.length) mete = meteDedotte(tutte, entrate, Math.max(1, entrate.length));
+  if (gruppo && mete.length)
+    mete = mete.filter((m) => entrate.some((e) => gruppo.get(e) === gruppo.get(m)));
+  if (!mete.length) mete = meteDedotte(tutte, entrate, Math.max(1, entrate.length), gruppo);
   if (!mete.length) return [];
 
   const fuori = [];
@@ -318,7 +360,8 @@ export function missioni(nodi, opz = {}) {
   for (let i = 0; i < quante; i++) {
     const entrata = entrate[i % entrate.length];
     const meta = mete[i % mete.length];
-    const via = tappeLungoLaVia(tutte, entrata, meta, opz);
+    if (gruppo && gruppo.get(entrata) !== gruppo.get(meta)) continue;
+    const via = tappeLungoLaVia(tutte, entrata, meta, opz, gruppo);
     if (!via.length) continue;
     const avanti = [entrata].concat(via, [meta]);
     fuori.push({ nome: 'va: ' + nomeDi(entrata) + ' → ' + nomeDi(meta),
@@ -336,7 +379,26 @@ export function missioni(nodi, opz = {}) {
   // piazzale — la ragione per cui c'erano tappe fra i due aerei.
   const toccate = new Set();
   for (const m of fuori) for (const t of m.tappe) toccate.add(t);
-  const presidi = tutte.filter((n) => !toccate.has(n) && n.type !== 'origine');
+  // ⚠️ CHI PRESIDIA CI DEVE ESSERE ARRIVATO. Le zone lasciate fuori si dividono
+  //    in due: quelle dove a piedi ci si arriva — e li' qualcuno ci lavora — e
+  //    quelle dove NON ci si arriva, che sono il dorso dell'aereo e il tetto
+  //    del pontile. Le seconde non diventano niente, e si dicono: un ambiente
+  //    sparito in silenzio, per chi legge, e' un ambiente che non c'era.
+  const avanzate = tutte.filter((n) => !toccate.has(n) && n.type !== 'origine');
+  const raggiungibili = gruppo
+    ? avanzate.filter((n) => entrate.some((e) => gruppo.get(e) === gruppo.get(n)))
+    : avanzate;
+  const irraggiungibili = avanzate.filter((n) => raggiungibili.indexOf(n) < 0);
+  if (irraggiungibili.length) {
+    try {
+      console.warn('[VERITAS flussi] ' + irraggiungibili.length
+        + ' zone restano fuori dalle missioni: a piedi non ci si arriva '
+        + 'da nessun ingresso: ' + irraggiungibili.map(nomeDi).join(', ')
+        + '. Su un modello di aeroporto sono tipicamente il dorso degli aerei e '
+        + 'il tetto dei pontili: superfici orizzontali su cui nessuno cammina.');
+    } catch (e) {}
+  }
+  const presidi = raggiungibili;
   if (presidi.length) {
     const p = presidi.slice(0, 2);
     const giro = p.length > 1 ? p : p.concat(p);
