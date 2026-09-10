@@ -4,103 +4,119 @@
 
 ---
 
-## 🔴 SI RIPARTE DA QUI — 09/09/2026: LA CATENA DEI NOMI, RIPARATA
+## ✅ CHIUSURA DEL 09/09/2026 — LA GIORNATA IN CUI LA CATENA SI E' CHIUSA
 
-**Il controllo capillare chiesto da Raffaella e' stato fatto, e sul CODICE** —
-il browser non si e' potuto leggere, l'estensione non risponde. Quattro guasti
-trovati, quattro riparati. Banco identico prima e dopo: **24 verdi, 10 rosse**,
-e le dieci erano gia' rosse su `main` senza nessuna modifica.
+**Costruzione in pagina: `2026-09-10-a`.** Da oggi la pagina dichiara la propria
+versione nella prima riga del log, e questo documento la nomina: se le due non
+combaciano, quello che si sta guardando non e' quello che c'e' scritto qui.
 
-⛔ **La catena non si spezzava al passaggio 4.** Si spezzava prima: al cervello,
-quando doveva dare i nomi, **l'edificio in pianta non gli veniva mostrato.**
+### ⛔ LA DIAGNOSI DI PARTENZA ERA SBAGLIATA, E LA CORREZIONE VALE PIU' DELLA CURA
 
-### Com'era, e com'e'
+Si e' cominciato cercando dove **si spezzava** la catena dei nomi. Non si
+spezzava. Il log della pagina viva, misurato con Raffaella davanti:
 
-| | com'era | com'e' adesso |
-|---|---|---|
-| **quante viste** | 37 preparate, **16 guardate**: ventuno disegni fatti, misurati e mai visti da nessuno | **13 preparate, 13 guardate, zero buttate** — e vale per 1, 2 o 3 livelli: l'abaco cresce con l'edificio e le conferme si stringono da sole |
-| **l'ordine** | quello in cui i moduli sono NATI: prima gli scorci (agosto), le tavole canoniche infilate dopo (08/09). Un sedimento, non una scelta | quello di un progetto, chiesto da Raffaella il 09/09: **piante, sezioni, prospetti, veduta d'insieme, e in coda pochi scorci di conferma** |
-| **la mappa** | ruotava come una foto qualsiasi: alla domanda che assegna i nomi capitavano prospetti, sezioni e primi piani — **mai una pianta** | la pianta del livello da cui si entra e' **inchiodata in ogni mazzetto**. Ruota il resto |
-| **la posizione** | dalle tavole si buttava: erano nella fila degli scorci e pagavano la regola del 26/08 | **una pianta dell'abaco da' posizioni**, come la pianta del pavimento |
-| **quando si vede** | i nomi comparivano tutti alla fine; fino ad allora lo schermo restava il riempimento iniziale | **ogni giro scrive a schermo quello che ha capito**, dichiarato come ipotesi. Il giro dopo corregge |
-
-### La regola del 26/08 non e' stata tolta: e' stata detta meglio
-
-Diceva *«dagli scorci non si prende una posizione»*, e per una prospettiva e'
-vera oggi come allora. Ma le tavole canoniche, arrivate l'08/09, sono entrate
-nella stessa fila e si sono prese la stessa multa: una **pianta** — proiezione
-ortogonale dall'alto — ha il suo corrispondente a terra pixel per pixel.
-
-Adesso la regola non parla piu' di «scorci» e di «piante», che sono nomi: parla
-di quello che una vista **sa**. Una vista che porta con se' il proprio
-rettangolo di mondo (`inquadratura`) da' posizioni; una che non ce l'ha da'
-testimonianza e basta. **Prospetti e sezioni non ce l'hanno, ed e' giusto:** da
-una proiezione verticale un punto a terra non si ricava. Nessun nome di
-tipologia entra nel codice: **regola 0-bis intatta.**
-
-### ✅ MISURATO SUL VIVO — il log della pagina di Raffaella, 09/09
-
-⛔ **LA CATENA DEI NOMI NON ERA ROTTA. Funzionava.** Il log lo dice riga per riga:
-
-| passaggio | cosa dice il log |
+| passaggio | esito |
 |---|---|
-| 1. le fotografie → l'occhio | `all'occhio vanno 37 viste` · 11 tavole (2 piante, **6** prospetti, 3 sezioni) · 4 per giro |
-| 2. l'occhio → il cervello | `ha guardato per primo 5 viste` (la pianta + 4) · testimonianze da 4 scorci · **nessuna legata a una regione** |
-| 3. il cervello → i nomi | ✅ **capito: aeroporto (spaccato), fiducia 75%, 3 giri** — giro 2 e 3: **15 nominati su 20** |
-| 4. i nomi → l'editor | ✅ **2 rinominate per vicinanza + 13 tappe NUOVE nate dai volumi capiti = 15 zone a schermo.** perCampo 0 · troppoLontane 0 · senzaNome 4 · soglia 10 m · 6 confrontate dove erano state misurate |
+| il cervello capisce | ✅ *aeroporto*, fiducia 75%, **19 volumi nominati su 20 in 2 giri** |
+| i nomi arrivano all'editor | ✅ 5 tappe rinominate + 14 nate = **19 zone a schermo** |
+| troppo lontane | **zero** |
 
-### 🔴 IL GUASTO VERO, ed e' del 08/09 — riparato il 09/09
+**Quello che moriva era il pezzo DOPO**, e moriva nell'istante esatto in cui i
+nomi arrivavano: i campi di funzione nati l'08/09 si costruivano **senza
+posizione**, e il calcolatore delle strade cascava su `z.pos[0]`. Il difetto
+dormiva finche' nessuno chiedeva una strada e **si svegliava quando la catena
+funzionava** — per questo per settimane e' sembrato un guasto del
+riconoscimento.
 
-Nell'istante in cui i nomi arrivano, la scena si rifa' e il calcolatore delle
-strade muore:
+⚠️ **La lezione, e vale piu' della riparazione:** un guasto che scatta insieme
+al successo si travestira' sempre da fallimento del successo. Prima di
+riscrivere il pezzo che «non funziona», guardare che cosa e' cambiato
+nell'istante in cui ha smesso.
 
-```
-TypeError: Cannot read properties of undefined (reading '0')
-  at findRoute (index.html:2256)  ->  z.pos[0]
-  ... at applicaNomi (veritas_montaggio.js:1220)
-```
+### Che cosa e' stato riparato, in ordine
 
-**Causa:** i campi di funzione nati da `veritas_divide.js` (il modulo dell'08/09)
-si costruivano con `centroidX/centroidZ` — la forma di un **ambiente misurato** —
-e finivano dritti in `applyAutoAssignment`, cioe' **dopo** il punto in cui gli
-ambienti misurati vengono convertiti in zone con `pos`. La conversione se la
-saltavano. `lastZones` si riempiva di zone senza `pos`.
+| | com'era | com'e' |
+|---|---|---|
+| **i disegni** | 38 preparati, **16 guardati**: 22 fatti e mai visti | **13 preparati, 13 guardati** — e vale per 1, 2 o 3 livelli |
+| **l'ordine** | quello in cui i moduli sono nati | quello di un progetto: **piante, sezioni, dentro, veduta, prospetti** |
+| **la mappa** | ruotava: alla domanda dei nomi non c'era mai una pianta | **inchiodata in ogni mazzetto** |
+| **la posizione** | le tavole la buttavano | **una pianta ortogonale da' posizioni**, come la pianta del pavimento |
+| **l'interno** | 1 vista su 25 | **quota riservata di un terzo**, grandangolo 90°, secondo scatto con lo **sguardo alzato di 18°** |
+| **quando si vede** | i nomi alla fine | **ogni giro scrive a schermo**, in ipotesi |
+| **i profili** | tutti la stessa fila indiana | **missioni**: 7 sul modello vero, tre porte, andata e ritorno, piu' chi presidia |
+| **il verdetto** | «28 agenti arrivano» | **la pagella**: chi ha compiuto la missione e prima di quale tappa si e' fermato |
+| **il piede** | si camminava sul dorso degli aerei | **una missione non contiene tappe irraggiungibili a piedi** |
 
-⚠️ **E non moriva subito: moriva quando la catena FUNZIONAVA.** Finche' nessuno
-chiedeva una strada il difetto dormiva; si svegliava all'arrivo dei nomi. Per
-questo sembrava un guasto del riconoscimento. E' il prezzo dei quattro moduli
-entrati in un giorno, ognuno provato da solo e nessuno provato con gli altri.
-**Riparato:** i campi nascono con `pos`, come ogni altra zona.
+### ⛔ TRE REGOLE NUOVE CHE NON SI RIMETTONO AI VOTI
 
-### 🟠 ALTRE TRE COSE CHE IL LOG DICE, e nessuna e' piccola
+**1. UN PROFILO NON E' UN PERCORSO, E' UNA MISSIONE.** Detto da Raffaella ad
+alta voce il 09/09: *«la categoria e' un TARGET, un obiettivo. E' come se lo
+stessimo gamificando: sa che deve entrare, fare il check-in, lasciare il
+bagaglio, fino alla sala d'aspetto, al gate, al tubo, all'aereo.»*
+La conseguenza e' l'impianto: **la simulazione smette di essere un filmato e
+diventa una prova.** L'edificio o permette di compiere la missione, o no — e
+dove non lo permette, quella e' la scoperta. `missioni()` in
+`veritas_flussi.js`, la pagella in `index.html` accanto a `[VERITAS numeri]`.
+📌 I flussi si ricavano **automaticamente dalla tipologia**; il dichiararli da
+fuori (`imposta()`) resta come predisposizione per il custom e il gaming.
 
-1. **L'analisi supera i sette minuti** — `[VERITAS accessi] nessuna tappa dopo
-   sette minuti: flussi non rifatti`. E' il *«il cliente non puo' stare tre ore
-   ad aspettare»* di Raffaella, misurato.
-2. **Il modello viene analizzato DUE VOLTE, la prima a scala sbagliata**: 20,2 x
-   11,3 m e **83 m² navigabili**, poi il righello umano corregge di 5,272x e si
-   rifa' tutto (3.364 m²). Il primo giro e' lavoro buttato, e non e' gratis.
-3. **Il motore fisico va in trappola**: `memory access out of bounds` sulla
-   ricerca del punto libero, due volte. Il corpo non viene applicato.
-   E `veritas_lessico` ha ricevuto **400** dal cervello: e' ricaduto sulla
-   tabella di prima, come promesso.
+**2. L'ORDINE DELLE TAPPE VIENE DALLO SPAZIO, NON DA UN ELENCO.** Si tira la
+retta fra l'entrata e la meta di *quella* missione, si tengono le zone lungo
+quella retta — **una per categoria, la piu' vicina alla propria strada** — e si
+ordinano per quanto sono avanti. In un ospedale la stessa riga produce
+accettazione-triage-attesa-ambulatorio; in una chiesa ingresso-navata-banco.
+`ORDINE_DI_MEZZO` (accoglienza, filtro, sosta) resta solo come ripiego.
 
-### 🔴 QUELLO CHE RESTA
+**3. NESSUN VERDETTO E' MEGLIO DI UN VERDETTO INVENTATO.** La pagella diceva
+«28 agenti · 0 hanno compiuto la missione» e non era vero: **al motore vero gli
+agenti si chiamano `a0`, al generatore JS locale `0`**, e non combaciava
+nessuno. Adesso, se non combacia nessuno, dice *«non posso giudicare»*.
 
-**Le riparazioni del 09/09 non sono ancora state viste girare.** Il log qui sopra
-e' il **prima**: la pagina serviva `montaggio?v=26` e `comprensione?v=9`. La
-versione in `index.html` e' stata portata a **v=27** apposta. Alla prossima
-apertura devono comparire:
+### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso
 
-1. `all'occhio vanno 13 viste` (non 37), e l'ordine comincia con le piante;
-2. `[VERITAS scorci] mazzetto k di N — fisse: PIANTA livello 1...` in **ognuno**;
-3. i nomi a schermo **a ogni giro**, non solo alla fine;
-4. **nessun** `Cannot read properties of undefined` dopo `applicaNomi`.
+| | | |
+|---|---|---|
+| **1** | **il piazzale e' contato come pavimento** | 3.364 m² calpestabili contro 81,2 × 31,7 m di costruito. E' da li' che nascono le tappe fra i due aerei. ⛔ **Il piede non lo esclude** (a terra ci si arriva) e **il tetto nemmeno**: su un modello *spaccato* — 3 campioni coperti su 840 — chiedere un soffitto cancellerebbe anche il piano superiore. Puo' darlo **solo la testimonianza dell'occhio** («qui si e' all'aperto», `CALPESTIO_DI` / `ariaAperta`). ⛔ **NON È DA COSTRUIRE — c'è già dal 07/09** (20 parole, 32 prove verdi) e questo documento lo dichiarava «scritto, provato al banco, **non visto scattare**». Misurato sul vivo l'08/09: gli ambienti si muovono (9→10, varchi 6→9), **i metri quadri no** (3.364 prima e dopo), e il referto dice *«0 ambienti tolti perché ci passano i mezzi (0 m²)»*. 🔴 **La domanda vera è una sola: perché l'occhio non attribuisce mai «qui passano i mezzi» a un ambiente PRECISO.** Non si riscrive il filtro |
+| **2** | **il motore fisico va in trappola** | `unreachable` / `memory access out of bounds` alla ricerca del punto libero, a ogni traiettoria: i corpi non vengono applicati e la gente scivola invece di camminare. ⚠️ **Già diagnosticato il 06/09 e mai riprovato dopo:** *«il trap del motore fisico probabilmente veniva da qui: agenti alti 1,70 m in un modello scalato male nascono dentro i muri»*. È un sintomo della scala, non una malattia sua — **si rimisura dopo il punto 3, non prima** |
+| **3** | ✅ **il giro a scala sbagliata — CHIUSO IL 10/09** | il modello entrava a 20,2 × 11,3 m, veniva misurato («4 zone, 83 m²») e poi corretto di 5,272×. ⛔ **E il blocco messo il 09/09 in `runStructuralAnalysis` non poteva accorgersene:** confronta il contatore della scala prima e dopo l'estrazione della nuvola, ma l'estrazione è **sincrona** — fra le due letture non può succedere niente. La correzione non arrivava *durante* la misura, arrivava *dopo*. La causa vera era la POSIZIONE del righello umano: innestato dentro `veritasAutoScaleModel`, che si chiama da `announceVerdict`, cioè in fondo all'analisi. Ora `__veritasRighelloUmano` parla in testa a ogni passata (§ regola 16). 🔴 **Da guardare sul vivo:** la prima riga di log dev'essere il righello, non «4 zone, 83 m²» |
+| **4** | **due moduli ricevono 400 dal cervello** | il lessico universale e la strada «occhi». Corretto il nome del modello (era il segnaposto `local-model` invece di `qwen2.5-vl-7b-instruct`); resta un secondo motivo da trovare |
+| **5** | **la vista live non dice chi stai seguendo** | 28 agenti e 9 profili, ma il film non dichiara ne' l'agente ne' la sua missione ne' a che tappa e'. Il dato c'e' gia' (`window.__veritasMissioniEsito`), manca il pannello |
+| **6** | **il generatore JS locale ignora le missioni** | quando Render dorme subentra lui, e costruisce i suoi `path`: le missioni arrivano solo al motore vero |
 
-⚠️ **E il banco e' piu' rosso di quanto questo documento dichiarasse:** non due
-prove vecchie ma **dieci** — `corpo`, `corpo_collegato`, `marker`, `navmesh`,
-`occhi`, `percorso`, `play`, `riconosce`, `vista`, `zone` — rosse su `main`
-senza nessuna modifica. Da riscrivere, non da riparare.
+### ⚠️ DUE TRAPPOLE SCOPERTE OGGI, E LE GUARDIE CHE LE TENGONO
+
+**A. LA PAGINA SERVIVA CODICE VECCHIO, E NON LO DICEVA A NESSUNO.** Due prove
+intere sono state fatte su `montaggio?v=26` mentre il lavoro era gia' spinto —
+e le ha pagate Raffaella in gettoni. *«Dovresti tu fare in modo che io non abbia
+qualcosa di non aggiornato.»*
+✅ Ora `index.html` porta `__EIDETICA_COSTRUZIONE`, la stampa come prima riga
+del log, e la confronta con quella pubblicata: se e' indietro lo dice forte e
+**si ricarica una volta sola — ma solo a pagina appena aperta**, quando non c'e'
+un modello dentro. Non si ricarica mai sotto le mani di chi sta lavorando.
+
+**B. TRE MODULI VIVONO IN DUE COPIE, E QUELLA CHE GIRA E' DENTRO `index.html`.**
+`veritas_vista.js` (~1.346 righe) e `veritas_flussi.js` esistono sia come file
+sia inlinati; in pagina `window.__veritasVista` e `window.__veritasFlussi`
+nascono dal blocco inlinato. **Una modifica fatta solo nel file non arriva mai
+al modello** — il 09/09 e' successo due volte in un'ora.
+✅ In fondo a `veritas_vista.js` c'e' una **guardia** che confronta il testo di
+ogni funzione con la copia viva e lo dichiara all'avvio. Ha parlato al primo
+tentativo, e aveva ragione.
+🟠 **Unificarle si puo' e si deve:** si cancella il blocco da `index.html` e si
+carica il modulo. Costa **19 punti da riscrivere** — `index.html` chiama
+`inquadratura`, `mondoAPixel` e `piantaDelPavimento` per nome nudo. ⛔ **Non si
+fa alla cieca:** se salta uno dei 19 la pianta non si disegna piu' e non se ne
+accorge nessuno fino al modello dopo. Si fa con la pagina viva davanti.
+
+### Il banco, senza abbellimenti
+
+**32 verdi, 10 rosse.** Le dieci — `corpo`, `corpo_collegato`, `marker`,
+`navmesh`, `occhi`, `percorso`, `play`, `riconosce`, `vista`, `zone` — erano
+gia' rosse su `main` prima di qualunque modifica di oggi, e restano da
+**riscrivere, non da riparare**. Le otto verdi nuove sono
+`veritas_missioni.test.mjs`, e tengono ferme le tre cose che la fila indiana
+rompeva: percorsi di mezzo distinti, una tappa per categoria, il piazzale fuori
+dai passeggeri.
 
 ---
 
@@ -109,7 +125,7 @@ senza nessuna modifica. Da riscrivere, non da riparare.
 **Questo blocco esiste perché il documento è lungo 6.400 righe e una chat nuova
 ne legge duecento.** Le sue indicazioni erano scritte, ma sepolte: le ha dovute
 ripetere, e ripeterle le costa gettoni che ha contati. *«tutte le indicazioni
-che do vengono perse»*, 08/09/2026. **Chi arriva legge queste dodici righe
+che do vengono perse»*, 08/09/2026. **Chi arriva legge queste sedici righe
 prima di qualunque altra cosa, e non le rimette ai voti.**
 
 | | detto da Raffaella, e vale |
@@ -124,6 +140,12 @@ prima di qualunque altra cosa, e non le rimette ai voti.**
 | **8** | **Quando ha già deciso, non si rimette ai voti: si costruisce.** Un menù di opzioni su una cosa già detta è tempo e gettoni buttati |
 | **9** | **Si scrive corto.** *«riesco ad afferrare il quarantacinque per cento»*: se serve un glossario per leggere una risposta, la risposta è sbagliata |
 | **10** | **I promemoria non si lasciano a lei**: si scrivono qui. Chi perde la memoria fra una chat e l'altra è chi scrive |
+| **11** | **Un profilo è una missione, non un percorso.** L'agente ha un obiettivo con delle tappe da compiere, e la simulazione serve a dire se ci riesce |
+| **12** | **Pianta, prospetti e sezioni prima; pochi scorci dopo, per conferma.** *«La pianta da sola non basta per le architetture: hai bisogno di una sezione, hai bisogno degli elevati»* |
+| **13** | **Per guardare l'interno bisogna stare bassi, e in prospettiva.** 1,65 m, grandangolo, e il secondo scatto alza gli occhi. Una vista ortogonale dell'interno è una sezione |
+| **14** | **Il numero delle viste lo detta il modello, non l'abitudine.** Si disegna quello che l'occhio guarderà davvero: un disegno che nessuno guarda non è prudenza, è tempo del cliente |
+| **15** | **Chi scrive tiene allineate le due copie**, e non lascia a lei il problema di avere una pagina vecchia |
+| **16** | **L'UOMO È LA SCALA DI TUTTE LE COSE, E DOPO DI LUI SI MUOVE IL RESTO.** Regola imposta come prioritaria, e già persa una volta: il righello umano era stato scritto il 06/09 ma **innestato dentro la correzione che sta in fondo all'analisi**, e così misurava per ultimo. ⛔ Prima di misurare qualunque cosa si guarda quanto sono alte le persone dentro il modello. Rimessa al suo posto il 10/09 (`__veritasRighelloUmano`, chiamato in testa a ogni passata) |
 
 ---
 

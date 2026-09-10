@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-09-l";
+window.__EIDETICA_COSTRUZIONE = "2026-09-10-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5253,6 +5253,67 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-09-l";
     window.__veritasGenerazioneScala = (window.__veritasGenerazioneScala || 0) + 1;
     return window.__veritasScaleModel(scala.fattore, spiegazione);
   }
+
+  // ⛔ L'UOMO E' LA SCALA DI TUTTE LE COSE, E PARLA PER PRIMO.
+  //    Regola di Raffaella, rimessa al suo posto il 10/09/2026.
+  //
+  //    Il righello umano c'era dal 06/09, ma era stato innestato DENTRO
+  //    `veritasAutoScaleModel`, che si chiama da `announceVerdict`, cioe' alla
+  //    FINE dell'analisi. Cosi' la misura dell'uomo — che non ha bisogno di
+  //    niente, sta scritta nelle figure dentro il modello — aspettava una
+  //    misura dell'edificio che aveva bisogno di lei.
+  //    Misurato sul log di Raffaella: il modello entra a 20,2 x 11,3 m, si
+  //    pubblica «4 zone, 83 m2», poi il righello scopre che le persone sono
+  //    alte 32 cm e corregge di 5,272x. Tutto il primo giro va nel cestino —
+  //    motore geometrico, divisione per funzione, riduzione a tappe e
+  //    montaggio delle zone compresi — ed e' una fetta dei minuti che il
+  //    cliente aspetta.
+  //
+  //    ⚠️ E LA GUARDIA DEL 09/09 NON POTEVA ACCORGERSENE. Confronta il
+  //       contatore della scala prima e dopo l'estrazione della nuvola, ma
+  //       l'estrazione e' sincrona e il programma fa una cosa per volta: fra
+  //       le due letture non puo' succedere niente. La correzione non arriva
+  //       DURANTE la misura, arriva DOPO. La guardia era messa nel punto in
+  //       cui il fatto non puo' accadere. Resta dov'e' — non fa danno e copre
+  //       il riscalo chiesto a mano — ma non e' lei a tenere questa regola.
+  //
+  //    Qui l'uomo parla appena il modello e' in scena, prima che chiunque
+  //    misuri. Se le figure ci sono e sono d'accordo fra loro, il modello va
+  //    in scala e la passata riparte da sola sul modello giusto: una volta,
+  //    non due. Se figure umane non ce ne sono non si inventa niente e la
+  //    parola resta alla deduzione dai varchi, dov'era.
+  window.__veritasRighelloUmano = function (radice) {
+    const root = radice || window.__veritasModelRoot;
+    if (!root || typeof window.__veritasScaleModel !== "function") return false;
+    if (!root.userData) root.userData = {};
+    if (root.userData.__veritasAutoScaled) return false;
+    let uomo = null;
+    try { uomo = scalaDalleFigureUmane(root); }
+    catch (e) {
+      console.warn("[VERITAS scala] righello umano non applicabile:", e && e.message);
+      return false;
+    }
+    if (!uomo) return false;
+    console.log("[VERITAS scala] RIGHELLO UMANO, prima di misurare: " + uomo.quante
+      + " persone in piedi, alte " + uomo.mediana + " m (quartili " + uomo.q1
+      + "-" + uomo.q3 + "). Per portarle a " + ALTEZZA_UOMO + " m serve "
+      + uomo.fattore + "x.");
+    if (Math.abs(uomo.fattore - 1) <= 0.05) {
+      console.log("[VERITAS scala] le persone sono gia' alte quanto devono: non tocco niente.");
+      return false;
+    }
+    root.userData.__veritasAutoScaled = true;
+    const spiegazione = "Nel modello ci sono " + uomo.quante + " figure umane in piedi,"
+      + " alte " + uomo.mediana + " m. Le ho portate a " + ALTEZZA_UOMO + " m: modello"
+      + " ingrandito " + uomo.fattore + " volte PRIMA di misurare qualunque cosa."
+      + " Se il fattore non ti torna, scrivi \"scala modello <n>\" — tu la scala di"
+      + " questo spazio la riconosci meglio di qualunque regola.";
+    window.__veritasCorrezioneApplicata = "scala " + uomo.fattore + "x";
+    // Stesso segnaposto di `veritasAutoScaleModel`: chi stesse misurando sa
+    // che il modello di prima non esiste piu'.
+    window.__veritasGenerazioneScala = (window.__veritasGenerazioneScala || 0) + 1;
+    return window.__veritasScaleModel(uomo.fattore, spiegazione);
+  };
 
   // Il modello e' in metri? Detto dall'architettura, non dall'ingombro.
   //
@@ -14320,6 +14381,21 @@ window.__veritasSequenzaConclusa = function () {
     }
     if (orig.__veritasSequenziata) return;
     const avvolta = function (radice) {
+      // ⛔ L'UOMO E' LA SCALA DI TUTTE LE COSE, E VIENE PRIMA DI OGNI MISURA.
+      //    Regola di Raffaella. Questo e' il punto da cui ogni passata riparte,
+      //    qualunque strada abbia preso il modello per arrivare in scena — un
+      //    GLB caricato a mano, un progetto ripreso dal deposito, un riscalo
+      //    chiesto in chat — e quindi e' l'unico posto in cui la regola vale
+      //    per tutti.
+      //    Se il righello corregge, e' il riscalo stesso a richiamare questa
+      //    funzione sul modello giusto: questa passata si ferma qui, e non ne
+      //    parte una sbagliata da buttare. Alla seconda chiamata il righello
+      //    trova il modello gia' segnato e lascia andare avanti la misura.
+      try {
+        if (window.__veritasRighelloUmano && window.__veritasRighelloUmano(radice)) return;
+      } catch (e) {
+        console.warn("[VERITAS scala] il righello umano non ha potuto parlare:", e && e.message);
+      }
       const seq = window.__veritasSequenza;
       if (seq && seq.fase === "attesa" && typeof window.__veritasModelloEntrato === "function")
         window.__veritasModelloEntrato((radice && radice.name) || "spazio caricato");
