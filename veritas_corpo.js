@@ -863,6 +863,76 @@ export function filtraFrames(scena, frames, opz = {}) {
 
 let SCENA = null;       // il mondo fisico del modello caricato
 let ULTIMO = null;      // l'esito dell'ultimo filtraggio
+let RADICE_ULTIMA = null; // da cosa e' stato costruito, per poterlo rifare
+let OPZ_ULTIME = null;
+
+// ⛔ IL MONDO FISICO MUORE SOTTO LE MANI, E NON LO DICE — 10/09/2026.
+//
+//    `preparaDaScena` e' agganciata a `__veritasOnModelLoaded`, cioe' gira a
+//    OGNI passata. Ogni giro costruiva un mondo nuovo da 186.074 triangoli e
+//    abbandonava il precedente senza restituirlo. La libreria fisica vive in
+//    un'area di memoria che CRESCE quando le si chiede altro spazio, e quando
+//    cresce i mondi gia' costruiti perdono l'aggancio a quella memoria: da
+//    quel momento ogni domanda risponde `memory access out of bounds`.
+//
+//    MISURATO SULLA PAGINA VIVA il 10/09, modello dell'aeroporto: la scena in
+//    uso falliva OGNI interrogazione — al centro dell'edificio come sul punto
+//    dove nasceva l'agente — mentre lo stesso identico modello, ricostruito in
+//    quell'istante, rispondeva a tre domande su tre. Il collisore c'era (1
+//    corpo, 1 collisore) e la geometria era pulita (186.074 triangoli, zero
+//    valori non finiti, zero indici fuori limite): era la memoria sotto di lui
+//    a essere cambiata.
+//
+//    Conseguenza per chi guarda: il corpo non veniva MAI applicato, quindi
+//    nessuno aveva un corpo che gli impedisse di attraversare un aereo, e la
+//    gente scivolava invece di camminare.
+//    ⛔ E la diagnosi vecchia — «viene dalla scala sbagliata, gli agenti alti
+//       1,70 m nascono dentro i muri», scritta il 06/09 — E' SMENTITA: il
+//       10/09 la scala e' giusta e la trappola scatta lo stesso.
+
+/** Restituisce alla libreria la memoria di un mondo che non serve piu'.
+ *  Silenzioso di proposito: se la libreria non espone `free` non e' un guasto,
+ *  e un errore qui non deve impedire di costruire quello nuovo. */
+function buttaMondo(scena) {
+  if (!scena) return;
+  try {
+    if (scena.__forme && scena.__forme.forEach) {
+      scena.__forme.forEach(function (f) { try { if (f && f.free) f.free(); } catch (e) {} });
+      scena.__forme.clear();
+    }
+  } catch (e) {}
+  try { if (scena.controller && scena.controller.free) scena.controller.free(); } catch (e) {}
+  try { if (scena.world && scena.world.free) scena.world.free(); } catch (e) {}
+}
+
+/** Il mondo risponde ancora? Una domanda sola, la piu' economica che ci sia:
+ *  un raggio lungo un metro al centro dell'ingombro. Se esplode questa
+ *  esploderanno tutte, e allora e' la scena a essere morta — non il punto a
+ *  essere sbagliato. */
+function mondoRisponde(scena) {
+  if (!scena || !scena.world || !scena.RAPIER) return false;
+  try {
+    const i = scena.ingombro;
+    const c = (i && i.min && i.max)
+      ? { x: (i.min[0] + i.max[0]) / 2, y: (i.min[1] + i.max[1]) / 2, z: (i.min[2] + i.max[2]) / 2 }
+      : { x: 0, y: 0, z: 0 };
+    scena.world.intersectionsWithRay(new scena.RAPIER.Ray(c, { x: 0, y: 1, z: 0 }), 1, false,
+                                     function () { return false; });
+    return true;
+  } catch (e) { return false; }
+}
+
+/** Rifa' il mondo fisico dallo stesso modello. Torna `true` solo se quello
+ *  nuovo risponde davvero: dire «rifatto» senza averlo provato sarebbe la
+ *  stessa bugia di prima. */
+async function rifaiMondo(opz) {
+  const THREE = (typeof window !== 'undefined' && window.THREE) || null;
+  const radice = RADICE_ULTIMA
+    || (typeof window !== 'undefined' && window.__veritasModelRoot) || null;
+  if (!THREE || !radice) return false;
+  const r = await preparaDaScena(THREE, radice, opz || OPZ_ULTIME || {});
+  return !!(r && r.ok && mondoRisponde(SCENA));
+}
 
 /**
  * Costruisce (una volta) il mondo fisico dal modello in scena.
@@ -873,8 +943,15 @@ let ULTIMO = null;      // l'esito dell'ultimo filtraggio
  * una seconda estrazione che poi divergerebbe.
  */
 export async function preparaDaScena(THREE, radice, opz = {}) {
+  // Il mondo precedente si restituisce alla libreria PRIMA di chiederne un
+  // altro. Vedi il blocco «IL MONDO FISICO MUORE SOTTO LE MANI»: e' la ragione
+  // per cui il corpo non veniva mai applicato.
+  buttaMondo(SCENA);
   SCENA = null;
   if (!THREE || !radice) return { ok: false, perche: 'manca three o il modello' };
+  // Da cosa e' fatto: serve per rifarlo se muore mentre aspetta di servire.
+  RADICE_ULTIMA = radice;
+  OPZ_ULTIME = opz;
   const nav = (typeof window !== 'undefined' && window.__veritasNavmesh) || null;
   if (!nav || typeof nav.geometriaDaModello !== 'function') {
     return { ok: false, perche: 'veritas_navmesh non e in pagina: la geometria si legge da li' };
@@ -919,6 +996,23 @@ export async function filtraTraiettoria(traiettoria, opz = {}) {
   if (!SCENA) {
     ULTIMO = { ok: false, perche: 'nessun mondo fisico: modello non ancora preparato' };
     return traiettoria;
+  }
+  // ⚠️ Prima di fidarsi, una domanda di prova: il mondo puo' essere morto
+  //    mentre aspettava di servire (§ «IL MONDO FISICO MUORE SOTTO LE MANI»).
+  //    Se non risponde si rifa' e si riprova UNA volta, e in ogni caso si dice
+  //    cosa e' successo: un corpo che non viene applicato in silenzio e' il
+  //    difetto che e' costato le settimane in cui la gente scivolava.
+  if (!mondoRisponde(SCENA)) {
+    try {
+      console.warn('[VERITAS corpo] il mondo fisico non risponde piu (la memoria '
+        + 'della libreria e cresciuta sotto di lui): lo rifaccio e riprovo.');
+    } catch (e) {}
+    const rifatto = await rifaiMondo(opz);
+    if (!rifatto) {
+      ULTIMO = { ok: false, perche: 'il mondo fisico non risponde e non si e potuto rifare' };
+      return traiettoria;
+    }
+    try { console.log('[VERITAS corpo] mondo fisico rifatto e vivo: il corpo si applica.'); } catch (e) {}
   }
   let esito;
   try {
