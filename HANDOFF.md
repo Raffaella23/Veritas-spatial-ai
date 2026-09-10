@@ -4,6 +4,66 @@
 
 ---
 
+## ✅ CHIUSURA DELL'11/09/2026 — L'INGRESSO DA FUORI: L'ANELLO C'È, MANCA CHI PARLA
+
+**Costruzione in pagina: `2026-09-11-a`.**
+
+### Che cosa è stato riparato, e ogni riga è misurata sulla pagina viva
+
+| | com'era | com'è |
+|---|---|---|
+| **il «da fuori»** | aveva **una sola strada** per arrivare a un ingresso: nascere dentro un indizio della voce «gli oggetti in fila», l'unica che chiamava `ariaApertaVista`. **Nessuno chiedeva mai all'occhio «e qui, sull'INGRESSO, cosa vedi?»** | si chiede **sull'ingresso**, dopo l'appoggio sul calpestabile. Provato sulla pagina viva: con una testimonianza d'area sull'Accesso 3 → *«DA FUORI — l'occhio, proprio qui, ci ha visto cielo, che al chiuso non ci sta (lo dice di quest'AREA, non di questo punto)»*; senza occhio, **tutti e tre invariati** |
+| **il marchio non contava** | `missioni()` distribuisce con `entrate[i % entrate.length]` e la lista era nell'ordine in cui le entrate erano nate: prima la tappa chiamata «origine», che su questo modello è il piazzale fra i due aerei | **chi si entra dal fuori va in testa.** Se nessuno è da fuori l'ordine resta identico a ieri |
+| **il marchio moriva sulla soglia** | un accesso entro 8 m da una tappa d'ingresso veniva scartato **intero**, e con lui l'unica cosa che nessun'altra voce sa | l'accesso non raddoppia la tappa, ma le **passa** il «da fuori» |
+| **il referto** | «3 accessi · 0 marcati da fuori» — un numero solo | **una riga per ingresso**, e chi non è da fuori dice perché |
+
+7 prove nuove in `veritas_ingressodafuori.test.mjs`, due delle quali sono guardie:
+«se l'occhio non ha guardato non cambia niente» e «senza nessun ingresso da
+fuori l'ordine resta quello di ieri». La quarta è l'agnosticità: un **cortile di
+scuola** risponde come una pista.
+
+### 🔴 IL LAVORO NUMERO UNO DELLA PROSSIMA SESSIONE — L'OCCHIO NON CONSEGNA AREE
+
+Sulla pagina viva dell'11/09, giro completo, misurato:
+
+```
+[VERITAS occhio] ha guardato per primo 6 viste col vocabolario intero — testimonianze da 3 scorci
+[VERITAS occhio] nessuna testimonianza legata a una regione: o non ci sono stati
+                 primi piani, o quello che hanno visto non porta nessuna conseguenza.
+                 Il fronte strada resta senza voce.
+```
+
+**L'occhio ha visto le parole giuste** — `a sky`, `a land`, `an airplane`, `a jet
+bridge` — e tutte portano `ariaAperta`. Ma i tre primi piani erano **tutti e tre
+SEZIONI** (`primo piano: SEZIONE longitudinale`, `SEZIONE trasversale`), e in
+`veritas_comprensione.js` una vista senza `scorci[i].regione` non produce nessuna
+testimonianza d'area: `const regione = scorci[i].regione || null; if (regione) {…}`.
+**Una sezione non porta con sé un rettangolo di mondo, quindi le sue parole non
+hanno un posto** — e il pezzo riparato oggi non ha niente su cui mordere.
+
+⚠️ **E NON È IL PEZZO DI OGGI CHE NON FUNZIONA: è a monte.** Il 10/09 l'occhio
+aveva consegnato **un'area sola**; l'11/09 **zero**. La domanda della prossima
+sessione è una e precisa: **una sezione sa da quale striscia di mondo è stata
+tagliata — perché non se la porta dietro?**
+
+### ⛔ LA TERZA TRAPPOLA SILENZIOSA DEL BANCO
+
+Dopo `.nojekyll` e la scheda in secondo piano, la terza: **il browser tiene in
+cache i moduli**. La pagina dichiarava `2026-09-11-a` — perché `index.html` ha il
+suo `?fresco=` — e girava col `veritas_accessi.js` **vecchio**: il server aveva
+quello nuovo, Chrome no. Sintomo: la prova sul vivo falliva e il codice era
+giusto. Si smaschera in una riga, e da oggi si fa **prima** di misurare:
+
+```js
+String(window.__veritasAccessiModulo.uniscoVoci).indexOf('nomeDelPezzoNuovo')
+```
+
+Se dà `-1`, si rinfresca (`fetch(file,{cache:'reload'})` su ogni modulo toccato)
+e si ricarica. ⚠️ Il numero di costruzione **non** garantisce i moduli: dice solo
+che `index.html` è nuovo.
+
+---
+
 ## ✅ CHIUSURA DEL 10/09/2026 — TRE COSE SOTTO IL PAVIMENTO, E DUE CHE NON SI VEDONO
 
 **Costruzione in pagina: `2026-09-10-c`.** Se la prima riga del log dice un
@@ -50,9 +110,12 @@ ancora così. Le due cause sono misurate e stanno nella lista qui sotto:
 - **è una fila** perché restano vive 2-5 missioni, e i dieci «profili» mandati
   al motore non sono dieci mestieri: sono **dieci corsie affiancate a 1,20 m che
   dopo il primo passo percorrono lo stesso identico tragitto**;
-- **parte fra gli aerei** perché dei tre ingressi trovati **nessuno è marcato
-  «da fuori»**: senza un fuori il viaggio comincia nel pezzo di calpestabile più
-  grosso, che su questo modello sta in mezzo agli aerei;
+- ✅ **parte fra gli aerei — MEZZO CHIUSO L'11/09.** Il pezzo che mancava era che
+  *nessuno chiedeva all'occhio cosa si vede SULL'INGRESSO*: adesso lo si chiede,
+  e chi si entra dal fuori parte per primo. 🔴 **Resta aperto a monte:** l'occhio
+  non consegna nessuna testimonianza d'area, perché i suoi primi piani sono
+  sezioni e una sezione non porta un rettangolo di mondo. Vedi la chiusura
+  dell'11/09 in cima;
 - e sotto a tutti e due: **lo spazio dove si cammina è in 30 pezzi separati**,
   1.865 m² sui 3.364 misurati. Da un ingresso non si raggiunge quasi niente.
 
