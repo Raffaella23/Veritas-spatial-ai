@@ -8,6 +8,16 @@
 
 **Costruzione in pagina: `2026-09-11-a`.**
 
+🔗 **LA PAGINA VIVA — l'ultima versione pubblicata sta qui:**
+### → https://raffaella23.github.io/Veritas-spatial-ai/
+
+⚠️ **Prima di misurarci sopra, due controlli, in quest'ordine.**
+1. **La costruzione è quella giusta?**
+   `curl -s "https://raffaella23.github.io/Veritas-spatial-ai/?cb=$(date +%s)" | grep -m1 -o '__EIDETICA_COSTRUZIONE = "[^"]*"'`
+   Se non combacia col numero qui sopra, la pagina viva non ha il lavoro spinto.
+2. **E i MODULI sono quelli giusti?** Il numero di costruzione garantisce solo
+   `index.html`. Vedi la terza trappola, in fondo a questa sezione.
+
 ### Che cosa è stato riparato, e ogni riga è misurata sulla pagina viva
 
 | | com'era | com'è |
