@@ -1018,8 +1018,33 @@ export async function filtraTraiettoria(traiettoria, opz = {}) {
   try {
     esito = filtraFrames(SCENA, traiettoria.frames, opz);
   } catch (e) {
-    ULTIMO = { ok: false, perche: 'errore nel motore fisico (' + ((e && e.message) || e) + ')' };
-    return traiettoria;
+    // ⚠️ UN SOLO SECONDO TENTATIVO, SU UN MONDO APPENA COSTRUITO — 10/09/2026.
+    //    Misurato sulla pagina viva: sul mondo che gira da qualche passata la
+    //    nascita di un corpo risponde «recursive use of an object detected
+    //    which would lead to unsafe aliasing in rust», mentre la STESSA
+    //    identica sequenza — `nascitaLibera`, `aggiungiCorpo`, `world.step`,
+    //    `passo` — su un mondo costruito in quell'istante passa tutta, e passa
+    //    anche mettendoci davanti la domanda di prova. Non e' il punto dove
+    //    nasce l'agente e non e' il corpo: e' il mondo che ha smesso di
+    //    prestarsi. Rifarlo costa ~150 ms da quando il vecchio viene
+    //    restituito; un corpo che non si applica costa una simulazione intera,
+    //    e sono le settimane in cui la gente e' scivolata invece di camminare.
+    const primoErrore = (e && e.message) || e;
+    const rifatto = await rifaiMondo(opz);
+    if (!rifatto) {
+      ULTIMO = { ok: false, perche: 'errore nel motore fisico (' + primoErrore + ') e il mondo non si e potuto rifare' };
+      return traiettoria;
+    }
+    try {
+      esito = filtraFrames(SCENA, traiettoria.frames, opz);
+      try {
+        console.log('[VERITAS corpo] il mondo si era inceppato (' + primoErrore
+          + '): rifatto, e questa volta il corpo si applica.');
+      } catch (ee) {}
+    } catch (e2) {
+      ULTIMO = { ok: false, perche: 'errore nel motore fisico anche sul mondo nuovo (' + ((e2 && e2.message) || e2) + ')' };
+      return traiettoria;
+    }
   }
   ULTIMO = esito;
   if (!esito.ok) return traiettoria;
