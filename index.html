@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-10-c";
+window.__EIDETICA_COSTRUZIONE = "2026-09-11-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -21581,14 +21581,29 @@ function costruisciFlussi(nodi, opz = {}) {
     if (!a || !a.centro) continue;
     // Se una tappa di ingresso sta gia' li', l'accesso non ne aggiunge una
     // seconda: sarebbe lo stesso ingresso contato due volte.
-    const gia = entrate.some((n) => Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
+    // ⚠️ MA IL «DA FUORI» PASSA LO STESSO. Prima l'accesso veniva scartato
+    //    intero, e con lui l'unica cosa che nessun'altra voce sa: che da li' si
+    //    entra dall'aperto. La tappa che stava li' se lo teneva per se' e il
+    //    viaggio ripartiva da dentro. Non e' un ingresso in piu': e' lo stesso
+    //    ingresso, che adesso dice da che parte guarda.
+    const stesso = entrate.find((n) => Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
       < (opz.stessoIngressoM || 8));
-    if (gia) continue;
+    if (stesso) { if (a.fuori) { stesso.fuori = true; stesso.percheFuori = a.percheFuori; } continue; }
     entrate.push({
       label: a.nome || 'Accesso', type: 'origine', origine: 'accesso',
       pos: a.centro.slice(), larghezza: a.larghezza,
+      fuori: !!a.fuori, percheFuori: a.percheFuori,
     });
   }
+
+  // ⚠️ SI ENTRA DA FUORI, E QUINDI SI PARTE DA FUORI.
+  //    Le entrate erano nell'ordine in cui erano nate: prima le tappe che il
+  //    cervello aveva chiamato «origine», poi gli accessi misurati. Su questo
+  //    modello la prima e' il pezzo di calpestabile piu' grosso, che sta in
+  //    mezzo ai due aerei — ed e' da li' che partiva tutto. Un ingresso dal
+  //    fuori, quando c'e', viene prima: non e' una preferenza, e' cosa vuol
+  //    dire entrare. Se non ce n'e' nessuno, l'ordine resta quello di prima.
+  entrate.sort((x, y) => (y.fuori ? 1 : 0) - (x.fuori ? 1 : 0));
 
   // Nessun ingresso dichiarato e nessun accesso misurato: se ne elegge uno, la
   // tappa piu' lontana dalle uscite. E' la definizione operativa di «da che
@@ -21816,14 +21831,35 @@ function missioni(nodi, opz = {}) {
     && window.__veritasAccessi && window.__veritasAccessi.accessi) || [];
   for (const a of accessi) {
     if (!a || !a.centro) continue;
-    const gia = entrate.some((n) =>
+    // ⚠️ Stessa regola di `costruisciFlussi`: l'accesso non raddoppia una tappa
+    //    che sta gia' li', ma il «da fuori» le passa addosso invece di morire.
+    const stesso = entrate.find((n) =>
       Math.hypot(n.pos[0] - a.centro[0], n.pos[2] - a.centro[2])
         < (opz.stessoIngressoM || 8));
-    if (gia) continue;
+    if (stesso) { if (a.fuori) { stesso.fuori = true; stesso.percheFuori = a.percheFuori; } continue; }
     entrate.push({ label: a.nome || 'Accesso', type: 'origine', origine: 'accesso',
-                   pos: a.centro.slice(), larghezza: a.larghezza });
+                   pos: a.centro.slice(), larghezza: a.larghezza,
+                   fuori: !!a.fuori, percheFuori: a.percheFuori });
   }
   if (!entrate.length) return [];
+
+  /*
+   * ⚠️ UNA MISSIONE COMINCIA DA FUORI — Raffaella, 11/09: *«dei tre accessi che
+   *    il programma trova, nessuno e' marcato da fuori. Senza un fuori il
+   *    viaggio comincia nel pezzo di pavimento piu' grosso che si raggiunge a
+   *    piedi — che su questo modello sta in mezzo ai due aerei»*.
+   *
+   * Le missioni si distribuiscono in giro con `entrate[i % entrate.length]`:
+   * chi sta in testa alla lista fa piu' missioni di chi sta in coda, e la lista
+   * era nell'ordine in cui le entrate erano nate. Chi si entra dall'aperto va
+   * in testa. Non e' un peso inventato: e' la differenza fra una porta e una
+   * soglia interna, ed e' l'unica che decide dove nasce un passeggero.
+   *
+   * ⚠️ E se nessuno e' da fuori non cambia NIENTE: l'ordine resta quello di
+   *    prima, e il comportamento e' identico a ieri. Un difetto di vista non
+   *    deve diventare un difetto di percorso.
+   */
+  entrate.sort((x, y) => (y.fuori ? 1 : 0) - (x.fuori ? 1 : 0));
 
   // Chi si raggiunge a piedi da chi: si chiede una volta sola, e da qui in
   // avanti nessuna missione puo' contenere una tappa dove non ci si arriva.

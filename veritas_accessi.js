@@ -747,15 +747,56 @@ export function uniscoVoci(voci, nm, opz = {}) {
     if (q && q.ok) centro = q.punto;
     let larghezza = 0;
     for (const m of membri) if (m.larghezza > larghezza) larghezza = m.larghezza;
+
+    /*
+     * ⚠️ SI CHIEDE ALL'OCCHIO QUI, SULL'INGRESSO — ed e' la meta' che mancava.
+     *
+     * Fino al 10/09 il «da fuori» aveva UNA sola strada per arrivare: nascere
+     * dentro un indizio della voce «gli oggetti in fila» (`voceOggetti`), che
+     * legge `ariaApertaVista` sul centro di un gruppo di cose ferme. Fuori di
+     * li' nessuno chiedeva piu' niente. Misurato l'11/09 sulla pagina viva:
+     * l'occhio dice «qui si e' all'aperto» **una volta sola, e da un'AREA**;
+     * quell'area non conteneva nessuna fila di cose ferme, e quindi la
+     * testimonianza non toccava nessun ingresso: **3 accessi, 0 marcati da
+     * fuori**.
+     *
+     * ⚠️ E LA CONSEGUENZA NON ERA UN'ETICHETTA MANCANTE, era il viaggio: senza
+     *    un ingresso dal fuori la simulazione parte dal pezzo di calpestabile
+     *    piu' grosso, che su questo modello sta in mezzo ai due aerei. E' la
+     *    fila unica che Raffaella vede nascere fra gli aerei.
+     *
+     * ⚠️ NESSUNA MISURA NUOVA, NESSUNA SOGLIA: la stessa funzione, la stessa
+     *    testimonianza, chiesta nel posto giusto. Un ingresso e' «da fuori» se
+     *    l'occhio, DOVE STA L'INGRESSO, ha visto qualcosa che al chiuso non ci
+     *    sta. Un punto dice DOVE, un'area dice IN QUALE AREA, e per questa
+     *    domanda l'area basta: «da qui si entra dall'aperto» e' vero di tutta
+     *    l'area, non di un pixel. La Regola 0 vieta di ricavare una posizione
+     *    da uno scorcio, non di stare dentro un rettangolo gia' misurato.
+     *
+     * ⚠️ E si chiede DOPO l'appoggio sul calpestabile (`q.punto`), non prima:
+     *    l'ingresso e' dove si mette il piede, ed e' quel punto che dev'essere
+     *    all'aperto — non la media degli indizi, che puo' cadere su un muro.
+     */
+    const apertoQui = ariaApertaVista(centro, opz);
+    const daOggetti = membri.some((m) => m.fuori);
     const a = {
       centro, voci: nomi, affidabilita: nomi.length,
       fiducia: vive.length ? nomi.length / vive.length : 0,
       indizi: membri.length, larghezza: larghezza || undefined,
       sulCammino: !!(q && q.ok),
-      // Da qui si arriva dal FUORI: fra gli indizi c'e' un posto dove le cose
-      // grandi si fermano in fila regolare. Non e' un voto in piu' — e' quello
-      // che distingue un ingresso dalla strada da una soglia interna.
-      fuori: membri.some((m) => m.fuori),
+      // Da qui si arriva dal FUORI, e ci sono due strade per saperlo: l'occhio
+      // che lo dice qui sopra, oppure un posto dove le cose grandi si fermano
+      // in fila regolare. Non e' un voto in piu' — e' quello che distingue un
+      // ingresso dalla strada da una soglia interna.
+      fuori: !!apertoQui || daOggetti,
+      percheFuori: apertoQui
+        ? ("l'occhio, proprio qui, ci ha visto " + apertoQui.parola
+           + (apertoQui.forza === 'sempre' ? ', che al chiuso non ci sta'
+                                           : ', che al chiuso ci sta solo in vetrina')
+           + (apertoQui.da === 'regione' ? " (lo dice di quest'AREA, non di questo punto)"
+                                         : ' (a ' + apertoQui.distanza + ' m)'))
+        : (daOggetti ? 'qui accanto le cose grandi si fermano in fila regolare' : null),
+      fuoriDa: apertoQui ? ('occhio/' + apertoQui.da) : (daOggetti ? 'oggetti in fila' : null),
     };
     if (nomi.length < minime) {
       a.perche = 'una voce sola (' + nomi.join(', ') + '): puo\' essere una meta, non un ingresso';
@@ -989,6 +1030,14 @@ if (typeof window !== 'undefined') {
         for (const v of r.voci || [])
           console.log('[VERITAS accessi] voce «' + v.nome + '»: '
             + (v.cieca ? 'MUTA — ' + v.perche : v.punti + ' posti proposti'));
+        // ⚠️ IL «DA FUORI» SI DICHIARA UNO PER UNO, e chi NON lo e' dice perche'.
+        //    Un conto solo («3 accessi · 0 da fuori») non dice se l'occhio non
+        //    ha guardato, se ha guardato altrove, o se ha guardato qui e ha
+        //    detto di no: sono tre guasti diversi con lo stesso numero davanti.
+        for (const a of r.accessi || [])
+          console.log('[VERITAS accessi] ' + a.nome + ': '
+            + (a.fuori ? 'DA FUORI — ' + a.percheFuori
+                       : 'non da fuori — qui l\'occhio non ha visto niente che al chiuso non ci stia'));
         if (r.senzaCammino)
           console.log('[VERITAS accessi] ' + r.senzaCammino
             + ' posti buttati perche\' da li\' non si entra: tetti o lastre staccate');
