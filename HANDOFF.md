@@ -4,6 +4,67 @@
 
 ---
 
+## ✅ CHIUSURA DEL 10/09/2026 — TRE COSE SOTTO IL PAVIMENTO, E DUE CHE NON SI VEDONO
+
+**Costruzione in pagina: `2026-09-10-c`.** Se la prima riga del log dice un
+numero più basso, quella scheda è vecchia: si chiude, non si legge.
+
+### ⛔ SI COMINCIA CERCANDO SE LA RISPOSTA C'È GIÀ, E OGGI C'ERA TRE VOLTE SU SEI
+
+Raffaella, 10/09: *«ho rilevato una tendenza a ripetere i task dovuta al fatto
+che dell'HANDOFF leggi solo una parte, ed io perdo tempo e soldi. Assicurati
+prima che non ci siano risposte già date, e poi in ordine gerarchico
+affrontali.»* Fatto il giro su tutte e sei le voci aperte: **tre avevano già una
+risposta scritta in questo documento**, e una era stata data per aperta mentre
+era chiusa da nove giorni. Vale come regola, non come episodio.
+
+### Che cosa è stato riparato, in ordine, e ogni riga è misurata sulla pagina viva
+
+| | com'era | com'è |
+|---|---|---|
+| **il righello umano** | l'uomo si misurava **in fondo** all'analisi, innestato dentro `veritasAutoScaleModel`: un giro intero su un modello grande un quinto, poi buttato | **parla per primo.** `20,2 × 11,3` → «97 persone alte 0,322 m → 5,272x» → `106,4 × 59,4` → «9 zone, 3363,57 m²». **Una misura sola, in tre secondi** |
+| **il mondo fisico** | ricostruito a ogni passata e mai restituito: la memoria della libreria cresceva e i mondi vecchi morivano. **Il corpo non veniva MAI applicato** | `buttaMondo()` prima, `mondoRisponde()` come prova, e **se si inceppa si rifà e si riprova una volta**. Misurato: *«mondo rifatto e vivo: il corpo si applica»* → **28 corpi, 21.949 passi, scostamento mediano 0 m** |
+| **la pubblicazione** | **ferma da tre ore** su una costruzione vecchia, senza dirlo a nessuno: Jekyll stava in mezzo a ogni spinta | `.nojekyll`. Pubblicata in **15 secondi**, e poi in 40 |
+| **il mondo fisico, i tempi** | 1053 ms a costruzione, quattro per passata | **178 ms**, perché non se ne accumulano più |
+
+### ⛔ DUE COSE SCOPERTE STRADA FACENDO, E VALGONO PIÙ DI UNA RIPARAZIONE
+
+**A. LA PAGINA IN SECONDO PIANO NON LAVORA.** Con la scheda nascosta
+`document.visibilityState` è `hidden`, Chrome sospende il disegno, e tutto il
+giro di EIDETICA è appeso a quello: **zero tele 3D, nessuna scena, nessuna
+analisi — e nessun messaggio che lo dica.** Sette minuti di attesa in cui il
+cliente cambia scheda sono sette minuti in cui non succede niente. È metà del
+punto 7 e metà del punto 8.
+
+**B. UNA DIAGNOSI SCRITTA IN QUESTO DOCUMENTO ERA FALSA.** Il 06/09 la trappola
+del motore fisico era stata attribuita alla scala sbagliata («agenti alti 1,70 m
+che nascono dentro i muri»). Non era quello: con la scala giusta la trappola
+scattava identica. ⚠️ **Una diagnosi non verificata, lasciata in un documento
+che si legge come vero, costa più del difetto che descrive.**
+
+### 🔴 QUELLO CHE RAFFAELLA HA VISTO E CHE OGGI NON È STATO TOCCATO
+
+*«Mi appariva una fila unica che partiva in mezzo ai due aerei.»* È vero, ed è
+ancora così. Le due cause sono misurate e stanno nella lista qui sotto:
+
+- **è una fila** perché restano vive 2-5 missioni, e i dieci «profili» mandati
+  al motore non sono dieci mestieri: sono **dieci corsie affiancate a 1,20 m che
+  dopo il primo passo percorrono lo stesso identico tragitto**;
+- **parte fra gli aerei** perché dei tre ingressi trovati **nessuno è marcato
+  «da fuori»**: senza un fuori il viaggio comincia nel pezzo di calpestabile più
+  grosso, che su questo modello sta in mezzo agli aerei;
+- e sotto a tutti e due: **lo spazio dove si cammina è in 30 pezzi separati**,
+  1.865 m² sui 3.364 misurati. Da un ingresso non si raggiunge quasi niente.
+
+### 🟠 IL RESIDUO ONESTO
+
+**1.907 posizioni su 21.949 stanno ancora dentro un solido** (l'8,7%). Non è più
+«nessuno ha un corpo»: è «nove su dieci camminano davvero». E la pagella dice
+ancora **0 su 28**, con tutti che «si fermano prima di *origine*» — un nome
+scritto in minuscolo, che ha la faccia di una categoria usata come posto.
+
+---
+
 ## ✅ CHIUSURA DEL 09/09/2026 — LA GIORNATA IN CUI LA CATENA SI E' CHIUSA
 
 **Costruzione in pagina: `2026-09-10-a`.** Da oggi la pagina dichiara la propria
@@ -77,11 +138,12 @@ nessuno. Adesso, se non combacia nessuno, dice *«non posso giudicare»*.
 | | | |
 |---|---|---|
 | **1** | **il piazzale e' contato come pavimento** | 3.364 m² calpestabili contro 81,2 × 31,7 m di costruito. E' da li' che nascono le tappe fra i due aerei. ⛔ **Il piede non lo esclude** (a terra ci si arriva) e **il tetto nemmeno**: su un modello *spaccato* — 3 campioni coperti su 840 — chiedere un soffitto cancellerebbe anche il piano superiore. Puo' darlo **solo la testimonianza dell'occhio** («qui si e' all'aperto», `CALPESTIO_DI` / `ariaAperta`). ⛔ **NON È DA COSTRUIRE — c'è già dal 07/09** (20 parole, 32 prove verdi) e questo documento lo dichiarava «scritto, provato al banco, **non visto scattare**». Misurato sul vivo l'08/09: gli ambienti si muovono (9→10, varchi 6→9), **i metri quadri no** (3.364 prima e dopo), e il referto dice *«0 ambienti tolti perché ci passano i mezzi (0 m²)»*. 🔴 **La domanda vera è una sola: perché l'occhio non attribuisce mai «qui passano i mezzi» a un ambiente PRECISO.** Non si riscrive il filtro |
-| **2** | 🟠 **il motore fisico andava in trappola — RIPARATO IL 10/09, da vedere sul vivo** | `unreachable` / `memory access out of bounds` alla ricerca del punto libero, a ogni traiettoria: i corpi non venivano applicati e la gente scivolava invece di camminare. ⛔ **LA DIAGNOSI DEL 06/09 ERA SBAGLIATA** — non erano «agenti alti 1,70 m che nascono dentro i muri in un modello scalato male»: il 10/09, con la scala giusta, la trappola scattava identica. **Interrogando la scena viva dalla console: falliva OGNI domanda, anche al centro dell'edificio**, mentre un mondo di due triangoli lì accanto rispondeva e la STESSA geometria ricostruita in quell'istante rispondeva a tre domande su tre. Geometria pulita (186.074 triangoli, zero valori non finiti, zero indici fuori limite), collisore presente: il mondo era **morto**. Causa: `preparaDaScena` è agganciata a `__veritasOnModelLoaded`, gira a ogni passata, costruiva un mondo nuovo da 186.074 triangoli e **abbandonava il precedente**; la memoria della libreria cresce e i mondi già fatti perdono l'aggancio. Ora `buttaMondo()` lo restituisce prima, e `mondoRisponde()` fa una domanda di prova in testa a `filtraTraiettoria` e rifà il mondo una volta se è morto |
+| **2** | ✅ **il motore fisico — CHIUSO IL 10/09 E VISTO SUL VIVO: «28 corpi, 21.949 passi»** *(residuo: 1.907 posizioni dentro un solido, l'8,7% — è il prossimo scalino)* | `unreachable` / `memory access out of bounds` alla ricerca del punto libero, a ogni traiettoria: i corpi non venivano applicati e la gente scivolava invece di camminare. ⛔ **LA DIAGNOSI DEL 06/09 ERA SBAGLIATA** — non erano «agenti alti 1,70 m che nascono dentro i muri in un modello scalato male»: il 10/09, con la scala giusta, la trappola scattava identica. **Interrogando la scena viva dalla console: falliva OGNI domanda, anche al centro dell'edificio**, mentre un mondo di due triangoli lì accanto rispondeva e la STESSA geometria ricostruita in quell'istante rispondeva a tre domande su tre. Geometria pulita (186.074 triangoli, zero valori non finiti, zero indici fuori limite), collisore presente: il mondo era **morto**. Causa: `preparaDaScena` è agganciata a `__veritasOnModelLoaded`, gira a ogni passata, costruiva un mondo nuovo da 186.074 triangoli e **abbandonava il precedente**; la memoria della libreria cresce e i mondi già fatti perdono l'aggancio. Ora `buttaMondo()` lo restituisce prima, e `mondoRisponde()` fa una domanda di prova in testa a `filtraTraiettoria` e rifà il mondo una volta se è morto |
 | **3** | ✅ **il giro a scala sbagliata — CHIUSO IL 10/09, e VISTO SUL VIVO** | *(prova, costruzione `2026-09-10-a`, ore 12:57:24-27: «dimensioni 20,2 × 11,3» → «RIGHELLO UMANO, prima di misurare: 97 persone alte 0,322 m → 5,272x» → «dimensioni 106,4 × 59,4» → «analisi: 9 zone, 3363,57 m²». **Una misura sola, e quella giusta, in tre secondi.** Il giro sbagliato — 4 zone, 83 m², 36 campi di funzione, 7 tappe fatte e buttate — non c'è più.)* il modello entrava a 20,2 × 11,3 m, veniva misurato («4 zone, 83 m²») e poi corretto di 5,272×. ⛔ **E il blocco messo il 09/09 in `runStructuralAnalysis` non poteva accorgersene:** confronta il contatore della scala prima e dopo l'estrazione della nuvola, ma l'estrazione è **sincrona** — fra le due letture non può succedere niente. La correzione non arrivava *durante* la misura, arrivava *dopo*. La causa vera era la POSIZIONE del righello umano: innestato dentro `veritasAutoScaleModel`, che si chiama da `announceVerdict`, cioè in fondo all'analisi. Ora `__veritasRighelloUmano` parla in testa a ogni passata (§ regola 16). 🔴 **Da guardare sul vivo:** la prima riga di log dev'essere il righello, non «4 zone, 83 m²» |
 | **4** | **due moduli ricevono 400 dal cervello** | il lessico universale e la strada «occhi». Corretto il nome del modello (era il segnaposto `local-model` invece di `qwen2.5-vl-7b-instruct`); resta un secondo motivo da trovare |
 | **5** | **la vista live non dice chi stai seguendo — e SERVE UNA UI DEI PROFILI** | 28 agenti e 9 profili, ma il film non dichiara ne' l'agente ne' la sua missione ne' a che tappa e'. Il dato c'e' gia' (`window.__veritasMissioniEsito`, `window.__veritasMissioniPerAgente`), manca il pannello. ⚠️ **Raffaella, 10/09:** *«ci serve la parte di UI in cui noi andiamo a visionare il profilo degli agenti: non sappiamo nell'occhio di chi stiamo»*. Non e' una targhetta: e' il posto da cui si sceglie **chi seguire**, e da cui si legge cosa doveva fare e a che punto e' |
 | **6** | **il generatore JS locale ignora le missioni** | quando Render dorme subentra lui, e costruisce i suoi `path`: le missioni arrivano solo al motore vero |
+| **0** | 🔴 **LE METE — IL LAVORO NUMERO UNO DELLA PROSSIMA SESSIONE** | *«devi profilare gli agenti: ogni agente avrà un task. Chi lavora nell'area, chi lavora ai servizi, chi lavora lato piazzale, chi arriva dall'aereo attraverso il tunnel e torna a casa dopo aver preso i bagagli, chi parte in taxi e passa i vari check-in seguendo la fila gialla o la fila rosa, la famiglia che si muove in gruppo, chi è sulla sedia a rotelle. Sono comportamenti, dei task da gamificare.»* — Raffaella, 10/09. ⛔ **NON SI COMINCIA DAI PROFILI: si comincia dalle METE.** Oggi i dieci profili mandati al motore sono **dieci corsie a 1,20 m che dopo il primo passo fanno lo stesso tragitto** (`veritasNodesToGraph`, `file per flusso`), perché le missioni vive sono 2-5. Finché le mete sono due, qualunque profilo finisce nella stessa fila. E sotto c'è il vero ostacolo: **la mappa del camminare è in 30 pezzi**, 1.865 m² su 3.364, e da un ingresso non si raggiunge quasi niente. 📌 Materiale già misurato che serve qui: le **4 famiglie di segnaletica** lette dalla pianta (tinte 325°, 34°, 114°, 220° — sono la «fila gialla» e la «fila rosa»), `ARCHETYPES` in `index.html` (`family`, `wheelchair`, `elderly`, `crew`…) e le tre forme che `missioni()` già produce: **va, torna, presidia** |
 | **7** | 🔴 **I SETTE MINUTI DI ATTESA — chiesto da Raffaella il 10/09** | *«cerca di capire per quale motivo dobbiamo attendere sette minuti prima di avere una risposta efficace e se questi tempi possono essere ottimizzati»*. Si misura col log, che porta l'orario di ogni riga: si prende l'intervallo fra una riga e la successiva e si guarda **dove sta il silenzio**, non dove stanno le righe. ⚠️ Prima lettura, giro del 10/09: dal modello in scena (12:57:24) alla fine della prima analisi (12:57:27) **3 secondi**; navmesh e mondo fisico **costruiti due volte a testa**; poi un buco di **2 minuti e 34 secondi** fra 12:57:50 e 13:00:24 in cui non parla nessuno — lì dentro c'è l'occhio. **Se sotto una soglia non si scende, si dichiara la soglia e si passa al punto 8** |
 | **8** | 🔴 **LA VISTA LIVE NON DICE NIENTE, E DEVE DIVENTARE L'ATTESA DEL CLIENTE — Raffaella, 10/09** | *«dobbiamo pensare a rivedere tutto il discorso cinema della vista live, perché in questo momento non dice proprio nulla, non fa vedere niente di che. Deve diventare il passatempo da dare al cliente nel frattempo che avviene l'elaborazione»*. ⛔ **Non è una rifinitura estetica ed è il gemello del punto 7:** l'elaborazione dura quanto dura, e quel tempo o è vuoto o è il primo pezzo di prodotto che il cliente vede. Si lega al punto 5 (il film non dichiara chi stai seguendo) — ma qui la domanda è più larga: **cosa si guarda mentre il programma capisce** |
 | **9** | 🔴 **DUE DIFETTI VISTI DA RAFFAELLA NELLA VISTA LIVE — 10/09** | **a.** *«l'occhio bloccato va avanti e dietro senza far vedere niente»*: la telecamera fa la spola e non inquadra nessuna cosa che si capisca. Da rifare insieme al punto 8, non a parte. **b.** *«i puntini non funzionano, non sono molto chiari come definizione delle immagini»*: la nuvola condensata non restituisce un'immagine leggibile. ⚠️ Prima di toccare i puntini si rilegge la regola già scritta — **i puntini sono i VERTICI dei triangoli, il dettaglio è quello che ha messo chi ha fatto il modello** — e quella non si rimette ai voti: quello che si può cambiare è come si condensano e come sono illuminati, non da dove vengono |
