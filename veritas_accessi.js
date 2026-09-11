@@ -569,6 +569,27 @@ export function ariaApertaVista(centro, opz = {}) {
  *    una testimonianza di regione e' 0 per costruzione — sta dentro, non
  *    «vicino».
  */
+/**
+ * SOLO UNA MISURA, NON CAMBIA NESSUNA DECISIONE: quanto manca un punto alla
+ * piu' vicina area che l'occhio ha detto «all'aperto» — per distinguere,
+ * quando un accesso non si marca «da fuori», se gli manca per un pelo o se
+ * l'occhio non ha proprio guardato da quelle parti.
+ */
+function distanzaAreaApertaPiuVicina(centro, viste) {
+  if (!centro || !Array.isArray(viste)) return '';
+  let minD = Infinity, quale = null;
+  for (const v of viste) {
+    if (!v || !v.ariaAperta || !v.regione || !v.regione.min || !v.regione.max) continue;
+    const r = v.regione;
+    const dx = Math.max(r.min[0] - centro[0], 0, centro[0] - r.max[0]);
+    const dz = Math.max(r.min[2] - centro[2], 0, centro[2] - r.max[2]);
+    const d = Math.hypot(dx, dz);
+    if (d < minD) { minD = d; quale = v.nome || v.termine || '?'; }
+  }
+  if (!isFinite(minD)) return ' (nessuna area «all\'aperto» esiste affatto, su questo giro)';
+  return ' (la piu\' vicina area «all\'aperto», ' + quale + ', dista ' + minD.toFixed(1) + ' m)';
+}
+
 function testimoniQui(centro, viste, raggio) {
   const fuori = [];
   if (!centro || !Array.isArray(viste) || !viste.length) return fuori;
@@ -1037,7 +1058,8 @@ if (typeof window !== 'undefined') {
         for (const a of r.accessi || [])
           console.log('[VERITAS accessi] ' + a.nome + ': '
             + (a.fuori ? 'DA FUORI — ' + a.percheFuori
-                       : 'non da fuori — qui l\'occhio non ha visto niente che al chiuso non ci stia'));
+                       : 'non da fuori — qui l\'occhio non ha visto niente che al chiuso non ci stia'
+                         + distanzaAreaApertaPiuVicina(a.centro, viste)));
         if (r.senzaCammino)
           console.log('[VERITAS accessi] ' + r.senzaCammino
             + ' posti buttati perche\' da li\' non si entra: tetti o lastre staccate');
