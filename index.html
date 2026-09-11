@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-11-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -27776,6 +27776,20 @@ function filtraFrames(scena, frames, opz = {}) {
   const dt = opz.dt || dedottoDt(frames);
 
   const corpi = new Map();
+  // ⚠️ IL MONDO NON SI SVUOTA MAI DA SOLO — trovato l'11/09/2026. Ogni corsa
+  //    aggiunge un corpo per agente con `aggiungiCorpo` e non lo toglie MAI
+  //    dal mondo (l'unico removeRigidBody/.free() nel file e' quello
+  //    dell'edificio statico, in rifaiMondo). A ogni Play il mondo tiene
+  //    anche i corpi delle corse precedenti, finche' Rapier non si confonde
+  //    da solo sui suoi handle interni — «recursive use of an object
+  //    detected... unsafe aliasing», gia' misurato il 10/09 e curato solo nel
+  //    sintomo (rifare il mondo), non nella causa. Si tolgono qui i corpi
+  //    creati da QUESTA corsa, prima di ogni uscita dalla funzione.
+  const pulisciCorpi = () => {
+    for (const c of corpi.values()) {
+      try { scena.world.removeRigidBody(c.rb); } catch (e) {}
+    }
+  };
   const impossibili = new Set();
   const pianoPrec = new Map();
   let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
@@ -27905,6 +27919,7 @@ function filtraFrames(scena, frames, opz = {}) {
     nuovi[f] = { ...fr, agents: fuori };
 
     if (ora() - t0 > tettoMs) {
+      pulisciCorpi();
       return {
         ok: false,
         perche: 'oltre il tempo massimo (' + tettoMs + ' ms) al fotogramma ' + f + ' di ' + frames.length,
@@ -27918,6 +27933,7 @@ function filtraFrames(scena, frames, opz = {}) {
   const mediano = scostamenti.length ? scostamenti[Math.floor(scostamenti.length / 2)] : 0;
   const massimo = scostamenti.length ? scostamenti[scostamenti.length - 1] : 0;
 
+  pulisciCorpi();
   return {
     ok: true,
     frames: nuovi,

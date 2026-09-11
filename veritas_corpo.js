@@ -702,6 +702,25 @@ export function filtraFrames(scena, frames, opz = {}) {
   const dt = opz.dt || dedottoDt(frames);
 
   const corpi = new Map();     // id agente -> corpo
+  // ⚠️ IL MONDO NON SI SVUOTA MAI DA SOLO — trovato l'11/09/2026, seguito
+  //    diretto della toppa del 10/09 ("se il mondo si inceppa si rifa").
+  //    Quella toppa curava il SINTOMO (world.step() smette di prestarsi dopo
+  //    "qualche passata") ma non la causa: ogni chiamata a `filtraFrames`
+  //    aggiunge un corpo per ogni agente con `aggiungiCorpo` e non lo toglie
+  //    MAI dal mondo — ne' qui alla fine, ne' altrove nel file (l'unico
+  //    `removeRigidBody`/`.free()` che esiste e' quello dell'edificio statico,
+  //    in `rifaiMondo`). A ogni Play/ricalcolo il mondo tiene tutti i corpi
+  //    delle corse precedenti, oltre a quelli nuovi: e' un mondo che cresce
+  //    senza fine finche' Rapier non si confonde da solo sui suoi handle
+  //    interni — «recursive use of an object detected... unsafe aliasing».
+  //    Prima di ogni uscita da questa funzione si tolgono tutti i corpi
+  //    creati QUI: il mondo torna con solo l'edificio, pronto per la corsa
+  //    dopo. `removeRigidBody` toglie anche il collisore agganciato.
+  const pulisciCorpi = () => {
+    for (const c of corpi.values()) {
+      try { scena.world.removeRigidBody(c.rb); } catch (e) {}
+    }
+  };
   const impossibili = new Set();  // agenti che il piano mette dentro un solido
   const pianoPrec = new Map(); // id agente -> ultima posizione PIANIFICATA
   let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
@@ -817,6 +836,7 @@ export function filtraFrames(scena, frames, opz = {}) {
       // Onesta': si dice quanto si e' fatto e si restituisce il piano intatto.
       // Un risultato mezzo filtrato sarebbe peggio di nessun filtro, perche'
       // avrebbe l'aria di essere stato verificato.
+      pulisciCorpi();
       return {
         ok: false,
         perche: 'oltre il tempo massimo (' + tettoMs + ' ms) al fotogramma ' + f + ' di ' + frames.length,
@@ -830,6 +850,7 @@ export function filtraFrames(scena, frames, opz = {}) {
   const mediano = scostamenti.length ? scostamenti[Math.floor(scostamenti.length / 2)] : 0;
   const massimo = scostamenti.length ? scostamenti[scostamenti.length - 1] : 0;
 
+  pulisciCorpi();
   return {
     ok: true,
     frames: nuovi,
