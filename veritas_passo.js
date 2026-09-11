@@ -39,7 +39,7 @@
 //    Senza, il browser carica una SECONDA copia della comprensione, e due
 //    copie dello stesso modulo che scrivono le stesse maniglie sono il guasto
 //    del 06/09 (tre occhi accesi, a scrivere era l'ultima che finiva).
-import { occhioSuTutteLeViste } from "./veritas_comprensione.js?v=9";
+import { occhioSuTutteLeViste } from "./veritas_comprensione.js?v=12";
 
 // ⚠️ PRIMA TARATURA, NON UNA MISURA. Vanno riviste guardando i numeri su
 //    modelli veri: quanti metri di cammino portano davvero una scena nuova.

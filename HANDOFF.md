@@ -6,7 +6,7 @@
 
 ## ✅ CHIUSURA DELL'11/09/2026 — L'INGRESSO DA FUORI: L'ANELLO C'È, MANCA CHI PARLA
 
-**Costruzione in pagina: `2026-09-11-a`.**
+**Costruzione in pagina: `2026-09-11-b`.**
 
 🔗 **LA PAGINA VIVA — l'ultima versione pubblicata sta qui:**
 ### → https://raffaella23.github.io/Veritas-spatial-ai/
@@ -32,29 +32,42 @@
 fuori l'ordine resta quello di ieri». La quarta è l'agnosticità: un **cortile di
 scuola** risponde come una pista.
 
-### 🔴 IL LAVORO NUMERO UNO DELLA PROSSIMA SESSIONE — L'OCCHIO NON CONSEGNA AREE
+### ✅ RISOLTO L'11/09 (secondo giro) — NON ERA CHI GUARDA, ERA CHI SERVE
 
-Sulla pagina viva dell'11/09, giro completo, misurato:
+La domanda era: *una sezione sa da quale striscia di edificio è stata tagliata —
+perché non se la porta dietro?*
 
-```
-[VERITAS occhio] ha guardato per primo 6 viste col vocabolario intero — testimonianze da 3 scorci
-[VERITAS occhio] nessuna testimonianza legata a una regione: o non ci sono stati
-                 primi piani, o quello che hanno visto non porta nessuna conseguenza.
-                 Il fronte strada resta senza voce.
-```
+**Sì, la sa. E non deve portarsela.** Una sezione è misurata PRIMA di scattare
+(dove passa il taglio, quanto è larga la fetta, quanto è alta, fin dove arriva
+lo sguardo): il rettangolo esiste già, manca solo di scriverlo. Ma quella
+striscia è **mezzo edificio**, dal taglio alla parete di fondo, e il cielo che
+l'occhio ci vede sta **sopra il tetto** — in qualunque edificio, sempre. Darle
+voce vorrebbe dire dichiarare «all'aperto» tutto il terminal e «da fuori» ogni
+ingresso. ⛔ Peggio di zero: non si fa.
 
-**L'occhio ha visto le parole giuste** — `a sky`, `a land`, `an airplane`, `a jet
-bridge` — e tutte portano `ariaAperta`. Ma i tre primi piani erano **tutti e tre
-SEZIONI** (`primo piano: SEZIONE longitudinale`, `SEZIONE trasversale`), e in
-`veritas_comprensione.js` una vista senza `scorci[i].regione` non produce nessuna
-testimonianza d'area: `const regione = scorci[i].regione || null; if (regione) {…}`.
-**Una sezione non porta con sé un rettangolo di mondo, quindi le sue parole non
-hanno un posto** — e il pezzo riparato oggi non ha niente su cui mordere.
+**Il difetto vero, contato sul log dell'11/09.** All'occhio sono arrivate
+**cinque** viste: 2 piante e 3 sezioni. Zero primi piani sui grappoli, zero
+viste da dentro, zero prospetti, zero veduta d'insieme. Le uniche due famiglie
+che portano un rettangolo **stretto e misurato** sono i primi piani sui grappoli
+(`vicini`: il rettangolo è il grappolo stesso) e le viste da dentro (`dentro`:
+il rettangolo è l'isovista). I primi piani stavano in fondo alla fila, fra le
+«conferme», e su questo aeroporto prendevano **zero posti**: **l'unica voce che
+vede la strada e i taxi — 83 il 06/09, contro ZERO dall'alto — non arrivava mai
+all'occhio.** Non è un difetto del riconoscere. È del SERVIRE.
 
-⚠️ **E NON È IL PEZZO DI OGGI CHE NON FUNZIONA: è a monte.** Il 10/09 l'occhio
-aveva consegnato **un'area sola**; l'11/09 **zero**. La domanda della prossima
-sessione è una e precisa: **una sezione sa da quale striscia di mondo è stata
-tagliata — perché non se la porta dietro?**
+**Riparato in `veritas_montaggio.js`:**
+- **due posti riservati** ai primi piani sui grappoli, serviti **subito dopo la
+  pianta e prima delle sezioni**, così arrivano anche quando la fila è corta;
+- la fila adesso **dichiara quante viste portano un rettangolo**, e se sono zero
+  lo grida **dove il difetto nasce** — non dieci minuti dopo, a giro finito.
+
+**E una trappola trovata strada facendo.** `veritas_comprensione.js` era
+importato con **due numeri di versione diversi** (`?v=11` da montaggio, `?v=9`
+da passo): due copie dello stesso modulo nella stessa pagina, la seconda vecchia
+di giorni. Il file era cambiato il 09/09 **senza** che nessuno toccasse quei
+numeri. Allineati a `?v=12`.
+⚠️ **Regola: si cambia un modulo, si cambia il suo numero in OGNI punto che lo
+importa.** È la quarta faccia della trappola della cache.
 
 ### ⛔ LA TERZA TRAPPOLA SILENZIOSA DEL BANCO
 

@@ -65,7 +65,7 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=11"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=12"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
@@ -885,14 +885,40 @@ window.__veritasComprendi = async function (opz = {}) {
         for (const v of presi) coda.push(v);
         return presi.length;
       };
+      // ⚠️ E DUE POSTI SONO RISERVATI A CHI PORTA UN RETTANGOLO — 11/09/2026.
+      //    Misurato sulla pagina viva dell'11/09: all'occhio sono arrivate
+      //    CINQUE viste — due piante e tre sezioni — e zero testimonianze
+      //    legate a un'area. Non e' un difetto di chi legge: una pianta da' le
+      //    POSIZIONI (ha `inquadratura`) e non passa di qui, e una sezione non
+      //    porta nessun rettangolo di mondo, perche' la striscia da cui e'
+      //    tagliata e' mezzo edificio e il cielo che ci si vede sta SOPRA il
+      //    tetto, sempre, in qualunque edificio. Darle voce vorrebbe dire
+      //    dichiarare «all'aperto» tutto il terminal.
+      //
+      //    Le uniche viste che portano un rettangolo STRETTO e misurato prima
+      //    di scattare sono due: i primi piani sui grappoli (`vicini`, il
+      //    rettangolo e' il grappolo stesso) e le viste da dentro (`dentro`,
+      //    il rettangolo e' l'isovista). I primi piani stavano in fondo, fra
+      //    le «conferme», e su questo aeroporto prendevano ZERO posti: cioe'
+      //    l'unica voce che vede la strada e i taxi — 83 il 06/09, contro
+      //    ZERO dall'alto — non arrivava mai all'occhio.
+      //
+      //    Raffaella, 11/09: *«trovo ancora molto grave che l'agente non
+      //    riconosca la strada e i taxi come accesso dei viaggiatori»*. Ha
+      //    ragione, e la causa e' qui: non nel riconoscere, nel SERVIRE.
+      //    Adesso due posti sono loro e vengono serviti SUBITO dopo la pianta,
+      //    prima delle sezioni — cosi' arrivano anche nel caso peggiore, con
+      //    la fila corta. Il resto dei primi piani resta in coda, com'era.
+      const quotaVicini = 2;
       const nPiante    = prendi(piante.slice(fisse), piante.length);
+      const nVicini    = prendi(vicini, quotaVicini);
       const nSezioni   = prendi(sezioni, sezioni.length);
       const nDentro    = prendi(dentro, quotaDentro);
       const nVeduta    = prendi(veduta, 1);
       const nProspetti = prendi(prospetti, prospetti.length);
-      // Se avanza ancora posto lo prendono i primi piani e la passata: sono
-      // conferme, e le conferme vengono per ultime.
-      const nAltri = prendi(vicini.concat(passata), posti);
+      // Se avanza ancora posto lo prendono i primi piani che restano e la
+      // passata: sono conferme, e le conferme vengono per ultime.
+      const nAltri = prendi(vicini.slice(nVicini).concat(passata), posti);
 
       // ⚠️ E DOVE CADONO NELLA FILA CONTA QUANTO QUANTE SONO.
       //    I mazzetti non vanno tutti alla stessa domanda: il primo va allo
@@ -904,7 +930,9 @@ window.__veritasComprendi = async function (opz = {}) {
       scorci = piante.slice(0, fisse).concat(coda);
 
       log("all'occhio vanno " + scorci.length + " viste, per ruolo: "
-        + (fisse + nPiante) + " piante, " + nSezioni + " sezioni, "
+        + (fisse + nPiante) + " piante, "
+        + nVicini + " primi piani sui grappoli (quota riservata " + quotaVicini + "), "
+        + nSezioni + " sezioni, "
         + nDentro + " da dentro (quota riservata " + quotaDentro + "), "
         + nVeduta + " veduta d'insieme, " + nProspetti + " prospetti"
         + (nAltri ? ", " + nAltri + " conferme" : "")
@@ -913,7 +941,23 @@ window.__veritasComprendi = async function (opz = {}) {
         + (sezioni.length - nSezioni) + " sezioni, "
         + (dentro.length - nDentro) + " da dentro, "
         + (prospetti.length - nProspetti) + " prospetti, "
-        + (vicini.length + passata.length - nAltri) + " conferme");
+        + (vicini.length + passata.length - nVicini - nAltri) + " conferme");
+
+      // ⚠️ E SI DICE SUBITO SE NESSUNO PUO' CONSEGNARE UN'AREA — 11/09/2026.
+      //    L'11/09 l'occhio ha finito il giro e ha detto «nessuna testimonianza
+      //    legata a una regione», ma la causa era gia' decisa QUI, minuti
+      //    prima, quando la fila e' stata composta. Un difetto che si dichiara
+      //    dove nasce costa un'occhiata; dichiarato dove si vede costa un
+      //    giorno. Si conta chi porta un rettangolo di mondo misurato prima di
+      //    scattare: senza, dal fronte strada non puo' uscire una voce.
+      const conRettangolo = scorci.filter((v) => v && v.regione && !v.inquadratura).length;
+      if (conRettangolo)
+        log("di queste, " + conRettangolo + " portano un rettangolo di mondo misurato: "
+          + "sono le uniche che possono dire «in quest'AREA si e' all'aperto»");
+      else
+        log("⚠️ NESSUNA di queste viste porta un rettangolo di mondo: l'occhio "
+          + "potra' dire che cosa vede, non DOVE. Il fronte strada restera' senza "
+          + "voce, e non per colpa dell'occhio — per come e' composta questa fila");
       if (nDentro) {
         const px = coda.filter((v) => v && v.etichetta && /da dentro/.test(v.etichetta))
           .map((v) => v.pixelPerMetro).filter((n) => typeof n === "number");
