@@ -69,6 +69,33 @@ numeri. Allineati a `?v=12`.
 ⚠️ **Regola: si cambia un modulo, si cambia il suo numero in OGNI punto che lo
 importa.** È la quarta faccia della trappola della cache.
 
+### ✅ MISURATO SULLA PAGINA VIVA, costruzione `2026-09-11-b`, 11/09 ore 09:10
+
+```
+[VERITAS occhio] ha guardato per primo 6 viste col vocabolario intero — testimonianze da 3 scorci
+[VERITAS occhio] 15 testimonianze legate a una REGIONE di mondo (i primi piani):
+                 9 dicono «qui si e' all'aperto», 5 «qui passano i mezzi», 6 «di qui si cammina».
+```
+
+**Ieri zero, oggi quindici.** Stesso numero di viste (la fila resta corta), ma
+due dei tre scorci adesso portano un rettangolo, e bastano.
+
+### 🔴 IL LAVORO NUMERO UNO DELLA PROSSIMA SESSIONE — LE AREE CI SONO, MA SONO TUTTE AIRSIDE
+
+Le nove aree «all'aperto» parlano di: `airplane`, `runway`, `sky`, `land`,
+`ship`, `skyscraper`. **Nessun taxi, nessuna automobile, nessuna strada.** E
+l'ingresso misurato (x ≈ −67, il fronte landside) **non cade dentro nessuna** di
+quelle nove aree: resta senza voce, e non perche' manchi la voce — perche' la
+voce guarda dall'altra parte.
+
+La causa e' quella che Raffaella aveva gia' detto il 07/09 sera: *«vedo ancora
+troppe fotografie ravvicinate della zona degli aerei»*. `scorciRavvicinati`
+sceglie i grappoli **piu' fitti**, e su un aeroporto i piu' fitti sono gli
+aerei. I due posti riservati vanno tutti e due airside.
+
+**La domanda della prossima sessione:** i due posti riservati non vanno dati ai
+grappoli piu' FITTI, ma ai piu' LONTANI fra loro — o almeno uno per lato del
+calpestabile. Un aeroporto ha due facce e oggi l'occhio ne vede una sola.
 ### ⛔ LA TERZA TRAPPOLA SILENZIOSA DEL BANCO
 
 Dopo `.nojekyll` e la scheda in secondo piano, la terza: **il browser tiene in
