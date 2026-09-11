@@ -734,45 +734,75 @@ export function grappoliDaInquadrare(posti, opz = {}) {
     });
   }
 
-  // ⚠️ CI SI AVVICINA DOVE C'E' UN ARREDO, non dove ci sono piu' pezzi.
-  //    Misurato il 05/09: ordinando per numero di pezzi i sei primi piani
-  //    finivano tutti su ammassi di volumi e di cose appese, e NESSUNO
-  //    conteneva una seduta — cioe' proprio la cosa per cui ci si avvicina.
-  //    L'arredo e' quello che implica un comportamento (ci si siede, si fa
-  //    la fila): e' li' che vale la pena spendere una fotografia.
+  // ⚠️ MASSIMA DISTANZA FRA I GRAPPOLI, non densità.
+  //    Misurato il 07/09: ordinando per densità (arredi, pezzi), su un
+  //    aeroporto i due posti riservati finivano tutti e due airside, perché
+  //    l'area degli aerei è il grappolo più denso. L'ingresso landside restava
+  //    muto: la telecamera guardava dall'altra parte.
   //
-  // ⚠️ MA NON SOLO LI', E QUESTA E' LA CORREZIONE DEL 06/09.
+  //    La soluzione è ordinare per SEPARAZIONE SPAZIALE fra i grappoli scelti:
+  //    i primi due devono essere i più lontani possibile fra loro.
+  //    Così uno cadrà landside e uno airside, e l'occhio guarda entrambi i lati.
   //
-  //    Ordinando SOLO per arredi, un grappolo che di arredi non ne ha non
-  //    riceve mai una fotografia — mai, su nessun modello. Misurato su questo
-  //    aeroporto: il fronte strada e' un grappolo da 282 m2 con 28 oggetti in
-  //    fila (le corsie, 4,5 x 26 m l'una), forma «volume», arredi ZERO.
-  //    Quindici primi piani, nessuno li' sopra. Da cui: l'occhio non ha mai
-  //    visto le automobili, il fuori non veniva marcato dal lato strada, e
-  //    Raffaella vedeva a schermo delle macchine che il programma non nomina.
-  //
-  //    ⚠️ E il guasto era CIRCOLARE, che e' il motivo per cui e' durato: non
-  //       ci si avvicina perche' non si sa cosa c'e', e non si sa cosa c'e'
-  //       perche' non ci si avvicina. **Non si puo' concludere su cio' che non
-  //       si e' mai guardato** — ed e' la direttiva 17 letta al contrario.
-  //
-  //    Si ALTERNA, come gia' si fa fra scorci larghi e ravvicinati per lo
-  //    stesso identico motivo: una lista di cio' che PROMETTE un
-  //    comportamento (gli arredi) e una di cio' di cui NON SI SA NIENTE (gli
-  //    altri, i piu' estesi per primi), e si pesca una volta per parte.
-  //    Nessuna quota fissa da tarare: se una delle due si esaurisce, l'altra
-  //    prende i posti rimasti.
-  const conArredi = grappoli.filter((g) => g.arredi > 0)
-    .sort((a, b) => (b.arredi - a.arredi) || (b.pezzi - a.pezzi));
-  const senzaArredi = grappoli.filter((g) => !g.arredi)
-    .sort((a, b) => ((b.max[0] - b.min[0]) * (b.max[2] - b.min[2]))
-                  - ((a.max[0] - a.min[0]) * (a.max[2] - a.min[2])));
+  //    Algoritmo: scelta greedy che favorisce la massima distanza fra ogni
+  //    nuovo grappolo e tutti quelli già scelti. Il primo è il più grande
+  //    (lo spazio che occupa), poi si aggiunge quello più lontano dal primo,
+  //    poi quello più lontano da tutti e due, e così via.
+
+  const calcCentro = (g) => [
+    (g.min[0] + g.max[0]) / 2,
+    (g.min[2] + g.max[2]) / 2
+  ];
+  const calcDistanza = (c1, c2) => {
+    const dx = c1[0] - c2[0];
+    const dz = c1[1] - c2[1];
+    return Math.sqrt(dx * dx + dz * dz);
+  };
+
+  const centri = grappoli.map(calcCentro);
   const scelti = [];
-  let i = 0, j = 0;
-  while (scelti.length < quanti && (i < conArredi.length || j < senzaArredi.length)) {
-    if (i < conArredi.length) scelti.push(conArredi[i++]);
-    if (scelti.length < quanti && j < senzaArredi.length) scelti.push(senzaArredi[j++]);
+  const nonScelti = new Set(grappoli.keys());
+
+  // Primo grappolo: quello con area maggiore
+  let primoIdx = 0;
+  let maxArea = 0;
+  for (let idx of nonScelti) {
+    const g = grappoli[idx];
+    const area = (g.max[0] - g.min[0]) * (g.max[2] - g.min[2]);
+    if (area > maxArea) {
+      maxArea = area;
+      primoIdx = idx;
+    }
   }
+  scelti.push(grappoli[primoIdx]);
+  nonScelti.delete(primoIdx);
+
+  // Rimanenti: massima distanza dal baricentro dei già scelti
+  while (scelti.length < quanti && nonScelti.size > 0) {
+    let maxDistanza = -1;
+    let nextIdx = -1;
+    const centriBaricentro = scelti.map(calcCentro);
+
+    for (let idx of nonScelti) {
+      const centro = centri[idx];
+      let minDistAlGruppo = Infinity;
+      for (const cb of centriBaricentro) {
+        minDistAlGruppo = Math.min(minDistAlGruppo, calcDistanza(centro, cb));
+      }
+      if (minDistAlGruppo > maxDistanza) {
+        maxDistanza = minDistAlGruppo;
+        nextIdx = idx;
+      }
+    }
+
+    if (nextIdx >= 0) {
+      scelti.push(grappoli[nextIdx]);
+      nonScelti.delete(nextIdx);
+    } else {
+      break;
+    }
+  }
+
   return scelti
     .map((g) => ({
       min: [g.min[0] - bordo, g.min[1], g.min[2] - bordo],
