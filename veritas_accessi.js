@@ -705,6 +705,49 @@ export function voceOggetti(cose, opz = {}) {
   return voce;
 }
 
+/**
+ * L'OCCHIO PROPONE DA SOLO, NON SOLO CONFERMA — direttiva 17, la meta' che
+ * mancava ancora.
+ *
+ * ⚠️ Fino a oggi una vista «all'aperto» poteva solo CONFERMARE un candidato
+ *    nato da segnaletica, persone o arredi in fila: se nessuna delle altre
+ *    tre voci proponeva un punto esattamente li', quell'area restava senza
+ *    ingresso — anche quando l'occhio ci aveva visto benissimo la strada, i
+ *    lampioni, le auto, l'asfalto. Misurato l'11/09: 12 aree su 18 dicevano
+ *    «all'aperto» e zero porte le usavano. Raffaella, stesso giorno: «il
+ *    fuori viene dato dagli indizi... se e' sbagliata l'impostazione, la
+ *    cambi, in maniera tale che sia l'occhio a decidere quello che e' fuori».
+ *
+ * 📌 QUI L'OCCHIO BASTA DA SOLO (`bastaDaSola`), e non e' un'eccezione: e' la
+ *    stessa regola gia' in `voceOggetti` sopra, dove una singola conferma
+ *    dell'occhio su un candidato basta a dirlo «da fuori» senza una seconda
+ *    voce. La differenza e' che li' l'occhio confermava un punto nato
+ *    altrove; qui il punto nasce da lui.
+ */
+export function voceVistaAperta(nm, opz) {
+  const voce = { nome: "l'occhio all'aperto", punti: [] };
+  const viste = (opz && opz.viste) || [];
+  for (const v of viste) {
+    if (!v || !v.ariaAperta || !v.regione || !v.regione.min || !v.regione.max) continue;
+    const r = v.regione;
+    const centroArea = [(r.min[0] + r.max[0]) / 2, (r.min[1] + r.max[1]) / 2, (r.min[2] + r.max[2]) / 2];
+    // Come tutte le altre voci: il candidato deve appoggiarsi sul
+    // calpestabile, altrimenti non e' un posto dove si mette un piede.
+    const q = nm && nm.sulCamminoCorrente(centroArea, [VICINO, 6, VICINO]);
+    if (!q || !q.ok) continue;
+    voce.punti.push({
+      centro: q.punto, oggetti: 1, fuori: true, daOcchio: true, bastaDaSola: true,
+      perche: "l'occhio, qui, ha visto " + (v.nome || v.termine || 'qualcosa')
+        + (v.ariaAperta === 'sempre' ? ', che al chiuso non ci sta' : ', che al chiuso ci sta solo in vetrina'),
+    });
+  }
+  if (!voce.punti.length) {
+    voce.cieca = true;
+    voce.perche = 'nessuna area vista «all\'aperto» tocca il calpestabile entro ' + VICINO + ' m';
+  }
+  return voce;
+}
+
 // ---------------------------------------------------------------------------
 // L'accordo fra le voci
 // ---------------------------------------------------------------------------
@@ -799,27 +842,34 @@ export function uniscoVoci(voci, nm, opz = {}) {
      *    all'aperto — non la media degli indizi, che puo' cadere su un muro.
      */
     const apertoQui = ariaApertaVista(centro, opz);
-    const daOggetti = membri.some((m) => m.fuori);
+    // ⚠️ Non solo «gli oggetti in fila»: da quando l'occhio propone da solo
+    //    (`voceVistaAperta`), un membro puo' essere gia' «fuori» per motivi
+    //    diversi, e ognuno porta gia' scritto il proprio perche'.
+    const fuoriMembro = membri.find((m) => m.fuori);
+    // Un candidato che basta da solo (l'occhio, direttiva 17) non aspetta
+    // una seconda voce d'accordo — vedi la guardia qui sotto.
+    const bastaSola = membri.some((m) => m.bastaDaSola);
     const a = {
       centro, voci: nomi, affidabilita: nomi.length,
       fiducia: vive.length ? nomi.length / vive.length : 0,
       indizi: membri.length, larghezza: larghezza || undefined,
       sulCammino: !!(q && q.ok),
-      // Da qui si arriva dal FUORI, e ci sono due strade per saperlo: l'occhio
-      // che lo dice qui sopra, oppure un posto dove le cose grandi si fermano
-      // in fila regolare. Non e' un voto in piu' — e' quello che distingue un
-      // ingresso dalla strada da una soglia interna.
-      fuori: !!apertoQui || daOggetti,
+      // Da qui si arriva dal FUORI, e ci sono piu' strade per saperlo: l'occhio
+      // che lo dice qui sopra, o un membro gia' marcato fuori (l'occhio altrove
+      // sullo stesso candidato, o le cose grandi ferme in fila). Non e' un voto
+      // in piu' — e' quello che distingue un ingresso dalla strada da una
+      // soglia interna.
+      fuori: !!apertoQui || !!fuoriMembro,
       percheFuori: apertoQui
         ? ("l'occhio, proprio qui, ci ha visto " + apertoQui.parola
            + (apertoQui.forza === 'sempre' ? ', che al chiuso non ci sta'
                                            : ', che al chiuso ci sta solo in vetrina')
            + (apertoQui.da === 'regione' ? " (lo dice di quest'AREA, non di questo punto)"
                                          : ' (a ' + apertoQui.distanza + ' m)'))
-        : (daOggetti ? 'qui accanto le cose grandi si fermano in fila regolare' : null),
-      fuoriDa: apertoQui ? ('occhio/' + apertoQui.da) : (daOggetti ? 'oggetti in fila' : null),
+        : (fuoriMembro ? fuoriMembro.perche : null),
+      fuoriDa: apertoQui ? ('occhio/' + apertoQui.da) : (fuoriMembro ? (fuoriMembro.daOcchio ? 'occhio' : 'oggetti in fila') : null),
     };
-    if (nomi.length < minime) {
+    if (nomi.length < minime && !bastaSola) {
       a.perche = 'una voce sola (' + nomi.join(', ') + '): puo\' essere una meta, non un ingresso';
       scartati.push(a);
       continue;
@@ -898,6 +948,7 @@ export function trova(THREE, radice, nm, opz = {}) {
     voceSegnaletica(THREE, radice, nm, opz),
     vocePersone(figure, opz),
     voceOggetti(cose, { ...opz, eFigura: CP && CP.eUnaFigura }),
+    voceVistaAperta(nm, opz),
   ];
   const r = uniscoVoci(voci, nm, opz);
   // Da un ingresso si entra: chi non arriva al resto dello spazio non e' un
@@ -938,7 +989,7 @@ export default {
   PASSO, CAMPIONI_MAX, VICINO, VOCI_MINIME, COPERTURA_CIECA, CATENA,
   campiona, copertura, accessiDaCopertura, profondita,
   capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme, ariaApertaVista, calpestioVisto,
-  voceTetto, voceSegnaletica, vocePersone, voceOggetti, uniscoVoci,
+  voceTetto, voceSegnaletica, vocePersone, voceOggetti, voceVistaAperta, uniscoVoci,
   raggiungibili, trova, raccontaAccessi,
 };
 
