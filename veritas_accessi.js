@@ -724,26 +724,61 @@ export function voceOggetti(cose, opz = {}) {
  *    voce. La differenza e' che li' l'occhio confermava un punto nato
  *    altrove; qui il punto nasce da lui.
  */
+/**
+ * Appoggia il centro di una vista sul calpestabile piu' vicino — la stessa
+ * regola di ogni altra voce: un candidato e' un posto dove si mette un
+ * piede, non la media di un indizio che puo' cadere su un muro.
+ */
+function puntoDaVista(v, nm, ragione) {
+  const r = v && v.regione;
+  if (!r || !r.min || !r.max) return null;
+  const centroArea = [(r.min[0] + r.max[0]) / 2, (r.min[1] + r.max[1]) / 2, (r.min[2] + r.max[2]) / 2];
+  const q = nm && nm.sulCamminoCorrente(centroArea, [VICINO, 6, VICINO]);
+  if (!q || !q.ok) return null;
+  return { centro: q.punto, oggetti: 1, fuori: true, daOcchio: true, bastaDaSola: true, perche: ragione(v) };
+}
+
 export function voceVistaAperta(nm, opz) {
   const voce = { nome: "l'occhio all'aperto", punti: [] };
-  const viste = (opz && opz.viste) || [];
-  for (const v of viste) {
-    if (!v || !v.ariaAperta || !v.regione || !v.regione.min || !v.regione.max) continue;
-    const r = v.regione;
-    const centroArea = [(r.min[0] + r.max[0]) / 2, (r.min[1] + r.max[1]) / 2, (r.min[2] + r.max[2]) / 2];
-    // Come tutte le altre voci: il candidato deve appoggiarsi sul
-    // calpestabile, altrimenti non e' un posto dove si mette un piede.
-    const q = nm && nm.sulCamminoCorrente(centroArea, [VICINO, 6, VICINO]);
-    if (!q || !q.ok) continue;
-    voce.punti.push({
-      centro: q.punto, oggetti: 1, fuori: true, daOcchio: true, bastaDaSola: true,
-      perche: "l'occhio, qui, ha visto " + (v.nome || v.termine || 'qualcosa')
-        + (v.ariaAperta === 'sempre' ? ', che al chiuso non ci sta' : ', che al chiuso ci sta solo in vetrina'),
-    });
+  for (const v of (opz && opz.viste) || []) {
+    if (!v || !v.ariaAperta) continue;
+    const p = puntoDaVista(v, nm, (v) => "l'occhio, qui, ha visto " + (v.nome || v.termine || 'qualcosa')
+      + (v.ariaAperta === 'sempre' ? ', che al chiuso non ci sta' : ', che al chiuso ci sta solo in vetrina'));
+    if (p) voce.punti.push(p);
   }
   if (!voce.punti.length) {
     voce.cieca = true;
     voce.perche = 'nessuna area vista «all\'aperto» tocca il calpestabile entro ' + VICINO + ' m';
+  }
+  return voce;
+}
+
+// Solo i termini che UNISCONO un mezzo all'edificio sono una soglia verso il
+// fuori. «Passaggio» come categoria e' piu' larga (ci stanno anche scale e
+// marciapiedi) e non tutto cio' che si cammina e' un ingresso: una scala
+// interna e' un passaggio ma non porta al fuori. Vedi CALPESTIO_DI in
+// `veritas_riconosce.js`, punto (2), per il perche' di questi due soli.
+const TERMINI_SOGLIA = new Set(['a jet bridge', 'bridge']);
+
+/**
+ * L'OCCHIO PROPONE ANCHE SUL PONTILE — stesso principio di
+ * `voceVistaAperta`, seconda sorgente: non solo «qui e' fuori», anche «qui
+ * e' il tubo che unisce un mezzo all'edificio» (pontile d'imbarco,
+ * passerella). Su un aeroporto e' la voce che dovrebbe piazzare l'ingresso
+ * lato aereo esattamente all'attacco del pontile — non sull'ala, non
+ * genericamente «vicino all'aereo».
+ */
+export function voceVistaPassaggio(nm, opz) {
+  const voce = { nome: "l'occhio sul pontile", punti: [] };
+  for (const v of (opz && opz.viste) || []) {
+    if (!v || v.calpestio !== 'passaggio' || !TERMINI_SOGLIA.has(v.termine)) continue;
+    const p = puntoDaVista(v, nm, (v) => "l'occhio, qui, ha visto " + (v.nome || v.termine)
+      + ' — il tubo che unisce un mezzo all\'edificio, e vince sui mezzi che gli stanno intorno');
+    if (p) voce.punti.push(p);
+  }
+  if (!voce.punti.length) {
+    voce.cieca = true;
+    voce.perche = 'nessun pontile/passerella visto dall\'occhio tocca il calpestabile entro ' + VICINO + ' m';
   }
   return voce;
 }
@@ -949,6 +984,7 @@ export function trova(THREE, radice, nm, opz = {}) {
     vocePersone(figure, opz),
     voceOggetti(cose, { ...opz, eFigura: CP && CP.eUnaFigura }),
     voceVistaAperta(nm, opz),
+    voceVistaPassaggio(nm, opz),
   ];
   const r = uniscoVoci(voci, nm, opz);
   // Da un ingresso si entra: chi non arriva al resto dello spazio non e' un
@@ -989,7 +1025,7 @@ export default {
   PASSO, CAMPIONI_MAX, VICINO, VOCI_MINIME, COPERTURA_CIECA, CATENA,
   campiona, copertura, accessiDaCopertura, profondita,
   capi, raggruppa, tintaSat, segnaleticaDallaScena, coseFerme, ariaApertaVista, calpestioVisto,
-  voceTetto, voceSegnaletica, vocePersone, voceOggetti, voceVistaAperta, uniscoVoci,
+  voceTetto, voceSegnaletica, vocePersone, voceOggetti, voceVistaAperta, voceVistaPassaggio, uniscoVoci,
   raggiungibili, trova, raccontaAccessi,
 };
 
