@@ -162,10 +162,10 @@ ancora così. Le due cause sono misurate e stanno nella lista qui sotto:
   dopo il primo passo percorrono lo stesso identico tragitto**;
 - ✅ **parte fra gli aerei — MEZZO CHIUSO L'11/09.** Il pezzo che mancava era che
   *nessuno chiedeva all'occhio cosa si vede SULL'INGRESSO*: adesso lo si chiede,
-  e chi si entra dal fuori parte per primo. 🔴 **Resta aperto a monte:** l'occhio
-  non consegna nessuna testimonianza d'area, perché i suoi primi piani sono
-  sezioni e una sezione non porta un rettangolo di mondo. Vedi la chiusura
-  dell'11/09 in cima;
+  e chi si entra dal fuori parte per primo. ✅ **E a monte l'occhio adesso
+  consegna le aree: 15 l'11/09 sera, erano zero.** 🔴 Ma sono tutte
+  airside — aerei, pista, cielo — e l'ingresso landside non cade dentro
+  nessuna. Vedi la chiusura dell'11/09 in cima;
 - e sotto a tutti e due: **lo spazio dove si cammina è in 30 pezzi separati**,
   1.865 m² sui 3.364 misurati. Da un ingresso non si raggiunge quasi niente.
 
