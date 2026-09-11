@@ -73,6 +73,15 @@ class TopologyAnalyzer:
             geom_list = []
             for name, geom in self.scene.geometry.items():
                 if isinstance(geom, trimesh.Trimesh):
+                    # Qui servono solo vertici e centroidi: nessuna riga sotto
+                    # legge mai un colore o una texture. Il GLB pero' le porta
+                    # incorporate, e trimesh le decodifica comunque in RAM per
+                    # ogni mesh (poligoni di aerei, auto, persone, terminal) -
+                    # memoria mai piu' liberata bene dall'allocatore di Python,
+                    # ed e' quella che ha fatto cadere il servizio su Render
+                    # (512 MB, piano gratuito). Si butta subito, appena letta
+                    # la geometria: e' l'unico uso di questa classe.
+                    geom.visual = trimesh.visual.ColorVisuals(geom)
                     geom_list.append(geom)
                     tag = self._tag_from_name(name)
                     if tag:

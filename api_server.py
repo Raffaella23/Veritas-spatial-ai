@@ -28,6 +28,7 @@ Endpoint:
 """
 import sys
 import os
+import gc
 
 # --- Stesso fix percorsi usato in main.py: rende visibile Assets/ come sorgente moduli ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -132,6 +133,11 @@ def analyze_topology(req: TopologyRequest):
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+        # Il GLB scaricato e la mesh letta pesano parecchio (immagini incluse,
+        # anche se ora scartate subito): si chiede al garbage collector di
+        # liberarli adesso, non quando gli va, per non arrivare al limite di
+        # memoria del servizio un giro alla volta.
+        gc.collect()
 
 
 class AgentSpec(BaseModel):

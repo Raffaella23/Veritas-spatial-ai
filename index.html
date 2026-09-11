@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-11-c";
+window.__EIDETICA_COSTRUZIONE = "2026-09-11-d";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6488,6 +6488,31 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-c";
     el.__veritasTimer = setTimeout(() => { el.style.display = "none"; }, 8000);
   }
 
+  // ⚠️ IL PALLINO DELLA PILLOLA DICEVA SOLO SE `/health` RISPONDE, NON SE LA
+  //    CORSA CHE SI VEDE VIENE DAL MOTORE VERO. Le due cose sono diverse: il
+  //    server puo' rispondere bene a /health e poi fallire proprio su
+  //    /api/simulate (misurato 11/09), e la pillola restava verde mentre a
+  //    schermo correva il generatore locale — che non conosce muri ne' scale
+  //    mobili. Raffaella: «mettiamo la schermata di attesa, non il ripiego
+  //    silenzioso». Questo e' quel segnale: dura finche' non arriva davvero
+  //    una traiettoria vera, non finche' scade un timer.
+  if (typeof window.__veritasUsingFallback === "undefined") window.__veritasUsingFallback = false;
+  function veritasSetEngineFallbackActive(attivo, motivo) {
+    window.__veritasUsingFallback = !!attivo;
+    const pill = document.getElementById("vaio-status"), txt = document.getElementById("vaio-status-txt");
+    if (!pill || !txt) return;
+    if (attivo) {
+      pill.className = "fallback";
+      txt.textContent = "Percorso semplificato";
+      pill.title = "Motore fisico reale non usato per questa corsa: percorso di ripiego, non rispetta muri ne' scale mobili"
+        + (motivo ? " (" + motivo + ")" : "");
+    } else {
+      pill.className = "ok";
+      txt.textContent = "Motore reale";
+      pill.title = "Motore fisico reale in uso per questa corsa";
+    }
+  }
+
   // IL CORPO: le posizioni pianificate passano dal motore fisico.
   //
   // Fin qui la traiettoria dice DOVE gli agenti dovrebbero essere. Da qui in
@@ -6905,6 +6930,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-c";
       const data = await res.json();
       if (!data || !data.trajectory || !data.trajectory.frames || !data.trajectory.frames.length) {
         veritasBridgeNotify("Motore reale: risposta vuota, uso generatore JS locale (fallback)", "#fb923c");
+        veritasSetEngineFallbackActive(true, "risposta vuota");
         return null;
       }
       // La risposta del backend veniva usata cosi' com'era, senza verificare
@@ -6928,6 +6954,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-c";
       const normalized = veritasNormalizeTrajectory(data.trajectory, nodes);
       if (!normalized) {
         veritasBridgeNotify("Motore reale: traiettoria non utilizzabile per questa scena, uso generatore JS locale (fallback)", "#fb923c");
+        veritasSetEngineFallbackActive(true, "traiettoria non utilizzabile");
         return null;
       }
       console.log("[VERITAS bridge] traiettoria remota ACCETTATA e in uso al posto di quella locale");
@@ -6963,11 +6990,13 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-c";
         console.warn("[VERITAS bridge] il backend non ha restituito dati percettivi (deploy Render non aggiornato?)");
       }
       veritasBridgeNotify("✅ Motore fisico reale attivo (Social Force Model, Render)", "#00ff88");
+      veritasSetEngineFallbackActive(false);
       setTimeout(() => { const el = document.getElementById("veritas-bridge-status"); if (el) el.style.display = "none"; }, 6000);
       return data.trajectory;
     } catch (e) {
       console.warn("[VERITAS bridge] backend non raggiungibile, uso generatore JS locale:", e);
       veritasBridgeNotify("⚠ Motore reale non raggiungibile, uso generatore JS locale (fallback): " + (e && e.message || e), "#fb923c");
+      veritasSetEngineFallbackActive(true, (e && e.message) || String(e));
       return null;
     }
   }
@@ -14905,6 +14934,8 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
     #vaio-status{display:flex;align-items:center;gap:7px;font-size:11px;color:#a1a1a6;margin-left:10px;padding-left:10px;border-left:1px solid rgba(255,255,255,.12);}
     #vaio-status .vdot{width:6px;height:6px;border-radius:50%;background:#8e8e93;transition:background .3s;flex-shrink:0;}
     #vaio-status.ok .vdot{background:#34c759;} #vaio-status.warm .vdot{background:#ff9f0a;} #vaio-status.off .vdot{background:#ff453a;}
+    #vaio-status.fallback .vdot{background:#bf5af2;animation:vaioPulse 1.4s ease-in-out infinite;}
+    @keyframes vaioPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
     /* 👁️ Raffaella, 02/09: «l'avviso in alto si sovrappone a dei tasti che non
        si vedono e non so cosa siano». Erano le linguette del bundle sotto la
        pillola: «Motore in risveglio (30-60s, piano gratuito)» scritto per
@@ -15595,6 +15626,11 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       // usa il mouse. Scritto per esteso, quella riga allargava la pillola
       // fino a coprire i tasti del bundle che ci stanno sotto.
       const di = (t) => { txt.textContent = t; pill.title = t; };
+      // ⚠️ Se questa corsa sta usando il ripiego, /health che risponde bene
+      //    non lo smentisce: sono due domande diverse (vedi
+      //    veritasSetEngineFallbackActive). Si lascia il segnale del ripiego
+      //    finche' non e' una nuova corsa vera a toglierlo.
+      if (window.__veritasUsingFallback) return;
       if (!base) { pill.className = "off"; di(S.status_off); return; }
       try {
         const ctrl = new AbortController();
