@@ -6175,6 +6175,86 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     }
   }
 
+  // 13/09/2026 — TELECAMERA ANCORATA A UN AGENTE (direttiva 3 della sessione).
+  //
+  // Diversa da startCameraAutoFollow(): quella insegue la quota MEDIA di
+  // tutta la folla, questa insegue la posizione (x, y, z) di UN agente solo,
+  // su tutti e tre gli assi — cosi' segue anche i cambi di piano (la quota
+  // reale e' gia' dentro pg.group.position.y, la stessa che usa l'auto-follow
+  // esistente) senza bisogno di una logica separata per il multipiano.
+  //
+  // ⚠️ Il bug di partenza: «in sezione era visibile, in un modello chiuso
+  // reale si perde». In una sezione la telecamera guarda dentro un edificio
+  // gia' tagliato: c'e' sempre un varco aperto verso l'esterno. In un modello
+  // chiuso vero (muri e soffitto interi) una telecamera troppo vicina e bassa
+  // finisce quasi certamente DENTRO un solido — e un solido intorno alla
+  // camera rende tutto nero, senza nessun errore in console: sembra che
+  // l'agente sia sparito, non che la telecamera sia murata dentro una parete.
+  // Per questo la quota di ripresa qui e' alta (offsetY), stile "drone": sopra
+  // le pareti divisorie normali, mai dentro.
+  //
+  // Zoom automatico: quando l'agente rallenta o si ferma (seduto, in coda, in
+  // attesa) la telecamera si avvicina da sola, perche' e' li' che succede
+  // qualcosa da vedere (direttiva 7: il comportamento guida la messa in
+  // scena). Quando cammina normalmente resta piu' larga.
+  function stopAgentFollowCamera() {
+    if (window.__veritasAgentFollowInterval) {
+      clearInterval(window.__veritasAgentFollowInterval);
+      window.__veritasAgentFollowInterval = null;
+    }
+    window.__veritasAgentFollowId = null;
+  }
+
+  function startAgentFollowCamera(agentId) {
+    stopCameraAutoFollow();   // le due telecamere automatiche non si accavallano
+    stopAgentFollowCamera();
+    const groups = window.__veritasPassengerGroups;
+    if (!groups || !groups.has(agentId)) return false;
+    window.__veritasAgentFollowId = agentId;
+    let ultimaPos = null, velocitaLiscia = 0;
+    const K = 0.12; // costante di smorzamento, coerente con l'auto-follow esistente
+    window.__veritasAgentFollowInterval = setInterval(() => {
+      const cam = window.__veritasCamera, controls = window.__veritasControls;
+      const pg = groups.get(agentId);
+      if (!cam || !controls || !pg || !pg.group || !pg.group.visible) return; // agente non nel frame attuale
+      const p = pg.group.position;
+      const dx = ultimaPos ? p.x - ultimaPos.x : 0, dz = ultimaPos ? p.z - ultimaPos.z : 0;
+      velocitaLiscia += (Math.hypot(dx, dz) - velocitaLiscia) * 0.2;
+      ultimaPos = { x: p.x, z: p.z };
+      const fermo = velocitaLiscia < 0.01;
+      const offsetY = fermo ? 5 : 9, offsetXZ = fermo ? 3.5 : 7;
+      cam.position.x += (p.x + offsetXZ - cam.position.x) * K;
+      cam.position.y += (p.y + offsetY - cam.position.y) * K;
+      cam.position.z += (p.z + offsetXZ - cam.position.z) * K;
+      // 1,10 m: la quota di sezione da direttiva 14, non il pavimento.
+      controls.target.x += (p.x - controls.target.x) * K;
+      controls.target.y += (p.y + 1.1 - controls.target.y) * K;
+      controls.target.z += (p.z - controls.target.z) * K;
+      controls.update();
+    }, 100); // piu' reattivo dei 300ms dell'auto-follow: qui si segue anche il piano orizzontale
+    return true;
+  }
+
+  window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
+  window.__veritasCommandExtensions.push(function (raw, t, log) {
+    let m = t.match(/\b(segui|follow)\b\s+(?:l'?agente|il passeggero|agent|passenger)?\s*(\d+)/);
+    if (m) {
+      const id = parseInt(m[2], 10);
+      const ok = startAgentFollowCamera(id);
+      log("assistant", ok
+        ? "Telecamera agganciata all'agente " + id + ". \"smetti di seguire\" per staccarla."
+        : "Non trovo l'agente " + id + " in questo momento: forse non e' ancora comparso nella simulazione.");
+      return true;
+    }
+    if (/\b(smetti di seguire|stop segui|ferma inseguimento|stop follow)\b/.test(t)) {
+      const stava = window.__veritasAgentFollowId;
+      stopAgentFollowCamera();
+      log("assistant", stava != null ? "Telecamera staccata dall'agente " + stava + "." : "Nessuna telecamera agganciata.");
+      return true;
+    }
+    return false;
+  });
+
   // --- Bridge Core Python (opzionale, con fallback automatico) ---
   // window.__veritasApiBase va impostato (es. dalle impostazioni) con l'URL
   // pubblico del backend Render, es. "https://veritas-core-api-7g2x.onrender.com".
