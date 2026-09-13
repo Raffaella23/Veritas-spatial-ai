@@ -5927,10 +5927,14 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     // ~42.5% delle figure adulte: meta' del restante 85%, stesso seed del bambino.
     const donna = !seduto && !bambino && seed < 0.575;
     const corporatura = 0.85 + seed * 0.3;    // 0.85 - 1.15: corporature diverse
-    const fattoreSpalle = seduto || bambino ? 1 : (donna ? 0.85 : 1.05);
+    // 13/09/2026 — Raffaella dal vivo: "i corpi sono tutti uguali, non vedo le
+    // differenze". Con solo 9 colori/archetipi su 28 agenti la varieta' c'e'
+    // ma la differenza fra un corpo e l'altro era troppo debole per leggersi
+    // a schermo (5-15%). Alzata di netto: non e' piu' una sfumatura.
+    const fattoreSpalle = seduto || bambino ? 1 : (donna ? 0.78 : 1.12);
 
     const altezzaBusto   = seduto ? 0.30 : (bambino ? 0.34 : 0.45);
-    const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura * (donna ? 0.9 : 1);
+    const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura * (donna ? 0.8 : 1);
     const yBusto         = seduto ? 0.85 : (bambino ? 1.05 : 1.35);
     const raggioTesta    = bambino ? 0.20 : 0.24;
     const yTesta         = seduto ? 1.25 : (bambino ? 1.45 : 1.85);
@@ -5946,11 +5950,15 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     g.add(testa);
     // Capelli: solo volume aggiunto, non e' uno dei perni animati per nome —
     // libero di esistere senza toccare il contratto leftHip/rightHip/leftArm/rightArm.
+    // Colore fisso (non "scuro", che e' il vestito scurito e a volte ci si
+    // confondeva dentro): un bruno scuro si legge sempre, qualunque sia
+    // l'archetipo/colore dell'abito.
     if (donna) {
+      const capelliMat = new THREE.MeshStandardMaterial({ color: 0x2b1d14, roughness: 0.9 });
       const capelli = new THREE.Mesh(
-        new THREE.SphereGeometry(raggioTesta * 1.12, 10, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
-        scuro);
-      capelli.position.y = yTesta + raggioTesta * 0.12;
+        new THREE.SphereGeometry(raggioTesta * 1.28, 10, 10, 0, Math.PI * 2, 0, Math.PI * 0.75),
+        capelliMat);
+      capelli.position.y = yTesta + raggioTesta * 0.18;
       capelli.castShadow = true;
       g.add(capelli);
     }
