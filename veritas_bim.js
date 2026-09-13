@@ -821,7 +821,11 @@ export async function leggi(byte, opzioni) {
   const api = new WebIFC.IfcAPI();
   const wasm = opt.wasm !== undefined ? opt.wasm : WEBIFC_WASM;
   if (wasm) { try { api.SetWasmPath(wasm, true); } catch (e) { /* in node lo trova da solo */ } }
-  await api.Init();
+  // ⚠️ FORZATO A UN SOLO THREAD (13/09/2026). Vedi la stessa riga dentro
+  // index.html: su GitHub Pages i Worker multi-thread di web-ifc vengono da
+  // un'origine diversa (cdn.jsdelivr.net) e falliscono in silenzio, lasciando
+  // la lettura appesa per sempre. Le due copie vanno tenute uguali.
+  await api.Init(undefined, true);
 
   const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
   const modello = api.OpenModel(dati);

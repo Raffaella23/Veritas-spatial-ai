@@ -5893,24 +5893,54 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     elderly: "#6a994e", wheelchair: "#00b4d8",
   };
 
-  function veritasBuildPassenger(THREE, colore) {
+  // 12/09/2026 — VARIETA' DI CORPI (Raffaella: «uomini donne e bambini,
+  // disabili»). Non si costruisce una geometria diversa per archetipo: il
+  // ciclo di animazione del bundle (minificato, non tocco quello) muove
+  // `leftHip`/`rightHip`/`leftArm`/`rightArm` PER NOME — cambiare quella
+  // struttura per un solo caso la romperebbe per tutti gli altri. Quello che
+  // si puo' variare in sicurezza sono le PROPORZIONI:
+  //
+  //   'wheelchair'  e' gia' un archetipo (righe ~1929, 16954) con
+  //                 `height: 0.6`: qui si legge nella figura — busto basso,
+  //                 gambe corte, seduto invece che in piedi.
+  //   tutti gli altri: un fattore di corporatura e un'eta' apparente,
+  //                 seedati sul COLORE (non su Math.random) cosi' la stessa
+  //                 figura non cambia taglia ogni volta che il pool si
+  //                 ricostruisce. Copre bambino (piu' basso, spalle strette)
+  //                 e corporature diverse — non e' truccato per genere, il
+  //                 genere binario non e' una misura architettonica.
+  function veritasBuildPassenger(THREE, colore, archetipo) {
     const g = new THREE.Group();
     const pelle = new THREE.MeshStandardMaterial({ color: 15715486, roughness: 0.7 });
     const abito = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.8, metalness: 0.05 });
     const scuro = new THREE.MeshStandardMaterial({
       color: new THREE.Color(colore).multiplyScalar(0.7), roughness: 0.9 });
 
-    const busto = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.45, 4, 8), abito);
-    busto.position.y = 1.35; busto.castShadow = true; busto.receiveShadow = true;
+    const seduto = archetipo === 'wheelchair';
+    const seed = (parseInt(String(colore).replace('#', ''), 16) || 0) % 997 / 997;
+    const bambino = !seduto && seed < 0.15;   // ~15% delle figure, stabile per colore
+    const corporatura = 0.85 + seed * 0.3;    // 0.85 - 1.15: spalle strette/larghe
+
+    const altezzaBusto   = seduto ? 0.30 : (bambino ? 0.34 : 0.45);
+    const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura;
+    const yBusto         = seduto ? 0.85 : (bambino ? 1.05 : 1.35);
+    const raggioTesta    = bambino ? 0.20 : 0.24;
+    const yTesta         = seduto ? 1.25 : (bambino ? 1.45 : 1.85);
+    const lunghezzaGamba = seduto ? 0.35 : (bambino ? 0.6 : 0.9);
+    const yAnca          = seduto ? 0.55 : (bambino ? 0.6 : 0.9);
+    const yBraccio       = seduto ? 1.0  : (bambino ? 1.1 : 1.4);
+
+    const busto = new THREE.Mesh(new THREE.CapsuleGeometry(raggioBusto, altezzaBusto, 4, 8), abito);
+    busto.position.y = yBusto; busto.castShadow = true; busto.receiveShadow = true;
     g.add(busto);
-    const testa = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), pelle);
-    testa.position.y = 1.85; testa.castShadow = true;
+    const testa = new THREE.Mesh(new THREE.SphereGeometry(raggioTesta, 12, 12), pelle);
+    testa.position.y = yTesta; testa.castShadow = true;
     g.add(testa);
 
     // Gambe e braccia sono PERNI: il ciclo di animazione ruota il perno, non la
     // mesh, cosi' l'arto gira attorno all'anca e alla spalla invece che attorno
     // al proprio centro.
-    const geomGamba = new THREE.CylinderGeometry(0.11, 0.1, 0.9, 8);
+    const geomGamba = new THREE.CylinderGeometry(0.11 * corporatura, 0.1 * corporatura, lunghezzaGamba, 8);
     const perno = (x, y, geom, mat, dy) => {
       const p = new THREE.Group();
       p.position.set(x, y, 0);
@@ -5919,11 +5949,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
       p.add(m); g.add(p);
       return p;
     };
-    const leftHip = perno(-0.14, 0.9, geomGamba, scuro, -0.45);
-    const rightHip = perno(0.14, 0.9, geomGamba, scuro, -0.45);
-    const geomBraccio = new THREE.CylinderGeometry(0.07, 0.06, 0.5, 6);
-    const leftArm = perno(-0.36, 1.4, geomBraccio, pelle, -0.25);
-    const rightArm = perno(0.36, 1.4, geomBraccio, pelle, -0.25);
+    const leftHip = perno(-0.14 * corporatura, yAnca, geomGamba, scuro, -lunghezzaGamba / 2);
+    const rightHip = perno(0.14 * corporatura, yAnca, geomGamba, scuro, -lunghezzaGamba / 2);
+    const lunghezzaBraccio = bambino ? 0.35 : 0.5;
+    const geomBraccio = new THREE.CylinderGeometry(0.07 * corporatura, 0.06 * corporatura, lunghezzaBraccio, 6);
+    const leftArm = perno(-0.36 * corporatura, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
+    const rightArm = perno(0.36 * corporatura, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
 
     g.userData = { baseY: 0 };
     g.scale.setScalar(window.__veritasPassengerScale || 1);
@@ -5954,7 +5985,8 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     let aggiunti = 0;
     for (let id = 0; id <= maxId; id++) {
       if (map.has(id)) continue;
-      const p = veritasBuildPassenger(THREE, ARCHETYPE_COLORS[chiavi[id % chiavi.length]]);
+      const archetipo = chiavi[id % chiavi.length];
+      const p = veritasBuildPassenger(THREE, ARCHETYPE_COLORS[archetipo], archetipo);
       p.group.visible = false;
       scene.add(p.group);
       map.set(id, p);
@@ -21792,7 +21824,49 @@ function gruppiDiCammino(nodi) {
  *     venti metri: oltre quelli si sta attraversando un'altra cosa. */
 function corridoio(lungo) { return Math.max(8, Math.min(20, lungo / 4)); }
 
-/** Una tappa per categoria, la piu' vicina alla propria strada.
+// ---------------------------------------------------------------------------
+// LA SEGNALETICA COME INDIZIO DI MISSIONE — 12/09/2026
+// ---------------------------------------------------------------------------
+//
+// Raffaella: le frecce a terra sono «un indizio per capire dove porta un
+// passaggio quando si costruisce la missione (tipo "questa freccia dice: di
+// qui si va al gate")». Non un vincolo di cammino (non impediscono di
+// tornare indietro): servono a SCEGLIERE la tappa giusta, quando la geometria
+// da sola non basta a distinguerla da un'altra dello stesso tipo.
+//
+// `veritas_segnaletica.js` gia' legge le frecce dal pavimento e le deposita
+// in `window.__veritasSegnaleticaTrovata.famiglie` — ma li' restava: nessun
+// altro punto del programma le rileggeva. E' il difetto misurato il 12/09:
+// il sistema le RICONOSCE, non le SERVE (Regola 7 dell'HANDOFF).
+
+const FRECCIA_RAGGIO_M = 25;   // oltre, la freccia riguarda un altro corridoio
+const FRECCIA_CONO_DEG = 35;   // quanto puo' scartare la freccia dal candidato
+
+/** Le famiglie "direzionali" lette dal pavimento, se ci sono. Sola lettura:
+ *  chi le calcola sta in veritas_segnaletica.js, qui si prendono cosi' come
+ *  sono. */
+function frecceDisponibili() {
+  const t = (typeof window !== 'undefined' && window.__veritasSegnaleticaTrovata) || null;
+  return (t && Array.isArray(t.famiglie)) ? t.famiglie.filter((f) => f.tipo === 'direzionale') : [];
+}
+
+/** Questa freccia punta verso questo candidato? L'asse letto da terra non ha
+ *  verso (0-180: vedi `assePrincipale`), quindi si accetta sia la direzione
+ *  che il suo opposto — il colore dice DOVE sta la freccia, l'asse dice SOLO
+ *  la retta lungo cui corre. */
+function frecciaVersoCandidato(freccia, pos) {
+  if (!freccia || !freccia.centro || !pos) return false;
+  const dx = pos[0] - freccia.centro[0], dz = pos[2] - freccia.centro[1];
+  const dist = Math.hypot(dx, dz);
+  if (dist < 0.1 || dist > FRECCIA_RAGGIO_M) return false;
+  const angoloAlTarget = Math.atan2(dz, dx) * 180 / Math.PI;
+  const differenza = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+  return differenza(angoloAlTarget, freccia.direzione) <= FRECCIA_CONO_DEG
+      || differenza(angoloAlTarget, freccia.direzione + 180) <= FRECCIA_CONO_DEG;
+}
+
+/** Una tappa per categoria, la piu' vicina alla propria strada — o, quando
+ *  c'e' una freccia che la indica, quella che la segnaletica conferma.
  *
  *  ⚠️ E' IL CUORE DELLA MISSIONE, ed e' la differenza fra un obiettivo e un
  *     itinerario. L'obiettivo e' «fai il check-in», non «passa da tutti i
@@ -21803,13 +21877,24 @@ function corridoio(lungo) { return Math.max(8, Math.min(20, lungo / 4)); }
  *     ancora la fila indiana, solo con due porte.
  *     Adesso chi entra dalla strada trova la sua accettazione e chi entra da
  *     ovest la propria: due missioni, due percorsi, e le zone si dividono la
- *     gente invece di riceverla tutta. */
+ *     gente invece di riceverla tutta.
+ *
+ *  ⚠️ 12/09: la sola vicinanza alla retta ideale non distingue un passaggio
+ *     regolare da uno di servizio quando sono ugualmente vicini — e' il
+ *     difetto delle scale di servizio prese al posto del tunnel. Una freccia
+ *     che indica il candidato vale quanto azzerare il suo scarto: e' un
+ *     indizio piu' forte della sola geometria, perche' e' l'architetto (con
+ *     la segnaletica) a dire «di qui», non la retta ad approssimarlo. */
 function unaPerCategoria(candidati) {
+  const frecce = frecceDisponibili();
   const meglio = new Map();
   for (const c of candidati) {
     const cat = c.n.type || 'sosta';
+    const confermato = frecce.some((f) => frecciaVersoCandidato(f, c.n.pos));
+    const scartoEffettivo = confermato ? 0 : c.scarto;
     const gia = meglio.get(cat);
-    if (!gia || c.scarto < gia.scarto) meglio.set(cat, c);
+    if (!gia || scartoEffettivo < gia.scartoEffettivo)
+      meglio.set(cat, { ...c, scartoEffettivo, confermato });
   }
   return Array.from(meglio.values()).sort((p, q) => p.t - q.t);
 }
@@ -26669,7 +26754,15 @@ async function leggi(byte, opzioni) {
   const api = new WebIFC.IfcAPI();
   const wasm = opt.wasm !== undefined ? opt.wasm : WEBIFC_WASM;
   if (wasm) { try { api.SetWasmPath(wasm, true); } catch (e) { /* in node lo trova da solo */ } }
-  await api.Init();
+  // ⚠️ FORZATO A UN SOLO THREAD (13/09/2026). Di default web-ifc usa la build
+  // multi-thread quando vede self.crossOriginIsolated, che spawna Web Worker
+  // per il wasm. Su GitHub Pages quei worker vengono da un'origine diversa
+  // (cdn.jsdelivr.net) e il browser azzera l'errore: si vedeva solo "worker
+  // sent an error! undefined:undefined: undefined" e la lettura restava
+  // appesa per sempre su "Sto leggendo...", senza mai arrivare al catch.
+  // Misurato su BAB0400-ADD-BA0272055-ZZ-M3-I-DN0001.ifc (34 MB, reale):
+  // con questo forzato, letto in browser esattamente come in Node.
+  await api.Init(undefined, true);
 
   const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
   const modello = api.OpenModel(dati);
@@ -27223,7 +27316,17 @@ const PELLE = 0.01;
 // Un passo lungo al piu' quanto il raggio del corpo non puo' attraversare
 // niente che il corpo non attraverserebbe comunque. Non e' una soglia
 // inventata: e' la stessa misura, usata come limite di integrazione.
-const SOTTOPASSI_MAX = 8;
+//
+// ⚠️ TROVATO 12/09/2026 — il tetto a 8 tradiva la sua stessa regola. Quando il
+//    corpo fisico resta indietro rispetto al piano (bloccato per qualche
+//    fotogramma da un altro agente o da un ostacolo) e poi "recupera" un
+//    tratto lungo in un colpo solo, `lunghezza` puo' superare 8 * raggio
+//    (2,4 m): il numero di sottopassi resta comunque 8, e ogni fetta torna a
+//    essere piu' larga del raggio — la condizione che la regola vieta. E'
+//    li' che un agente buca un muro sottile o una ringhiera di scala mobile.
+//    Alzato per coprire i recuperi reali; il costo resta comunque sotto
+//    TETTO_MS, che si ferma da solo se sfora.
+const SOTTOPASSI_MAX = 40;
 
 // Quanto si concede al filtro prima di arrendersi e restituire il piano.
 //
