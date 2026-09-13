@@ -6235,27 +6235,14 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     return true;
   }
 
-  window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
-  window.__veritasCommandExtensions.push(function (raw, t, log) {
-    // \D*? (non avido) invece di elencare le frasi esatte: "segui l'agente 0",
-    // "segui agente 0", "segui il passeggero 3" passano tutte allo stesso modo.
-    let m = t.match(/\b(segui|follow)\b\D*?(\d+)/);
-    if (m) {
-      const id = parseInt(m[2], 10);
-      const ok = startAgentFollowCamera(id);
-      log("assistant", ok
-        ? "Telecamera agganciata all'agente " + id + ". \"smetti di seguire\" per staccarla."
-        : "Non trovo l'agente " + id + " in questo momento: forse non e' ancora comparso nella simulazione.");
-      return true;
-    }
-    if (/\b(smetti di seguire|stop segui|ferma inseguimento|stop follow)\b/.test(t)) {
-      const stava = window.__veritasAgentFollowId;
-      stopAgentFollowCamera();
-      log("assistant", stava != null ? "Telecamera staccata dall'agente " + stava + "." : "Nessuna telecamera agganciata.");
-      return true;
-    }
-    return false;
-  });
+  // Esposte su window invece che via window.__veritasCommandExtensions: quel
+  // registro risponde in ordine di arrivo, e un'estensione piu' vecchia
+  // (l'occhio che "sta ancora guardando") intercetta QUALSIASI comando non
+  // ancora riconosciuto e ritorna true — la mia non veniva mai raggiunta.
+  // Il comando vero e proprio e' ora dentro handleCommand(), controllato per
+  // primo; queste due restano solo l'aggancio alla logica della telecamera.
+  window.__veritasStartAgentFollow = startAgentFollowCamera;
+  window.__veritasStopAgentFollow = stopAgentFollowCamera;
 
   // --- Bridge Core Python (opzionale, con fallback automatico) ---
   // window.__veritasApiBase va impostato (es. dalle impostazioni) con l'URL
@@ -15825,6 +15812,28 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
 
   function handleCommand(raw) {
     const t = raw.toLowerCase().trim();
+
+    // 13/09/2026 — "segui agente N" va controllato PRIMA di tutto il resto:
+    // un'estensione registrata piu' avanti (window.__veritasCommandExtensions)
+    // risponde "sto ancora guardando" a QUALSIASI comando non riconosciuto fra
+    // i pattern qui sopra e ritorna true, quindi il dispatcher si fermava li'
+    // e la mia estensione (messa in coda dopo) non veniva mai raggiunta.
+    // Misurato dal vivo: il comando spariva senza errore ne' log.
+    if (/\b(segui|follow)\b\D*?(\d+)/.test(t)) {
+      const idm = t.match(/\b(segui|follow)\b\D*?(\d+)/);
+      const id = parseInt(idm[2], 10);
+      const ok = typeof window.__veritasStartAgentFollow === "function" && window.__veritasStartAgentFollow(id);
+      log("assistant", ok
+        ? "Telecamera agganciata all'agente " + id + ". \"smetti di seguire\" per staccarla."
+        : "Non trovo l'agente " + id + " in questo momento: forse non e' ancora comparso nella simulazione.");
+      return;
+    }
+    if (/\b(smetti di seguire|stop segui|ferma inseguimento|stop follow)\b/.test(t)) {
+      const stava = window.__veritasAgentFollowId;
+      if (typeof window.__veritasStopAgentFollow === "function") window.__veritasStopAgentFollow();
+      log("assistant", stava != null ? "Telecamera staccata dall'agente " + stava + "." : "Nessuna telecamera agganciata.");
+      return;
+    }
 
     if (/\b(analizza|identifica|scansiona|analyze|identify|scan)\b/.test(t)) {
       log("assistant", S.analyzing);
