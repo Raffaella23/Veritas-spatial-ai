@@ -6237,7 +6237,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
 
   window.__veritasCommandExtensions = window.__veritasCommandExtensions || [];
   window.__veritasCommandExtensions.push(function (raw, t, log) {
-    let m = t.match(/\b(segui|follow)\b\s+(?:l'?agente|il passeggero|agent|passenger)?\s*(\d+)/);
+    // \D*? (non avido) invece di elencare le frasi esatte: "segui l'agente 0",
+    // "segui agente 0", "segui il passeggero 3" passano tutte allo stesso modo.
+    let m = t.match(/\b(segui|follow)\b\D*?(\d+)/);
     if (m) {
       const id = parseInt(m[2], 10);
       const ok = startAgentFollowCamera(id);
