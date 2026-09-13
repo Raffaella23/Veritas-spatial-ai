@@ -5907,8 +5907,13 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
   //                 seedati sul COLORE (non su Math.random) cosi' la stessa
   //                 figura non cambia taglia ogni volta che il pool si
   //                 ricostruisce. Copre bambino (piu' basso, spalle strette)
-  //                 e corporature diverse — non e' truccato per genere, il
-  //                 genere binario non e' una misura architettonica.
+  //                 e corporature diverse.
+  //
+  // 13/09/2026 — UOMO/DONNA (Raffaella ribalta la scelta del 12/09: «sì,
+  // ribalta la scelta, aggiungi uomo/donna»). Stessa logica delle righe sopra,
+  // stesso seed: non e' un modello anatomico, e' una convenzione visiva minima
+  // per distinguere a colpo d'occhio in una folla vista da lontano — spalle
+  // piu' strette, vita piu' stretta, e un volume di capelli sulla testa.
   function veritasBuildPassenger(THREE, colore, archetipo) {
     const g = new THREE.Group();
     const pelle = new THREE.MeshStandardMaterial({ color: 15715486, roughness: 0.7 });
@@ -5919,10 +5924,13 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     const seduto = archetipo === 'wheelchair';
     const seed = (parseInt(String(colore).replace('#', ''), 16) || 0) % 997 / 997;
     const bambino = !seduto && seed < 0.15;   // ~15% delle figure, stabile per colore
-    const corporatura = 0.85 + seed * 0.3;    // 0.85 - 1.15: spalle strette/larghe
+    // ~42.5% delle figure adulte: meta' del restante 85%, stesso seed del bambino.
+    const donna = !seduto && !bambino && seed < 0.575;
+    const corporatura = 0.85 + seed * 0.3;    // 0.85 - 1.15: corporature diverse
+    const fattoreSpalle = seduto || bambino ? 1 : (donna ? 0.85 : 1.05);
 
     const altezzaBusto   = seduto ? 0.30 : (bambino ? 0.34 : 0.45);
-    const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura;
+    const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura * (donna ? 0.9 : 1);
     const yBusto         = seduto ? 0.85 : (bambino ? 1.05 : 1.35);
     const raggioTesta    = bambino ? 0.20 : 0.24;
     const yTesta         = seduto ? 1.25 : (bambino ? 1.45 : 1.85);
@@ -5936,6 +5944,16 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     const testa = new THREE.Mesh(new THREE.SphereGeometry(raggioTesta, 12, 12), pelle);
     testa.position.y = yTesta; testa.castShadow = true;
     g.add(testa);
+    // Capelli: solo volume aggiunto, non e' uno dei perni animati per nome —
+    // libero di esistere senza toccare il contratto leftHip/rightHip/leftArm/rightArm.
+    if (donna) {
+      const capelli = new THREE.Mesh(
+        new THREE.SphereGeometry(raggioTesta * 1.12, 10, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
+        scuro);
+      capelli.position.y = yTesta + raggioTesta * 0.12;
+      capelli.castShadow = true;
+      g.add(capelli);
+    }
 
     // Gambe e braccia sono PERNI: il ciclo di animazione ruota il perno, non la
     // mesh, cosi' l'arto gira attorno all'anca e alla spalla invece che attorno
@@ -5953,8 +5971,8 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-11-e";
     const rightHip = perno(0.14 * corporatura, yAnca, geomGamba, scuro, -lunghezzaGamba / 2);
     const lunghezzaBraccio = bambino ? 0.35 : 0.5;
     const geomBraccio = new THREE.CylinderGeometry(0.07 * corporatura, 0.06 * corporatura, lunghezzaBraccio, 6);
-    const leftArm = perno(-0.36 * corporatura, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
-    const rightArm = perno(0.36 * corporatura, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
+    const leftArm = perno(-0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
+    const rightArm = perno(0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
 
     g.userData = { baseY: 0 };
     g.scale.setScalar(window.__veritasPassengerScale || 1);
