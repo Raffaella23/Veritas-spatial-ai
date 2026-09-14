@@ -169,10 +169,17 @@ un simbolo di divieto): resta un vocabolario di un solo segno.
 
 | | | |
 |---|---|---|
+| **1** | 🔴 **La sovrapposizione dei corpi — motore VERO, oggi mai toccato** | Vista dal vivo il 14/09 sera da Raffaella, con «Motore reale pronto» acceso (verde): due o più persone si fondono in una sagoma sola. ⛔ **Il fix di stamattina non c'entra**: `resolveOverlaps` (versori invece di velocità grezze, arretro in fila) sta SOLO nel generatore di riserva, il codice JS che gira quando il server dorme. Con il motore vero acceso, la sovrapposizione viene dal **codice Python su Render**, mai aperto oggi. Si comincia cercando DOVE vive quel repository, prima di indagare la causa |
+| **2** | 🔴 **Le scatole delle zone non hanno l'ampiezza né la posizione vere** | Vista dal vivo il 14/09 sera: i rettangoli che segnano una zona riconosciuta non coprono l'area reale della zona, e dal lato delle frecce fucsia il rettangolo non ci sta sopra come dovrebbe. Raffaella: *«non l'ho voluto mettere troppa carne al fuoco, ma non corrispondono effettivamente all'ampiezza delle zone»*. Da guardare: il codice che disegna i marcatori (`Editor zone`/Spatial Layers) — prima ipotesi da verificare, non confermata: lo scaling del righello umano (5,272×) forse non propagato a questi marcatori |
 | **C** | **Il pannello agente/task** — chiesto più volte, non c'è | Una finestrella con le persone in scena, nome e compito assegnabili, e "guarda dai suoi occhi" (`vistaDalCamminatore` esiste già, mai esposta all'utente). Raffaella: *«voglio farmi il viaggio negli occhi di un ragazzo disabile, vedere se la segnaletica si vede»*. Insieme: pulire la palette a sinistra — solo la chat sembra viva, il resto va verificato e tolto se morto |
 | **D** | **Il "Cinema"** — Raffaella pensava fosse "Lettura dal vivo", non lo è | Oggi "Lettura dal vivo" apre la vista **Percezione** (i puntini viola, «0 ambienti riconosciuti» — il vecchio difetto mai chiuso). Serve un rendering con ombre vere, che porti "l'anima della visione": luce, materiali, l'identità EIDETICA — diverso dalla fotografia grezza del modello caricato |
 | **3** | **Navmesh filtrata per profilo** — le scale di servizio, rimandato dal 12/09 | Stesso meccanismo tecnico del filtro-frecce di oggi (`QueryFilter`/`getCost`), ma qui serve anche **negare** un passaggio a chi non è del profilo giusto — è la parte rischiosa che oggi non si è toccata. Serve anche a rendere vera (non un proxy) la pulsazione rossa della carrozzina bloccata |
 | — | **Telecamere di sorveglianza fisse per zona** | Bottoni spenti che si accendono e inquadrano un punto fisso (varco, check-in) — mai iniziato |
+
+⚠️ **NON SI COMINCIA DAL PANNELLO O DAL CINEMA finché 1 e 2 sono aperti.** Sono
+difetti visti dal vivo sul motore vero, non feature mancanti: costruire sopra
+un cammino che si compenetra o zone mal disegnate vorrebbe dire costruire
+sull'instabile.
 
 ---
 
