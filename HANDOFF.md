@@ -1,6 +1,79 @@
 # HANDOFF.md — EIDETICA *(il prodotto si chiamava VERITAS)*
 
-**Aggiornato il 13/09/2026 — sessione serale**. Questo è l'unico documento di stato del progetto.
+**Aggiornato il 14/09/2026**. Questo è l'unico documento di stato del progetto.
+
+---
+
+# ⛔ IL METODO — SI FA COSÌ, PUNTO
+
+> Raffaella, 13/09/2026: *«certe volte lavori nella sandbox, certe volte vai nel
+> browser, io mi perdo. Non apro neanche il link perché non so se è aggiornato.
+> Non ti posso aiutare dal momento che cambi sempre il tuo metodo di lavoro.
+> Dovrebbe essere scolpito da qualche parte che si fa così, punto e basta.»*
+
+1. **Si lavora su GitHub.** Scrivere → commit → push. Mai lavoro che resta in
+   locale: Raffaella non può aprirlo e non può aiutare.
+2. **Dopo ogni pubblicazione, la PRIMA riga scritta a Raffaella è il numero di
+   costruzione.** Così sa se il link è aggiornato senza doverlo aprire.
+3. **Si guarda nel SUO Chrome**, sulla scheda di EIDETICA: si apre e si ricarica
+   **senza chiedere ogni volta**. Nessun'altra sua scheda, mai. *(Sostituisce la
+   vecchia regola «non toccare il browser senza chiedere».)*
+4. **Si legge la console, non si fanno fotografie.** Uno screenshot costa come
+   venti righe di log: foto solo per una forma o un colore.
+5. **I conti puri si fanno con uno script usa-e-getta, cancellato nello stesso turno.**
+6. **A fine turno non resta niente aperto** — né server, né schede, né file.
+
+⛔ **E IL HANDOFF È QUESTO FILE, DENTRO `temp-repo`.** Il 13/09 è stato letto
+per mezza sessione `Desktop\HANDOFF.md` (387 KB, fermo all'11/09), lavorando su
+priorità non più in vigore. Quel file e gli altri morti — `CLAUDE_INSTRUCTIONS.md`,
+la cartella `Veritas-spatial-ai-main`, il clone vuoto `Veritas-spatial-ai` — vanno
+eliminati. *«Bisogna eliminare ogni possibile causa di errore.»*
+
+---
+
+## 📋 SESSIONE 14/09/2026 — IL PAVIMENTO A PEZZI
+
+**Pubblicato: costruzione `2026-09-13-a`.**
+
+### ✅ Fatto: le fessure del pavimento si ricuciono, i muri no
+
+Nessun modello disegna il pavimento come una superficie sola: GLB, IFC, SketchUp
+lo fanno sempre a piastre affiancate, e dove due piastre non si toccano la
+navmesh ne fa due isole irraggiungibili. **Non è il difetto di un modello, è il
+modo in cui si disegna** — quindi la cura è generale, non tarata sull'aeroporto.
+
+`collegamentiOrizzontali()` dichiara il ponte fra due isole vicine, come §6-bis
+già fa in verticale per le rampe. **Prima però guarda cosa c'è in mezzo,
+all'altezza del petto** (`muroInMezzo`): se c'è un muro, niente ponte, e il
+motivo finisce nel referto. È la regola del 18/08 su `gruppiCollegati` — *«due
+sale confinanti separate da un muro sono vicine e irraggiungibili»* — che resta
+in vigore.
+
+Misurato su `airport_foot_traffic.glb`: **1 fessura ricucita, 3 passaggi
+rifiutati per il muro, i gruppi raggiungibili a piedi da 6 a 5.**
+⚠️ Scritto in `veritas_navmesh.js` **e** nella copia dentro `index.html`.
+
+### ✅ Misurato, e smonta due ipotesi sbagliate
+
+| domanda | risposta misurata |
+|---|---|
+| I varchi si chiudono perché la persona è larga? | **No.** Dimezzando il raggio le isole grandi restano 15 |
+| Le isole piccole buttate spezzano il pavimento? | **No.** Abbassando la soglia si aggiungono 21 m² su 1.865 |
+| **«Mancano 1.500 m² camminabili»** (3.364 vs 1.865) | **Non è un guasto.** Il modello è uno *spaccato*: è giusto che sia quasi tutto all'aperto. I due numeri sono due metri diversi, non un buco |
+| Le frecce colorate a terra fanno da ostacolo? | **No: 35 su 36 sono calpestabili.** Si chiamano `arrow*` nel modello, 3 famiglie di colore (tinte ~330, ~120, ~15), quasi tutte a quota −1,0 m. Una sola resta fuori dal cammino: `arrow006_0`, larga 5 m, a −1,13 m |
+| Quanto c'è di inclinato? | **331 m²** — ma le due scale mobili insieme fanno ~40 m². 🔴 **Gli altri ~290 m² sono gli aerei** (ali e fusoliere curve), e secondo la regola di Raffaella non dovrebbero contare: *«i collegamenti fra i piani sono le scale mobili, altre cose inclinate non le dovresti avere»* |
+
+### 📌 Come si riconosce il dentro dal fuori — detto da Raffaella il 13/09
+
+Non è una questione di geometria, **sono gli indizi**:
+- **fuori**: gli aerei da una parte, i taxi dall'altra;
+- **dentro**: le **frecce colorate** dipinte a terra, che indicano il percorso e
+  **si attraversano**;
+- le **pareti verticali** sono porte, varchi e chiusure: **non si attraversano**;
+- le **scale mobili** sono gli unici collegamenti fra piani di calpestio.
+
+📌 Il rettangolo che contiene tutte le frecce — **52,9 × 23,6 m** — è quindi una
+misura del «dentro» letta dal modello stesso, non ipotizzata.
 
 ---
 
