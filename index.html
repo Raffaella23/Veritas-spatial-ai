@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-b";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-c";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5963,6 +5963,25 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-b";
   //    offline) si continua con le figure a capsule di prima: peggiori, ma
   //    la scena non resta vuota.
   const CORPI = { pronta: false, errore: null, base: null, alt: 1, clip: new Map(), promessa: null, clona: null };
+  // Si guarda dal vivo com'e' andata, senza dover ricaricare per leggere un log:
+  //   window.__veritasCorpi.stato()
+  window.__veritasCorpi = {
+    lib: CORPI,
+    stato() {
+      const map = window.__veritasPassengerGroups;
+      let vestite = 0, nude = 0;
+      if (map) for (const p of map.values()) {
+        if (p && p.group && p.group.userData.__vestita) vestite++; else nude++;
+      }
+      return {
+        libreriaPronta: CORPI.pronta,
+        errore: CORPI.errore ? String(CORPI.errore.message || CORPI.errore) : null,
+        animazioni: CORPI.clip.size,
+        figureVestite: vestite, figureNude: nude,
+        corpiAnimati: CORPI_VIVI.length,
+      };
+    },
+  };
 
   function caricaLibreriaCorpi(THREE) {
     if (CORPI.promessa) return CORPI.promessa;
@@ -5983,14 +6002,8 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-b";
       CORPI.pronta = true;
       console.log('[VERITAS corpi] libreria pronta — ' + CORPI.clip.size
         + ' animazioni, corpo alto ' + CORPI.alt.toFixed(2) + ' (CC0 Quaternius)');
-      // Le figure gia' in scena erano capsule: si buttano e rinascono col corpo vero.
-      try {
-        const map = window.__veritasPassengerGroups, scena = window.__veritasScene;
-        if (map && scena) {
-          for (const p of map.values()) if (p && p.group) scena.remove(p.group);
-          map.clear();
-        }
-      } catch (e) {}
+      // Le figure gia' in scena non si buttano: si vestono al primo battito.
+      try { vestiLeFigure(THREE); } catch (e) {}
     })().catch((e) => {
       CORPI.errore = e;
       console.warn('[VERITAS corpi] libreria non caricata, resto alle figure semplici:', (e && e.message) || e);
@@ -5998,14 +6011,103 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-b";
     return CORPI.promessa;
   }
 
+  // ⛔ LA TRAPPOLA DELLE DUE COPIE, 14/09/2026 — misurata sulla pagina viva.
+  //
+  // `veritasBuildPassenger` qui sotto NON E' LA FUNZIONE CHE GIRA. Le figure le
+  // costruisce il bundle minificato, che porta la sua copia della stessa
+  // funzione: misurato in pagina, tutte e 28 le figure avevano scala uniforme
+  // 0.820 e sei pezzi a testa, cioe' la versione del bundle. Un'intera mattina
+  // di lavoro sui corpi (statura, sesso, sedia a rotelle, bastone) non arrivava
+  // a schermo perche' era scritta nella copia morta.
+  //
+  // Il bundle non si riscrive. Si LASCIA costruire, e poi si veste: le mesh
+  // originali si nascondono, il corpo vero si infila dentro un sottogruppo
+  // nostro. Cosi' il bundle continua a muovere il gruppo e a ruotare i suoi
+  // perni senza accorgersi di niente, e quello che si vede e' il corpo vero.
+  function vestiLeFigure(THREE) {
+    const map = window.__veritasPassengerGroups;
+    if (!map || !CORPI.pronta || !CORPI.clona) return;
+    for (const [id, p] of map) {
+      const g = p && p.group;
+      if (!g || g.userData.__vestita) continue;
+      try { vestiUna(THREE, g, id); g.userData.__vestita = true; }
+      catch (e) { g.userData.__vestita = true; /* una volta sola: non si insiste */ }
+    }
+  }
+
+  function vestiUna(THREE, g, id) {
+    const archetipo = g.userData.archetipo
+      || Object.keys(ARCHETYPE_COLORS)[id % Object.keys(ARCHETYPE_COLORS).length];
+    const colore = ARCHETYPE_COLORS[archetipo] || '#888888';
+    const t = trattiDi(archetipo, id);
+
+    // Le capsule si nascondono, non si cancellano: se il bundle cerca ancora
+    // `body` lo trova, e se un domani si volesse tornare indietro bastano due
+    // righe. Si spengono anche quelle dentro i perni, che il bundle ruota.
+    g.traverse((o) => { if (o.isMesh) o.visible = false; });
+
+    // Il corpo vero va in un sottogruppo NOSTRO: il bundle scala il gruppo
+    // esterno (0.820), noi scaliamo questo. Le due scale si moltiplicano e
+    // nessuno pesta i piedi all'altro.
+    const dentro = new THREE.Group();
+    dentro.name = '__veritasCorpo';
+    const corpo = CORPI.clona(CORPI.base);
+    corpo.scale.setScalar(2.09 / CORPI.alt);
+    corpo.traverse((o) => {
+      if (!o.isMesh && !o.isSkinnedMesh) return;
+      o.visible = true; o.castShadow = true; o.receiveShadow = true;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      const vestiti = mats.map((m) => {
+        if (!m) return m;
+        const c = m.clone();
+        if (c.color) { c.color.set(colore); if (t.anziano) c.color.multiplyScalar(0.78); }
+        return c;
+      });
+      o.material = vestiti.length === 1 ? vestiti[0] : vestiti;
+    });
+    dentro.add(corpo);
+    dentro.scale.set(t.largo, t.statura, t.largo);
+    g.add(dentro);
+
+    if (t.seduto) montaSedia(THREE, dentro);
+    if (t.anziano && !t.seduto) montaBastone(THREE, dentro, t.largo);
+
+    const mixer = new THREE.AnimationMixer(corpo);
+    const nome = t.seduto ? 'Sitting_Idle_Loop' : 'Idle_Loop';
+    const clip = CORPI.clip.get(nome);
+    let azione = null;
+    if (clip) {
+      azione = mixer.clipAction(clip);
+      // Ognuno parte a un punto diverso del ciclo: venti persone che si muovono
+      // all'unisono si notano subito e rovinano la folla.
+      azione.play(); azione.time = (t.seed + t.seed2) * 2;
+    }
+    CORPI_VIVI.push({ group: g, mixer, azione, stato: nome, seduto: t.seduto,
+                      px: g.position.x, pz: g.position.z });
+  }
+
   // Il battito delle animazioni. E' un ciclo NOSTRO, indipendente dal bundle:
   // cosi' non si tocca il codice minificato e se il bundle cambia non si rompe.
   const CORPI_VIVI = [];
   (function battito() {
-    let ultimo = 0;
+    let ultimo = 0, prossimaVestizione = 0;
     function giro(t) {
       const dt = ultimo ? Math.min(0.1, (t - ultimo) / 1000) : 0;
       ultimo = t;
+      // Le figure nascono quando il bundle le crea, non quando vogliamo noi:
+      // si controlla due volte al secondo se ce n'e' qualcuna ancora nuda.
+      if (t > prossimaVestizione) {
+        prossimaVestizione = t + 500;
+        if (CORPI.pronta && window.THREE) {
+          try { vestiLeFigure(window.THREE); } catch (e) {}
+        } else if (!CORPI.promessa && window.THREE && window.__veritasPassengerGroups
+                   && window.__veritasPassengerGroups.size) {
+          // Il bundle ha gia' fatto delle figure e la libreria non e' mai stata
+          // chiesta: e' il caso vero, perche' a costruirle non e' il nostro
+          // codice e quindi nessuno l'ha mai chiamata.
+          caricaLibreriaCorpi(window.THREE);
+        }
+      }
       for (const v of CORPI_VIVI) {
         if (!v.mixer || !v.group.visible) continue;
         // Cammina o e' fermo? Non lo si chiede al bundle: si guarda di quanto
