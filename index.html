@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-h";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-i";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2211,6 +2211,51 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-h";
     return path;
   }
 
+  // 14/09/2026 — LE FRECCE GUIDANO ANCHE IL CAMMINO, NON SOLO LA META'.
+  //
+  // Raffaella: «gli agenti non capiscono ancora che le frecce colorate sono
+  // indicazioni e bisogna che le seguano». Il 12/09 le frecce erano gia'
+  // diventate un indizio per SCEGLIERE la tappa giusta fra piu' candidati
+  // (veritas_flussi.js, `unaPerCategoria`) — ma il TRAGITTO fisico fra due
+  // tappe (qui sotto) passava sempre e solo dalla navmesh pura: il percorso
+  // piu' corto, cieco alla segnaletica. Se un corridoio segnalato e uno di
+  // servizio portano allo stesso posto, la navmesh sceglie il piu' breve,
+  // anche quando non e' quello indicato.
+  //
+  // ⛔ NON e' un vincolo: e' uno SCONTO. Un tratto allineato a una freccia
+  //    costa meta' della sua distanza vera; tutti gli altri tratti costano
+  //    quello che sono sempre costati. Chi puo' passare e chi no (passFilter)
+  //    non cambia mai — vedi l'avvertimento gia' scritto il 12/09 su questo
+  //    stesso punto: «un filtro scritto in fretta puo' spezzare la
+  //    raggiungibilita' per TUTTI». Qui non si nega niente, si preferisce.
+  //
+  // Senza segnaletica nel modello, `frecceSulPavimento()` torna vuoto e
+  // `filtroSeguiFrecce()` torna null: nessun filtro custom, nessuna
+  // regressione su chi non ha frecce da seguire.
+  function frecceSulPavimento() {
+    const t = window.__veritasSegnaleticaTrovata;
+    return (t && Array.isArray(t.famiglie)) ? t.famiglie.filter((f) => f.tipo === 'direzionale') : [];
+  }
+  function filtroSeguiFrecce() {
+    const frecce = frecceSulPavimento();
+    const nm = window.__veritasNavmesh;
+    if (!frecce.length || !nm || !nm.filtroCosto) return null;
+    const RAGGIO = 25, CONO = 35;   // stessi valori di FRECCIA_RAGGIO_M/CONO_DEG in veritas_flussi.js
+    const differenza = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+    return nm.filtroCosto((pa, pb) => {
+      const base = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]);
+      const midX = (pa[0] + pb[0]) / 2, midZ = (pa[2] + pb[2]) / 2;
+      const direzioneTratto = Math.atan2(pb[2] - pa[2], pb[0] - pa[0]) * 180 / Math.PI;
+      for (const f of frecce) {
+        const dx = midX - f.centro[0], dz = midZ - f.centro[1];
+        if (Math.hypot(dx, dz) > RAGGIO) continue;
+        if (Math.min(differenza(direzioneTratto, f.direzione),
+                      differenza(direzioneTratto, f.direzione + 180)) <= CONO) return base * 0.5;
+      }
+      return base;
+    });
+  }
+
   // Trova un percorso tra due punti che rispetta la geometria reale: se la
   // linea diretta e "libera" (passa vicino a punti navigabili reali) la usa,
   // altrimenti passa per le zone rilevate dall'analisi (evita di attraversare
@@ -2253,7 +2298,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-h";
       // Aderente: segue la superficie passo passo, cosi' su una rampa la
       // figura sale invece di comparire in cima (misurato: 54 punti invece
       // di 6, dislivello massimo 14 cm invece di 1,96 m).
-      const r = nm.percorsoCorrente(fromPos, toPos, { aderente: true, passo: 0.6 });
+      const r = nm.percorsoCorrente(fromPos, toPos, { aderente: true, passo: 0.6, filtro: filtroSeguiFrecce() });
       if (r && r.punti.length && !r.parziale) return r.punti.slice(1);
       // Parziale vuol dire che la destinazione sta su un'altra isola: non e'
       // un difetto del calcolo, e' che a piedi non ci si arriva. Lo si dice.
@@ -23281,13 +23326,19 @@ function percorso(nav, navMesh, da, a, opz = {}) {
   //                          CAMMINARE un agente: fra due svolte ai due capi di
   //                          una rampa il percorso corto non dice niente delle
   //                          quote in mezzo, e la figura salirebbe di scatto.
+  // 14/09/2026 — un filtro di COSTO opzionale. Mai di passaggio: chi passa e
+  // chi no lo decide sempre lo stesso passFilter di prima (`opz.filtro`, se
+  // c'e', lo eredita da createDefaultQueryFilter — vedi dove si costruisce).
+  // Senza `opz.filtro` il comportamento e' identico a ieri: nessuna regressione
+  // su chi non ne ha bisogno.
+  const filtro = opz.filtro || nav.DEFAULT_QUERY_FILTER;
   const r = opz.aderente
-    ? nav.findSmoothPath(navMesh, da, a, tol, nav.DEFAULT_QUERY_FILTER, {
+    ? nav.findSmoothPath(navMesh, da, a, tol, filtro, {
         stepSize: opz.passo || 0.5,
         slop: (opz.passo || 0.5) * 0.4,
         maxPoints: opz.maxPunti || 2048,
       })
-    : nav.findPath(navMesh, da, a, tol, nav.DEFAULT_QUERY_FILTER);
+    : nav.findPath(navMesh, da, a, tol, filtro);
   if (!r || !r.success || !r.path || !r.path.length) return null;
   const punti = r.path.map((p) => (p && p.position ? [p.position[0], p.position[1], p.position[2]]
                                                   : [p[0], p[1], p[2]]));
@@ -23933,6 +23984,24 @@ async function costruisciDaScena(THREE, radice, opz = {}) {
 function stato() { return ULTIMA; }
 
 /**
+ * Un filtro di navigazione DERIVATO dal default, con un costo diverso.
+ *
+ * Chi puo' passare e chi no resta quello di sempre (`passFilter`, ereditato
+ * intatto): questo filtro non chiude e non apre nessun varco, cambia solo
+ * QUANTO CONVIENE un tratto rispetto a un altro. Serve a chi, fuori da questo
+ * modulo, sa leggere un indizio che la navmesh non conosce — una freccia
+ * dipinta, un profilo di persona — e vuole che il cammino lo preferisca senza
+ * mai vietare le alternative.
+ *
+ * `null` se la libreria non e' ancora caricata: chi chiama allora non passa
+ * nessun filtro custom, e il comportamento resta quello di sempre.
+ */
+function filtroCosto(getCost) {
+  if (!LIB || !LIB.nav) return null;
+  return { ...LIB.nav.DEFAULT_QUERY_FILTER, getCost };
+}
+
+/**
  * Il percorso sulla navmesh corrente. `null` se non si puo' rispondere —
  * e chi chiama DEVE distinguere "non c'e' strada" da "non lo so".
  */
@@ -24128,7 +24197,7 @@ window.__veritasNavmesh = {
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
   livelli, misuraInclinata, superficiInclinate, collegamentiVerticali,
   collegamentiOrizzontali,
-  libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente,
+  libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente, filtroCosto,
   gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli, raccontaCuciture,
 };
 

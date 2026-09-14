@@ -479,13 +479,19 @@ export function percorso(nav, navMesh, da, a, opz = {}) {
   //                          CAMMINARE un agente: fra due svolte ai due capi di
   //                          una rampa il percorso corto non dice niente delle
   //                          quote in mezzo, e la figura salirebbe di scatto.
+  // 14/09/2026 — un filtro di COSTO opzionale. Mai di passaggio: chi passa e
+  // chi no lo decide sempre lo stesso passFilter di prima (`opz.filtro`, se
+  // c'e', lo eredita da createDefaultQueryFilter — vedi dove si costruisce).
+  // Senza `opz.filtro` il comportamento e' identico a ieri: nessuna regressione
+  // su chi non ne ha bisogno.
+  const filtro = opz.filtro || nav.DEFAULT_QUERY_FILTER;
   const r = opz.aderente
-    ? nav.findSmoothPath(navMesh, da, a, tol, nav.DEFAULT_QUERY_FILTER, {
+    ? nav.findSmoothPath(navMesh, da, a, tol, filtro, {
         stepSize: opz.passo || 0.5,
         slop: (opz.passo || 0.5) * 0.4,
         maxPoints: opz.maxPunti || 2048,
       })
-    : nav.findPath(navMesh, da, a, tol, nav.DEFAULT_QUERY_FILTER);
+    : nav.findPath(navMesh, da, a, tol, filtro);
   if (!r || !r.success || !r.path || !r.path.length) return null;
   const punti = r.path.map((p) => (p && p.position ? [p.position[0], p.position[1], p.position[2]]
                                                   : [p[0], p[1], p[2]]));
@@ -1131,6 +1137,24 @@ export async function costruisciDaScena(THREE, radice, opz = {}) {
 export function stato() { return ULTIMA; }
 
 /**
+ * Un filtro di navigazione DERIVATO dal default, con un costo diverso.
+ *
+ * Chi puo' passare e chi no resta quello di sempre (`passFilter`, ereditato
+ * intatto): questo filtro non chiude e non apre nessun varco, cambia solo
+ * QUANTO CONVIENE un tratto rispetto a un altro. Serve a chi, fuori da questo
+ * modulo, sa leggere un indizio che la navmesh non conosce — una freccia
+ * dipinta, un profilo di persona — e vuole che il cammino lo preferisca senza
+ * mai vietare le alternative.
+ *
+ * `null` se la libreria non e' ancora caricata: chi chiama allora non passa
+ * nessun filtro custom, e il comportamento resta quello di sempre.
+ */
+export function filtroCosto(getCost) {
+  if (!LIB || !LIB.nav) return null;
+  return { ...LIB.nav.DEFAULT_QUERY_FILTER, getCost };
+}
+
+/**
  * Il percorso sulla navmesh corrente. `null` se non si puo' rispondere —
  * e chi chiama DEVE distinguere "non c'e' strada" da "non lo so".
  */
@@ -1326,7 +1350,7 @@ export default {
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
   livelli, misuraInclinata, superficiInclinate, collegamentiVerticali,
   collegamentiOrizzontali,
-  libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente,
+  libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente, filtroCosto,
   gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli, raccontaCuciture,
 };
 
