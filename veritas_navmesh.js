@@ -390,6 +390,7 @@ export function isole(navMesh) {
       const coda = [s];
       visto[s] = 1;
       let area = 0, y = 0, n = 0;
+      const bordo = [];
       const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
       while (coda.length) {
         const i = coda.pop();
@@ -408,8 +409,24 @@ export function isole(navMesh) {
           const j = nei - 1;
           if (j >= 0 && j < tile.polys.length && !visto[j]) { visto[j] = 1; coda.push(j); }
         }
+
+        // Dove l'isola SI AFFACCIA: il punto di mezzo di ogni lato che non ha
+        // un vicino. Serve a `collegamentiOrizzontali` per sapere da dove
+        // guardare l'isola accanto. Ciclo a parte, per non toccare il
+        // raggruppamento qui sopra, che e' misurato e funziona.
+        const nv = poly.vertices.length;
+        for (let k = 0; k < nv; k++) {
+          const nei = (poly.neis || [])[k];
+          if (nei && !(nei & EXT_LINK)) continue;
+          const a = poly.vertices[k] * 3, b = poly.vertices[(k + 1) % nv] * 3;
+          bordo.push([
+            (tile.vertices[a] + tile.vertices[b]) / 2,
+            (tile.vertices[a + 1] + tile.vertices[b + 1]) / 2,
+            (tile.vertices[a + 2] + tile.vertices[b + 2]) / 2,
+          ]);
+        }
       }
-      gruppi.push({ poligoni: n, area, quotaMedia: y / n, ingombro: { min, max }, tile: chiave });
+      gruppi.push({ poligoni: n, area, quotaMedia: y / n, ingombro: { min, max }, tile: chiave, bordo });
     }
   }
   return gruppi.sort((a, b) => b.area - a.area);
@@ -863,6 +880,182 @@ export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
   return esito;
 }
 
+/**
+ * C'e' qualcosa fra questi due punti, all'altezza del petto?
+ *
+ * Non si guarda a terra: a terra c'e' sempre il pavimento. Si guarda dove
+ * starebbe il petto di chi passa, perche' e' li' che un muro, un bancone o una
+ * balaustra impediscono davvero. Un gradino di 20 cm non intercetta niente, ed
+ * e' giusto: quello si sale.
+ */
+function muroInMezzo(geo, da, a, opz = {}) {
+  if (!geo || !geo.positions || !geo.indices) return false;
+  const h = opz.altezzaSguardo != null ? opz.altezzaSguardo : 1.0;
+  const o = [da[0], da[1] + h, da[2]];
+  const d = [a[0] - da[0], a[1] - da[1], a[2] - da[2]];
+  if (Math.hypot(d[0], d[1], d[2]) < 1e-6) return false;
+
+  const P = geo.positions, I = geo.indices;
+  const m = 0.05;
+  const minX = Math.min(o[0], o[0] + d[0]) - m, maxX = Math.max(o[0], o[0] + d[0]) + m;
+  const minY = Math.min(o[1], o[1] + d[1]) - m, maxY = Math.max(o[1], o[1] + d[1]) + m;
+  const minZ = Math.min(o[2], o[2] + d[2]) - m, maxZ = Math.max(o[2], o[2] + d[2]) + m;
+
+  for (let t = 0; t + 2 < I.length; t += 3) {
+    const i0 = I[t] * 3, i1 = I[t + 1] * 3, i2 = I[t + 2] * 3;
+    const ax = P[i0], ay = P[i0 + 1], az = P[i0 + 2];
+    const bx = P[i1], by = P[i1 + 1], bz = P[i1 + 2];
+    const cx = P[i2], cy = P[i2 + 1], cz = P[i2 + 2];
+    if (Math.min(ax, bx, cx) > maxX || Math.max(ax, bx, cx) < minX) continue;
+    if (Math.min(ay, by, cy) > maxY || Math.max(ay, by, cy) < minY) continue;
+    if (Math.min(az, bz, cz) > maxZ || Math.max(az, bz, cz) < minZ) continue;
+
+    const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+    const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+    const px = d[1] * e2z - d[2] * e2y;
+    const py = d[2] * e2x - d[0] * e2z;
+    const pz = d[0] * e2y - d[1] * e2x;
+    const det = e1x * px + e1y * py + e1z * pz;
+    if (Math.abs(det) < 1e-12) continue;
+    const inv = 1 / det;
+    const tx = o[0] - ax, ty = o[1] - ay, tz = o[2] - az;
+    const u = (tx * px + ty * py + tz * pz) * inv;
+    if (u < 0 || u > 1) continue;
+    const qx = ty * e1z - tz * e1y;
+    const qy = tz * e1x - tx * e1z;
+    const qz = tx * e1y - ty * e1x;
+    const v = (d[0] * qx + d[1] * qy + d[2] * qz) * inv;
+    if (v < 0 || u + v > 1) continue;
+    const s = (e2x * qx + e2y * qy + e2z * qz) * inv;
+    if (s > 0.001 && s < 0.999) return true;
+  }
+  return false;
+}
+
+/** La fessura piu' stretta fra due isole: i due punti che si guardano. */
+function fessuraFra(x, y, luce) {
+  let mi = Infinity, da = null, a = null;
+  for (const q of x.bordo) {
+    if (q[0] < y.ingombro.min[0] - luce || q[0] > y.ingombro.max[0] + luce) continue;
+    if (q[2] < y.ingombro.min[2] - luce || q[2] > y.ingombro.max[2] + luce) continue;
+    for (const w of y.bordo) {
+      const dx = q[0] - w[0], dz = q[2] - w[2];
+      const d2 = dx * dx + dz * dz;
+      if (d2 < mi) { mi = d2; da = q; a = w; }
+    }
+  }
+  return da ? { da, a, luce: Math.sqrt(mi) } : null;
+}
+
+/**
+ * IL PAVIMENTO NON E' MAI UNO SOLO, E NESSUN MODELLO LO DISEGNA CONTINUO.
+ *
+ * Un GLB di libreria, un IFC uscito da Revit, uno SketchUp: il pavimento e'
+ * sempre fatto di piastre affiancate — stanze, corridoi, piani appoggiati uno
+ * sull'altro. Che due piastre si tocchino al millimetro e' un caso fortunato,
+ * e quando non si toccano la navmesh ne fa due isole e la gente non passa.
+ * Non e' il difetto di un modello: e' il modo in cui si disegna.
+ *
+ * Qui si fa quello che §6-bis fa gia' per le scale: **si dichiara il ponte**.
+ * Non si cerca perche' il pavimento e' spaccato — si fa in modo che ci si
+ * cammini sopra lo stesso.
+ *
+ * ⛔ MA UN MURO NON SI SCAVALCA MAI. La regola del 18/08 (vedi
+ *    `gruppiCollegati`) resta in vigore: due sale separate da una parete sono
+ *    separate DAVVERO, e vanno dette separate invece che ricucite di nascosto.
+ *    La differenza fra una fessura e un muro non si indovina dalla distanza: si
+ *    guarda che cosa c'e' in mezzo, all'altezza del petto. Se c'e' geometria,
+ *    niente ponte — e il motivo finisce negli scartati, non nel silenzio.
+ */
+export function collegamentiOrizzontali(nav, navMesh, gruppi, geo, opz = {}) {
+  const esito = { aggiunti: [], scartati: [], ids: [] };
+  if (!nav || !navMesh || !gruppi || gruppi.length < 2) {
+    esito.perche = "meno di due isole: non c'e' niente da ricucire";
+    return esito;
+  }
+  if (typeof nav.addOffMeshConnection !== 'function'
+      || typeof nav.isOffMeshConnectionConnected !== 'function'
+      || !nav.OffMeshConnectionDirection) {
+    esito.perche = 'questa navcat non espone i collegamenti fuori-mesh';
+    return esito;
+  }
+
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  // Oltre questa luce non e' una fessura: e' uno spazio, e se e' vuoto la
+  // navmesh lo avrebbe gia' calpestato.
+  const luce = opz.fessuraMassimaM != null ? opz.fessuraMassimaM : 1.5;
+  const areaMin = opz.isolaDaCucireM2 != null ? opz.isolaDaCucireM2 : ISOLA_UNIONE_M2;
+  const raggioAggancio = opz.raggioAggancio || p.raggio * 5;
+  const tolleranza = [p.raggio * 5, p.altezza, p.raggio * 5];
+
+  const grandi = (gruppi || [])
+    .filter((g) => g && g.area >= areaMin && g.bordo && g.bordo.length && g.ingombro);
+  esito.isoleGuardate = grandi.length;
+  if (grandi.length < 2) {
+    esito.perche = 'una sola isola abbastanza grande: niente da ricucire';
+    return esito;
+  }
+
+  for (let i = 0; i < grandi.length; i++) {
+    for (let k = i + 1; k < grandi.length; k++) {
+      const x = grandi[i], y = grandi[k];
+      const scarta = (perche, luceMisurata) => esito.scartati.push({
+        fra: [Math.round(x.area), Math.round(y.area)], perche,
+        luce: luceMisurata != null ? Math.round(luceMisurata * 100) / 100 : null,
+      });
+
+      // Due isole a quote diverse sono due piani: le uniscono le rampe (§6-bis),
+      // non un ponte in piano.
+      if (Math.abs(x.quotaMedia - y.quotaMedia) > p.gradino) continue;
+
+      const dx = Math.max(0, x.ingombro.min[0] - y.ingombro.max[0], y.ingombro.min[0] - x.ingombro.max[0]);
+      const dz = Math.max(0, x.ingombro.min[2] - y.ingombro.max[2], y.ingombro.min[2] - x.ingombro.max[2]);
+      if (Math.hypot(dx, dz) > luce) continue;
+
+      const f = fessuraFra(x, y, luce);
+      if (!f || f.luce > luce) continue;
+
+      if (muroInMezzo(geo, f.da, f.a, opz)) {
+        scarta("c'e' un muro in mezzo: separate davvero", f.luce);
+        continue;
+      }
+
+      const qb = sulCammino(nav, navMesh, f.da, tolleranza);
+      const qa = sulCammino(nav, navMesh, f.a, tolleranza);
+      if (!qb.ok || !qa.ok) { scarta('un capo non tocca nessuna superficie camminabile', f.luce); continue; }
+
+      let id = null;
+      try {
+        const r = nav.addOffMeshConnection(navMesh, {
+          start: qb.punto, end: qa.punto, radius: raggioAggancio,
+          direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
+          flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
+          area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
+        });
+        id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
+      } catch (e) {
+        scarta('navcat ha rifiutato il collegamento (' + ((e && e.message) || e) + ')', f.luce);
+        continue;
+      }
+      if (id == null || !nav.isOffMeshConnectionConnected(navMesh, id)) {
+        if (id != null && typeof nav.removeOffMeshConnection === 'function') {
+          try { nav.removeOffMeshConnection(navMesh, id); } catch (e2) {}
+        }
+        scarta('dichiarato ma non agganciato alla navmesh', f.luce);
+        continue;
+      }
+      esito.ids.push(id);
+      esito.aggiunti.push({
+        id, da: qb.punto, a: qa.punto,
+        luce: Math.round(f.luce * 100) / 100,
+        aree: [Math.round(x.area), Math.round(y.area)],
+        quota: Math.round(((x.quotaMedia + y.quotaMedia) / 2) * 100) / 100,
+      });
+    }
+  }
+  return esito;
+}
+
 // ---------------------------------------------------------------------------
 // 7. L'aggancio al programma
 // ---------------------------------------------------------------------------
@@ -916,6 +1109,19 @@ export async function costruisciDaScena(THREE, radice, opz = {}) {
       r.livelli = r.livelli || [];
       r.collegamenti = { aggiunti: [], scartati: [], ids: [], livelli: r.livelli,
                          perche: 'errore nei collegamenti verticali: ' + ((e && e.message) || e) };
+    }
+  }
+
+  // E le fessure in piano: il pavimento arriva sempre a piastre, e dove due
+  // piastre non si toccano si dichiara il ponte invece di pretenderle attaccate.
+  // Mai attraverso un muro: quello resta una separazione vera.
+  if (opz.cuciFessure !== false) {
+    try {
+      r.cuciture = collegamentiOrizzontali(lib.nav, r.navMesh, r.isole, geo, opz);
+      if (r.cuciture.aggiunti.length) r.isole = isole(r.navMesh);
+    } catch (e) {
+      r.cuciture = { aggiunti: [], scartati: [], ids: [],
+                     perche: 'errore nelle cuciture in piano: ' + ((e && e.message) || e) };
     }
   }
   return { ok: true, ...r };
@@ -1075,7 +1281,28 @@ export function raccontaCammino(r) {
         : ', tutti collegati fra loro')
     + '. Le superfici troppo ripide, troppo piccole o senza spazio sopra la testa '
     + 'sono escluse: non ci si cammina.'
+    + raccontaCuciture(r)
     + raccontaLivelli(r);
+}
+
+/** Le fessure ricucite, e i muri che NON si sono scavalcati. Si dicono tutti e
+ *  due: un ponte taciuto e' un percorso che nessuno sa spiegare, e un muro
+ *  taciuto e' un edificio che sembra piu' comodo di quello che e'. */
+export function raccontaCuciture(r) {
+  const c = (r && r.cuciture) || null;
+  if (!c || (!c.aggiunti.length && !c.scartati.length)) return '';
+  const muri = c.scartati.filter((s) => s.perche.indexOf('muro') >= 0).length;
+  const parti = [];
+  if (c.aggiunti.length) {
+    const larga = Math.max(...c.aggiunti.map((a) => a.luce));
+    parti.push('ho ricucito ' + c.aggiunti.length
+      + (c.aggiunti.length === 1 ? ' fessura' : ' fessure')
+      + ' fra pezzi di pavimento che il modello non fa toccare (la piu larga '
+      + larga.toFixed(2) + ' m)');
+  }
+  if (muri) parti.push(muri + (muri === 1 ? ' passaggio e rimasto chiuso' : ' passaggi sono rimasti chiusi')
+    + ': in mezzo c e un muro, e quella e una separazione vera');
+  return parti.length ? ' ' + parti.join('; ') + '.' : '';
 }
 
 /** I piani, e se ci si sale. Si dice sempre: un piano dove non sale nessuno e'
@@ -1098,8 +1325,9 @@ export default {
   cellaOttima, parametri, geometriaDaModello, costruisci,
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
   livelli, misuraInclinata, superficiInclinate, collegamentiVerticali,
+  collegamentiOrizzontali,
   libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente,
-  gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli,
+  gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli, raccontaCuciture,
 };
 
 // ---------------------------------------------------------------------------
