@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2354,17 +2354,48 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
             const push = (MIN_SEP - d) / 2;
             const nx = dx / d, nz = dz / d;
             
-            // Task 6: Se in coda (stessa direzione, alta densita'), non spingere lateralmente ma rallenta
-            const dirAx = a.vel ? a.vel[0] : 0, dirAz = a.vel ? a.vel[2] : 0;
-            const dirBx = b.vel ? b.vel[0] : 0, dirBz = b.vel ? b.vel[2] : 0;
-            const dot = dirAx*dirBx + dirAz*dirBz;
+            // 14/09/2026 — DUE CORPI NON SI ATTRAVERSANO MAI, NEMMENO IN CODA.
+            //
+            // ⛔ Qui stava il difetto che Raffaella vedeva come «si sovrappongono,
+            //    il corpo fisico si rompe». In modalita' coda la separazione
+            //    veniva applicata al 20% e a UNA SOLA delle due persone (e solo
+            //    se stava piu' indietro in Z): dove la gente si ammassa davvero
+            //    — il varco, il banco del check-in — i corpi smettevano di
+            //    respingersi e si compenetravano.
+            //
+            // ⛔ E scattava quasi sempre, perche' il confronto fra le direzioni
+            //    usava le VELOCITA' GREZZE invece dei versori: a 1,2 m/s il
+            //    prodotto scalare vale ~1,44 e superava 0,7 anche fra due
+            //    persone che andavano per strade diverse.
+            //
+            // La coda cambia il COMPORTAMENTO (si resta incolonnati invece di
+            // scartare di lato), non la solidita' dei corpi: la separazione
+            // minima si rispetta sempre, e in coda la si ottiene scalando lungo
+            // la fila invece che di traverso.
+            const versore = (v) => {
+              const x = v ? v[0] : 0, z = v ? v[2] : 0;
+              const l = Math.hypot(x, z);
+              return l > 1e-6 ? [x / l, z / l] : [0, 0];
+            };
+            const va = versore(a.vel), vb = versore(b.vel);
+            const dot = va[0] * vb[0] + va[1] * vb[1];
             const densityHere = localGrid.get(Math.round(a.pos[0]/1) + "_" + Math.round(a.pos[2]/1)) || 0;
-            
+
             if (dot > 0.7 && densityHere > 3) {
-              // Modalita' CODA: allinea, non spingere
-              const avgSpeed = 0.3;
-              if (a.pos[2] < b.pos[2]) {
-                a.pos[0] -= nx * push * 0.2;
+              // CODA: chi sta davanti tiene la posizione, chi sta dietro
+              // arretra lungo la propria direzione di marcia. La fila resta
+              // una fila, e la distanza minima e' comunque rispettata.
+              const avanti = (a.pos[0] * va[0] + a.pos[2] * va[1])
+                           > (b.pos[0] * va[0] + b.pos[2] * va[1]);
+              const dietro = avanti ? b : a;
+              const dir = avanti ? vb : va;
+              const arretra = MIN_SEP - d;
+              if (dir[0] || dir[1]) {
+                dietro.pos[0] -= dir[0] * arretra;
+                dietro.pos[2] -= dir[1] * arretra;
+              } else {
+                dietro.pos[0] -= nx * arretra * (avanti ? -1 : 1);
+                dietro.pos[2] -= nz * arretra * (avanti ? -1 : 1);
               }
             } else {
               // Normale evitamento
@@ -5914,7 +5945,20 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
   // stesso seed: non e' un modello anatomico, e' una convenzione visiva minima
   // per distinguere a colpo d'occhio in una folla vista da lontano — spalle
   // piu' strette, vita piu' stretta, e un volume di capelli sulla testa.
-  function veritasBuildPassenger(THREE, colore, archetipo) {
+  // 14/09/2026 — IL SEED NASCE DALL'ID, NON DAL COLORE.
+  //
+  // ⛔ Il difetto che Raffaella vedeva da due giorni («non distinguo uomini e
+  //    donne, ne' i disabili») non era la forza della differenza: era che le
+  //    figure diverse erano OTTO in tutto. Il seed si ricavava dal colore, il
+  //    colore dipende solo dall'archetipo, quindi tutti gli agenti dello stesso
+  //    tipo nascevano identici — stessa corporatura, stesso sesso, stessa eta'.
+  //    Peggio: `senior` ed `elderly` (colore #6a994e -> seed 0.083) cadevano
+  //    sotto la soglia dei bambini, e gli ANZIANI VENIVANO DISEGNATI BAMBINI.
+  //    Misurato su 28 agenti: 9 bambini, 10 donne, 6 uomini, 8 figure distinte.
+  //
+  // Con l'id: 28 agenti, 28 figure. E l'eta' non la decide piu' il caso — la
+  // decide l'archetipo, che e' l'unico che la sa davvero.
+  function veritasBuildPassenger(THREE, colore, archetipo, id) {
     const g = new THREE.Group();
     const pelle = new THREE.MeshStandardMaterial({ color: 15715486, roughness: 0.7 });
     const abito = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.8, metalness: 0.05 });
@@ -5922,16 +5966,24 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
       color: new THREE.Color(colore).multiplyScalar(0.7), roughness: 0.9 });
 
     const seduto = archetipo === 'wheelchair';
-    const seed = (parseInt(String(colore).replace('#', ''), 16) || 0) % 997 / 997;
-    const bambino = !seduto && seed < 0.15;   // ~15% delle figure, stabile per colore
-    // ~42.5% delle figure adulte: meta' del restante 85%, stesso seed del bambino.
-    const donna = !seduto && !bambino && seed < 0.575;
-    const corporatura = 0.85 + seed * 0.3;    // 0.85 - 1.15: corporature diverse
+    const anziano = archetipo === 'senior' || archetipo === 'elderly';
+    // Due numeri indipendenti dallo stesso id: uno decide il sesso, l'altro la
+    // corporatura. Numeri primi diversi, cosi' non vanno mai d'accordo fra loro
+    // e non si formano coppie ricorrenti ogni tot agenti.
+    const n = (typeof id === 'number' ? id : 0);
+    const seed = ((n * 37 + 11) % 97) / 97;
+    const seed2 = ((n * 53 + 29) % 89) / 89;
+    // Il bambino arriva dall'archetipo 'family' (chi viaggia in famiglia), non
+    // da una soglia sul caso: e' l'unico posto che sa se c'e' un figlio.
+    const bambino = archetipo === 'family' && seed2 < 0.4;
+    // Il sesso vale per TUTTI, anche per chi e' seduto e per chi ha eta'.
+    // Prima ne restavano fuori: i disabili erano figure neutre tutte uguali.
+    const donna = seed < 0.5;
+    const corporatura = (bambino ? 0.72 : 0.86) + seed2 * 0.3;
     // 13/09/2026 — Raffaella dal vivo: "i corpi sono tutti uguali, non vedo le
-    // differenze". Con solo 9 colori/archetipi su 28 agenti la varieta' c'e'
-    // ma la differenza fra un corpo e l'altro era troppo debole per leggersi
-    // a schermo (5-15%). Alzata di netto: non e' piu' una sfumatura.
-    const fattoreSpalle = seduto || bambino ? 1 : (donna ? 0.78 : 1.12);
+    // differenze". La differenza fra un corpo e l'altro era troppo debole per
+    // leggersi a schermo (5-15%). Alzata di netto: non e' piu' una sfumatura.
+    const fattoreSpalle = bambino ? 1 : (donna ? 0.78 : 1.12);
 
     const altezzaBusto   = seduto ? 0.30 : (bambino ? 0.34 : 0.45);
     const raggioBusto    = (seduto ? 0.30 : 0.28) * corporatura * (donna ? 0.8 : 1);
@@ -5982,8 +6034,64 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
     const leftArm = perno(-0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
     const rightArm = perno(0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
 
+    // 14/09/2026 — LA SEDIA A ROTELLE SI DEVE VEDERE.
+    // Fino a ieri chi era in sedia a rotelle era disegnato SEDUTO NEL VUOTO:
+    // busto basso, gambe corte, e niente sotto. Da lontano non era un disabile,
+    // era una persona piu' bassa — e Raffaella infatti non lo distingueva.
+    // Le ruote grandi sono la cosa che si legge per prima da lontano: sono
+    // larghe quanto la persona e stanno su un piano diverso da tutto il resto.
+    if (seduto) {
+      const telaio = new THREE.MeshStandardMaterial({ color: 0x3a4750, roughness: 0.45, metalness: 0.6 });
+      const gomma = new THREE.MeshStandardMaterial({ color: 0x1b1b1e, roughness: 0.95 });
+      const aggiungi = (mesh, x, y, z, rz) => {
+        mesh.position.set(x, y, z);
+        if (rz) mesh.rotation.z = rz;
+        mesh.castShadow = true;
+        g.add(mesh);
+        return mesh;
+      };
+      // Le due ruote grandi, asse orizzontale: il cilindro nasce in piedi, si
+      // corica di un quarto di giro.
+      const rGrande = 0.30;
+      for (const lato of [-1, 1]) {
+        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(rGrande, rGrande, 0.045, 16), gomma),
+          lato * 0.33, rGrande, -0.02, Math.PI / 2);
+        // Il mozzo, piu' chiaro: da' il senso della ruota anche in controluce.
+        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(rGrande * 0.34, rGrande * 0.34, 0.05, 10), telaio),
+          lato * 0.33, rGrande, -0.02, Math.PI / 2);
+      }
+      // Le due ruotine davanti, quelle che girano.
+      for (const lato of [-1, 1])
+        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.035, 10), gomma),
+          lato * 0.21, 0.085, 0.30, Math.PI / 2);
+      // Seduta e schienale.
+      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.46), telaio), 0, 0.50, 0.02);
+      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.44, 0.06), telaio), 0, 0.74, -0.21);
+      // Le pedane, dove appoggiano i piedi.
+      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.20), telaio), 0, 0.16, 0.28);
+    }
+
+    // Il bastone dell'anziano: lo si riconosce da lontano meglio di qualunque
+    // proporzione del corpo, e dice l'eta' senza bisogno di guardare la faccia.
+    if (anziano && !seduto) {
+      const legno = new THREE.MeshStandardMaterial({ color: 0x6b4f2a, roughness: 0.85 });
+      const bastone = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.92, 6), legno);
+      bastone.position.set(0.34 * corporatura, 0.46, 0.06);
+      bastone.castShadow = true;
+      g.add(bastone);
+    }
+
     g.userData = { baseY: 0 };
-    g.scale.setScalar(window.__veritasPassengerScale || 1);
+    // 14/09/2026 — LA STATURA. Raffaella: «li vedo tutti uguali, solo di colore
+    // diverso: anche le dimensioni devono cambiare». Era vero: la corporatura
+    // cambiava solo i RAGGI (busto, braccia, gambe), mentre l'altezza era la
+    // stessa per tutti. Due persone larghe uguale e alte uguale sono la stessa
+    // persona, di qualunque colore le vesti.
+    // Su un agente di 1,71 m: da 1,57 a 1,85. I bambini scendono a ~1,35.
+    const statura = (bambino ? 0.79 : 0.92) + seed2 * 0.16;
+    const largo = 0.94 + seed * 0.12;   // indipendente dalla statura: alti magri e bassi tozzi
+    const S = window.__veritasPassengerScale || 1;
+    g.scale.set(S * largo, S * statura, S * largo);
     return { group: g, leftHip, rightHip, leftArm, rightArm, body: busto };
   }
 
@@ -6012,7 +6120,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-13-a";
     for (let id = 0; id <= maxId; id++) {
       if (map.has(id)) continue;
       const archetipo = chiavi[id % chiavi.length];
-      const p = veritasBuildPassenger(THREE, ARCHETYPE_COLORS[archetipo], archetipo);
+      const p = veritasBuildPassenger(THREE, ARCHETYPE_COLORS[archetipo], archetipo, id);
       p.group.visible = false;
       scene.add(p.group);
       map.set(id, p);
