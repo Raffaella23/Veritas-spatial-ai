@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5945,6 +5945,195 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-a";
   // stesso seed: non e' un modello anatomico, e' una convenzione visiva minima
   // per distinguere a colpo d'occhio in una folla vista da lontano — spalle
   // piu' strette, vita piu' stretta, e un volume di capelli sulla testa.
+  // =========================================================================
+  // LA LIBRERIA DEI CORPI — 14/09/2026
+  //
+  // Raffaella: «se c'e' una libreria di corpi o di animazioni a cui attingere
+  // e' da caricare, fallo. Se ci sono risorse free usiamole e guadagno tempo.»
+  // Aveva ragione: costruire persone a mano con capsule e cilindri costava
+  // giorni per un risultato peggiore.
+  //
+  // `corpi/persona.gltf` e' la Universal Animation Library di Quaternius
+  // (licenza CC0, copia in corpi/LICENZA_CC0.txt): un corpo umano montato piu'
+  // 46 animazioni, 3,9 MB in tutto. Dentro c'e' gia' il repertorio della
+  // direttiva 12 — in piedi, seduto, si siede, si rialza — e in piu' spingere
+  // il carrello, raccogliere la valigia, parlare aspettando.
+  //
+  // ⚠️ SI DEGRADA, NON SI ROMPE. Se il file non arriva (rete lenta, cliente
+  //    offline) si continua con le figure a capsule di prima: peggiori, ma
+  //    la scena non resta vuota.
+  const CORPI = { pronta: false, errore: null, base: null, alt: 1, clip: new Map(), promessa: null, clona: null };
+
+  function caricaLibreriaCorpi(THREE) {
+    if (CORPI.promessa) return CORPI.promessa;
+    CORPI.promessa = (async () => {
+      const [gl, sk] = await Promise.all([
+        import('three/addons/loaders/GLTFLoader.js'),
+        import('three/addons/utils/SkeletonUtils.js'),
+      ]);
+      CORPI.clona = sk.clone || sk.SkeletonUtils?.clone;
+      const g = await new gl.GLTFLoader().loadAsync('corpi/persona.gltf');
+      CORPI.base = g.scene;
+      for (const c of g.animations || []) CORPI.clip.set(c.name, c);
+      // Quanto e' alto il corpo della libreria: serve per portarlo alla stessa
+      // statura che avevano le capsule, cosi' tutto quello che sta a valle
+      // (la scala globale dei passeggeri, le quote, la telecamera) non cambia.
+      const bb = new THREE.Box3().setFromObject(CORPI.base);
+      CORPI.alt = Math.max(0.1, bb.max.y - bb.min.y);
+      CORPI.pronta = true;
+      console.log('[VERITAS corpi] libreria pronta — ' + CORPI.clip.size
+        + ' animazioni, corpo alto ' + CORPI.alt.toFixed(2) + ' (CC0 Quaternius)');
+      // Le figure gia' in scena erano capsule: si buttano e rinascono col corpo vero.
+      try {
+        const map = window.__veritasPassengerGroups, scena = window.__veritasScene;
+        if (map && scena) {
+          for (const p of map.values()) if (p && p.group) scena.remove(p.group);
+          map.clear();
+        }
+      } catch (e) {}
+    })().catch((e) => {
+      CORPI.errore = e;
+      console.warn('[VERITAS corpi] libreria non caricata, resto alle figure semplici:', (e && e.message) || e);
+    });
+    return CORPI.promessa;
+  }
+
+  // Il battito delle animazioni. E' un ciclo NOSTRO, indipendente dal bundle:
+  // cosi' non si tocca il codice minificato e se il bundle cambia non si rompe.
+  const CORPI_VIVI = [];
+  (function battito() {
+    let ultimo = 0;
+    function giro(t) {
+      const dt = ultimo ? Math.min(0.1, (t - ultimo) / 1000) : 0;
+      ultimo = t;
+      for (const v of CORPI_VIVI) {
+        if (!v.mixer || !v.group.visible) continue;
+        // Cammina o e' fermo? Non lo si chiede al bundle: si guarda di quanto
+        // si e' spostata la figura da un battito all'altro. Un dato vero.
+        const p = v.group.position;
+        const passo = Math.hypot(p.x - v.px, p.z - v.pz);
+        v.px = p.x; v.pz = p.z;
+        if (dt > 0) {
+          const inMoto = passo / dt > 0.12;
+          const vuole = v.seduto ? 'Sitting_Idle_Loop' : (inMoto ? 'Walk_Loop' : 'Idle_Loop');
+          if (vuole !== v.stato) {
+            const clip = CORPI.clip.get(vuole);
+            if (clip) {
+              const nuova = v.mixer.clipAction(clip);
+              nuova.reset().fadeIn(0.25).play();
+              if (v.azione && v.azione !== nuova) v.azione.fadeOut(0.25);
+              v.azione = nuova; v.stato = vuole;
+            }
+          }
+        }
+        v.mixer.update(dt);
+      }
+      requestAnimationFrame(giro);
+    }
+    requestAnimationFrame(giro);
+  })();
+
+  // Le proporzioni di una figura, dall'id. Stesse regole per il corpo vero e
+  // per quello a capsule, cosi' una persona resta se stessa comunque venga
+  // disegnata: stesso sesso, stessa statura, stessa eta'.
+  function trattiDi(archetipo, id) {
+    const n = (typeof id === 'number' ? id : 0);
+    const seed = ((n * 37 + 11) % 97) / 97;
+    const seed2 = ((n * 53 + 29) % 89) / 89;
+    const seduto = archetipo === 'wheelchair';
+    const anziano = archetipo === 'senior' || archetipo === 'elderly';
+    const bambino = archetipo === 'family' && seed2 < 0.4;
+    return {
+      seed, seed2, seduto, anziano, bambino,
+      donna: seed < 0.5,
+      statura: (bambino ? 0.79 : 0.92) + seed2 * 0.16,
+      largo: 0.94 + seed * 0.12,
+    };
+  }
+
+  // IL CORPO VERO: una copia del corpo della libreria, vestito del colore del
+  // suo archetipo e portato alla sua statura.
+  //
+  // ⚠️ Restituisce comunque `leftHip`/`rightHip`/`leftArm`/`rightArm`, ma sono
+  //    PERNI VUOTI: il ciclo di camminata del bundle minificato li ruota per
+  //    nome e deve continuare a trovarli, altrimenti va in errore. Qui non
+  //    muovono niente — a muovere il corpo e' l'animazione vera.
+  function corpoVero(THREE, colore, archetipo, id) {
+    const t = trattiDi(archetipo, id);
+    const g = new THREE.Group();
+    const corpo = CORPI.clona(CORPI.base);
+
+    // L'altezza: si porta il corpo della libreria alla stessa misura che
+    // avevano le capsule (2,09 al netto della scala globale), poi si applica
+    // la statura di questa persona.
+    const k = 2.09 / CORPI.alt;
+    corpo.scale.setScalar(k);
+    corpo.traverse((o) => {
+      if (!o.isMesh && !o.isSkinnedMesh) return;
+      o.castShadow = true; o.receiveShadow = true;
+      // Il colore dell'archetipo: si clona il materiale, se no si tingono tutti.
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      o.material = mats.map((m) => {
+        if (!m) return m;
+        const c = m.clone();
+        if (c.color) c.color.set(colore);
+        // Chi e' seduto o anziano veste piu' spento: si legge l'eta' da lontano.
+        if (c.color && t.anziano) c.color.multiplyScalar(0.78);
+        return c;
+      });
+      if (o.material.length === 1) o.material = o.material[0];
+    });
+    g.add(corpo);
+
+    const mixer = new THREE.AnimationMixer(corpo);
+    const primo = CORPI.clip.get(t.seduto ? 'Sitting_Idle_Loop' : 'Idle_Loop');
+    let azione = null;
+    if (primo) { azione = mixer.clipAction(primo); azione.play(); }
+    // Ognuno parte a un punto diverso del ciclo: venti persone che camminano
+    // all'unisono si vedono subito e sono la cosa che rovina una folla.
+    if (azione) azione.time = (t.seed + t.seed2) * 2;
+
+    if (t.seduto) montaSedia(THREE, g);
+    if (t.anziano && !t.seduto) montaBastone(THREE, g, t.largo);
+
+    const perno = () => { const p = new THREE.Group(); g.add(p); return p; };
+    g.userData = { baseY: 0, archetipo, corpoVero: true };
+    const S = window.__veritasPassengerScale || 1;
+    g.scale.set(S * t.largo, S * t.statura, S * t.largo);
+
+    CORPI_VIVI.push({ group: g, mixer, azione, stato: t.seduto ? 'Sitting_Idle_Loop' : 'Idle_Loop',
+                      seduto: t.seduto, px: 0, pz: 0 });
+    return { group: g, leftHip: perno(), rightHip: perno(), leftArm: perno(), rightArm: perno(), body: corpo };
+  }
+
+  // La sedia a rotelle e il bastone stanno fuori dalla costruzione del corpo:
+  // servono tali e quali alla figura vera e a quella a capsule.
+  function montaSedia(THREE, g) {
+    const telaio = new THREE.MeshStandardMaterial({ color: 0x3a4750, roughness: 0.45, metalness: 0.6 });
+    const gomma = new THREE.MeshStandardMaterial({ color: 0x1b1b1e, roughness: 0.95 });
+    const metti = (mesh, x, y, z, rz) => {
+      mesh.position.set(x, y, z); if (rz) mesh.rotation.z = rz;
+      mesh.castShadow = true; g.add(mesh); return mesh;
+    };
+    const R = 0.30;
+    for (const lato of [-1, 1]) {
+      metti(new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.045, 16), gomma), lato * 0.33, R, -0.02, Math.PI / 2);
+      metti(new THREE.Mesh(new THREE.CylinderGeometry(R * 0.34, R * 0.34, 0.05, 10), telaio), lato * 0.33, R, -0.02, Math.PI / 2);
+      metti(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.035, 10), gomma), lato * 0.21, 0.085, 0.30, Math.PI / 2);
+    }
+    metti(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.46), telaio), 0, 0.50, 0.02);
+    metti(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.44, 0.06), telaio), 0, 0.74, -0.21);
+    metti(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.20), telaio), 0, 0.16, 0.28);
+  }
+
+  function montaBastone(THREE, g, largo) {
+    const legno = new THREE.MeshStandardMaterial({ color: 0x6b4f2a, roughness: 0.85 });
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.92, 6), legno);
+    b.position.set(0.34 * largo, 0.46, 0.06);
+    b.castShadow = true;
+    g.add(b);
+  }
+
   // 14/09/2026 — IL SEED NASCE DALL'ID, NON DAL COLORE.
   //
   // ⛔ Il difetto che Raffaella vedeva da due giorni («non distinguo uomini e
@@ -5959,6 +6148,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-a";
   // Con l'id: 28 agenti, 28 figure. E l'eta' non la decide piu' il caso — la
   // decide l'archetipo, che e' l'unico che la sa davvero.
   function veritasBuildPassenger(THREE, colore, archetipo, id) {
+    caricaLibreriaCorpi(THREE);
+    if (CORPI.pronta && CORPI.clona) {
+      try { return corpoVero(THREE, colore, archetipo, id); }
+      catch (e) { console.warn('[VERITAS corpi] corpo vero fallito, uso la figura semplice:', e); }
+    }
     const g = new THREE.Group();
     const pelle = new THREE.MeshStandardMaterial({ color: 15715486, roughness: 0.7 });
     const abito = new THREE.MeshStandardMaterial({ color: colore, roughness: 0.8, metalness: 0.05 });
@@ -6034,52 +6228,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-a";
     const leftArm = perno(-0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
     const rightArm = perno(0.36 * corporatura * fattoreSpalle, yBraccio, geomBraccio, pelle, -lunghezzaBraccio / 2);
 
-    // 14/09/2026 — LA SEDIA A ROTELLE SI DEVE VEDERE.
-    // Fino a ieri chi era in sedia a rotelle era disegnato SEDUTO NEL VUOTO:
-    // busto basso, gambe corte, e niente sotto. Da lontano non era un disabile,
-    // era una persona piu' bassa — e Raffaella infatti non lo distingueva.
-    // Le ruote grandi sono la cosa che si legge per prima da lontano: sono
-    // larghe quanto la persona e stanno su un piano diverso da tutto il resto.
-    if (seduto) {
-      const telaio = new THREE.MeshStandardMaterial({ color: 0x3a4750, roughness: 0.45, metalness: 0.6 });
-      const gomma = new THREE.MeshStandardMaterial({ color: 0x1b1b1e, roughness: 0.95 });
-      const aggiungi = (mesh, x, y, z, rz) => {
-        mesh.position.set(x, y, z);
-        if (rz) mesh.rotation.z = rz;
-        mesh.castShadow = true;
-        g.add(mesh);
-        return mesh;
-      };
-      // Le due ruote grandi, asse orizzontale: il cilindro nasce in piedi, si
-      // corica di un quarto di giro.
-      const rGrande = 0.30;
-      for (const lato of [-1, 1]) {
-        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(rGrande, rGrande, 0.045, 16), gomma),
-          lato * 0.33, rGrande, -0.02, Math.PI / 2);
-        // Il mozzo, piu' chiaro: da' il senso della ruota anche in controluce.
-        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(rGrande * 0.34, rGrande * 0.34, 0.05, 10), telaio),
-          lato * 0.33, rGrande, -0.02, Math.PI / 2);
-      }
-      // Le due ruotine davanti, quelle che girano.
-      for (const lato of [-1, 1])
-        aggiungi(new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.035, 10), gomma),
-          lato * 0.21, 0.085, 0.30, Math.PI / 2);
-      // Seduta e schienale.
-      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.06, 0.46), telaio), 0, 0.50, 0.02);
-      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.44, 0.06), telaio), 0, 0.74, -0.21);
-      // Le pedane, dove appoggiano i piedi.
-      aggiungi(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.20), telaio), 0, 0.16, 0.28);
-    }
-
-    // Il bastone dell'anziano: lo si riconosce da lontano meglio di qualunque
-    // proporzione del corpo, e dice l'eta' senza bisogno di guardare la faccia.
-    if (anziano && !seduto) {
-      const legno = new THREE.MeshStandardMaterial({ color: 0x6b4f2a, roughness: 0.85 });
-      const bastone = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.92, 6), legno);
-      bastone.position.set(0.34 * corporatura, 0.46, 0.06);
-      bastone.castShadow = true;
-      g.add(bastone);
-    }
+    // La sedia a rotelle si deve vedere: fino a ieri chi era in sedia veniva
+    // disegnato SEDUTO NEL VUOTO, e da lontano era solo una persona piu' bassa.
+    if (seduto) montaSedia(THREE, g);
+    // Il bastone dice l'eta' da lontano meglio di qualunque proporzione.
+    if (anziano && !seduto) montaBastone(THREE, g, corporatura);
 
     g.userData = { baseY: 0 };
     // 14/09/2026 — LA STATURA. Raffaella: «li vedo tutti uguali, solo di colore
