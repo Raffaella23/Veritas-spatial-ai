@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6047,7 +6047,19 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-d";
     // Le capsule si nascondono, non si cancellano: se il bundle cerca ancora
     // `body` lo trova, e se un domani si volesse tornare indietro bastano due
     // righe. Si spengono anche quelle dentro i perni, che il bundle ruota.
-    g.traverse((o) => { if (o.isMesh) o.visible = false; });
+    //
+    // ⛔ E NON BASTA `visible = false`: il bundle RIACCENDE le mesh a ogni giro.
+    //    Misurato sulla pagina viva: 33 capsule su 201 erano tornate visibili e
+    //    si sovrapponevano al corpo vero — due corpi dentro lo stesso spazio,
+    //    l'effetto "manichino scorticato" fotografato da Raffaella il 14/09.
+    //    Il MATERIALE invece non lo tocca nessuno: si spegne quello, e resta
+    //    spento qualunque cosa faccia il bundle.
+    g.traverse((o) => {
+      if (!o.isMesh && !o.isSkinnedMesh) return;
+      o.visible = false;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      ms.forEach((m) => { if (m) m.visible = false; });
+    });
 
     // Il corpo vero va in un sottogruppo NOSTRO: il bundle scala il gruppo
     // esterno (0.820), noi scaliamo questo. Le due scale si moltiplicano e
