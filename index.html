@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-l";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-m";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6117,6 +6117,71 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-l";
         animazionePerCorpo: perStato,
       };
     },
+  };
+
+  // LOTTO C — 14/09/2026: il pannello agente/task. Nome e compito non esistono
+  // nella simulazione (l'agente e' solo un id e un archetipo): sono
+  // un'ANNOTAZIONE dell'utente, che qui si tiene a parte e si salva per
+  // progetto, cosi' non si perde a un refresh ma non sporca la traiettoria.
+  const AGENTI_INFO_CHIAVE = 'veritas_agenti_' + (window.__veritasProjectId || 'senza_progetto');
+  let AGENTI_INFO = {};
+  try { AGENTI_INFO = JSON.parse(localStorage.getItem(AGENTI_INFO_CHIAVE) || '{}') || {}; } catch (e) {}
+  function salvaAgentiInfo() {
+    try { localStorage.setItem(AGENTI_INFO_CHIAVE, JSON.stringify(AGENTI_INFO)); } catch (e) {}
+  }
+  window.__veritasAgenteInfo = function (id, campo, valore) {
+    const chiave = String(id);
+    AGENTI_INFO[chiave] = AGENTI_INFO[chiave] || {};
+    AGENTI_INFO[chiave][campo] = valore;
+    salvaAgentiInfo();
+  };
+
+  // La lista delle persone IN SCENA ORA — non tutta la traiettoria, solo i
+  // corpi che il battito sta gia' animando (CORPI_VIVI). Chi arriva col
+  // ritardo (start_delay) non e' ancora un corpo vero finche' non compare.
+  window.__veritasListaAgenti = function () {
+    return CORPI_VIVI.filter((v) => v.id != null).map((v) => {
+      const info = AGENTI_INFO[String(v.id)] || {};
+      return {
+        id: v.id,
+        archetipo: (v.group && v.group.userData && v.group.userData.archetipo) || null,
+        stato: v.stato || null,
+        nome: info.nome || '',
+        compito: info.compito || '',
+      };
+    }).sort((a, b) => a.id - b.id);
+  };
+
+  // Altezza occhio per archetipo, stessa tabella del motore Python
+  // (Assets/core/engine.py, EYE_HEIGHTS) — un disabile in carrozzina vede da
+  // piu' in basso davvero, non e' un dettaglio estetico.
+  const ALTEZZA_OCCHIO_ARCHETIPO = {
+    business: 1.65, family: 1.60, elderly: 1.58, wheelchair: 1.20,
+    tourist: 1.62, student: 1.70, crew: 1.68, vip: 1.65,
+  };
+
+  // Dove sta e dove guarda l'agente ORA, per "il viaggio nei suoi occhi"
+  // (Raffaella, HANDOFF punto C: «voglio farmi il viaggio negli occhi di un
+  // ragazzo disabile, vedere se la segnaletica si vede»). La direzione viene
+  // dalla traccia (stessa convenzione atan2(dz,dx) del motore, mai dalla
+  // rotazione del gruppo Three.js: quella e' un dettaglio d'animazione, non
+  // e' documentata come dato pubblico e invertirne il segno per sbaglio
+  // punterebbe la telecamera esattamente all'indietro senza nessun errore.
+  window.__veritasOcchiDiAgente = function (id) {
+    const v = CORPI_VIVI.find((x) => x.id === id);
+    if (!v || !v.group) return null;
+    const traccia = TRACCE.get(id);
+    let direzione = [1, 0, 0];
+    if (traccia && traccia.length > 1) {
+      const i = Math.max(0, Math.min(traccia.length - 2, v.traccia >= 0 ? v.traccia : 0));
+      const p0 = traccia[i].pos, p1 = traccia[i + 1].pos;
+      const dx = p1[0] - p0[0], dz = p1[2] - p0[2];
+      if (Math.hypot(dx, dz) > 1e-4) direzione = [dx, 0, dz];
+    }
+    const archetipo = v.group.userData && v.group.userData.archetipo;
+    const altezzaOcchio = ALTEZZA_OCCHIO_ARCHETIPO[archetipo] || 1.65;
+    const p = v.group.position;
+    return { posizione: [p.x, p.y + altezzaOcchio, p.z], direzione, altezzaOcchio, archetipo };
   };
 
   function caricaLibreriaCorpi(THREE) {
@@ -21605,6 +21670,44 @@ const CSS = `
   border-radius:9px!important;color:var(--va-testo)!important;
 }
 
+/* IL PANNELLO AGENTI — LOTTO C, 14/09/2026 sera. Stessa colonna a destra
+   della console e dei dati di progetto: un pannello alla volta, stesso
+   vetro, stessa regola. Chiuso e' assente dal DOM (display:none), non solo
+   invisibile — cosi' la MutationObserver di unPannelloPerVolta lo vede
+   comparire/sparire come vede veritas-progetto. */
+#va-agenti{
+  position:fixed;right:16px;bottom:16px;top:auto;z-index:9680;
+  width:min(360px,34vw);max-height:calc(100vh - 96px);
+  display:flex;flex-direction:column;overflow:hidden;border-radius:16px;
+  background:var(--va-vetro);backdrop-filter:var(--va-sfuma);-webkit-backdrop-filter:var(--va-sfuma);
+  border:1px solid var(--va-orlo);box-shadow:var(--va-ombra);
+  color:var(--va-testo);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+}
+#va-agenti-testa{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;flex:0 0 auto;}
+#va-agenti-testa h3{margin:0;font-size:12.5px;font-weight:600;letter-spacing:-.01em;}
+#va-agenti-chiudi{background:transparent;border:0;color:var(--va-testo-fioco);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;}
+#va-agenti-chiudi:hover{color:var(--va-testo);}
+#va-agenti-vuoto{padding:4px 14px 14px;font-size:11px;color:var(--va-testo-fioco);}
+#va-agenti-lista{flex:0 1 auto;min-height:0;overflow-y:auto;padding:0 10px 10px;}
+.va-agente{border-top:1px solid var(--va-orlo);padding:8px 4px;}
+.va-agente:first-child{border-top:0;}
+.va-agente-riga{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.va-agente-id{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;color:var(--va-testo-fioco);flex:0 0 auto;width:28px;}
+.va-agente-arch{font-size:10px;color:var(--va-testo-fioco);flex:0 0 auto;}
+.va-agente input{
+  flex:1 1 auto;min-width:0;background:rgba(255,255,255,.05);border:1px solid var(--va-orlo);
+  border-radius:7px;color:var(--va-testo);font-size:11px;padding:4px 7px;
+  font-family:inherit;
+}
+.va-agente-occhi{
+  flex:0 0 auto;background:rgba(100,210,255,.11);border:1px solid var(--va-orlo);
+  border-radius:7px;color:var(--va-accento);font-size:10.5px;padding:4px 8px;cursor:pointer;white-space:nowrap;
+}
+.va-agente-occhi:hover{background:rgba(100,210,255,.2);}
+.va-agente-vista{margin-top:6px;}
+.va-agente-vista img{width:100%;border-radius:8px;display:block;border:1px solid var(--va-orlo);}
+.va-agente-vista p{margin:4px 0 0;font-size:9.5px;color:var(--va-testo-fioco);}
+
 /* Il widget di upload e' l'UNICA cosa da fare all'ingresso, quindi sta al
    centro di uno schermo vuoto e non in un angolo. A left:64px finiva sopra il
    marchio: testo su testo, il difetto piu' banale e il piu' visibile. */
@@ -21790,13 +21893,33 @@ function disegnaRail() {
     });
     r.appendChild(b);
   }
+
+  // LOTTO C — le persone in scena: nome, compito, e il viaggio nei loro
+  // occhi. Settima icona, stessa famiglia delle altre sei (Raffaella,
+  // 14/09/2026 sera, scegliendo dove metterla): apre a destra nello stesso
+  // slot della console, un pannello alla volta.
+  r.appendChild(document.createElement("hr"));
+  const agentiBtn = document.createElement("button");
+  agentiBtn.id = "va-agenti-tab";
+  agentiBtn.className = "va-strato";
+  agentiBtn.type = "button";
+  agentiBtn.title = "Persone in scena";
+  agentiBtn.setAttribute("aria-label", "Persone in scena");
+  agentiBtn.setAttribute("aria-pressed", agentiAperto ? "true" : "false");
+  agentiBtn.disabled = !window.__veritasModelRoot;
+  agentiBtn.innerHTML = '<span class="va-strato-segno">▣</span>'
+                       + '<span class="va-strato-nome">Persone in scena</span>';
+  agentiBtn.addEventListener("click", () => apriAgenti(!agentiAperto));
+  r.appendChild(agentiBtn);
   return r;
 }
 
 let dockAperto = false;
+let agentiAperto = false;
 
 function apriDock(v) {
   dockAperto = !!v;
+  if (dockAperto) apriAgenti(false);
   // Un pannello per volta, e vale nei DUE sensi. Chiudendo solo la console
   // quando compare il pannello, il caso opposto restava aperto: il pannello
   // dati finiva DIETRO la console e si leggeva in trasparenza attraverso il
@@ -21812,6 +21935,143 @@ function apriDock(v) {
     t.setAttribute("aria-pressed", dockAperto ? "true" : "false");
     if (dockAperto) t.removeAttribute("data-nuovi");
   }
+}
+
+// LOTTO C — apertura del pannello agenti, stessa regola "un pannello per
+// volta" della console: aprendo questo si chiude la console e il pannello
+// dati; aprendo quelli si chiude questo (vedi la riga aggiunta in apriDock).
+let agentiRitmo = null;
+function apriAgenti(v) {
+  agentiAperto = !!v;
+  const tab = document.getElementById("va-agenti-tab");
+  if (tab) tab.setAttribute("aria-pressed", agentiAperto ? "true" : "false");
+  if (agentiRitmo) { clearInterval(agentiRitmo); agentiRitmo = null; }
+  if (!agentiAperto) {
+    const p = document.getElementById("va-agenti");
+    if (p) p.remove();
+    return;
+  }
+  if (dockAperto) apriDock(false);
+  const dati = document.getElementById("veritas-progetto");
+  if (dati) dati.remove();
+  disegnaPannelloAgenti();
+  // Il battito anima 28 corpi ogni fotogramma: qui basta molto meno spesso,
+  // solo per accorgersi di chi e' comparso o e' arrivato (stato cambiato).
+  // Si RIDISEGNA, non si aggiorna sul posto: gli input che l'utente sta
+  // scrivendo in quel momento si salvano da soli (evento change), quindi
+  // ridisegnare non cancella niente che non sia gia' salvato.
+  agentiRitmo = setInterval(disegnaPannelloAgenti, 2000);
+}
+
+/** Un'immagine, dagli occhi di un agente. Sincrono e costoso (un render
+ * offscreen in piu' sulla stessa scena): si chiama SOLO al click, mai nel
+ * ritmo di aggiornamento del pannello. */
+function mostraOcchiAgente(id, dentroDiv) {
+  const occhi = window.__veritasOcchiDiAgente && window.__veritasOcchiDiAgente(id);
+  const V = window.__veritasVista;
+  const renderer = window.__veritasRenderer, radice = window.__veritasModelRoot;
+  const THREE = window.THREE;
+  if (!occhi || !V || !renderer || !radice || !THREE) {
+    dentroDiv.textContent = "Non riesco a vedere da qui adesso — il modello o il motore grafico non sono pronti.";
+    return;
+  }
+  const v = V.vistaDalCamminatore(THREE, renderer, radice, {
+    posizione: occhi.posizione, direzione: occhi.direzione,
+    altezzaOcchio: occhi.altezzaOcchio, fovGradi: 70, larghezza: 480, altezza: 320,
+    etichetta: "dagli occhi dell'agente " + id,
+  });
+  if (!v) { dentroDiv.textContent = "Non sono riuscito a fare lo scatto — riprova fra un istante."; return; }
+  const cv = document.createElement("canvas");
+  cv.width = v.larghezza; cv.height = v.altezza;
+  const ctx = cv.getContext("2d");
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(v.pixel), v.larghezza, v.altezza), 0, 0);
+  dentroDiv.innerHTML = "";
+  const img = document.createElement("img");
+  img.src = cv.toDataURL("image/png");
+  const p = document.createElement("p");
+  p.textContent = (occhi.altezzaOcchio).toFixed(2) + " m da terra"
+    + (v.chiusura != null ? " • orizzonte chiuso al " + Math.round(v.chiusura * 100) + "%" : "");
+  dentroDiv.appendChild(img);
+  dentroDiv.appendChild(p);
+}
+
+function disegnaPannelloAgenti() {
+  if (!agentiAperto) return;
+  let p = document.getElementById("va-agenti");
+  if (!p) {
+    p = document.createElement("div");
+    p.id = "va-agenti";
+    p.className = "va-vetro";
+    document.body.appendChild(p);
+  }
+  const agenti = (window.__veritasListaAgenti && window.__veritasListaAgenti()) || [];
+  p.innerHTML = "";
+
+  const testa = document.createElement("div");
+  testa.id = "va-agenti-testa";
+  const h = document.createElement("h3");
+  h.textContent = "Persone in scena" + (agenti.length ? " (" + agenti.length + ")" : "");
+  const chiudi = document.createElement("button");
+  chiudi.id = "va-agenti-chiudi";
+  chiudi.type = "button";
+  chiudi.textContent = "✕";
+  chiudi.title = "Chiudi";
+  chiudi.addEventListener("click", () => apriAgenti(false));
+  testa.appendChild(h);
+  testa.appendChild(chiudi);
+  p.appendChild(testa);
+
+  if (!agenti.length) {
+    const vuoto = document.createElement("div");
+    vuoto.id = "va-agenti-vuoto";
+    vuoto.textContent = "Nessuno ancora in scena — avvia la simulazione.";
+    p.appendChild(vuoto);
+    return;
+  }
+
+  const lista = document.createElement("div");
+  lista.id = "va-agenti-lista";
+  for (const a of agenti) {
+    const riga = document.createElement("div");
+    riga.className = "va-agente";
+
+    const r1 = document.createElement("div");
+    r1.className = "va-agente-riga";
+    const idEl = document.createElement("span");
+    idEl.className = "va-agente-id"; idEl.textContent = "#" + a.id;
+    const archEl = document.createElement("span");
+    archEl.className = "va-agente-arch"; archEl.textContent = a.archetipo || "—";
+    r1.appendChild(idEl); r1.appendChild(archEl);
+    riga.appendChild(r1);
+
+    const r2 = document.createElement("div");
+    r2.className = "va-agente-riga";
+    const nomeInput = document.createElement("input");
+    nomeInput.type = "text"; nomeInput.placeholder = "nome"; nomeInput.value = a.nome;
+    nomeInput.addEventListener("change", () => window.__veritasAgenteInfo(a.id, "nome", nomeInput.value));
+    const compitoInput = document.createElement("input");
+    compitoInput.type = "text"; compitoInput.placeholder = "compito"; compitoInput.value = a.compito;
+    compitoInput.addEventListener("change", () => window.__veritasAgenteInfo(a.id, "compito", compitoInput.value));
+    r2.appendChild(nomeInput); r2.appendChild(compitoInput);
+    riga.appendChild(r2);
+
+    const occhiBtn = document.createElement("button");
+    occhiBtn.className = "va-agente-occhi";
+    occhiBtn.type = "button";
+    occhiBtn.textContent = "◉ guarda dai suoi occhi";
+    const vistaDiv = document.createElement("div");
+    vistaDiv.className = "va-agente-vista";
+    occhiBtn.addEventListener("click", () => {
+      vistaDiv.textContent = "Guardo...";
+      vistaDiv.style.display = vistaDiv.style.display === "none" ? "block" : "block";
+      setTimeout(() => mostraOcchiAgente(a.id, vistaDiv), 30);
+    });
+    riga.appendChild(occhiBtn);
+    riga.appendChild(vistaDiv);
+
+    lista.appendChild(riga);
+  }
+  p.appendChild(lista);
 }
 
 /**
@@ -21855,7 +22115,10 @@ function segueConsole() {
 function unPannelloPerVolta() {
   if (typeof MutationObserver !== "function") return;
   new MutationObserver(() => {
-    if (document.getElementById("veritas-progetto") && dockAperto) apriDock(false);
+    if (document.getElementById("veritas-progetto")) {
+      if (dockAperto) apriDock(false);
+      if (agentiAperto) apriAgenti(false);
+    }
   }).observe(document.body, { childList: true });
 }
 
