@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-k";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-l";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2507,6 +2507,49 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-k";
   }
   // === FINE FIX TASK 6 ===
 
+  // 14/09/2026 sera — LO SCARTO DOPO IL RIENTRO SUL CAMMINO.
+  //
+  // resolveOverlaps() separa i corpi, ma veritasRientraSulCammino() viene
+  // DOPO (riga ~3205) e ha l'ultima parola: aggancia ogni posizione al punto
+  // piu' vicino del calpestabile, e se due ARRIVED condividono lo stesso
+  // gate quel punto piu' vicino e' lo STESSO per entrambi — la separazione
+  // appena fatta viene annullata. Misurato: due agenti arrivati restavano a
+  // 8 miliardesimi di metro l'uno dall'altro anche dopo il fix di stamattina
+  // su resolveOverlaps.
+  //
+  // Qui non si tocca l'ordine (il cammino deve restare l'ultima parola,
+  // altrimenti torna il difetto di chi sbordava nei muri e nelle scale
+  // mobili — §17.2, gia' pagato una volta). Si aggiunge un passo IN PIU',
+  // solo per chi e' fermo (ARRIVED), che allarga lateralmente chi e' rimasto
+  // a contatto — di poco, e con un tetto (0,25 m a testa) volutamente sotto
+  // la tolleranza di 1,2 m che veritasRientraSulCammino usa per dire "sei
+  // ancora su questo calpestabile": chi si allarga resta sempre dentro
+  // l'area che il rientro ha appena giudicato valida.
+  function separaArrivatiDopoIlCammino(frameAgents) {
+    const TETTO = 0.25;
+    for (let i = 0; i < frameAgents.length; i++) {
+      for (let j = i + 1; j < frameAgents.length; j++) {
+        const a = frameAgents[i], b = frameAgents[j];
+        if (a.state !== "ARRIVED" && b.state !== "ARRIVED") continue;
+        const widthA = (a.width || (a.archetype === 'wheelchair' ? 0.9 : 0.55));
+        const widthB = (b.width || (b.archetype === 'wheelchair' ? 0.9 : 0.55));
+        const MIN_SEP = (widthA + widthB) * 0.6;
+        const dx = b.pos[0] - a.pos[0], dz = b.pos[2] - a.pos[2];
+        const d = Math.hypot(dx, dz);
+        if (d >= MIN_SEP) continue;
+        // Direzione: quella vera se misurabile, altrimenti una fissa e
+        // deterministica (dagli id, mai da Math.random) cosi' due persone
+        // ferme non tremano da un fotogramma all'altro.
+        let nx, nz;
+        if (d > 1e-6) { nx = dx / d; nz = dz / d; }
+        else { const ang = (a.id * 2.399963 + b.id * 4.112) % (Math.PI * 2); nx = Math.cos(ang); nz = Math.sin(ang); }
+        const push = Math.min(TETTO, (MIN_SEP - d) / 2);
+        a.pos[0] -= nx * push; a.pos[2] -= nz * push;
+        b.pos[0] += nx * push; b.pos[2] += nz * push;
+      }
+    }
+  }
+
   function generateTrajectory(nodes) {
     // durata aumentata da 361 a 800 frame (~180s -> ~400s) per compensare la
     // velocita' ridotta a realistica: altrimenti con passi piu' lenti gli
@@ -3206,6 +3249,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-k";
         const r = veritasRientraSulCammino([{ agents: frameAgents }]);
         if (r) fuoriDalCammino += r.fuori;
       }
+      separaArrivatiDopoIlCammino(frameAgents);
       frames.push({ t, agents: frameAgents });
     }
     if (nmFrame) {
@@ -7708,6 +7752,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-k";
       if (rientro) console.log("[VERITAS cammino] traiettoria remota riportata sul calpestabile: "
         + rientro.dentro + " posizioni; " + rientro.ponte + " su collegamenti dichiarati (scale mobili); "
         + rientro.fuori + " troppo lontane per rientrare qui, lasciate dove sono");
+      // Stesso motivo del generatore locale: il Social Force Model del
+      // motore vero non separa gli ARRIVED fra loro (nessuna regola del
+      // genere esiste lato Python), e il rientro appena fatto puo' comunque
+      // riaggangiarli allo stesso punto condiviso. Vedi il commento su
+      // separaArrivatiDopoIlCammino.
+      for (const f of data.trajectory.frames) separaArrivatiDopoIlCammino(f.agents || []);
       // Dati percettivi: cosa ogni agente ha VISTO e come lo ha interpretato.
       // Si tengono qui, lato client, invece di rileggerli poi dal server:
       // il backend ne conserva una copia sola e globale, quindi con piu'
