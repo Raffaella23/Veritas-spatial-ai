@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-f";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -3105,7 +3105,17 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
         // Il richiamo del gruppo tira verso il baricentro dei compagni — che
         // puo' essere dall'altra parte di un muro, o su un altro piano. Sul
         // collegamento non si applica.
-        if (gc && state === "MOVING" && !suPonte && Math.random() < 0.9) { x += (gc.x - x) * 0.08; z += (gc.z - z) * 0.08; }
+        //
+        // 14/09/2026 — Raffaella: «i bambini devono stare con i genitori, o
+        // qualcosa che li identifichi». Non si sa QUALE dei tre e' il bambino
+        // (l'eta' la decide il colore del corpo, lato rendering, non qui) —
+        // ma si sa che sono una famiglia, ed e' la famiglia intera che deve
+        // restare compatta, non solo "un po' vicina" come per estranei nella
+        // stessa fila. Richiamo triplo: 0.08 diventa 0.24.
+        if (gc && state === "MOVING" && !suPonte && Math.random() < 0.9) {
+          const richiamo = ag.archetype === 'family' ? 0.24 : 0.08;
+          x += (gc.x - x) * richiamo; z += (gc.z - z) * richiamo;
+        }
         x += (Math.random() - 0.5) * 0.015;
         z += (Math.random() - 0.5) * 0.015;
         const rot = Math.atan2(dz, dx);
@@ -6041,6 +6051,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
   function vestiUna(THREE, g, id) {
     const archetipo = g.userData.archetipo
       || Object.keys(ARCHETYPE_COLORS)[id % Object.keys(ARCHETYPE_COLORS).length];
+    g.userData.archetipo = archetipo;   // serve al battito, per riconoscere chi e' in difficolta'
     const colore = ARCHETYPE_COLORS[archetipo] || '#888888';
     const t = trattiDi(archetipo, id);
 
@@ -6097,20 +6108,69 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
       // all'unisono si notano subito e rovinano la folla.
       azione.play(); azione.time = (t.seed + t.seed2) * 2;
     }
-    CORPI_VIVI.push({ group: g, mixer, azione, stato: nome, seduto: t.seduto,
-                      px: g.position.x, pz: g.position.z });
+    CORPI_VIVI.push({ group: g, id, mixer, azione, stato: nome, seduto: t.seduto,
+                      px: g.position.x, pz: g.position.z, traccia: -1, allarme: null });
+  }
+
+  // =========================================================================
+  // LO STATO VERO DELL'AGENTE — 14/09/2026, LOTTO A
+  //
+  // Raffaella: «i corpi devono assumere idle animation se in fila, oppure
+  // sedersi... e le tre andature normale/sostenuta/corsa». Prima si indovinava
+  // se una figura camminava guardando di quanto si era spostata: un'euristica
+  // debole, che non sa distinguere «fermo in coda» da «fermo perche' arrivato»
+  // e non conosce affatto la velocita' voluta.
+  //
+  // La verita' c'e' gia', dentro la traiettoria: ogni frame porta `state`
+  // (MOVING/WAITING/ARRIVED) per ogni id — la stessa identica struttura sia dal
+  // motore vero (Render) sia dal generatore locale. Il bundle minificato la
+  // consuma per muovere i gruppi, ma non la lascia sul gruppo: non si tocca il
+  // bundle, quindi si RICOSTRUISCE la traccia di ogni agente una volta, e ad
+  // ogni battito si cerca — per POSIZIONE, non per tempo, cosi' funziona
+  // uguale con play/pausa/velocita' x1/x2 — il punto della traccia piu' vicino
+  // a dove il bundle ha messo davvero la figura in questo istante.
+  const TRACCE = new Map();      // id -> [{pos:[x,y,z], state, t}, ...]
+  let trajVista = null;
+
+  function ricostruisciTracce(traj) {
+    TRACCE.clear();
+    for (const f of traj.frames) {
+      for (const a of f.agents) {
+        let arr = TRACCE.get(a.id);
+        if (!arr) TRACCE.set(a.id, arr = []);
+        arr.push({ pos: a.pos, state: a.state, t: f.t });
+      }
+    }
+  }
+
+  // Il punto della traccia piu' vicino alla posizione attuale, cercando vicino
+  // a dove si era arrivati l'ultima volta: il moto e' continuo, quindi la
+  // finestra e' quasi sempre piccola.
+  function trovaSullaTraccia(traccia, idx, x, z) {
+    if (!traccia || !traccia.length) return -1;
+    let migliore = idx >= 0 && idx < traccia.length ? idx : 0;
+    let distMin = Infinity;
+    const FINESTRA = 90;
+    const da = Math.max(0, migliore - 10), a = Math.min(traccia.length, migliore + FINESTRA);
+    for (let i = da; i < a; i++) {
+      const p = traccia[i].pos;
+      const d = (p[0] - x) * (p[0] - x) + (p[2] - z) * (p[2] - z);
+      if (d < distMin) { distMin = d; migliore = i; }
+    }
+    return migliore;
   }
 
   // Il battito delle animazioni. E' un ciclo NOSTRO, indipendente dal bundle:
   // cosi' non si tocca il codice minificato e se il bundle cambia non si rompe.
   const CORPI_VIVI = [];
   (function battito() {
-    let ultimo = 0, prossimaVestizione = 0;
+    let ultimo = 0, prossimaVestizione = 0, prossimoControlloTraj = 0;
     function giro(t) {
       const dt = ultimo ? Math.min(0.1, (t - ultimo) / 1000) : 0;
       ultimo = t;
       // Le figure nascono quando il bundle le crea, non quando vogliamo noi:
-      // si controlla due volte al secondo se ce n'e' qualcuna ancora nuda.
+      // si controlla due volte al secondo se ce n'e' qualcuna ancora nuda, e
+      // se la traiettoria e' cambiata (nuova simulazione, nuovo modello).
       if (t > prossimaVestizione) {
         prossimaVestizione = t + 500;
         if (CORPI.pronta && window.THREE) {
@@ -6123,16 +6183,43 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
           caricaLibreriaCorpi(window.THREE);
         }
       }
+      if (t > prossimoControlloTraj) {
+        prossimoControlloTraj = t + 500;
+        try {
+          const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+          if (traj && traj !== trajVista) { ricostruisciTracce(traj); trajVista = traj; }
+        } catch (e) {}
+      }
       for (const v of CORPI_VIVI) {
         if (!v.mixer || !v.group.visible) continue;
-        // Cammina o e' fermo? Non lo si chiede al bundle: si guarda di quanto
-        // si e' spostata la figura da un battito all'altro. Un dato vero.
         const p = v.group.position;
+        const traccia = TRACCE.get(v.id);
+        let statoVero = null, velocitaVera = 0;
+        if (traccia && traccia.length > 1) {
+          const i = trovaSullaTraccia(traccia, v.traccia, p.x, p.z);
+          if (i >= 0) {
+            statoVero = traccia[i].state;
+            const j = Math.min(traccia.length - 1, i + 1);
+            if (j > i) {
+              const d = Math.hypot(traccia[j].pos[0] - traccia[i].pos[0], traccia[j].pos[2] - traccia[i].pos[2]);
+              const dtT = traccia[j].t - traccia[i].t;
+              if (dtT > 0) velocitaVera = d / dtT;
+            }
+            v.traccia = i;
+          }
+        }
+        // Senza traccia (motore appena partito, o generatore che non la
+        // pubblica) si torna al vecchio indizio: lo spostamento osservato.
         const passo = Math.hypot(p.x - v.px, p.z - v.pz);
         v.px = p.x; v.pz = p.z;
+        const inMoto = statoVero ? statoVero === 'MOVING' : (dt > 0 && passo / dt > 0.12);
+        const corsa = inMoto && velocitaVera > 2.1;   // le tre andature: normale / sostenuta / corsa
+
         if (dt > 0) {
-          const inMoto = passo / dt > 0.12;
-          const vuole = v.seduto ? 'Sitting_Idle_Loop' : (inMoto ? 'Walk_Loop' : 'Idle_Loop');
+          const vuole = v.seduto ? 'Sitting_Idle_Loop'
+            : !inMoto ? 'Idle_Loop'          // fermo: in coda, o arrivato — stessa posa d'attesa
+            : corsa ? 'Jog_Fwd_Loop'
+            : 'Walk_Loop';
           if (vuole !== v.stato) {
             const clip = CORPI.clip.get(vuole);
             if (clip) {
@@ -6144,6 +6231,46 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-e";
           }
         }
         v.mixer.update(dt);
+
+        // 14/09/2026 — IL SEGNALE DI CHI E' BLOCCATO.
+        //
+        // Raffaella: «l'agente in carrozzina dovrebbe pulsare in rosso se non
+        // trova un ascensore o percorsi a norma. Ogni situazione di stress del
+        // flusso dovrebbe dare un feedback anche visivo.»
+        //
+        // ⚠️ QUESTO E' UN PROXY, NON ANCORA LA DIAGNOSI VERA. Sapere che
+        //    manca DAVVERO una rampa per QUEL disabile richiederebbe la
+        //    navmesh filtrata per profilo (punto 3 del HANDOFF, rimandato: non
+        //    esiste ancora). Quello che si puo' dire oggi, ed e' vero: un
+        //    agente WHEELCHAIR che non avanza pur non essendo ne' in coda a un
+        //    varco (WAITING) ne' arrivato (ARRIVED) e' fermo per un motivo che
+        //    il sistema non sa spiegare — ed e' li' che serve l'occhio di chi
+        //    guarda la scena. Si segnala, dichiarando il limite nel referto.
+        const archetipo = v.group.userData && v.group.userData.archetipo;
+        const inDifficolta = archetipo === 'wheelchair' && statoVero === 'MOVING' && velocitaVera < 0.05;
+        if (inDifficolta && v.allarme == null) v.allarme = t;
+        if (!inDifficolta) v.allarme = null;
+        const bloccatoDaTanto = v.allarme != null && (t - v.allarme) > 3000;
+        if (bloccatoDaTanto !== !!v.pulsante) {
+          v.pulsante = bloccatoDaTanto;
+          v.group.traverse((o) => {
+            if (!o.isMesh && !o.isSkinnedMesh) return;
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            mats.forEach((m) => {
+              if (!m) return;
+              if (bloccatoDaTanto) { m.emissive = m.emissive || new THREE.Color(); m._emissiveOrig = m.emissive.getHex(); }
+              else if (m._emissiveOrig != null && m.emissive) m.emissive.setHex(m._emissiveOrig);
+            });
+          });
+        }
+        if (v.pulsante) {
+          const k = (Math.sin(t * 0.006) + 1) / 2;
+          v.group.traverse((o) => {
+            if (!o.isMesh && !o.isSkinnedMesh) return;
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            mats.forEach((m) => { if (m && m.emissive) m.emissive.setRGB(k * 0.9, 0, 0); });
+          });
+        }
       }
       requestAnimationFrame(giro);
     }
