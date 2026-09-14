@@ -2361,12 +2361,34 @@ function disegnaNomi(u) {
 }
 
 // ---------------------------------------------------------------------------
-export function apri() {
+export async function apri() {
   if (S.aperto) return true;
   const T = window.THREE;
   if (!T) { console.warn('[EIDETICA live] three non è pronto'); return false; }
-  const D = dati();
-  if (!D) { alert(P().niente); return false; }
+  let D = dati();
+  if (!D) {
+    // 14/09/2026 sera — SENZA "LEGGI LO SPAZIO" QUI NON SI APRE PROPRIO
+    // NIENTE (dati() richiede window.__veritasPercezione.zones, e senza
+    // quello si esce con un alert del browser che si perde nel resto dello
+    // schermo). Raffaella lo vedeva come "resta sempre su 0 ambienti
+    // riconosciuti" — ma il difetto vero e' un passo mancante che nessuna
+    // icona fa immaginare, lo stesso difetto trovato oggi su "Vie di esodo".
+    // Se i punti misurati ci sono gia' ma le zone no, si lancia l'analisi da
+    // soli invece di lasciare l'utente a indovinare quale bottone premere
+    // prima. Si GUARDA quando e' pronta (fino a 25s), non si indovina un
+    // ritardo fisso — stesso principio usato altrove in questo file.
+    const puntiCiSono = (window.__veritasAutoPoints || []).length > 0;
+    const zoneCiSono = ((window.__veritasPercezione || {}).zones || []).length > 0;
+    if (puntiCiSono && !zoneCiSono && typeof window.__veritasRunCommand === 'function') {
+      console.log('[EIDETICA live] nessuna zona misurata ancora: lancio "Leggi lo spazio" prima di aprire');
+      window.__veritasRunCommand('analizza');
+      for (let tentativi = 0; tentativi < 50 && !D; tentativi++) {
+        await new Promise((r) => setTimeout(r, 500));
+        D = dati();
+      }
+    }
+    if (!D) { alert(P().niente); return false; }
+  }
 
   // ⚠️ IL MOTORE AUDIO NASCE QUI, DENTRO IL CLIC. Fuori dalla catena del gesto
   //    dell'utente il browser lo crea sospeso e non riparte piu': era questo il
