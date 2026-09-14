@@ -72,6 +72,110 @@ Non è una questione di geometria, **sono gli indizi**:
 - le **pareti verticali** sono porte, varchi e chiusure: **non si attraversano**;
 - le **scale mobili** sono gli unici collegamenti fra piani di calpestio.
 
+---
+
+## 📋 SESSIONE 14/09/2026 (pomeriggio) — I CORPI VERI, LO STATO VERO, LE FRECCE CHE GUIDANO
+
+**Pubblicato: costruzione `2026-09-14-j`.**
+
+### ✅ I corpi — da 8 figure ripetute a 25 diverse, con un incidente in mezzo
+
+Raffaella dal vivo: *«li vedo tutti uguali, solo di colore diverso»*, poi:
+*«se c'è una libreria di corpi o animazioni a cui attingere, caricala»*.
+
+- **Prima causa trovata**: il seed di ogni figura nasceva dal **colore**
+  dell'archetipo, non dall'id — tutti gli agenti dello stesso tipo erano
+  identici. `senior`/`elderly` (colore `#6a994e`) cadevano sotto la soglia dei
+  bambini ed **erano disegnati come bambini**. Corretto: il seed nasce dall'id.
+- **Caricata la Universal Animation Library di Quaternius** (CC0, in `corpi/`):
+  un corpo vero + 46 animazioni, 3,9 MB. Dentro c'è la direttiva 12 e oltre:
+  `Idle_Loop`, `Sitting_Enter/Idle/Exit`, `Walk_Loop`, `Push_Loop` (carrello),
+  `Jog_Fwd_Loop`, `Interact`.
+- ⛔ **LA TRAPPOLA DELLE DUE COPIE, AL CONTRARIO.** Il lavoro sui corpi (statura,
+  sesso, sedia a rotelle) non arrivava a schermo: **le figure le costruisce il
+  bundle minificato**, non `veritasBuildPassenger` in `index.html` — quella era
+  la copia morta stavolta. Misurato: tutte e 28 le figure avevano scala uniforme
+  0,820. Soluzione: non si riscrive il bundle, si **veste** quello che crea —
+  `vestiLeFigure()` gira due volte al secondo, spegne le capsule (materiale
+  **e** mesh: il bundle riaccende `visible` a ogni giro, spegnere solo la mesh
+  non basta) e infila il corpo vero in un sottogruppo nostro.
+- **La sedia a rotelle ora è geometria vera** (ruote, seduta, schienale), non
+  più una persona seduta nel vuoto. L'anziano ha il bastone.
+- Console: `window.__veritasCorpi.stato()` — quante figure vestite, quante
+  animazioni in corso, se la libreria è pronta.
+
+### ✅ Lotto A — lo stato vero guida l'animazione
+
+Ogni frame della traiettoria (motore vero e generatore locale, stessa
+struttura) porta già `state` (MOVING/WAITING/ARRIVED) e `pos` per ogni id. Il
+bundle la consuma ma non la lascia sul gruppo — si **ricostruisce la traccia**
+di ogni agente una volta, e ad ogni battito si cerca il punto più vicino **per
+posizione** (non per tempo: funziona con play/pausa/x1/x2).
+
+⚠️ **Misurato e corretto un artefatto**: con due soli campioni consecutivi,
+13 persone su 25 risultavano "in corsa" — l'interpolazione ease-in-out del
+cammino accelera al centro di ogni tratto per recuperare il tempo perso in
+curva, e un campione lì vede un falso picco. Corretto mediando su 2 secondi:
+verificato, nessuno supera più 1,87 m/s in una simulazione normale.
+
+I bambini (`family`) restano vicini al gruppo (richiamo triplicato, solo nel
+generatore locale). Chi è in **carrozzina e resta bloccato pulsa in rosso**
+dopo 3 s — dichiarato come segnale, non ancora come diagnosi (richiede sapere
+se manca *davvero* una rampa, cioè la navmesh filtrata per profilo del punto 3
+qui sotto, mai costruita).
+
+### ✅ Lotto B — le frecce guidano anche il cammino, non solo la meta
+
+Il 12/09 le frecce erano già un indizio per **scegliere la tappa** giusta fra
+più candidati (`unaPerCategoria`, `veritas_flussi.js`). Ma il **tragitto
+fisico** fra due tappe (`findRoute` → navmesh pura) restava cieco alla
+segnaletica: fra un corridoio segnalato e uno di servizio, vinceva sempre il
+più corto.
+
+🔴 **INCIDENTE, e la lezione vale più della cura.** Il primo tentativo era uno
+SCONTO: un tratto allineato a una freccia costa metà della sua distanza vera.
+Passava il test isolato. **Sul modello vero ha bloccato il renderer di
+Chrome** — nessun errore in console, la pagina smette di rispondere.
+
+**Causa**: navcat usa A* con euristica = distanza euclidea al goal (misurato
+nel sorgente: `heuristic = vec3.distance(...) * 0.999`). Quell'euristica è
+valida **solo se nessun arco costa meno della propria lunghezza**. Uno sconto
+lo viola: l'algoritmo riapre nodi già chiusi, e senza un limite esplicito sulle
+riaperture (non c'è, verificato) il calcolo non finisce più.
+
+⚠️ **REGOLA NUOVA PER QUALUNQUE FILTRO FUTURO SULLA NAVMESH: mai abbassare un
+costo sotto la distanza vera. Solo rincarare le alternative.** Corretto così:
+chi passa vicino a una freccia (25 m) ma non nella sua direzione (cono di
+35°) paga il 15% in più; ovunque altro il costo resta quello vero, invariato.
+Stesso risultato relativo, euristica mai violata. `filtroCosto()` in
+`veritas_navmesh.js` fabbrica il filtro (passFilter intatto, cambia solo
+getCost); `filtroSeguiFrecce()` in `index.html` (vicino a `findRoute`) lo
+costruisce dalle frecce già lette da `veritas_segnaletica.js`.
+
+Verificato prima isolatamente (5-6 casi geometrici), poi sul modello vero su
+una scheda pulita: 0 irraggiungibili, nessun blocco.
+
+### 📌 Sulla domanda «esiste un modulo di semiotica?» — 14/09
+
+Non con quel nome. Il meccanismo (un segno letto → un comportamento) esiste in
+**due punti indipendenti**, entrambi dentro `veritas_flussi.js`/`findRoute`:
+1. `unaPerCategoria` — la freccia sceglie **quale tappa** raggiungere;
+2. `filtroSeguiFrecce` — la freccia guida **come ci si arriva** (sopra).
+
+Nessuno dei due sa leggere segni diversi dalle frecce (un cartello "USCITA",
+un simbolo di divieto): resta un vocabolario di un solo segno.
+
+### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso
+
+| | | |
+|---|---|---|
+| **C** | **Il pannello agente/task** — chiesto più volte, non c'è | Una finestrella con le persone in scena, nome e compito assegnabili, e "guarda dai suoi occhi" (`vistaDalCamminatore` esiste già, mai esposta all'utente). Raffaella: *«voglio farmi il viaggio negli occhi di un ragazzo disabile, vedere se la segnaletica si vede»*. Insieme: pulire la palette a sinistra — solo la chat sembra viva, il resto va verificato e tolto se morto |
+| **D** | **Il "Cinema"** — Raffaella pensava fosse "Lettura dal vivo", non lo è | Oggi "Lettura dal vivo" apre la vista **Percezione** (i puntini viola, «0 ambienti riconosciuti» — il vecchio difetto mai chiuso). Serve un rendering con ombre vere, che porti "l'anima della visione": luce, materiali, l'identità EIDETICA — diverso dalla fotografia grezza del modello caricato |
+| **3** | **Navmesh filtrata per profilo** — le scale di servizio, rimandato dal 12/09 | Stesso meccanismo tecnico del filtro-frecce di oggi (`QueryFilter`/`getCost`), ma qui serve anche **negare** un passaggio a chi non è del profilo giusto — è la parte rischiosa che oggi non si è toccata. Serve anche a rendere vera (non un proxy) la pulsazione rossa della carrozzina bloccata |
+| — | **Telecamere di sorveglianza fisse per zona** | Bottoni spenti che si accendono e inquadrano un punto fisso (varco, check-in) — mai iniziato |
+
+---
+
 📌 Il rettangolo che contiene tutte le frecce — **52,9 × 23,6 m** — è quindi una
 misura del «dentro» letta dal modello stesso, non ipotizzata.
 
