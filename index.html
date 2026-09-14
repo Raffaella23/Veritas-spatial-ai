@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-c";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-d";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5967,6 +5967,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-c";
   //   window.__veritasCorpi.stato()
   window.__veritasCorpi = {
     lib: CORPI,
+    // A mano, quando si vuole capire perche' non e' partito da solo.
+    carica() { return caricaLibreriaCorpi(window.THREE); },
+    vesti() { vestiLeFigure(window.THREE); return this.stato(); },
     stato() {
       const map = window.__veritasPassengerGroups;
       let vestite = 0, nude = 0;
