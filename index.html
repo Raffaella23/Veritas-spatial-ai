@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-f";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-g";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5986,12 +5986,18 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-f";
       if (map) for (const p of map.values()) {
         if (p && p.group && p.group.userData.__vestita) vestite++; else nude++;
       }
+      const perStato = {};
+      for (const v of CORPI_VIVI) perStato[v.stato] = (perStato[v.stato] || 0) + 1;
       return {
         libreriaPronta: CORPI.pronta,
         errore: CORPI.errore ? String(CORPI.errore.message || CORPI.errore) : null,
         animazioni: CORPI.clip.size,
         figureVestite: vestite, figureNude: nude,
         corpiAnimati: CORPI_VIVI.length,
+        // Debug del lotto A, 14/09/2026: quante tracce si conoscono e quanti
+        // corpi in ciascuna animazione in questo istante.
+        agentiTracciati: TRACCE.size,
+        animazionePerCorpo: perStato,
       };
     },
   };
