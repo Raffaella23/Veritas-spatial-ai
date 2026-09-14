@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-k";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2404,8 +2404,16 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
       for (let i = 0; i < frameAgents.length; i++) {
         for (let j = i + 1; j < frameAgents.length; j++) {
           const a = frameAgents[i], b = frameAgents[j];
-          if (a.state === "ARRIVED" || b.state === "ARRIVED") continue;
-          
+          // 14/09/2026 sera — chi e' ARRIVED non veniva piu' separato: due
+          // persone che arrivano allo stesso nodo (stesso gate, stesso
+          // banco) restano da quel momento esattamente sovrapposte, per
+          // sempre — «si fondono in una sagoma sola», vista dal vivo da
+          // Raffaella col motore reale (misurato: 59.016 coppie ARRIVED a
+          // distanza pressoche' zero su 800 fotogrammi). Restano fuori solo
+          // dal calcolo densita' (riga sopra) e dalla CODA (sotto): un
+          // arrivato non fila piu' in coda, ma la distanza minima dal
+          // vicino resta sempre valida.
+
           // Larghezza dinamica per sedia a rotelle
           const widthA = (a.width || (a.archetype === 'wheelchair' ? 0.9 : 0.55));
           const widthB = (b.width || (b.archetype === 'wheelchair' ? 0.9 : 0.55));
@@ -2444,8 +2452,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
             const va = versore(a.vel), vb = versore(b.vel);
             const dot = va[0] * vb[0] + va[1] * vb[1];
             const densityHere = localGrid.get(Math.round(a.pos[0]/1) + "_" + Math.round(a.pos[2]/1)) || 0;
+            const unoArrivato = a.state === "ARRIVED" || b.state === "ARRIVED";
 
-            if (dot > 0.7 && densityHere > 3) {
+            if (!unoArrivato && dot > 0.7 && densityHere > 3) {
               // CODA: chi sta davanti tiene la posizione, chi sta dietro
               // arretra lungo la propria direzione di marcia. La fila resta
               // una fila, e la distanza minima e' comunque rispettata.
@@ -6296,7 +6305,18 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
         const passo = Math.hypot(p.x - v.px, p.z - v.pz);
         v.px = p.x; v.pz = p.z;
         const inMoto = statoVero ? statoVero === 'MOVING' : (dt > 0 && passo / dt > 0.12);
-        const corsa = inMoto && velocitaVera > 2.3;   // le tre andature: normale / sostenuta / corsa
+        // 14/09/2026 sera — Raffaella: la corsa si attiva SOLO in una
+        // simulazione di emergenza, mai come lettura automatica di un picco
+        // di velocita' (che esiste anche nel cammino normale, vedi la nota
+        // del mattino qui sopra sulla finestra a 4 campioni). `emergency_mode`
+        // arriva dal motore reale dentro la traiettoria (Assets/core/engine.py,
+        // fissato una volta sola all'avvio della corsa); il generatore di
+        // riserva non lo pubblica mai, quindi senza motore reale attivo la
+        // corsa resta sempre spenta. Non e' ancora il sistema a tre andature
+        // (normale/sostenuta/corsa) del LOTTO A — qui si spegne solo il falso
+        // positivo, la terza andatura resta da costruire.
+        const inEmergenza = !!(trajVista && trajVista.emergency_mode);
+        const corsa = inMoto && inEmergenza && velocitaVera > 2.3;
 
         if (dt > 0) {
           const vuole = v.seduto ? 'Sitting_Idle_Loop'
@@ -8094,6 +8114,13 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
     // invece di dover indovinare.
     try {
       let fresh = await veritasTryBackendSimulate(currentNodes, window.__veritasAgentCount);
+      // 14/09/2026 sera — presa QUI, prima che `fresh` passi per
+      // veritasApplicaCorpo/filtraTraiettoria (che puo' restituire un
+      // oggetto nuovo e perdere per strada i campi non suoi come questo):
+      // e' l'unico punto dove sappiamo con certezza se questa traiettoria
+      // viene dal motore reale con l'emergenza attiva. Il generatore JS di
+      // riserva non conosce l'emergenza, quindi resta sempre false li'.
+      const emergenzaBackend = !!(fresh && fresh.emergency_mode);
       if (!fresh) fresh = generateTrajectory(currentNodes);
       if (!fresh || !fresh.frames || !fresh.frames.length) {
         console.warn("[VERITAS] Traiettoria generata vuota (0 frame) - nessun passeggero visibile.", { nodeCount: currentNodes.length, types: currentNodes.map((n) => n.type) });
@@ -8105,6 +8132,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
       fresh = await veritasApplicaCorpo(fresh);
       traj.frames.length = 0;
       traj.frames.push(...fresh.frames);
+      // Sempre riscritto, mai solo "se vero": senza questo una corsa
+      // successiva SENZA emergenza erediterebbe il true di quella precedente,
+      // perche' `traj` e' lo stesso oggetto riusato da tutte le corse (vedi
+      // il commento su window.__veritasSetTrajectory qui sopra).
+      traj.emergency_mode = emergenzaBackend;
       // ⚠️ Anche la DURATA, non solo i fotogrammi.
       //
       // Qui si sostituivano i fotogrammi e si lasciava `duration` a 180 s,

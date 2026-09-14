@@ -391,10 +391,18 @@ class SimulationEngine:
         }, indent=2)
 
     def export_trajectory(self, nodes: dict) -> str:
-        """Genera il payload per il viewer passivo: nodi statici + traiettoria animata."""
+        """Genera il payload per il viewer passivo: nodi statici + traiettoria animata.
+
+        emergency_mode e' fissato una volta sola all'avvio della corsa
+        (trigger_emergency in api_server.py, prima del primo tick) e non
+        cambia durante la simulazione: il viewer lo legge una volta sola per
+        decidere se la corsa (Jog_Fwd_Loop) e' ammessa, invece di dedurla
+        dalla sola velocita' - vedi il commento del 14/09 sera in index.html.
+        """
         return json.dumps({
             "nodes": nodes,
             "frames": self.trajectory,
+            "emergency_mode": self.emergency_mode,
         }, indent=2)
 
     def export_perception_report(self) -> dict:
