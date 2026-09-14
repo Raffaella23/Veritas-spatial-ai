@@ -1,5 +1,6 @@
 import json
 import math
+import numpy as np
 from typing import List, Optional
 from core.behaviour import SyntheticPlayer
 from core.compliance import AccessibilityValidator
@@ -96,6 +97,47 @@ class SimulationEngine:
         self.emergency_mode = status
         print(f"!!! Protocollo Emergenza: {'ATTIVATO' if status else 'DISATTIVATO'} !!!")
 
+    def _larghezza_agente(self, agent) -> float:
+        """Larghezza fisica in metri, per archetipo - stessa soglia usata lato
+        JS (0.9 m per chi e' in carrozzina, 0.55 m per tutti gli altri)."""
+        brain = getattr(agent, "brain", None)
+        if not brain:
+            return 0.55
+        profile = getattr(brain, "profile", None) or {}
+        archetipo = profile.get("type") or brain.domain
+        return 0.9 if archetipo == "wheelchair" else 0.55
+
+    def _risolvi_sovrapposizioni(self):
+        """Nessun corpo dentro un altro - ne' in cammino ne' fermo.
+
+        Iterazioni multiple perche' una sola passata non basta quando tre o
+        piu' persone si toccano in catena (spingere A su B puo' far
+        ricadere B dentro C). Include anche gli ARRIVED: escluderli e'
+        esattamente il bug trovato e corretto stasera lato JS - chi arriva
+        allo stesso gate di un altro restava fuso per sempre.
+        """
+        ITER = 4
+        agenti = self.agents
+        n = len(agenti)
+        if n < 2:
+            return
+        for _ in range(ITER):
+            for i in range(n):
+                for j in range(i + 1, n):
+                    a, b = agenti[i], agenti[j]
+                    min_sep = (self._larghezza_agente(a) + self._larghezza_agente(b)) * 0.6
+                    delta = b.position - a.position
+                    delta[1] = 0.0  # solo sul piano orizzontale, mai in quota
+                    d = float(np.linalg.norm(delta))
+                    if d < 1e-6:
+                        a.position[0] -= 0.15
+                        b.position[0] += 0.15
+                    elif d < min_sep:
+                        push = (min_sep - d) / 2.0
+                        spinta = delta / d
+                        a.position -= spinta * push
+                        b.position += spinta * push
+
     def run_tick(self):
         """Ciclo principale di aggiornamento"""
         self.tick_count += 1
@@ -184,7 +226,20 @@ class SimulationEngine:
                 transit_seconds = (self.tick_count - start_tick) * self.dt
                 self.transit_times.append(transit_seconds)
 
-        # 4. Registra uno snapshot della scena per l'animazione nel viewer
+        # 4. Separazione minima fra i corpi — porta qui la stessa regola che
+        #    il generatore JS di riserva ha da stasera (resolveOverlaps in
+        #    index.html). PRIMA QUESTO MOTORE NON AVEVA NESSUNA RIGA che
+        #    tenesse due persone a distanza: due cammini che si incrociavano
+        #    potevano occupare lo stesso punto, senza che niente li
+        #    respingesse. Raffaella l'ha visto dal vivo il 14/09/2026 sera,
+        #    col motore reale acceso: due o piu' persone si fondono mentre
+        #    camminano, non solo quando arrivano ferme allo stesso gate (quel
+        #    caso e' gia' chiuso lato JS). Gira ogni tick, non solo sui
+        #    fotogrammi registrati: cosi' la traiettoria salvata e' gia'
+        #    corretta, non serve un secondo passo al momento di esportarla.
+        self._risolvi_sovrapposizioni()
+
+        # 5. Registra uno snapshot della scena per l'animazione nel viewer
         if self.tick_count % RECORD_EVERY == 0:
             frame_agents = []
             for a in self.agents:
