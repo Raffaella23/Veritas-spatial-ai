@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-i";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-j";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2222,12 +2222,29 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-i";
   // servizio portano allo stesso posto, la navmesh sceglie il piu' breve,
   // anche quando non e' quello indicato.
   //
-  // ⛔ NON e' un vincolo: e' uno SCONTO. Un tratto allineato a una freccia
-  //    costa meta' della sua distanza vera; tutti gli altri tratti costano
-  //    quello che sono sempre costati. Chi puo' passare e chi no (passFilter)
-  //    non cambia mai — vedi l'avvertimento gia' scritto il 12/09 su questo
-  //    stesso punto: «un filtro scritto in fretta puo' spezzare la
-  //    raggiungibilita' per TUTTI». Qui non si nega niente, si preferisce.
+  // ⛔ CORRETTO IL 14/09, STESSO GIORNO: LA PRIMA VERSIONE BLOCCAVA LA PAGINA.
+  //
+  // La prima idea era uno SCONTO: un tratto allineato a una freccia costa meta'
+  // della sua distanza vera. Sembrava innocuo — «non si nega niente, si
+  // preferisce» — ma provato sul modello vero ha bloccato il browser: la
+  // navmesh usa A* con un'euristica basata sulla distanza euclidea
+  // (`heuristic = distanza * 0.999`, misurato dentro navcat), e quell'euristica
+  // e' valida SOLO se nessun arco costa meno della propria lunghezza. Uno
+  // sconto lo viola, l'algoritmo comincia a riaprire nodi gia' chiusi, e senza
+  // un limite su quante volte puo' farlo il calcolo non finisce piu' — il
+  // sintomo era il crash del renderer di Chrome, non un errore in console.
+  //
+  // La cura giusta va nel verso opposto: mai abbassare un costo, solo
+  // rincarare le alternative. Un tratto che passa VICINO a una freccia ma
+  // NON nella sua direzione costa un po' di piu'; ovunque altro — lontano da
+  // ogni freccia, o proprio allineato — il costo resta la distanza vera,
+  // uguale a prima. Il risultato relativo e' lo stesso (il tratto segnalato
+  // resta il piu' conveniente), ma nessun costo scende mai sotto la sua
+  // lunghezza: l'euristica resta valida, e la pagina non si blocca.
+  //
+  // Chi puo' passare e chi no (passFilter) non cambia mai comunque — vedi
+  // l'avvertimento gia' scritto il 12/09: «un filtro scritto in fretta puo'
+  // spezzare la raggiungibilita' per TUTTI». Qui non si nega mai un passaggio.
   //
   // Senza segnaletica nel modello, `frecceSulPavimento()` torna vuoto e
   // `filtroSeguiFrecce()` torna null: nessun filtro custom, nessuna
@@ -2240,7 +2257,8 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-i";
     const frecce = frecceSulPavimento();
     const nm = window.__veritasNavmesh;
     if (!frecce.length || !nm || !nm.filtroCosto) return null;
-    const RAGGIO = 25, CONO = 35;   // stessi valori di FRECCIA_RAGGIO_M/CONO_DEG in veritas_flussi.js
+    const RAGGIO = 25, CONO = 35;      // stessi valori di FRECCIA_RAGGIO_M/CONO_DEG in veritas_flussi.js
+    const PENALITA = 1.15;             // chi passa vicino a una freccia e non la segue paga il 15% in piu'
     const differenza = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
     return nm.filtroCosto((pa, pb) => {
       const base = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]);
@@ -2249,10 +2267,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-i";
       for (const f of frecce) {
         const dx = midX - f.centro[0], dz = midZ - f.centro[1];
         if (Math.hypot(dx, dz) > RAGGIO) continue;
-        if (Math.min(differenza(direzioneTratto, f.direzione),
-                      differenza(direzioneTratto, f.direzione + 180)) <= CONO) return base * 0.5;
+        const allineato = Math.min(differenza(direzioneTratto, f.direzione),
+                                    differenza(direzioneTratto, f.direzione + 180)) <= CONO;
+        if (!allineato) return base * PENALITA;   // vicino alla freccia, ma va da un'altra parte
       }
-      return base;
+      return base;   // lontano da ogni freccia, o proprio allineato: costo vero, invariato
     });
   }
 
