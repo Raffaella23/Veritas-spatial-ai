@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-14-h";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6205,10 +6205,23 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-g";
           const i = trovaSullaTraccia(traccia, v.traccia, p.x, p.z);
           if (i >= 0) {
             statoVero = traccia[i].state;
-            const j = Math.min(traccia.length - 1, i + 1);
-            if (j > i) {
-              const d = Math.hypot(traccia[j].pos[0] - traccia[i].pos[0], traccia[j].pos[2] - traccia[i].pos[2]);
-              const dtT = traccia[j].t - traccia[i].t;
+            // 14/09/2026 — LA VELOCITA' SI MEDIA, NON SI CAMPIONA A DUE PUNTI.
+            //
+            // ⛔ Misurato sulla pagina viva: con due soli campioni consecutivi
+            //    quasi meta' della folla (13 su 25) risultava "in corsa". La
+            //    causa e' l'andatura stessa: fra due tappe il cammino accelera
+            //    a meta' del tratto per recuperare il tempo perso rallentando
+            //    nelle curve (l'interpolazione ease-in-out di `MOVING`). Un
+            //    campione preso proprio li' vede un picco che non e' corsa,
+            //    e' semplicemente il centro di un passo normale.
+            // Si guarda una finestra di 2 secondi (4 campioni da 0,5 s): la
+            // distanza totale percorsa diviso il tempo totale, che i picchi e
+            // i rallentamenti dell'andatura naturale li assorbe.
+            const FINESTRA_VELOCITA = 4;
+            const k = Math.min(traccia.length - 1, i + FINESTRA_VELOCITA);
+            if (k > i) {
+              const d = Math.hypot(traccia[k].pos[0] - traccia[i].pos[0], traccia[k].pos[2] - traccia[i].pos[2]);
+              const dtT = traccia[k].t - traccia[i].t;
               if (dtT > 0) velocitaVera = d / dtT;
             }
             v.traccia = i;
@@ -6219,7 +6232,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-14-g";
         const passo = Math.hypot(p.x - v.px, p.z - v.pz);
         v.px = p.x; v.pz = p.z;
         const inMoto = statoVero ? statoVero === 'MOVING' : (dt > 0 && passo / dt > 0.12);
-        const corsa = inMoto && velocitaVera > 2.1;   // le tre andature: normale / sostenuta / corsa
+        const corsa = inMoto && velocitaVera > 2.3;   // le tre andature: normale / sostenuta / corsa
 
         if (dt > 0) {
           const vuole = v.seduto ? 'Sitting_Idle_Loop'
