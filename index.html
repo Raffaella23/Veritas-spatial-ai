@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-c";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -29255,7 +29255,6 @@ function filtraFrames(scena, frames, opz = {}) {
   };
   const impossibili = new Set();
   const pianoPrec = new Map();
-  const ultimoBuono = new Map();  // id -> [x,y,z], ultima posizione confermata fuori da un solido
   let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
   const quotaMinima = scena.ingombro
     ? scena.ingombro.min[1] - Math.max(10, m.altezza * 5)
@@ -29322,7 +29321,6 @@ function filtraFrames(scena, frames, opz = {}) {
         }
 
         pianoPrec.set(id, [p[0], p[1], p[2]]);
-        ultimoBuono.set(id, [corpo.pos.x, corpo.pos.y, corpo.pos.z]);  // nascitaLibera garantisce fuori da un solido
         fuori[a] = { ...ag, pos: [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z] };
         continue;
       }
@@ -29367,45 +29365,17 @@ function filtraFrames(scena, frames, opz = {}) {
         }
       }
 
-      // 15/09/2026 — IL COLLAUDO CONTAVA, NON CORREGGEVA. Raffaella, dal
-      // vivo: «in alcuni casi gli agenti invece di schivare il muro lo
-      // attraversano, non e' ammissibile». dentroUnSolido() girava solo ogni
-      // PASSO_COLLAUDO fotogrammi (misura statistica, l'8,8% del referto),
-      // e anche quando trovava un corpo dentro un solido non faceva niente:
-      // lo registrava e basta, come il recupero di quota fa gia' per chi
-      // cade sotto il pavimento. Ora gira OGNI fotogramma (il raggio costa
-      // 0,0027 ms, vedi il commento su dentroUnSolido: trascurabile anche a
-      // 28 agenti per 800 fotogrammi) e, se un corpo e' dentro, lo riporta
-      // all'ULTIMA posizione buona conosciuta invece di lasciarlo li' —
-      // stessa idea della caduta, applicata al piano orizzontale.
-      controllate++;
-      let dentroOra = false;
-      try {
-        dentroOra = dentroUnSolido(scena, corpo);
-      } catch (e) {
-        logTrapEQuietaLancia('collaudo (dentroUnSolido)', f, id,
-          'posizione: ' + JSON.stringify(corpo.pos), e);
-      }
-      if (dentroOra) {
-        dentro++;
-        const buono = ultimoBuono.get(id);
-        if (buono) {
-          try {
-            corpo.pos = { x: buono[0], y: buono[1], z: buono[2] };
-            corpo.vy = 0;
-            corpo.rb.setTranslation(corpo.pos, true);
-            scena.world.step();
-          } catch (e) {
-            logTrapEQuietaLancia('recupero da solido (setTranslation/world.step)', f, id,
-              'ultimo buono: ' + JSON.stringify(buono), e);
-          }
-        }
-      } else {
-        ultimoBuono.set(id, [corpo.pos.x, corpo.pos.y, corpo.pos.z]);
-      }
-
       const piede = [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z];
       scostamenti.push(Math.hypot(piede[0] - p[0], piede[2] - p[2]));
+      if (f % PASSO_COLLAUDO === 0) {
+        controllate++;
+        try {
+          if (dentroUnSolido(scena, corpo)) dentro++;
+        } catch (e) {
+          logTrapEQuietaLancia('collaudo (dentroUnSolido)', f, id,
+            'posizione: ' + JSON.stringify(corpo.pos), e);
+        }
+      }
       fuori[a] = { ...ag, pos: piede };
     }
 
