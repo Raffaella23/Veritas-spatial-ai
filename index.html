@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-j";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -19332,22 +19332,81 @@ function segmentZones(grid, ft, opts = {}) {
   }
 
   // Statistiche per zona.
+  //
+  // ⚠️ 15/09/2026 (notte) — LA FORMA NON SI BUTTA PIÙ. Fino a ieri questo
+  //    accumulatore teneva solo cells/sumX/sumZ (il centroide) e
+  //    maxClearance: un accesso allungato e uno quadrato con la stessa area
+  //    finivano nello STESSO oggetto {areaM2, centroidX, centroidZ}, e ogni
+  //    disegno a valle doveva indovinare un cerchio/quadrato dalla sola
+  //    area — il "cubo" che sostituisce la zona invece di indicarla.
+  //
+  //    Le celle di ogni bacino sono già visitate qui, una volta sola: si
+  //    aggiungono tre somme (sumXX/sumZZ/sumXZ, i momenti secondi grezzi)
+  //    per ricavare — DOPO il giro, senza un secondo passaggio — la STESSA
+  //    matematica degli assi principali già scritta in
+  //    `assePrincipale()` (veritas_segnaletica.js): matrice di covarianza
+  //    2x2, autovalori, angolo. Nessun algoritmo nuovo: lo stesso conto,
+  //    fatto per somme incrementali invece che su un array di punti (qui i
+  //    punti sono le celle della griglia, potenzialmente migliaia).
   const cellArea = cellSize * cellSize;
   const acc = new Map();
   for (let i = 0; i < w * h; i++) {
     const L = labels[i];
     if (L === -1) continue;
     let a = acc.get(L);
-    if (!a) { a = { label: L, cells: 0, sumX: 0, sumZ: 0, maxClearance: 0 }; acc.set(L, a); }
+    if (!a) {
+      a = { label: L, cells: 0, sumX: 0, sumZ: 0, sumXX: 0, sumZZ: 0, sumXZ: 0, maxClearance: 0 };
+      acc.set(L, a);
+    }
     const x = i % w, z = (i - x) / w;
     a.cells++; a.sumX += x; a.sumZ += z;
+    a.sumXX += x * x; a.sumZZ += z * z; a.sumXZ += x * z;
     if (dist[i] > a.maxClearance) a.maxClearance = dist[i];
   }
+
+  // Sotto questa soglia di celle il momento secondo è troppo rumoroso per
+  // dire qualcosa di affidabile su orientamento/allungamento (una manciata
+  // di celle non basta a distinguere "stretto e lungo" da "rumore di
+  // campionamento"): si lascia null e resta il ripiego ad area esistente.
+  const CELLE_MINIME_FORMA = 6;
 
   const zones = [];
   for (const a of acc.values()) {
     const areaM2 = a.cells * cellArea;
     if (areaM2 < minArea) continue;
+
+    let formaLungo = null, formaLargo = null, formaAngolo = null;
+    if (a.cells >= CELLE_MINIME_FORMA) {
+      // Covarianza dai momenti grezzi: Var(X) = E[X²] - E[X]² — stesso
+      // risultato di centrare prima, un solo giro invece di due.
+      const mx = a.sumX / a.cells, mz = a.sumZ / a.cells;
+      const sxx = a.sumXX / a.cells - mx * mx;
+      const szz = a.sumZZ / a.cells - mz * mz;
+      const sxz = a.sumXZ / a.cells - mx * mz;
+      // Autovalori della 2x2 — identico a `assePrincipale()`.
+      const tr = sxx + szz, det = sxx * szz - sxz * sxz;
+      const rad = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+      const l1 = tr / 2 + rad, l2 = Math.max(0, tr / 2 - rad);   // l1 >= l2
+      if (isFinite(l1) && l1 > 0) {
+        let angolo;
+        if (Math.abs(sxz) > 1e-9) angolo = Math.atan2(l1 - sxx, sxz);
+        else angolo = sxx >= szz ? 0 : Math.PI / 2;
+        // Rettangolo equivalente: per una distribuzione uniforme su [-L/2,L/2]
+        // la varianza è L²/12, quindi L = 2*sqrt(3*varianza). È la stessa
+        // ipotesi di densità uniforme con cui l'area viene già misurata
+        // (celle libere contate una per una) — nessuna soglia nuova tarata
+        // a mano.
+        const lungoCelle = 2 * Math.sqrt(3 * l1);
+        const largoCelle = 2 * Math.sqrt(3 * l2);
+        const lungo = lungoCelle * cellSize, largo = largoCelle * cellSize;
+        if (isFinite(lungo) && isFinite(largo) && lungo > 0 && largo > 0) {
+          formaLungo = +lungo.toFixed(2);
+          formaLargo = +largo.toFixed(2);
+          formaAngolo = +angolo.toFixed(4);
+        }
+      }
+    }
+
     zones.push({
       label: a.label,
       areaM2: +areaM2.toFixed(2),
@@ -19357,6 +19416,9 @@ function segmentZones(grid, ft, opts = {}) {
       maxClearanceM: +a.maxClearance.toFixed(3),
       // Un'area ampia è un ambiente; una stretta e lunga è un corridoio.
       kind: a.maxClearance * 2 >= 3.0 ? 'ambiente' : 'corridoio',
+      // 15/09/2026 — la forma vera, quando c'è abbastanza cella per fidarsene;
+      // altrimenti null, e chi legge ripiega sull'area come faceva già.
+      formaLungo, formaLargo, formaAngolo,
     });
   }
   zones.sort((a, b) => b.areaM2 - a.areaM2);
