@@ -1139,7 +1139,16 @@ function costruisci(D) {
   });
   const polvere = new T.Points(geom, mat);
   polvere.frustumCulled = false;
-  scena.add(polvere);
+  // 15/09/2026 — TOLTI I PUNTINI. Raffaella: «quel rendering con i puntini
+  // non fa capire niente... devi togliere quei puntini». Non si cancella
+  // il generatore (geom/mat restano per la diagnostica in stato() e per
+  // non rompere il resto), si smette solo di mostrarlo: la scena mostra
+  // ORA solo le superfici vere (muri, pavimento, soffitto, oggetti), gia'
+  // ombreggiate per triangolo — quello che c'era gia', mai la mesh grezza
+  // dell'utente. Non aggiunta a `scena`: costa zero, sia a schermo che di
+  // calcolo (il ciclo che la anima piu' sotto resta, ma anima qualcosa che
+  // nessuno vede).
+  // scena.add(polvere);
 
   // ---- LE SUPERFICI: i punti si condensano QUI ----------------------------
   // ⚠️ ORDINE DEL FILM (grammatica, punto 3): i punti precipitano, POI la
