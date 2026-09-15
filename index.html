@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-b";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-c";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2258,19 +2258,17 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-b";
     const nm = window.__veritasNavmesh;
     if (!frecce.length || !nm || !nm.filtroCosto) return null;
     const RAGGIO = 25, CONO = 35;      // stessi valori di FRECCIA_RAGGIO_M/CONO_DEG in veritas_flussi.js
-    // 15/09/2026 — alzata da 1.15 a 1.5: Raffaella, dal vivo, non vedeva
-    // nessuna differenza fra chi segue le frecce e chi le ignora. Il 15% in
-    // piu' era troppo debole per spostare davvero la scelta del cammino piu'
-    // corto quando le due strade erano vicine di lunghezza — il che, su un
-    // grafo con molte scorciatoie, e' quasi sempre il caso. Resta una
-    // PENALITA (mai uno sconto sotto la distanza vera): stessa ragione per
-    // cui il monotonicity di A* non si rompe, vedi la nota qui sopra sul
-    // blocco del browser che questa regola ha gia' evitato una volta.
-    const PENALITA = 1.5;
-    // Come si verifica dal vivo: si guarda UN agente il cui percorso passa
-    // vicino a una freccia dipinta, dall'inizio alla fine — non "segue le
-    // indicazioni" nel senso di sterzare in tempo reale, sceglie l'intero
-    // cammino UNA VOLTA SOLA all'avvio, in base a questo costo.
+    // 15/09/2026 — LA FRECCIA E' UN OBBLIGO, NON UN CONSIGLIO. Raffaella:
+    // «se c'e' una freccia che indica una direzione, la devi seguire,
+    // punto». 500x: nessuna scorciatoia reale in un edificio puo' mai
+    // valerla, quindi in pratica non si passa mai di li' se la freccia dice
+    // altro — e' un obbligo a tutti gli effetti osservabili.
+    // Resta tecnicamente un COSTO enorme e non un divieto vero (il grafo non
+    // perde mai l'arco): e' l'unico modo per essere assoluti qui dentro
+    // senza il crash gia' misurato (nota sopra) — l'euristica di A* smette
+    // di essere valida SOLO se un costo scende sotto la distanza vera, mai
+    // se sale, per quanto in alto.
+    const PENALITA = 500;
     const differenza = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
     return nm.filtroCosto((pa, pb) => {
       const base = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]);
