@@ -49,6 +49,24 @@ const CARTA = '#FCFCFE';
 const INCHIOSTRO = '#141A33';
 const NEBBIA = '#8A90A6';
 
+// 15/09/2026 — LA PALETTE SEMANTICA. Raffaella, dal brief "AI-Eye View":
+// «Grigio chiaro per i pavimenti, Blu/Azzurro per i volumi strutturali,
+// Viola per i varchi di sicurezza». Prima ogni superficie prendeva il
+// colore della zona piu' vicina, ciclando sui 5 colori del marchio per
+// indice — un pavimento poteva uscire arancione e un muro oro, senza
+// nessun rapporto con COSA fosse. Qui il colore lo decide il RUOLO della
+// superficie (pavimento/muro/soffitto), non la zona — la zona interviene
+// solo per il caso speciale del varco di sicurezza (tipo "filtro" nel
+// grafo dei nodi, la stessa convenzione usata in index.html per i box di
+// controllo), che sovrascrive con il viola indipendentemente dal ruolo.
+const GRIGIO_PAVIMENTO = [0.82, 0.84, 0.88];
+const BLU_STRUTTURALE = MARCA[0];
+const VIOLA_VARCO = MARCA[1];
+function coloreSemantico(zona, ruoloDefault) {
+  if (zona && zona.tipo === 'filtro') return VIOLA_VARCO;
+  return ruoloDefault;
+}
+
 const PAROLE = {
   it: {
     pulsante: 'Lettura dal vivo',
@@ -242,7 +260,7 @@ function dati() {
   const dmax = Math.max.apply(null, zone.map(dist)) || 1;
 
   const zz = zone.map((z, i) => {
-    let nome = null, fiducia = 1, dmin = Infinity, vicino = null;
+    let nome = null, fiducia = 1, tipo = null, dmin = Infinity, vicino = null;
     for (const n of nodi) {
       if (!n.pos) continue;
       const d = Math.hypot(n.pos[0] - z.centroidX, n.pos[2] - z.centroidZ);
@@ -252,9 +270,12 @@ function dati() {
       nome = vicino.label || null;
       fiducia = vicino.fiducia != null ? vicino.fiducia
               : (vicino.confidence != null ? vicino.confidence : 1);
+      // "filtro" e' la stessa convenzione di index.html (righe ~2969, 5969,
+      // 6011...) per i varchi di sicurezza: si legge, non si reinventa.
+      tipo = vicino.type || null;
     }
     return {
-      i, nome, fiducia, area: z.areaM2 || 0,
+      i, nome, fiducia, tipo, area: z.areaM2 || 0,
       x: z.centroidX, y: z.y != null ? z.y : 0, z: z.centroidZ,
       lungo: z.formaLungo || Math.sqrt(z.areaM2 || 4),
       largo: z.formaLargo || Math.sqrt(z.areaM2 || 4),
@@ -1275,7 +1296,7 @@ function costruisci(D) {
       }
       const t = quandoDi(F.cx, F.cz, zona) + RITARDO_SUPERFICIE;
       if (t > 1) continue;
-      const c = zona ? zona.colore : MARCA[0];
+      const c = coloreSemantico(zona, GRIGIO_PAVIMENTO);
       const a = F.lungo / 2, b = F.largo / 2, y = F.y + 0.01;
       const S4 = [[F.cx - a, y, F.cz - b], [F.cx + a, y, F.cz - b],
                   [F.cx + a, y, F.cz + b], [F.cx - a, y, F.cz + b]];
@@ -1291,7 +1312,14 @@ function costruisci(D) {
       gp.setAttribute('position', new T.BufferAttribute(fp.subarray(0, iv * 3), 3));
       gp.setAttribute('tinta', new T.BufferAttribute(fc.subarray(0, iv * 3), 3));
       gp.setAttribute('quando', new T.BufferAttribute(fq.subarray(0, iv), 1));
-      pavMesh = new T.Mesh(gp, ombra(0.11, true));
+      // 15/09/2026 — DA VELATURA A SOLIDO OPACO. Il brief "AI-Eye View" di
+      // Raffaella chiede facce opache all'80-90%, non piu' il velo sottile
+      // (forza 0.09-0.14) pensato per "carta e inchiostro": qui la richiesta
+      // e' "l'utente deve capire subito dove finisce un muro e dove inizia
+      // un corridoio", che una superficie quasi trasparente non da'. Stessa
+      // funzione ombra() (luce che segue l'occhio, faccia per faccia): cambia
+      // solo quanto e' coperta la carta sotto, non come viene illuminata.
+      pavMesh = new T.Mesh(gp, ombra(0.85, true));
       pavMesh.frustumCulled = false;
       scena.add(pavMesh);
     }
@@ -1342,7 +1370,7 @@ function costruisci(D) {
       }
       const t = quandoDi(F.cx, F.cz, zona) + RITARDO_SUPERFICIE + 0.02;
       if (t > 1) continue;
-      const c = zona ? zona.colore : MARCA[1];
+      const c = coloreSemantico(zona, BLU_STRUTTURALE);
       const a = F.lungo / 2, b = F.largo / 2;
       const S4 = [[F.cx - a, y, F.cz - b], [F.cx + a, y, F.cz - b],
                   [F.cx + a, y, F.cz + b], [F.cx - a, y, F.cz + b]];
@@ -1356,7 +1384,7 @@ function costruisci(D) {
       gt.setAttribute('position', new T.BufferAttribute(new Float32Array(tp), 3));
       gt.setAttribute('tinta', new T.BufferAttribute(new Float32Array(tc), 3));
       gt.setAttribute('quando', new T.BufferAttribute(new Float32Array(tq), 1));
-      tettoMesh = new T.Mesh(gt, ombra(0.09, true));
+      tettoMesh = new T.Mesh(gt, ombra(0.75, true));
       tettoMesh.frustumCulled = false;
       scena.add(tettoMesh);
     }
@@ -1377,7 +1405,7 @@ function costruisci(D) {
         const d = (Z.x - M.cx) * (Z.x - M.cx) + (Z.z - M.cz) * (Z.z - M.cz);
         if (d < dmin) { dmin = d; zona = Z; }
       }
-      const c = zona ? zona.colore : MARCA[1];
+      const c = coloreSemantico(zona, BLU_STRUTTURALE);
       const t = quandoDi(M.cx, M.cz, zona) + RITARDO_SUPERFICIE;
       const met = (k) => {
         const p = S4[k];
@@ -1400,7 +1428,7 @@ function costruisci(D) {
     gm.setAttribute('position', new T.BufferAttribute(vp, 3));
     gm.setAttribute('tinta', new T.BufferAttribute(vc, 3));
     gm.setAttribute('quando', new T.BufferAttribute(vq, 1));
-    muriMesh = new T.Mesh(gm, ombra(0.14, true));
+    muriMesh = new T.Mesh(gm, ombra(0.88, true));
     muriMesh.frustumCulled = false;
     scena.add(muriMesh);
 
@@ -1441,7 +1469,7 @@ function costruisci(D) {
       }
       const t = quandoDi(cx, cz, zona) + RITARDO_SUPERFICIE;
       if (t > 1) continue;
-      const c = TR.uomo ? MARCA[4] : (zona ? zona.colore : MARCA[0]);
+      const c = TR.uomo ? MARCA[4] : coloreSemantico(zona, BLU_STRUTTURALE);
       for (const P of [TR.a, TR.b, TR.c]) {
         tp[iv * 3] = P[0]; tp[iv * 3 + 1] = P[1]; tp[iv * 3 + 2] = P[2];
         tc[iv * 3] = c[0]; tc[iv * 3 + 1] = c[1]; tc[iv * 3 + 2] = c[2];
@@ -1460,7 +1488,7 @@ function costruisci(D) {
       go.setAttribute('position', new T.BufferAttribute(tp.subarray(0, iv * 3), 3));
       go.setAttribute('tinta', new T.BufferAttribute(tc.subarray(0, iv * 3), 3));
       go.setAttribute('quando', new T.BufferAttribute(tq.subarray(0, iv), 1));
-      oggMesh = new T.Mesh(go, ombra(0.10, true));
+      oggMesh = new T.Mesh(go, ombra(0.85, true));
       oggMesh.frustumCulled = false;
       scena.add(oggMesh);
 
@@ -2334,6 +2362,27 @@ function disegnaNomi(u) {
   const g = c.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
+
+  // IL MIRINO — brief "AI-Eye View": «un mirino centrale discreto», la
+  // firma che questa e' una vista strumentale e non una fotografia. Fisso
+  // al centro schermo (non nel mondo: un mirino che si sposta con la
+  // camera non e' un mirino), sottile, un solo tono, mai sopra il 35%
+  // di opacita' — deve leggersi come uno strumento, non come un bersaglio.
+  {
+    const cx = w / 2, cy = h / 2, r1 = 9, r2 = 15;
+    g.save();
+    g.strokeStyle = 'rgba(20,26,51,0.35)';
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, r1, 0, Math.PI * 2); g.stroke();
+    g.beginPath();
+    g.moveTo(cx - r2, cy); g.lineTo(cx - r1 + 2, cy);
+    g.moveTo(cx + r1 - 2, cy); g.lineTo(cx + r2, cy);
+    g.moveTo(cx, cy - r2); g.lineTo(cx, cy - r1 + 2);
+    g.moveTo(cx, cy + r1 - 2); g.lineTo(cx, cy + r2);
+    g.stroke();
+    g.restore();
+  }
+
   const V = new T.Vector3();
   const presi = [];
   for (const Z of S.zone) {
