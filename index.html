@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-14-n";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -21963,36 +21963,80 @@ function apriAgenti(v) {
   agentiRitmo = setInterval(disegnaPannelloAgenti, 2000);
 }
 
-/** Un'immagine, dagli occhi di un agente. Sincrono e costoso (un render
- * offscreen in piu' sulla stessa scena): si chiama SOLO al click, mai nel
- * ritmo di aggiornamento del pannello. */
-function mostraOcchiAgente(id, dentroDiv) {
+// 14/09/2026 notte — L'IMMAGINE SPARIVA DOPO UN ATTIMO, E IL MOTIVO ERA IL
+// PANNELLO STESSO. mostraOcchiAgente scriveva dentro una riga del pannello
+// agenti, ma quel pannello si ridisegna ogni 2s (agentiRitmo) con
+// p.innerHTML = "" — quindi la fotografia veniva cancellata quasi subito
+// dopo essere comparsa. Raffaella, dal vivo: «prendo una fotografia, ma la
+// telecamera non si sposta, non si apre nessuna schermata. Si apre per un
+// attimo una visuale». Non era un problema di camera: la vista SI APRIVA
+// ed era corretta, solo che spariva prima di poterla leggere.
+// Ora e' una vera schermata (#va-occhi), fuori dal pannello che si
+// ridisegna: sopravvive al ritmo, e si vede grande come una schermata deve
+// essere vista, non come una miniatura in una lista.
+function chiudiOcchi() {
+  const o = document.getElementById("va-occhi");
+  if (o) o.remove();
+}
+function mostraOcchiAgente(id) {
+  let o = document.getElementById("va-occhi");
+  if (!o) {
+    o = document.createElement("div");
+    o.id = "va-occhi";
+    o.style.cssText = "position:fixed;inset:0;z-index:9900;display:flex;align-items:center;justify-content:center;"
+      + "background:rgba(11,15,23,.72);backdrop-filter:blur(6px);";
+    o.addEventListener("click", (e) => { if (e.target === o) chiudiOcchi(); });
+    document.body.appendChild(o);
+  }
+  o.innerHTML = '<div class="va-vetro" style="max-width:min(720px,88vw);padding:14px;border-radius:16px;">'
+    + '<p style="margin:0 0 8px;font-size:11.5px;color:var(--va-testo-fioco);">Guardo...</p></div>';
+  const scatola = o.firstElementChild;
+
   const occhi = window.__veritasOcchiDiAgente && window.__veritasOcchiDiAgente(id);
   const V = window.__veritasVista;
   const renderer = window.__veritasRenderer, radice = window.__veritasModelRoot;
   const THREE = window.THREE;
   if (!occhi || !V || !renderer || !radice || !THREE) {
-    dentroDiv.textContent = "Non riesco a vedere da qui adesso — il modello o il motore grafico non sono pronti.";
+    scatola.innerHTML = '<p style="margin:0;font-size:12px;color:var(--va-testo);">'
+      + "Non riesco a vedere da qui adesso — il modello o il motore grafico non sono pronti.</p>";
     return;
   }
-  const v = V.vistaDalCamminatore(THREE, renderer, radice, {
-    posizione: occhi.posizione, direzione: occhi.direzione,
-    altezzaOcchio: occhi.altezzaOcchio, fovGradi: 70, larghezza: 480, altezza: 320,
-    etichetta: "dagli occhi dell'agente " + id,
+  // Il render offscreen e' sincrono e costoso: un giro in piu' di
+  // requestAnimationFrame perche' "Guardo..." si veda davvero prima di
+  // bloccare il thread, invece di scattare dritti alla foto.
+  requestAnimationFrame(() => {
+    const v = V.vistaDalCamminatore(THREE, renderer, radice, {
+      posizione: occhi.posizione, direzione: occhi.direzione,
+      altezzaOcchio: occhi.altezzaOcchio, fovGradi: 70, larghezza: 960, altezza: 640,
+      etichetta: "dagli occhi dell'agente " + id,
+    });
+    if (!o.isConnected) return; // chiusa nel frattempo
+    if (!v) {
+      scatola.innerHTML = '<p style="margin:0;font-size:12px;color:var(--va-testo);">'
+        + "Non sono riuscito a fare lo scatto — riprova fra un istante.</p>";
+      return;
+    }
+    const cv = document.createElement("canvas");
+    cv.width = v.larghezza; cv.height = v.altezza;
+    cv.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(v.pixel), v.larghezza, v.altezza), 0, 0);
+    scatola.innerHTML = "";
+    const img = document.createElement("img");
+    img.src = cv.toDataURL("image/png");
+    img.style.cssText = "display:block;width:100%;border-radius:10px;";
+    const info = document.createElement("div");
+    info.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-top:8px;";
+    const p = document.createElement("p");
+    p.style.cssText = "margin:0;font-size:11px;color:var(--va-testo-fioco);";
+    p.textContent = "agente " + id + " • " + occhi.altezzaOcchio.toFixed(2) + " m da terra"
+      + (v.chiusura != null ? " • orizzonte chiuso al " + Math.round(v.chiusura * 100) + "%" : "");
+    const chiudi = document.createElement("button");
+    chiudi.textContent = "Chiudi";
+    chiudi.style.cssText = "background:transparent;border:1px solid var(--va-orlo);color:var(--va-testo);"
+      + "border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;";
+    chiudi.addEventListener("click", chiudiOcchi);
+    info.appendChild(p); info.appendChild(chiudi);
+    scatola.appendChild(img); scatola.appendChild(info);
   });
-  if (!v) { dentroDiv.textContent = "Non sono riuscito a fare lo scatto — riprova fra un istante."; return; }
-  const cv = document.createElement("canvas");
-  cv.width = v.larghezza; cv.height = v.altezza;
-  const ctx = cv.getContext("2d");
-  ctx.putImageData(new ImageData(new Uint8ClampedArray(v.pixel), v.larghezza, v.altezza), 0, 0);
-  dentroDiv.innerHTML = "";
-  const img = document.createElement("img");
-  img.src = cv.toDataURL("image/png");
-  const p = document.createElement("p");
-  p.textContent = (occhi.altezzaOcchio).toFixed(2) + " m da terra"
-    + (v.chiusura != null ? " • orizzonte chiuso al " + Math.round(v.chiusura * 100) + "%" : "");
-  dentroDiv.appendChild(img);
-  dentroDiv.appendChild(p);
 }
 
 function disegnaPannelloAgenti() {
@@ -22059,15 +22103,8 @@ function disegnaPannelloAgenti() {
     occhiBtn.className = "va-agente-occhi";
     occhiBtn.type = "button";
     occhiBtn.textContent = "◉ guarda dai suoi occhi";
-    const vistaDiv = document.createElement("div");
-    vistaDiv.className = "va-agente-vista";
-    occhiBtn.addEventListener("click", () => {
-      vistaDiv.textContent = "Guardo...";
-      vistaDiv.style.display = vistaDiv.style.display === "none" ? "block" : "block";
-      setTimeout(() => mostraOcchiAgente(a.id, vistaDiv), 30);
-    });
+    occhiBtn.addEventListener("click", () => mostraOcchiAgente(a.id));
     riga.appendChild(occhiBtn);
-    riga.appendChild(vistaDiv);
 
     lista.appendChild(riga);
   }
