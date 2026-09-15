@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2258,7 +2258,19 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-a";
     const nm = window.__veritasNavmesh;
     if (!frecce.length || !nm || !nm.filtroCosto) return null;
     const RAGGIO = 25, CONO = 35;      // stessi valori di FRECCIA_RAGGIO_M/CONO_DEG in veritas_flussi.js
-    const PENALITA = 1.15;             // chi passa vicino a una freccia e non la segue paga il 15% in piu'
+    // 15/09/2026 — alzata da 1.15 a 1.5: Raffaella, dal vivo, non vedeva
+    // nessuna differenza fra chi segue le frecce e chi le ignora. Il 15% in
+    // piu' era troppo debole per spostare davvero la scelta del cammino piu'
+    // corto quando le due strade erano vicine di lunghezza — il che, su un
+    // grafo con molte scorciatoie, e' quasi sempre il caso. Resta una
+    // PENALITA (mai uno sconto sotto la distanza vera): stessa ragione per
+    // cui il monotonicity di A* non si rompe, vedi la nota qui sopra sul
+    // blocco del browser che questa regola ha gia' evitato una volta.
+    const PENALITA = 1.5;
+    // Come si verifica dal vivo: si guarda UN agente il cui percorso passa
+    // vicino a una freccia dipinta, dall'inizio alla fine — non "segue le
+    // indicazioni" nel senso di sterzare in tempo reale, sceglie l'intero
+    // cammino UNA VOLTA SOLA all'avvio, in base a questo costo.
     const differenza = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
     return nm.filtroCosto((pa, pb) => {
       const base = Math.hypot(pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]);
@@ -2521,31 +2533,42 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-a";
   // altrimenti torna il difetto di chi sbordava nei muri e nelle scale
   // mobili — §17.2, gia' pagato una volta). Si aggiunge un passo IN PIU',
   // solo per chi e' fermo (ARRIVED), che allarga lateralmente chi e' rimasto
-  // a contatto — di poco, e con un tetto (0,25 m a testa) volutamente sotto
-  // la tolleranza di 1,2 m che veritasRientraSulCammino usa per dire "sei
-  // ancora su questo calpestabile": chi si allarga resta sempre dentro
-  // l'area che il rientro ha appena giudicato valida.
+  // a contatto — dentro la tolleranza di 1,2 m che veritasRientraSulCammino
+  // usa per dire "sei ancora su questo calpestabile": chi si allarga resta
+  // sempre dentro l'area che il rientro ha appena giudicato valida.
+  //
+  // 15/09/2026 — ALZATO IL TETTO E AGGIUNTE LE ITERAZIONI. Raffaella, dal
+  // vivo, dopo il primo giro di questo fix: "vedo ancora gli agenti che si
+  // raggruppavano (uno sull'altro)". Il tetto di 0,25 m a testa (0,5 m in
+  // tutto) restava SOTTO il MIN_SEP di due persone normali (0,66 m): la
+  // separazione c'era ma non bastava a leggersi come "due persone distinte"
+  // invece che una massa. E una sola passata, con tre o piu' ARRIVED sullo
+  // stesso punto, risolveva bene la prima coppia e lasciava le altre a meta'
+  // strada. Tetto a 0,55 m (arriva al MIN_SEP pieno anche nel caso peggiore,
+  // due carrozzine) e tre passate, stessa logica di resolveOverlaps.
   function separaArrivatiDopoIlCammino(frameAgents) {
-    const TETTO = 0.25;
-    for (let i = 0; i < frameAgents.length; i++) {
-      for (let j = i + 1; j < frameAgents.length; j++) {
-        const a = frameAgents[i], b = frameAgents[j];
-        if (a.state !== "ARRIVED" && b.state !== "ARRIVED") continue;
-        const widthA = (a.width || (a.archetype === 'wheelchair' ? 0.9 : 0.55));
-        const widthB = (b.width || (b.archetype === 'wheelchair' ? 0.9 : 0.55));
-        const MIN_SEP = (widthA + widthB) * 0.6;
-        const dx = b.pos[0] - a.pos[0], dz = b.pos[2] - a.pos[2];
-        const d = Math.hypot(dx, dz);
-        if (d >= MIN_SEP) continue;
-        // Direzione: quella vera se misurabile, altrimenti una fissa e
-        // deterministica (dagli id, mai da Math.random) cosi' due persone
-        // ferme non tremano da un fotogramma all'altro.
-        let nx, nz;
-        if (d > 1e-6) { nx = dx / d; nz = dz / d; }
-        else { const ang = (a.id * 2.399963 + b.id * 4.112) % (Math.PI * 2); nx = Math.cos(ang); nz = Math.sin(ang); }
-        const push = Math.min(TETTO, (MIN_SEP - d) / 2);
-        a.pos[0] -= nx * push; a.pos[2] -= nz * push;
-        b.pos[0] += nx * push; b.pos[2] += nz * push;
+    const TETTO = 0.55, ITER = 3;
+    for (let it = 0; it < ITER; it++) {
+      for (let i = 0; i < frameAgents.length; i++) {
+        for (let j = i + 1; j < frameAgents.length; j++) {
+          const a = frameAgents[i], b = frameAgents[j];
+          if (a.state !== "ARRIVED" && b.state !== "ARRIVED") continue;
+          const widthA = (a.width || (a.archetype === 'wheelchair' ? 0.9 : 0.55));
+          const widthB = (b.width || (b.archetype === 'wheelchair' ? 0.9 : 0.55));
+          const MIN_SEP = (widthA + widthB) * 0.6;
+          const dx = b.pos[0] - a.pos[0], dz = b.pos[2] - a.pos[2];
+          const d = Math.hypot(dx, dz);
+          if (d >= MIN_SEP) continue;
+          // Direzione: quella vera se misurabile, altrimenti una fissa e
+          // deterministica (dagli id, mai da Math.random) cosi' due persone
+          // ferme non tremano da un fotogramma all'altro.
+          let nx, nz;
+          if (d > 1e-6) { nx = dx / d; nz = dz / d; }
+          else { const ang = (a.id * 2.399963 + b.id * 4.112) % (Math.PI * 2); nx = Math.cos(ang); nz = Math.sin(ang); }
+          const push = Math.min(TETTO, (MIN_SEP - d) / 2);
+          a.pos[0] -= nx * push; a.pos[2] -= nz * push;
+          b.pos[0] += nx * push; b.pos[2] += nz * push;
+        }
       }
     }
   }
