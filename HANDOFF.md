@@ -1,6 +1,6 @@
 # HANDOFF.md — EIDETICA *(il prodotto si chiamava VERITAS)*
 
-**Aggiornato il 15/09/2026 (notte).** Questo è l'unico documento di stato del progetto.
+**Aggiornato il 15/09/2026 (tarda notte).** Questo è l'unico documento di stato del progetto.
 
 ---
 
@@ -28,6 +28,96 @@ per mezza sessione `Desktop\HANDOFF.md` (387 KB, fermo all'11/09), lavorando su
 priorità non più in vigore. Quel file e gli altri morti — `CLAUDE_INSTRUCTIONS.md`,
 la cartella `Veritas-spatial-ai-main`, il clone vuoto `Veritas-spatial-ai` — vanno
 eliminati. *«Bisogna eliminare ogni possibile causa di errore.»*
+
+---
+
+## 📋 SESSIONE 15/09/2026 (tarda notte) — DALLA MESH A RAGGI X ALL'ARGILLA, E LA FORMA DELLE ZONE CHE NON SI BUTTA PIÙ
+
+**Pubblicato: costruzione `2026-09-15-k`.**
+
+### ✅ Fatto 1 — la Vista dell'Agente non è più a raggi X
+
+Diagnosi prima di tutto (chiesta da Raffaella, nessun codice scritto finché
+non era chiara): la Vista dell'Agente (`apriSuAgente()`) non disegna mai il
+GLB importato — ricostruisce muri/pavimento/tetto da `ombra()`, un materiale
+custom con **`depthWrite: false`**. Ecco il vero motivo per cui tutto si
+vedeva attraverso tutto, non un difetto del modello: nessuna di quelle
+superfici scriveva mai nello z-buffer, quindi niente occludeva niente,
+qualunque fosse l'opacità impostata.
+
+Corretto **solo** dentro `apriSuAgente()` (mai `costruisci()`/`ombra()`
+condivisa con `apri()`/"Lettura dal vivo", che resta identica a prima):
+muri/pavimento/tetto/oggetti passano a `MeshStandardMaterial` vero (argilla
+neutra, `depthWrite`/`depthTest` veri, normali calcolate), un `DirectionalLight`
+con ombra vera + un `HemisphereLight`, `renderer.shadowMap` con
+`PCFSoftShadowMap`, tone mapping ACES. Fili di contorno e reticolo
+nascosti (`visible=false`, geometria e dati intatti — non cancellati).
+**Verificato dal vivo**: l'effetto raggi X è sparito, si vedono ombre reali
+proiettate a terra, profondità e prospettiva leggibili.
+⚠️ Resta un limite noto e non affrontato: la geometria è ancora quella
+**ricostruita** (pannelli isolati dalla griglia), non il GLB vero — visibile
+ora che non è più mascherato dalla trasparenza. Prossimo passo naturale,
+non ancora iniziato.
+
+### ✅ Fatto 2 — le zone non buttano più la loro forma
+
+Audit (stessa sera, prima del codice): ogni zona nasce da un bacino
+watershed su una griglia — la forma vera esiste cella per cella durante il
+calcolo — ma l'esportazione teneva solo centroide + area. Risultato:
+un accesso allungato e un ambiente quadrato con la stessa area finivano
+disegnati **identici**, un cubetto/cerchio ricavato dalla sola area. Questo
+era esattamente il difetto scritto sopra come "punto 2" fino a stanotte
+(vedi sostituzione sotto) — e la causa vera non era lo scaling del righello
+umano come si ipotizzava: erano i campi `formaLungo`/`formaLargo`/`formaAngolo`,
+già previsti nel modello dati e già letti in tre punti del codice, mai
+scritti da nessuna parte.
+
+Corretto in `segmentZones()` (**due copie, la trappola nota**: quella che
+gira davvero è inline in `index.html`, non il modulo `veritas_perception.js`
+— aggiornate entrambe): tre somme in più nello stesso giro sulle celle che
+già esisteva (`sumXX/sumZZ/sumXZ`), poi la stessa matematica degli assi
+principali già scritta in `assePrincipale()` (`veritas_segnaletica.js`) —
+niente algoritmo nuovo. Sotto 6 celle resta `null`, vale il vecchio ripiego
+ad area. **Nessun'altra funzione toccata**: non il watershed, non la fusione
+zone, non `currentNodes`, non il riconoscimento frecce.
+
+📌 **La scoperta migliore della serata**: il consumatore che disegna il
+volume di una tappa (`veritasRebuildHotspots()`, `index.html:5985`) aspettava
+già questi campi — scritto il 30/08 rispondendo a Raffaella parola per
+parola (*«mette UN volume allungato che la copre, non un cubetto dentro»*)
+— e per due settimane e mezzo ha sempre ricevuto `null`, disegnando sempre
+il cubetto di ripiego. Stanotte, per la prima volta, riceve il dato vero.
+**Verificato dal vivo** (screenshot di Raffaella, tarda notte): il volume
+sopra l'area d'imbarco è ora un riquadro esteso e allungato, non un cubo —
+e accanto c'è un anello/ancora separato, distinto dalla zona.
+
+### 🟡 Scoperto, non causato da stanotte — il ciclo dei sette minuti
+
+Durante la stessa prova, il log mostrava molte righe ripetute
+*"nessuna tappa dopo sette minuti: flussi non rifatti"* con una lunga fila
+`passo → setTimeout`. Rintracciato: è `chiediRicalcolo()` in
+`veritas_accessi.js:1054-1085`, codice **preesistente e non toccato
+stanotte**, che aspetta fino a 900 volte (ogni 0,5 s = 7 minuti) un nodo
+"origine" e uno "destinazione" insieme prima di ricalcolare i flussi. La
+causa vera: è la **prima volta in questa sessione che il modello di
+visione locale (`qwen2.5-vl-7b-instruct`) è davvero acceso e risponde**
+— prima usciva sempre "backend non raggiungibile". La regola già scritta
+in `veritas_comando.js` (*«l'occhio comanda: quando parla, l'analisi si
+rifà»*) fa ripartire tutta l'analisi ogni volta che l'occhio parla, e ogni
+ripartenza conta di nuovo come "l'occhio ha parlato" — un ciclo che si
+morde la coda, mai esercitato per davvero prima di stanotte perché il
+ponte al modello locale non aveva mai risposto abbastanza a lungo.
+**Non è un guasto introdotto stanotte**: l'area navigabile misurata restava
+identica (3363,57 m²) in ogni giro, cambiava solo quante zone il watershed
+accorpava — governato dalla testimonianza dell'occhio, non dal calcolo di
+forma. **Ha finito da solo**, dopo 3 giri occhio-cervello, fiducia 90%,
+19 volumi su 20 assegnati, simulazione pronta a partire. Da guardare la
+prossima sessione: serve un limite a quante volte il ciclo può
+incatenarsi, mai servito finora perché nessuno aveva mai visto l'occhio
+rispondere per davvero durante un giro completo.
+
+Build `2026-09-15-j` (resa argilla) → `2026-09-15-k` (forma delle zone).
+Commit `bfd9b31`, `df08009`.
 
 ---
 
@@ -165,14 +255,14 @@ Non con quel nome. Il meccanismo (un segno letto → un comportamento) esiste in
 Nessuno dei due sa leggere segni diversi dalle frecce (un cartello "USCITA",
 un simbolo di divieto): resta un vocabolario di un solo segno.
 
-### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso — aggiornato 15/09 notte
+### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso — aggiornato 15/09 tarda notte
 
 | | | |
 |---|---|---|
 | **1** | 🟡 **Sovrapposizione dei corpi — corretta ma MAI verificata dal vivo** | `SimulationEngine._risolvi_sovrapposizioni()` aggiunta in `Assets/core/engine.py` (prima il motore Python non aveva NESSUNA regola di distanza). Lato JS, `resolveOverlaps` non escludeva più chi è ARRIVED (era il bug vero — chi arriva allo stesso gate restava fuso per sempre), rinforzato due volte (0,25→0,55 m, 1→3 passate). **Nessuna delle due correzioni è stata vista funzionare**: la pagina si blocca per minuti su "Leggi lo spazio" ad ogni prova (vedi punto 4). Un tentativo di correggere ANCHE l'attraversamento dei muri (`ultimoBuono`, dentroUnSolido ogni fotogramma) ha bloccato la scheda per oltre due minuti ed è stato **revertito** (commit `Revert "fix: chi finisce dentro un muro..."`, 15/09): resta aperto |
-| **2** | 🔴 **Le scatole delle zone non hanno l'ampiezza né la posizione vere** | Invariato dal 14/09 sera, non toccato stanotte. Ipotesi non confermata: scaling del righello umano (5,272×) non propagato ai marcatori (`Editor zone`/Spatial Layers) |
-| **3** | 🟡 **La "Vista dell'agente" (AI-Eye View) — punti 3 e 7 fatti, punto 9 no** | Brief in 12 punti di Raffaella (15/09 notte). Fatto: camera vera sulla traiettoria reale (`apriSuAgente()`), altri agenti come corpi veri, bounding box proiettate, scia 3D, mirino, geometria opaca 80-88% con colore semantico, e — dopo un primo giro dove erano stati saltati e Raffaella l'ha fatto notare — **punto 3 (percezione dentro il rendering, non overlay)**: lo shader `ombra()` sfuma opacità e saturazione verso la periferia dello sguardo (cono 0,32-0,68 rad, mai sotto il 32% — "less relevant", mai invisibile), stessa curva su corpi e bounding box; **punto 7 (campo percettivo senza cono opaco)**: lo stesso meccanismo, nessuna geometria aggiunta. Ancora aperto: **punto 9** — le altre traiettorie non sono disegnate in scena (solo quella dell'agente selezionato), e il rapporto fra le frecce segnaletiche 2D e questa vista 3D non è stato chiarito |
-| **4** | 🔴 **"Leggi lo spazio" blocca la scheda per minuti** | Misurato ripetutamente la notte del 15/09: dopo aver cliccato "analizza" la scheda non risponde nemmeno a `1+1` per oltre due minuti, più volte di fila, su una scheda pulita appena aperta. Non è chiaro se sia un tempo di calcolo reale (il filtro "corpo" è già sincrono e pesante, TETTO_MS=45000 già al limite prima di stasera) o un guasto nuovo — impedisce QUALSIASI verifica dal vivo dei punti 1 e 3. Da guardare per primo alla prossima sessione, prima ancora del punto 3 |
+| ~~2~~ | ✅ **CHIUSO 15/09 tarda notte — le scatole delle zone ora hanno l'ampiezza vera** | La causa non era lo scaling del righello umano (ipotesi scartata): erano `formaLungo`/`formaLargo`/`formaAngolo`, già previsti nel modello dati e mai scritti da nessuna parte. Riempiti alla fonte in `segmentZones()` (indice/covarianza sulle celle del bacino, stessa matematica di `assePrincipale()`). **Verificato dal vivo**: il volume su una zona allungata (imbarco) è ora un riquadro esteso, non un cubo. Vedi sessione 15/09 tarda notte sopra |
+| **3** | 🟡 **La "Vista dell'agente" (AI-Eye View) — punti 3 e 7 fatti, punto 9 no; base del render sistemata stanotte** | Brief in 12 punti di Raffaella (15/09 notte). Fatto: camera vera sulla traiettoria reale (`apriSuAgente()`), altri agenti come corpi veri, bounding box proiettate, scia 3D, mirino; **punto 3 (percezione dentro il rendering)**: lo shader `ombra()` sfuma opacità e saturazione verso la periferia dello sguardo, stessa curva su corpi e bounding box; **punto 7 (campo percettivo senza cono opaco)**: stesso meccanismo, nessuna geometria aggiunta. **Aggiunto 15/09 tarda notte**: la resa di base non è più a raggi X — materiale argilla opaco, luce e ombra vere (vedi sessione sopra). Ancora aperto: **punto 9** — le altre traiettorie non sono disegnate in scena, il rapporto fra le frecce segnaletiche 2D e questa vista 3D non è chiarito, e la geometria resta quella ricostruita dalla griglia, non il GLB vero |
+| **4** | 🔴 **"Leggi lo spazio" blocca la scheda per minuti — causa trovata in parte** | Misurato ripetutamente la notte del 15/09. **Aggiornamento tarda notte**: una fonte precisa del blocco è `chiediRicalcolo()` in `veritas_accessi.js:1054` — aspetta fino a 7 minuti (900 tentativi ogni 0,5 s) nodi "origine"+"destinazione" insieme, e la regola "l'occhio comanda: quando parla, l'analisi si rifà" (`veritas_comando.js`) può incatenare più giri quando il modello di visione locale è davvero acceso e risponde (successo per la prima volta stanotte). Non ha un limite al numero di incatenamenti: da mettere. Resta da capire se questo spiega TUTTO il blocco o solo una parte — impedisce ancora la verifica dal vivo dei punti 1 e 3 |
 | **5** | **Navmesh filtrata per profilo** — carrozzina e scale, rimandato dal 12/09 | Stesso meccanismo tecnico del filtro-frecce (`QueryFilter`/`getCost`), ma qui serve anche **negare** un passaggio a chi non è del profilo giusto — parte rischiosa mai toccata. Serve a rendere vera la pulsazione rossa della carrozzina bloccata, E a farla segnalare l'assenza di una rampa/ascensore (chiesto da Raffaella 15/09 notte, non iniziato) |
 | **6** | **Comportamenti sedersi/attesa in piedi** — direttiva 12, mai iniziato | Raffaella, 15/09: non vede animazioni di seduta nemmeno dove la sala d'attesa è stata riconosciuta. Oggi non esiste NESSUNO stato del genere durante la simulazione — il "posturale" serve solo all'analisi della vista, non anima nessuno. È il grosso di LOTTO A del piano di Raffaella (corsa/sostenuta/normale + sedersi/coda), mai aperto per intero |
 | — | **Telecamere di sorveglianza fisse per zona** | Mai iniziato |
