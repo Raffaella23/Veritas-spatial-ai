@@ -2414,6 +2414,38 @@ function giro(ms) {
     S.ren.setSize(w, h, false);
     S.cam.aspect = w / h; S.cam.updateProjectionMatrix();
   }
+  const occhioAttore = attore().occhio;
+
+  // ---------------------------------------------------------------------------
+  // 15/09/2026 (sera) — VISTA DELL'AGENTE, FASE 1. Uscita anticipata, PRIMA
+  // della coreografia "i punti precipitano / le superfici si accendono": quel
+  // racconto resta di apri()/"Lettura dal vivo" (sotto), dove le superfici
+  // sono ancora il materiale ombra() con `quando`/`finale`. Qui le mesh hanno
+  // gia' il materiale argilla assegnato una volta sola in apriSuAgente() —
+  // opache dal primo fotogramma — quindi non c'e' niente da far progredire.
+  if (S.viaAgenteId != null) {
+    const tSim = S.trajT0 + u * (S.trajT1 - S.trajT0);
+    const io = posizioneVeraAgente(S.trajFrames, S.viaAgenteId, tSim);
+    if (io) {
+      const occhio = OCCHIO_PER_ARCHETIPO[io.archetipo] || occhioAttore;
+      S.cam.position.set(io.pos[0], io.pos[1] + occhio, io.pos[2]);
+      if (io.direzione) S.sguardo = io.direzione;
+      const d = S.sguardo && Math.hypot(S.sguardo[0], S.sguardo[1]) > 1e-4 ? S.sguardo : [0, 1];
+      const L = Math.hypot(d[0], d[1]);
+      S.cam.lookAt(io.pos[0] + (d[0] / L) * 20, io.pos[1] + occhio, io.pos[2] + (d[1] / L) * 20);
+    }
+    aggiornaCorpiAgenti(T, tSim);
+    aggiornaScia(T, tSim);
+    S.ren.render(S.scena, S.cam);
+    S.fotogrammi++;
+    disegnaNomi(u);
+    const ef = S.pannello.querySelector('#el-fase');
+    if (ef) ef.textContent = 'agente ' + S.viaAgenteId + ' · ' + tSim.toFixed(1) + ' s';
+    if (S.corre) { const b = S.plancia.querySelector('#el-barra'); if (b) b.value = Math.round(u * 1000); }
+    S.raf = requestAnimationFrame(giro);
+    return;
+  }
+
   S.mat.uniforms.scalaPixel.value = h / (2 * Math.tan(LENTE * Math.PI / 360));
 
   // i punti precipitano al loro posto MISURATO
@@ -2478,42 +2510,8 @@ function giro(ms) {
   //       condensano, vanno a formare la mesh? Cosi' puoi stare all'altezza
   //       dell'uomo»*. Adesso i muri ci sono, a 1,65 m c'e' lo spazio, e non si
   //       sale piu'. La nota vecchia si cancella: non si lascia accanto.
-  const occhioAttore = attore().occhio;
-
-  if (S.viaAgenteId != null) {
-    const tSim = S.trajT0 + u * (S.trajT1 - S.trajT0);
-    const io = posizioneVeraAgente(S.trajFrames, S.viaAgenteId, tSim);
-    if (io) {
-      const occhio = OCCHIO_PER_ARCHETIPO[io.archetipo] || occhioAttore;
-      S.cam.position.set(io.pos[0], io.pos[1] + occhio, io.pos[2]);
-      if (io.direzione) S.sguardo = io.direzione;
-      const d = S.sguardo && Math.hypot(S.sguardo[0], S.sguardo[1]) > 1e-4 ? S.sguardo : [0, 1];
-      const L = Math.hypot(d[0], d[1]);
-      S.cam.lookAt(io.pos[0] + (d[0] / L) * 20, io.pos[1] + occhio, io.pos[2] + (d[1] / L) * 20);
-    }
-    // Lo spazio e' gia' costruito: qui non e' un film che si materializza
-    // (quello ha senso per capire lo spazio la prima volta, non per la
-    // vista di un agente che ci si muove dentro gia' ora). u=1 fisso porta
-    // vA a 1 su ogni superficie — piena da subito — e percezione=1 accende
-    // il fuoco/periferia dentro lo stesso shader (vedi ombra()).
-    for (const M of [S.muriMesh, S.muriFilo, S.pavMesh, S.oggMesh, S.oggFilo, S.tettoMesh]) {
-      if (!M) continue;
-      M.material.uniforms.u.value = 1;
-      M.material.uniforms.percezione.value = 1;
-    }
-    if (S.reticolo) S.reticolo.material.uniforms.spegni.value = 0.85;
-    aggiornaCorpiAgenti(T, tSim);
-    aggiornaScia(T, tSim);
-    S.ren.render(S.scena, S.cam);
-    S.fotogrammi++;
-    disegnaNomi(u);
-    const ef = S.pannello.querySelector('#el-fase');
-    if (ef) ef.textContent = 'agente ' + S.viaAgenteId + ' · ' + tSim.toFixed(1) + ' s';
-    if (S.corre) { const b = S.plancia.querySelector('#el-barra'); if (b) b.value = Math.round(u * 1000); }
-    S.raf = requestAnimationFrame(giro);
-    return;
-  }
-
+  // (La Vista dell'Agente e' gia' uscita da questa funzione piu' sopra: da
+  // qui in poi si e' sempre nel film scriptato "Lettura dal vivo".)
   const occhio = occhioAttore;
   const via = S.via;
   if (via && via.length > 1) {
@@ -2770,6 +2768,64 @@ export async function apriSuAgente(agentId) {
   S.centro = [(ax + bx) / 2, ay, (az + bz) / 2];
   S.quotaOcchio = ay;
   S.angolo0 = 0;
+
+  // ---------------------------------------------------------------------------
+  // 15/09/2026 (sera) — RENDERING PIPELINE, FASE 1: RESA DI BASE ARCHITETTONICA.
+  // Diagnosi dello stesso giorno: le superfici solide di costruisci()
+  // (muriMesh/pavMesh/tettoMesh/oggMesh) usano ombra() con depthWrite:false —
+  // non si occludono mai fra loro, ed e' quello a dare l'effetto "raggi X",
+  // non il modello. Qui, e SOLO per la Vista dell'Agente (questa funzione —
+  // apri()/"Lettura dal vivo" resta con ombra() e la sua regia "carta e
+  // inchiostro", invariata), le mesh gia' costruite ricevono un materiale
+  // opaco vero, luce vera, ombre vere. costruisci() non viene toccata: si
+  // sostituisce solo il .material sulle mesh dopo che sono gia' state create.
+  const ARGILLA = new T.Color(0xf1efe8);
+  for (const M of [S.muriMesh, S.pavMesh, S.tettoMesh, S.oggMesh]) {
+    if (!M) continue;
+    M.geometry.computeVertexNormals();
+    const vecchio = M.material;
+    M.material = new T.MeshStandardMaterial({
+      color: ARGILLA, roughness: 0.92, metalness: 0.0, side: T.DoubleSide,
+    });
+    vecchio.dispose();
+    M.castShadow = true;
+    M.receiveShadow = true;
+  }
+  // I fili di contorno e il reticolo da editor aiutano "Lettura dal vivo" (si
+  // legge un profilo mentre la superficie e' ancora un velo trasparente): qui
+  // la superficie e' gia' opaca dal primo fotogramma, quindi il filo diventa
+  // rumore da debug. Si spegne solo la visibilita', non la geometria/i dati —
+  // punto 2 del brief: restano disponibili per un'altra funzione.
+  if (S.muriFilo) S.muriFilo.visible = false;
+  if (S.oggFilo) S.oggFilo.visible = false;
+  if (S.reticolo) S.reticolo.visible = false;
+  c.scena.background = ARGILLA.clone().lerp(new T.Color(0xffffff), 0.4);
+
+  // LUCE VERA — un sole (DirectionalLight con ombra) piu' un riempimento
+  // cielo/terra (HemisphereLight), mai un lume di scena drammatico.
+  const sole = new T.DirectionalLight(0xfff4e0, 3.2);
+  const spanX = Math.max(10, bx - ax), spanZ = Math.max(10, bz - az);
+  sole.position.set(
+    S.centro[0] + spanX * 0.35,
+    ay + Math.max(18, Math.max(spanX, spanZ) * 0.5),
+    S.centro[2] - spanZ * 0.25
+  );
+  sole.target.position.set(S.centro[0], ay, S.centro[2]);
+  sole.castShadow = true;
+  sole.shadow.mapSize.set(2048, 2048);
+  const raggioOmbra = Math.max(20, Math.hypot(spanX, spanZ) * 0.6);
+  sole.shadow.camera.left = -raggioOmbra; sole.shadow.camera.right = raggioOmbra;
+  sole.shadow.camera.top = raggioOmbra; sole.shadow.camera.bottom = -raggioOmbra;
+  sole.shadow.camera.near = 1; sole.shadow.camera.far = raggioOmbra * 6;
+  sole.shadow.bias = -0.0015; sole.shadow.normalBias = 0.02;
+  c.scena.add(sole, sole.target);
+  c.scena.add(new T.HemisphereLight(0xeef2ff, 0x3a3226, 1.1));
+
+  ren.shadowMap.enabled = true;
+  ren.shadowMap.type = T.PCFSoftShadowMap;
+  ren.outputColorSpace = T.SRGBColorSpace;
+  ren.toneMapping = T.ACESFilmicToneMapping;
+  ren.toneMappingExposure = 1.0;
 
   S.plancia = plancia(S.velo);
   S.pannello = pannello(S.velo);
@@ -3135,7 +3191,10 @@ if (typeof window !== 'undefined') {
         puntiTotali: g ? g.n : 0, puntiArrivati: arrivati,
         opacitaPolvere: S.mat ? +S.mat.uniforms.opacita.value.toFixed(3) : null,
         muri: S.muriMesh ? S.muriMesh.geometry.attributes.position.count / 6 : 0,
-        muriU: S.muriMesh ? +S.muriMesh.material.uniforms.u.value.toFixed(3) : null,
+        // FASE 1 clay: in Vista dell'Agente muriMesh ha MeshStandardMaterial
+        // (niente .uniforms) — la diagnosi non deve rompersi per questo.
+        muriU: (S.muriMesh && S.muriMesh.material.uniforms) ? +S.muriMesh.material.uniforms.u.value.toFixed(3) : null,
+        materialeMuri: S.muriMesh ? S.muriMesh.material.type : null,
         figliScena: S.scena ? S.scena.children.length : 0,
       };
     },
