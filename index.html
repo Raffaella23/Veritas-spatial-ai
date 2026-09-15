@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-15-h";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -22124,7 +22124,19 @@ function disegnaPannelloAgenti() {
     occhiBtn.className = "va-agente-occhi";
     occhiBtn.type = "button";
     occhiBtn.textContent = "◉ guarda dai suoi occhi";
-    occhiBtn.addEventListener("click", () => mostraOcchiAgente(a.id));
+    occhiBtn.addEventListener("click", () => {
+      // 15/09/2026 — brief "AI-Eye View": la vista vera e' la camera che
+      // segue l'agente dentro il Cinema (traiettoria reale, altri agenti
+      // come corpi veri, bounding box). Lo scatto singolo di stanotte resta
+      // solo come ripiego se non c'e' ancora una simulazione da seguire.
+      const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+      if (window.veritasCinema && typeof window.veritasCinema.apriSuAgente === "function"
+          && traj && traj.frames && traj.frames.length) {
+        window.veritasCinema.apriSuAgente(a.id);
+      } else {
+        mostraOcchiAgente(a.id);
+      }
+    });
     riga.appendChild(occhiBtn);
 
     lista.appendChild(riga);
@@ -29871,7 +29883,7 @@ if (typeof window !== 'undefined') {
      gia' quando il resto si disegna, e non si vede il salto. -->
 <script type="module" src="./veritas_carta.js?v=6"></script>
 <script type="module" src="./veritas_accessi.js?v=11"></script>
-<script type="module" src="./veritas_cinema.js?v=45"></script>
+<script type="module" src="./veritas_cinema.js?v=46"></script>
 <script type="module" src="./veritas_catena.js?v=2"></script>
 <script type="module" src="./veritas_comando.js?v=1"></script>
 

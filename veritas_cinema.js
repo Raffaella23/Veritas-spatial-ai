@@ -67,6 +67,43 @@ function coloreSemantico(zona, ruoloDefault) {
   return ruoloDefault;
 }
 
+// Stessa tabella di index.html (ALTEZZA_OCCHIO_ARCHETIPO, riga ~6118):
+// un file separato, quindi non si puo' importare — si duplica la MISURA,
+// non la logica, ed e' la stessa ragione per cui non si duplica altrove.
+const OCCHIO_PER_ARCHETIPO = {
+  business: 1.65, family: 1.60, elderly: 1.58, wheelchair: 1.20,
+  tourist: 1.62, student: 1.70, crew: 1.68, vip: 1.65,
+};
+
+/** La posizione e la direzione VERE di un agente a un istante, dalla
+ * traiettoria della simulazione (non dal percorso dedotto di questo file).
+ * `frames` e' gia' ordinato per tempo (t crescente), preso una volta sola
+ * all'apertura — qui si cerca solo il fotogramma piu' vicino. */
+function posizioneVeraAgente(frames, agentId, tSecondi) {
+  if (!frames || !frames.length) return null;
+  let lo = 0, hi = frames.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (frames[mid].t < tSecondi) lo = mid + 1; else hi = mid;
+  }
+  const f0 = frames[Math.max(0, lo - 1)], f1 = frames[lo];
+  const a0 = (f0.agents || []).find((a) => a.id === agentId);
+  const a1 = (f1.agents || []).find((a) => a.id === agentId);
+  if (!a1) return null;
+  const a = a0 || a1;
+  const k = (f1 === f0 || !a0) ? 1
+    : Math.max(0, Math.min(1, (tSecondi - f0.t) / Math.max(1e-6, f1.t - f0.t)));
+  const p0 = a0 ? a0.pos : a1.pos, p1 = a1.pos;
+  const pos = [
+    p0[0] + (p1[0] - p0[0]) * k,
+    p0[1] + (p1[1] - p0[1]) * k,
+    p0[2] + (p1[2] - p0[2]) * k,
+  ];
+  const dx = p1[0] - p0[0], dz = p1[2] - p0[2];
+  const direzione = Math.hypot(dx, dz) > 1e-4 ? [dx, dz] : null;
+  return { pos, direzione, stato: a1.state, archetipo: a1.archetype || a.archetype };
+}
+
 const PAROLE = {
   it: {
     pulsante: 'Lettura dal vivo',
@@ -213,6 +250,14 @@ const S = {
   porta: [0, 0], quotaOcchio: 0, sguardo: null,
   fotogrammi: 0,
   centro: [0, 0, 0], angolo0: 0,
+  // 15/09/2026 — LA CAMERA VERA SULL'AGENTE. Quando viaAgenteId non e' null,
+  // giro() non cammina piu' sul percorso dedotto/misurato: legge la
+  // posizione VERA dell'agente scelto dalla traiettoria della simulazione
+  // (trajFrames, presa una sola volta all'apertura) e ci mette la camera,
+  // ad altezza occhio. Gli altri agenti diventano corpi semplici nella
+  // stessa scena (corpiAgenti), cosi' esistono davvero e non sono icone.
+  viaAgenteId: null, trajFrames: null, trajT0: 0, trajT1: 0,
+  corpiAgenti: null, scia: null,
   // ⚠️ LA MUSICA NASCE SPENTA — Raffaella, 07/09: «taglia quella musica
   //    orribile». Due tentativi a orecchio chiuso avevano prodotto prima un
   //    rombo d'aereo e poi un film horror, e allora era nata spenta: chi non
@@ -2212,6 +2257,92 @@ function musicaGiu() {
 // ---------------------------------------------------------------------------
 const dolce = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3));
 
+// GLI ALTRI AGENTI SONO CORPI VERI — brief "AI-Eye View", punto 4: «Do not
+// represent them only with icons. Their actual 3D bodies must exist in the
+// scene.» Una capsula semplice basta: questa scena non ha (e non deve
+// avere, regola del 06/09) la libreria GLTF vestita, ma un volume vero che
+// occupa spazio e proietta un bounding box e' gia' la differenza fra "corpo"
+// e "icona". Colore per archetipo, non per zona: qui il colore dice CHI e',
+// non DOVE sta.
+const COLORE_ARCHETIPO = {
+  business: [0.169, 0.361, 0.902], family: [0.976, 0.447, 0.122],
+  tourist: [0.984, 0.690, 0.231], elderly: [0.42, 0.62, 0.42],
+  student: [0.482, 0.184, 0.831], crew: [0.1, 0.7, 0.85],
+  vip: [0.878, 0.204, 0.545], wheelchair: [0.878, 0.204, 0.545],
+};
+function coloreArchetipo(a) { return COLORE_ARCHETIPO[a] || [0.55, 0.57, 0.63]; }
+
+function corpoSemplice(T, colore) {
+  // ⚠️ MeshBasicMaterial, non Standard: questa scena non ha NESSUNA luce
+  //    THREE vera (tutto il resto — muri, pavimento — si illumina da solo
+  //    dentro ombra(), uno shader che non guarda le luci della scena).
+  //    Un MeshStandardMaterial qui sarebbe nero: nessuna luce da rispondere.
+  //    Si compensa il piatto con un accenno di volume: la testa un tono
+  //    piu' chiaro del busto, cosi' la sagoma si legge comunque in 3D.
+  const g = new T.Group();
+  const c1 = new T.Color(colore[0], colore[1], colore[2]);
+  const c2 = c1.clone().multiplyScalar(1.35);
+  const busto = new T.Mesh(new T.CapsuleGeometry(0.24, 1.05, 4, 8), new T.MeshBasicMaterial({ color: c1 }));
+  busto.position.y = 1.15;
+  const testa = new T.Mesh(new T.SphereGeometry(0.13, 10, 10), new T.MeshBasicMaterial({ color: c2 }));
+  testa.position.y = 1.82;
+  g.add(busto, testa);
+  g.userData.altezza = 1.95;
+  return g;
+}
+
+/** Crea o aggiorna un corpo semplice per ogni agente diverso da quello
+ * selezionato, nel fotogramma piu' vicino a tSim. Chi non compare piu' nel
+ * fotogramma (non ancora entrato, o arrivato e uscito di scena) si nasconde
+ * invece di restare fermo a mezz'aria. */
+function aggiornaCorpiAgenti(T, tSim) {
+  if (!S.trajFrames || !S.corpiAgenti) return;
+  let lo = 0, hi = S.trajFrames.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (S.trajFrames[m].t < tSim) lo = m + 1; else hi = m; }
+  const f = S.trajFrames[lo];
+  const vivi = new Set();
+  for (const a of (f.agents || [])) {
+    if (a.id === S.viaAgenteId) continue;
+    if (a.state === 'ARRIVED') continue;
+    vivi.add(a.id);
+    let corpo = S.corpiAgenti.get(a.id);
+    if (!corpo) {
+      corpo = corpoSemplice(T, coloreArchetipo(a.archetype));
+      S.scena.add(corpo);
+      S.corpiAgenti.set(a.id, corpo);
+    }
+    corpo.visible = true;
+    corpo.position.set(a.pos[0], a.pos[1], a.pos[2]);
+    if (typeof a.rot === 'number') corpo.rotation.y = -a.rot + Math.PI / 2;
+  }
+  for (const [id, corpo] of S.corpiAgenti) if (!vivi.has(id)) corpo.visible = false;
+}
+
+/** La scia dell'agente selezionato: gli ultimi secondi del suo cammino
+ * vero, come linea nello spazio — brief punto 6: "spatially embedded in
+ * the environment, not painted on top of it". Ricostruita ogni tanto (non
+ * ogni fotogramma: e' una linea, non deve rincorrere il subpixel). */
+let ultimaSciaA = -999;
+function aggiornaScia(T, tSim) {
+  if (!S.scena || !S.trajFrames || S.viaAgenteId == null) return;
+  if (Math.abs(tSim - ultimaSciaA) < 0.4) return;
+  ultimaSciaA = tSim;
+  const FINESTRA = 8; // secondi di coda dietro l'agente
+  const punti = [];
+  for (const f of S.trajFrames) {
+    if (f.t < tSim - FINESTRA || f.t > tSim) continue;
+    const a = (f.agents || []).find((x) => x.id === S.viaAgenteId);
+    if (a) punti.push(new T.Vector3(a.pos[0], a.pos[1] + 0.05, a.pos[2]));
+  }
+  if (S.scia && S.scia.geometria) { S.scia.mesh.geometry.dispose(); S.scena.remove(S.scia.mesh); }
+  if (punti.length < 2) { S.scia = null; return; }
+  const geom = new T.BufferGeometry().setFromPoints(punti);
+  const mat = new T.LineBasicMaterial({ color: new T.Color(...BLU_STRUTTURALE), transparent: true, opacity: 0.55 });
+  const linea = new T.Line(geom, mat);
+  S.scena.add(linea);
+  S.scia = { mesh: linea, geometria: true };
+}
+
 function giro(ms) {
   if (!S.aperto) return;
   if (S.corre) {
@@ -2290,7 +2421,32 @@ function giro(ms) {
   //       condensano, vanno a formare la mesh? Cosi' puoi stare all'altezza
   //       dell'uomo»*. Adesso i muri ci sono, a 1,65 m c'e' lo spazio, e non si
   //       sale piu'. La nota vecchia si cancella: non si lascia accanto.
-  const occhio = attore().occhio;
+  const occhioAttore = attore().occhio;
+
+  if (S.viaAgenteId != null) {
+    const tSim = S.trajT0 + u * (S.trajT1 - S.trajT0);
+    const io = posizioneVeraAgente(S.trajFrames, S.viaAgenteId, tSim);
+    if (io) {
+      const occhio = OCCHIO_PER_ARCHETIPO[io.archetipo] || occhioAttore;
+      S.cam.position.set(io.pos[0], io.pos[1] + occhio, io.pos[2]);
+      if (io.direzione) S.sguardo = io.direzione;
+      const d = S.sguardo && Math.hypot(S.sguardo[0], S.sguardo[1]) > 1e-4 ? S.sguardo : [0, 1];
+      const L = Math.hypot(d[0], d[1]);
+      S.cam.lookAt(io.pos[0] + (d[0] / L) * 20, io.pos[1] + occhio, io.pos[2] + (d[1] / L) * 20);
+    }
+    aggiornaCorpiAgenti(T, tSim);
+    aggiornaScia(T, tSim);
+    S.ren.render(S.scena, S.cam);
+    S.fotogrammi++;
+    disegnaNomi(u);
+    const ef = S.pannello.querySelector('#el-fase');
+    if (ef) ef.textContent = 'agente ' + S.viaAgenteId + ' · ' + tSim.toFixed(1) + ' s';
+    if (S.corre) { const b = S.plancia.querySelector('#el-barra'); if (b) b.value = Math.round(u * 1000); }
+    S.raf = requestAnimationFrame(giro);
+    return;
+  }
+
+  const occhio = occhioAttore;
   const via = S.via;
   if (via && via.length > 1) {
     const k = Math.min(1, Math.max(0, u));
@@ -2384,6 +2540,36 @@ function disegnaNomi(u) {
   }
 
   const V = new T.Vector3();
+
+  // BOUNDING BOX SUGLI ALTRI AGENTI — brief punto 5: «Boxes must track the
+  // projected screen-space position of the actual object as both the
+  // camera and object move. They must NOT be static decorative rectangles.»
+  // Si proietta un punto ai piedi e uno alla testa del corpo VERO (non un
+  // riquadro a misura fissa): la larghezza segue l'altezza proiettata, cosi'
+  // il box si stringe con la distanza come farebbe un rilevatore vero.
+  if (S.corpiAgenti) {
+    const piedi = new T.Vector3(), testa = new T.Vector3();
+    for (const [id, corpo] of S.corpiAgenti) {
+      if (!corpo.visible) continue;
+      piedi.set(corpo.position.x, corpo.position.y, corpo.position.z).project(S.cam);
+      testa.set(corpo.position.x, corpo.position.y + (corpo.userData.altezza || 1.9), corpo.position.z).project(S.cam);
+      if (piedi.z > 1 || testa.z > 1) continue;
+      const xp = (piedi.x * 0.5 + 0.5) * w, yp = (-piedi.y * 0.5 + 0.5) * h;
+      const xt = (testa.x * 0.5 + 0.5) * w, yt = (-testa.y * 0.5 + 0.5) * h;
+      if (xp < -40 || xp > w + 40 || yp < -40 || yp > h + 40) continue;
+      const altezzaPx = Math.max(6, yp - yt);
+      const largoPx = altezzaPx * 0.42;
+      const cx = (xp + xt) / 2;
+      g.strokeStyle = 'rgba(20,26,51,0.55)';
+      g.lineWidth = 1.2;
+      g.strokeRect(cx - largoPx / 2, yt, largoPx, altezzaPx);
+      g.fillStyle = 'rgba(20,26,51,0.55)';
+      g.font = '500 9.5px ui-monospace,monospace';
+      g.textAlign = 'left'; g.textBaseline = 'bottom';
+      g.fillText('#' + id, cx - largoPx / 2, yt - 2);
+    }
+  }
+
   const presi = [];
   for (const Z of S.zone) {
     const a = dolce((u - Z.quando - 0.14) / 0.08);
@@ -2416,6 +2602,136 @@ function disegnaNomi(u) {
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(testo, x, py + 0.5);
   }
+}
+
+// ---------------------------------------------------------------------------
+// LA VISTA VERA DELL'AGENTE — 15/09/2026, dal brief "AI-Eye View".
+//
+// Raffaella: «THIS IS WHAT THE AGENT IS SEEING WHILE MOVING THROUGH THE
+// SPACE» — non un altro scatto singolo (quello esisteva gia', nel pannello
+// "Persone in scena"), una TELECAMERA VERA che segue la posizione reale
+// dell'agente scelto dentro la STESSA scena pulita e ombreggiata che questo
+// file costruisce per "Lettura dal vivo" — non il modello grezzo, non un
+// secondo sistema di rendering.
+//
+// Riusa apriFinestra/costruisci/plancia/pannello: la finestra, la scena, i
+// comandi sono gli stessi del film scriptato. Cambia solo COSA guida la
+// camera (la traiettoria vera dell'agente, non il cammino dedotto) e COSA
+// c'e' in scena in piu' (gli altri agenti, come corpi veri — vedi
+// aggiornaCorpiAgenti dentro giro()).
+export async function apriSuAgente(agentId) {
+  if (S.aperto) { chiudi(); await new Promise((r) => setTimeout(r, 550)); }
+  const T = window.THREE;
+  if (!T) { console.warn('[EIDETICA live] three non è pronto'); return false; }
+  const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+  const frames = traj && traj.frames;
+  if (!frames || !frames.length) {
+    alert('Non c’è ancora una simulazione in corso — avvia il Play prima di guardare con i suoi occhi.');
+    return false;
+  }
+  let D = dati();
+  if (!D) {
+    const puntiCiSono = (window.__veritasAutoPoints || []).length > 0;
+    const zoneCiSono = ((window.__veritasPercezione || {}).zones || []).length > 0;
+    if (puntiCiSono && !zoneCiSono && typeof window.__veritasRunCommand === 'function') {
+      window.__veritasRunCommand('analizza');
+      for (let tentativi = 0; tentativi < 50 && !D; tentativi++) {
+        await new Promise((r) => setTimeout(r, 500));
+        D = dati();
+      }
+    }
+    if (!D) { alert(P().niente); return false; }
+  }
+
+  if (S.musica && !S.audio) { try { S.audio = creaMusica(); } catch (e) { S.audio = null; } }
+
+  S.velo = apriFinestra();
+  const ap = apertura(S.velo);
+
+  const tela = document.createElement('canvas');
+  tela.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+  tela.style.setProperty('background', 'transparent', 'important');
+  S.velo.appendChild(tela);
+  const sopra = document.createElement('canvas');
+  sopra.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:6';
+  sopra.style.setProperty('background', 'transparent', 'important');
+  S.velo.appendChild(sopra);
+  S.tela = tela; S.sopra = sopra;
+
+  const ren = new T.WebGLRenderer({ canvas: tela, antialias: true, alpha: true });
+  ren.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  ren.setClearColor(0x000000, 0);
+
+  const c = costruisci(D);
+  S.ren = ren; S.scena = c.scena; S.cam = c.cam;
+  S.geom = c.geom; S.mat = c.mat; S.piani = c.piani;
+  S.muriMesh = c.muriMesh; S.muriFilo = c.muriFilo; S.pavMesh = c.pavMesh;
+  S.oggMesh = c.oggMesh; S.oggFilo = c.oggFilo;
+  S.tettoMesh = c.tettoMesh; S.reticolo = c.reticolo;
+  S.zone = D.zone; S.porta = D.porta;
+  // Nessun cammino dedotto qui: la camera segue la traiettoria vera, non
+  // questo percorso. Resta null cosi' il ramo "cammino" di giro() non parte.
+  S.via = null;
+
+  S.viaAgenteId = agentId;
+  S.trajFrames = frames;
+  // Dall'inizio della traiettoria registrata alla fine: e' la corsa intera
+  // che l'agente ha gia' fatto. Agganciarsi al secondo esatto in cui sta la
+  // simulazione principale in questo momento richiederebbe un orologio
+  // condiviso che oggi non esiste — si vede l'intero giro vero, non un
+  // frammento a caso.
+  S.trajT0 = frames[0].t;
+  S.trajT1 = frames[frames.length - 1].t;
+  S.corpiAgenti = new Map();
+  S.scia = [];
+
+  let ax = Infinity, bx = -Infinity, az = Infinity, bz = -Infinity, ay = Infinity;
+  for (const q of D.punti) {
+    if (q[0] < ax) ax = q[0]; if (q[0] > bx) bx = q[0];
+    if (q[2] < az) az = q[2]; if (q[2] > bz) bz = q[2];
+    if (q[1] < ay) ay = q[1];
+  }
+  S.centro = [(ax + bx) / 2, ay, (az + bz) / 2];
+  S.quotaOcchio = ay;
+  S.angolo0 = 0;
+
+  S.plancia = plancia(S.velo);
+  S.pannello = pannello(S.velo);
+  // La durata del film e' quella del pezzo di traiettoria che sta seguendo:
+  // stesso S.t 0..1 gia' usato per far scorrere la barra, riparte da capo,
+  // ecc. — riusa i comandi di plancia() senza doverli riscrivere.
+  S.durata = Math.max(4000, (S.trajT1 - S.trajT0) * 1000);
+
+  S.aperto = true; S.t = 0; S.corre = false; S.ultimo = 0; S.fotogrammi = 0;
+
+  const ATTESA_MAX_MS = 12000;
+  const pronto = () => !!(S.scena && S.ren && S.fotogrammi > 0 && S.geom);
+  const t0 = Date.now();
+  const via = () => {
+    ap.style.opacity = '0';
+    setTimeout(() => ap.remove(), 800);
+    S.plancia.style.opacity = '1';
+    S.pannello.style.opacity = '1';
+    S.corre = true; S.ultimo = 0;
+    musicaSu();
+  };
+  const aspetta = () => {
+    if (!S.aperto) return;
+    const passati = Date.now() - t0;
+    if (passati < APERTURA_MS) { setTimeout(aspetta, 120); return; }
+    if (pronto()) { via(); return; }
+    if (passati > ATTESA_MAX_MS) { via(); return; }
+    setTimeout(aspetta, 120);
+  };
+  setTimeout(aspetta, 120);
+
+  S.esc = (e) => { if (e.key === 'Escape') chiudi(); };
+  addEventListener('keydown', S.esc);
+  S.raf = requestAnimationFrame(giro);
+  console.log('[EIDETICA live] vista dagli occhi dell’agente ' + agentId + ': segue '
+    + (S.trajT1 - S.trajT0).toFixed(1) + ' s di traiettoria vera, dal secondo '
+    + S.trajT0.toFixed(1) + ' al ' + S.trajT1.toFixed(1) + '.');
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -2614,6 +2930,18 @@ export function chiudi() {
   removeEventListener('keydown', S.esc);
   if (S.geom) S.geom.dispose();
   if (S.mat) S.mat.dispose();
+  // 15/09/2026 — i corpi degli altri agenti e la scia non si disponevano
+  // mai: ogni "guarda dai suoi occhi" ne creava di nuovi senza liberare i
+  // precedenti. E S.viaAgenteId restava acceso, quindi la prossima
+  // "Lettura dal vivo" scriptata avrebbe ancora provato a seguire un
+  // agente invece di camminare sul percorso del film.
+  if (S.corpiAgenti) {
+    for (const corpo of S.corpiAgenti.values()) {
+      corpo.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    }
+  }
+  if (S.scia && S.scia.mesh) { S.scia.mesh.geometry.dispose(); S.scia.mesh.material.dispose(); }
+  S.viaAgenteId = null; S.trajFrames = null; S.corpiAgenti = null; S.scia = null;
   if (S.ren) S.ren.dispose();
   if (S.velo) { S.velo.style.opacity = '0'; const v = S.velo; setTimeout(() => v.remove(), 500); }
   S.velo = S.tela = S.sopra = S.ren = S.scena = S.cam = S.geom = S.mat = null;
@@ -2712,7 +3040,7 @@ if (typeof window !== 'undefined') {
   // moduli: senza, un film che non si vede non si puo' nemmeno interrogare.
   window.__eideticaLive = S;
   window.veritasCinema = {
-    apri, chiudi, pausa, riparti,
+    apri, chiudi, pausa, riparti, apriSuAgente,
     avvia: apri, ferma: chiudi, spegni: chiudi,
     // ⚠️ La diagnosi RESTITUISCE i numeri, non li stampa dopo tre secondi:
     //    una stampa ritardata arriva quando chi guarda ha gia' copiato.
