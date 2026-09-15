@@ -1272,9 +1272,30 @@ function costruisci(D) {
   // ⚠️ E IL CONTORNO SI PERDE PER ULTIMO. I fili sbiadiscono con la distanza
   //    meno delle facce (0,58 contro 0,80): il profilo e' quello che tiene il
   //    dettaglio quando il volume e' gia' diventato una velatura.
+  // 15/09/2026 — LA PERCEZIONE DENTRO IL RENDERING, non sopra. Brief "AI-Eye
+  // View" punto 3, che Raffaella ha scritto come "the most important
+  // requirement" e che stanotte era rimasto fuori: "objects inside the
+  // field of view become perceptually emphasized; objects outside the
+  // field of view become less relevant [...] depth and occlusion
+  // determine what the agent can actually see". Punto 7: un campo
+  // percettivo SENZA un cono opaco — "field-of-view geometry, depth-aware
+  // fading, restrained transparency, focus/emphasis".
+  //
+  // Non e' un cono aggiunto alla scena: e' lo shader stesso che sa quanto
+  // ogni frammento e' vicino al centro dello sguardo. `vP` e' gia' la
+  // posizione in spazio-camera (calcolata per la luce), e in quello spazio
+  // l'asse di sguardo e' sempre (0,0,-1) — l'angolo da quell'asse e' la
+  // stessa identica cosa di "quanto e' fuori dall'attenzione", senza
+  // nessuna geometria in piu' da disegnare o intersecare.
+  //
+  // `percezione` e' 0/1: acceso solo in apriSuAgente() (vedi giro()), mai
+  // nel film scriptato "Lettura dal vivo" — la` la vecchia grammatica (i
+  // punti che si posano, poi le superfici) resta quella che era, perche'
+  // quel film non e' la vista di un agente, e' la comprensione dello
+  // spazio nel suo complesso.
   const ombra = (forza, solido) => new T.ShaderMaterial({
     transparent: true, depthWrite: false, side: T.DoubleSide,
-    uniforms: { u: { value: 0 }, forza: { value: forza }, finale: { value: 1 } },
+    uniforms: { u: { value: 0 }, forza: { value: forza }, finale: { value: 1 }, percezione: { value: 0 } },
     vertexShader: [
       'attribute vec3 tinta; attribute float quando;',
       'varying vec3 vC; varying float vA; varying float vD; varying vec3 vP;',
@@ -1290,7 +1311,7 @@ function costruisci(D) {
     ].join('\n'),
     fragmentShader: [
       'varying vec3 vC; varying float vA; varying float vD; varying vec3 vP;',
-      'uniform float forza; uniform float finale;',
+      'uniform float forza; uniform float finale; uniform float percezione;',
       'void main(){ if (vA <= 0.001) discard;',
       '  float p = 1.0 - ' + (solido ? '0.80' : '0.58') + ' * smoothstep(10.0, 55.0, vD);',
       '  vec3 c = vC; float a = vA * forza * p * finale;',
@@ -1305,6 +1326,16 @@ function costruisci(D) {
       '  a *= mix(1.55, 0.62, luce);',
       '  c = vC * mix(0.70, 1.06, luce);',
     ] : []).concat([
+      // il fuoco: dentro un cono stretto (attenzione), pieno; verso il
+      // bordo dell'immagine, meno rilevante — mai sparito (mai un buco
+      // nero nella visione periferica, che nessun occhio ha), solo meno.
+      '  if (percezione > 0.5) {',
+      '    float angolo = acos(clamp(dot(normalize(vP), vec3(0.0,0.0,-1.0)), -1.0, 1.0));',
+      '    float fuoco = 1.0 - smoothstep(0.32, 0.68, angolo);',
+      '    a *= mix(0.32, 1.0, fuoco);',
+      '    float grigio = dot(c, vec3(0.299, 0.587, 0.114));',
+      '    c = mix(vec3(grigio) * 0.9 + c * 0.1, c, mix(0.45, 1.0, fuoco));',
+      '  }',
       '  gl_FragColor = vec4(c, a); }',
     ]).join('\n'),
   });
@@ -2279,28 +2310,42 @@ function corpoSemplice(T, colore) {
   //    Un MeshStandardMaterial qui sarebbe nero: nessuna luce da rispondere.
   //    Si compensa il piatto con un accenno di volume: la testa un tono
   //    piu' chiaro del busto, cosi' la sagoma si legge comunque in 3D.
+  //    transparent:true perche' aggiornaCorpiAgenti() sfuma chi e' fuori
+  //    dal fuoco — stesso principio percettivo delle superfici, applicato
+  //    qui in JS perche' una capsula non ha (e non le serve) uno shader.
   const g = new T.Group();
   const c1 = new T.Color(colore[0], colore[1], colore[2]);
   const c2 = c1.clone().multiplyScalar(1.35);
-  const busto = new T.Mesh(new T.CapsuleGeometry(0.24, 1.05, 4, 8), new T.MeshBasicMaterial({ color: c1 }));
+  const busto = new T.Mesh(new T.CapsuleGeometry(0.24, 1.05, 4, 8),
+    new T.MeshBasicMaterial({ color: c1, transparent: true }));
   busto.position.y = 1.15;
-  const testa = new T.Mesh(new T.SphereGeometry(0.13, 10, 10), new T.MeshBasicMaterial({ color: c2 }));
+  const testa = new T.Mesh(new T.SphereGeometry(0.13, 10, 10),
+    new T.MeshBasicMaterial({ color: c2, transparent: true }));
   testa.position.y = 1.82;
   g.add(busto, testa);
   g.userData.altezza = 1.95;
+  g.userData.c1 = c1; g.userData.c2 = c2;
   return g;
 }
+
+const grigioDi = (c) => c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
+function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 /** Crea o aggiorna un corpo semplice per ogni agente diverso da quello
  * selezionato, nel fotogramma piu' vicino a tSim. Chi non compare piu' nel
  * fotogramma (non ancora entrato, o arrivato e uscito di scena) si nasconde
- * invece di restare fermo a mezz'aria. */
+ * invece di restare fermo a mezz'aria. Chi e' fuori dal fuoco dell'agente
+ * (stesso cono 0.32-0.68 rad dello shader ombra()) si sfuma — "less
+ * relevant", brief punto 3, applicato anche a chi e' un corpo vero e non
+ * solo alle superfici. */
 function aggiornaCorpiAgenti(T, tSim) {
   if (!S.trajFrames || !S.corpiAgenti) return;
   let lo = 0, hi = S.trajFrames.length - 1;
   while (lo < hi) { const m = (lo + hi) >> 1; if (S.trajFrames[m].t < tSim) lo = m + 1; else hi = m; }
   const f = S.trajFrames[lo];
   const vivi = new Set();
+  const dirCam = new T.Vector3(); S.cam.getWorldDirection(dirCam);
+  const verso = new T.Vector3();
   for (const a of (f.agents || [])) {
     if (a.id === S.viaAgenteId) continue;
     if (a.state === 'ARRIVED') continue;
@@ -2314,6 +2359,18 @@ function aggiornaCorpiAgenti(T, tSim) {
     corpo.visible = true;
     corpo.position.set(a.pos[0], a.pos[1], a.pos[2]);
     if (typeof a.rot === 'number') corpo.rotation.y = -a.rot + Math.PI / 2;
+
+    verso.copy(corpo.position).addScaledVector(new T.Vector3(0, 1, 0), 1.0)
+      .sub(S.cam.position).normalize();
+    const angolo = Math.acos(Math.max(-1, Math.min(1, dirCam.dot(verso))));
+    const fuoco = 1 - smooth(0.32, 0.68, angolo);
+    corpo.userData.fuoco = fuoco;
+    for (const parte of corpo.children) {
+      const base = parte === corpo.children[0] ? corpo.userData.c1 : corpo.userData.c2;
+      parte.material.opacity = 0.35 + 0.65 * fuoco;
+      const gr = grigioDi(base);
+      parte.material.color.copy(base).lerp(new T.Color(gr, gr, gr), (1 - fuoco) * 0.7);
+    }
   }
   for (const [id, corpo] of S.corpiAgenti) if (!vivi.has(id)) corpo.visible = false;
 }
@@ -2434,6 +2491,17 @@ function giro(ms) {
       const L = Math.hypot(d[0], d[1]);
       S.cam.lookAt(io.pos[0] + (d[0] / L) * 20, io.pos[1] + occhio, io.pos[2] + (d[1] / L) * 20);
     }
+    // Lo spazio e' gia' costruito: qui non e' un film che si materializza
+    // (quello ha senso per capire lo spazio la prima volta, non per la
+    // vista di un agente che ci si muove dentro gia' ora). u=1 fisso porta
+    // vA a 1 su ogni superficie — piena da subito — e percezione=1 accende
+    // il fuoco/periferia dentro lo stesso shader (vedi ombra()).
+    for (const M of [S.muriMesh, S.muriFilo, S.pavMesh, S.oggMesh, S.oggFilo, S.tettoMesh]) {
+      if (!M) continue;
+      M.material.uniforms.u.value = 1;
+      M.material.uniforms.percezione.value = 1;
+    }
+    if (S.reticolo) S.reticolo.material.uniforms.spegni.value = 0.85;
     aggiornaCorpiAgenti(T, tSim);
     aggiornaScia(T, tSim);
     S.ren.render(S.scena, S.cam);
@@ -2560,13 +2628,21 @@ function disegnaNomi(u) {
       const altezzaPx = Math.max(6, yp - yt);
       const largoPx = altezzaPx * 0.42;
       const cx = (xp + xt) / 2;
-      g.strokeStyle = 'rgba(20,26,51,0.55)';
-      g.lineWidth = 1.2;
+      // "less relevant", non invisibile — brief punto 3, stessa curva
+      // fuoco/periferia usata sul corpo (aggiornaCorpiAgenti) e sui muri
+      // (ombra()): la box respira con l'attenzione dell'agente, non e' un
+      // rettangolo decorativo fisso.
+      const fuoco = corpo.userData.fuoco != null ? corpo.userData.fuoco : 1;
+      const al = 0.20 + 0.55 * fuoco;
+      g.strokeStyle = 'rgba(20,26,51,' + al + ')';
+      g.lineWidth = fuoco > 0.5 ? 1.4 : 1;
       g.strokeRect(cx - largoPx / 2, yt, largoPx, altezzaPx);
-      g.fillStyle = 'rgba(20,26,51,0.55)';
-      g.font = '500 9.5px ui-monospace,monospace';
-      g.textAlign = 'left'; g.textBaseline = 'bottom';
-      g.fillText('#' + id, cx - largoPx / 2, yt - 2);
+      if (fuoco > 0.15) {
+        g.fillStyle = 'rgba(20,26,51,' + al + ')';
+        g.font = '500 9.5px ui-monospace,monospace';
+        g.textAlign = 'left'; g.textBaseline = 'bottom';
+        g.fillText('#' + id, cx - largoPx / 2, yt - 2);
+      }
     }
   }
 
