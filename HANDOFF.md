@@ -1,6 +1,6 @@
 # HANDOFF.md — EIDETICA *(il prodotto si chiamava VERITAS)*
 
-**Aggiornato il 14/09/2026**. Questo è l'unico documento di stato del progetto.
+**Aggiornato il 15/09/2026 (notte).** Questo è l'unico documento di stato del progetto.
 
 ---
 
@@ -165,21 +165,29 @@ Non con quel nome. Il meccanismo (un segno letto → un comportamento) esiste in
 Nessuno dei due sa leggere segni diversi dalle frecce (un cartello "USCITA",
 un simbolo di divieto): resta un vocabolario di un solo segno.
 
-### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso
+### 🔴 QUELLO CHE RESTA APERTO, in ordine di peso — aggiornato 15/09 notte
 
 | | | |
 |---|---|---|
-| **1** | 🔴 **La sovrapposizione dei corpi — motore VERO, oggi mai toccato** | Vista dal vivo il 14/09 sera da Raffaella, con «Motore reale pronto» acceso (verde): due o più persone si fondono in una sagoma sola. ⛔ **Il fix di stamattina non c'entra**: `resolveOverlaps` (versori invece di velocità grezze, arretro in fila) sta SOLO nel generatore di riserva, il codice JS che gira quando il server dorme. Con il motore vero acceso, la sovrapposizione viene dal **codice Python su Render**, mai aperto oggi. Si comincia cercando DOVE vive quel repository, prima di indagare la causa |
-| **2** | 🔴 **Le scatole delle zone non hanno l'ampiezza né la posizione vere** | Vista dal vivo il 14/09 sera: i rettangoli che segnano una zona riconosciuta non coprono l'area reale della zona, e dal lato delle frecce fucsia il rettangolo non ci sta sopra come dovrebbe. Raffaella: *«non l'ho voluto mettere troppa carne al fuoco, ma non corrispondono effettivamente all'ampiezza delle zone»*. Da guardare: il codice che disegna i marcatori (`Editor zone`/Spatial Layers) — prima ipotesi da verificare, non confermata: lo scaling del righello umano (5,272×) forse non propagato a questi marcatori |
-| **C** | **Il pannello agente/task** — chiesto più volte, non c'è | Una finestrella con le persone in scena, nome e compito assegnabili, e "guarda dai suoi occhi" (`vistaDalCamminatore` esiste già, mai esposta all'utente). Raffaella: *«voglio farmi il viaggio negli occhi di un ragazzo disabile, vedere se la segnaletica si vede»*. Insieme: pulire la palette a sinistra — solo la chat sembra viva, il resto va verificato e tolto se morto |
-| **D** | **Il "Cinema"** — Raffaella pensava fosse "Lettura dal vivo", non lo è | Oggi "Lettura dal vivo" apre la vista **Percezione** (i puntini viola, «0 ambienti riconosciuti» — il vecchio difetto mai chiuso). Serve un rendering con ombre vere, che porti "l'anima della visione": luce, materiali, l'identità EIDETICA — diverso dalla fotografia grezza del modello caricato |
-| **3** | **Navmesh filtrata per profilo** — le scale di servizio, rimandato dal 12/09 | Stesso meccanismo tecnico del filtro-frecce di oggi (`QueryFilter`/`getCost`), ma qui serve anche **negare** un passaggio a chi non è del profilo giusto — è la parte rischiosa che oggi non si è toccata. Serve anche a rendere vera (non un proxy) la pulsazione rossa della carrozzina bloccata |
-| — | **Telecamere di sorveglianza fisse per zona** | Bottoni spenti che si accendono e inquadrano un punto fisso (varco, check-in) — mai iniziato |
+| **1** | 🟡 **Sovrapposizione dei corpi — corretta ma MAI verificata dal vivo** | `SimulationEngine._risolvi_sovrapposizioni()` aggiunta in `Assets/core/engine.py` (prima il motore Python non aveva NESSUNA regola di distanza). Lato JS, `resolveOverlaps` non escludeva più chi è ARRIVED (era il bug vero — chi arriva allo stesso gate restava fuso per sempre), rinforzato due volte (0,25→0,55 m, 1→3 passate). **Nessuna delle due correzioni è stata vista funzionare**: la pagina si blocca per minuti su "Leggi lo spazio" ad ogni prova (vedi punto 4). Un tentativo di correggere ANCHE l'attraversamento dei muri (`ultimoBuono`, dentroUnSolido ogni fotogramma) ha bloccato la scheda per oltre due minuti ed è stato **revertito** (commit `Revert "fix: chi finisce dentro un muro..."`, 15/09): resta aperto |
+| **2** | 🔴 **Le scatole delle zone non hanno l'ampiezza né la posizione vere** | Invariato dal 14/09 sera, non toccato stanotte. Ipotesi non confermata: scaling del righello umano (5,272×) non propagato ai marcatori (`Editor zone`/Spatial Layers) |
+| **3** | 🔴 **La "Vista dell'agente" (AI-Eye View) — a metà, e la metà mancante è quella che contava di più** | Raffaella ha dato un brief in 12 punti (15/09 notte). Fatto: camera vera che segue la posizione reale dell'agente dalla traiettoria (`apriSuAgente()` in `veritas_cinema.js`), altri agenti come corpi veri (non icone), bounding box proiettate dai corpi veri, scia 3D, mirino HUD, geometria opaca 80-88% con colore semantico (grigio pavimento / blu strutturale / viola varchi di sicurezza) al posto della polvere di punti. **Non fatto — ed è il punto 3 del brief, dichiarato da Raffaella "the most important requirement":** la percezione deve essere DENTRO il rendering (oggetti nel campo visivo enfatizzati, fuori campo attenuati, dissolvenza per profondità), non frecce e riquadri sopra un modello tecnico — quello che è stato costruito è esattamente "MODEL + GRAPHICS ON TOP", la cosa che il brief diceva esplicitamente di non fare. Mancano anche punto 7 (campo percettivo/FOV visibile) e punto 9 (le frecce di `veritas_flussi.js` dentro questa stessa scena 3D, oggi solo nella pianta 2D). **Priorità dichiarata da Raffaella la sera del 15/09: si lavora solo su questo finché non è chiuso** |
+| **4** | 🔴 **"Leggi lo spazio" blocca la scheda per minuti** | Misurato ripetutamente la notte del 15/09: dopo aver cliccato "analizza" la scheda non risponde nemmeno a `1+1` per oltre due minuti, più volte di fila, su una scheda pulita appena aperta. Non è chiaro se sia un tempo di calcolo reale (il filtro "corpo" è già sincrono e pesante, TETTO_MS=45000 già al limite prima di stasera) o un guasto nuovo — impedisce QUALSIASI verifica dal vivo dei punti 1 e 3. Da guardare per primo alla prossima sessione, prima ancora del punto 3 |
+| **5** | **Navmesh filtrata per profilo** — carrozzina e scale, rimandato dal 12/09 | Stesso meccanismo tecnico del filtro-frecce (`QueryFilter`/`getCost`), ma qui serve anche **negare** un passaggio a chi non è del profilo giusto — parte rischiosa mai toccata. Serve a rendere vera la pulsazione rossa della carrozzina bloccata, E a farla segnalare l'assenza di una rampa/ascensore (chiesto da Raffaella 15/09 notte, non iniziato) |
+| **6** | **Comportamenti sedersi/attesa in piedi** — direttiva 12, mai iniziato | Raffaella, 15/09: non vede animazioni di seduta nemmeno dove la sala d'attesa è stata riconosciuta. Oggi non esiste NESSUNO stato del genere durante la simulazione — il "posturale" serve solo all'analisi della vista, non anima nessuno. È il grosso di LOTTO A del piano di Raffaella (corsa/sostenuta/normale + sedersi/coda), mai aperto per intero |
+| — | **Telecamere di sorveglianza fisse per zona** | Mai iniziato |
 
-⚠️ **NON SI COMINCIA DAL PANNELLO O DAL CINEMA finché 1 e 2 sono aperti.** Sono
-difetti visti dal vivo sul motore vero, non feature mancanti: costruire sopra
-un cammino che si compenetra o zone mal disegnate vorrebbe dire costruire
-sull'instabile.
+✅ **Chiusi stanotte (15/09), con codice ma senza verifica dal vivo — vedi punto 4:**
+corsa solo in simulazione di emergenza; frecce da consiglio debole (+15%) a
+obbligo di fatto (+50000%, mai un divieto vero per non rompere A*); pannello
+"Persone in scena" (nome/compito/occhi, settima icona del rail); "Lettura dal
+vivo" non si apre più muta se manca l'analisi; puntini tolti dal Cinema.
+
+⚠️ **NON SI TORNA AL PANNELLO O AD ALTRO finché il punto 3 non è chiuso davvero
+— i punti 3/7/9 del brief, non solo la parte meccanica.** Raffaella, 15/09 notte,
+dopo aver visto che erano stati saltati senza dirlo abbastanza chiaramente:
+*«non decidessi tu cosa fare e cosa non fare, ma ti limitassi a fare quello che
+io ti chiedo»*.
 
 ---
 
