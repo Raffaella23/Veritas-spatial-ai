@@ -226,6 +226,43 @@ function aggiornaVolumi(S) {
   }
 }
 
+// Accende un volume UNA SOLA VOLTA per nodo (S.gia tiene il conto). Usata sia
+// dallo spazzolamento iniziale sia dal gancio live: stessa regola, un solo
+// posto dove e' scritta.
+function illuminaSeNuovo(S, n, sottotitolo) {
+  if (!n || !n.pos || !n.label) return false;
+  const chiave = n.id || (n.pos[0] + '_' + n.pos[2]);
+  if (S.gia.has(chiave)) return false;
+  S.gia.add(chiave);
+  accendiVolume(window.THREE, S, n.pos, n.label);
+  aggiungiRigaPannello(S, n.label, sottotitolo && sottotitolo !== n.label ? sottotitolo : null);
+  return true;
+}
+
+// 16/09/2026 — LO SPAZZOLAMENTO INIZIALE. Raffaella, dal vivo: aveva ragione,
+// l'apertura si chiudeva prima che la prima vera risposta arrivasse (misurato
+// quella sera: 4 minuti e mezzo la prima volta, su questa macchina) — quindi
+// non si vedeva MAI accendersi niente, anche quando il resto dell'app aveva
+// gia' capito parecchio nel frattempo. Un'apertura onesta non aspetta solo il
+// futuro: mostra SUBITO quello che e' gia' vero, poi continua ad ascoltare.
+function spazzolamentoIniziale(S) {
+  if (typeof window.__veritasGetNodes !== 'function') return;
+  let nodi = [];
+  try { nodi = window.__veritasGetNodes() || []; } catch (e) { return; }
+  let nuovi = 0;
+  for (const n of nodi) {
+    // Solo cio' che e' stato VISTO o dichiarato per davvero — non i posti
+    // segnaposto ("auto") che nessun occhio ha ancora confermato.
+    if (!n || n.origine === 'auto' || !n.origine) continue;
+    if (illuminaSeNuovo(S, n, n.type)) nuovi++;
+  }
+  if (nuovi) {
+    S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente riconosciuto' : 'ambienti riconosciuti');
+    log('spazzolamento iniziale: ' + nuovi + ' gia veri, accesi subito');
+    prorogaChiusura(S, nuovi);
+  }
+}
+
 // I due ganci veri: ogni vista esaminata (conteggio onesto, niente stime),
 // e ogni volta che il circuito occhio-cervello assegna dei nomi — la STESSA
 // chiamata che gia' scrive sulle tappe vere (__veritasApplicaOcchi), non una
@@ -251,14 +288,8 @@ function agganciaEventiVeri(S) {
           let nuovi = 0;
           for (const a of esito.assegnate) {
             const n = nodi && nodi[a.indice];
-            if (!n || !n.pos || a.sicurezza === 'bassa') continue;
-            const chiave = n.id || (n.pos[0] + '_' + n.pos[2]);
-            if (S.gia.has(chiave)) continue;
-            S.gia.add(chiave);
-            const nome = n.label || a.tipo || 'zona riconosciuta';
-            accendiVolume(window.THREE, S, n.pos, nome);
-            aggiungiRigaPannello(S, nome, a.tipo && a.tipo !== nome ? a.tipo : null);
-            nuovi++;
+            if (a.sicurezza === 'bassa') continue;
+            if (illuminaSeNuovo(S, n, a.tipo)) nuovi++;
           }
           if (nuovi && S.riga1) {
             S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente riconosciuto' : 'ambienti riconosciuti');
@@ -350,6 +381,7 @@ function costruisciEApri() {
   riga1.textContent = 'sto guardando lo spazio...';
   agganciaEventiVeri(S);
   S.timerFine = setTimeout(chiudi, durata);
+  spazzolamentoIniziale(S);
   // Un ridimensionamento della finestra non deve lasciare l'apertura storta.
   S.onResize = () => {
     if (!S || !S.aperto) return;
