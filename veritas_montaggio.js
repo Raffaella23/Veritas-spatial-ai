@@ -65,7 +65,7 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=12"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=13"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
@@ -1431,6 +1431,26 @@ function applicaNomi(posti) {
 let ultimaRadice = null;
 let attesaInCorso = null;
 
+// 16/09/2026 — GEOMETRIA E PRIMO SGUARDO IN PARALLELO, NON IN FILA.
+//
+// Prima: un'attesa cieca di 6,5 s, scelta perche' "di solito basta" alle
+// cose misurate, alla scala e alla navmesh per essere pronte. Un'attesa
+// fissa e' un doppio rischio: se la geometria finisce prima, si butta via
+// tempo vero; se finisce dopo (un modello piu' grosso, una macchina piu'
+// lenta), l'occhio parte su dati non ancora pronti.
+//
+// Ora si controlla la cosa vera (`__veritasNavmesh.stato()`, la stessa
+// guardia gia' usata altrove in questo file per sapere se la navmesh
+// esiste) ogni 200 ms, e si parte AL PRIMO dei due segnali: pronta la
+// geometria, o scaduto il tetto di sicurezza di 6,5 s — che resta,
+// invariato, come rete: non si aspetta mai piu' a lungo di prima.
+function geometriaPronta() {
+  try {
+    const nm = window.__veritasNavmesh;
+    return !!(nm && typeof nm.stato === "function" && nm.stato());
+  } catch (e) { return false; }
+}
+
 function modelloNuovo(radice) {
   if (!radice || radice === ultimaRadice) return;
   ultimaRadice = radice;
@@ -1441,15 +1461,21 @@ function modelloNuovo(radice) {
   }
   // Se arrivano due segnali per lo stesso modello, il secondo non raddoppia
   // il lavoro: rimanda soltanto l'inizio.
-  if (attesaInCorso) clearTimeout(attesaInCorso);
+  if (attesaInCorso) clearInterval(attesaInCorso);
   const attesa = window.__veritasMontaggioRitardo || RITARDO;
-  log("modello nuovo: comincio a capirlo fra " + Math.round(attesa / 1000) + " s");
-  attesaInCorso = setTimeout(function () {
+  const partenza = Date.now();
+  log("modello nuovo: comincio a capirlo appena la geometria e' pronta"
+    + " (al massimo fra " + Math.round(attesa / 1000) + " s)");
+  attesaInCorso = setInterval(function () {
+    if (!geometriaPronta() && (Date.now() - partenza) < attesa) return;
+    clearInterval(attesaInCorso);
     attesaInCorso = null;
+    log("comincio: " + (geometriaPronta() ? "geometria pronta" : "tetto di sicurezza raggiunto")
+      + ", dopo " + Math.round((Date.now() - partenza) / 1000) + " s");
     window.__veritasComprendi().catch(function (e) {
       console.warn("[VERITAS montaggio] non ha capito:", (e && e.message) || e);
     });
-  }, attesa);
+  }, 200);
 }
 
 // Strada A — il segnale, quando c'e'.

@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
+window.__EIDETICA_COSTRUZIONE = "2026-09-16-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2966,6 +2966,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
 
       const expanded = [{ pos: snapToFloor(posUsate[0]) }];
       let securityAt = null, raggioSoglia = null, cum = 0;
+      // Le soste (sale d'attesa, lounge, aree espositive — il tipo "sosta"
+      // del vocabolario di simulazione) si segnano come il filtro: a quale
+      // distanza cumulata lungo il percorso si trovano, cosi' il cammino
+      // puo' fermarcisi sopra davvero, invece di attraversarle senza sostare.
+      const soste = [];
       if (rawNodes[0].type === "filtro" && !soglie[0]) securityAt = 0;
       for (let s = 0; s < rawNodes.length - 1; s++) {
         const from = posUsate[s], to = posUsate[s + 1];
@@ -3021,6 +3026,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
             raggioSoglia = tolleranza;
           }
         }
+        // La sosta non ha bisogno della precisione della soglia di un varco:
+        // basta sapere a che distanza cumulata si arriva alla tappa, per
+        // fermarcisi sopra invece di attraversarla.
+        if (rawNodes[s + 1].type === "sosta") {
+          soste.push({ at: cum });
+        }
       }
 
       // Quali punti del percorso NON stanno su una superficie calpestabile.
@@ -3063,7 +3074,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
           p.fuoriMesh = !q.ok || suUnCollegamento(p.pos);
         }
       }
-      return { path: expanded, securityAt, raggioSoglia };
+      return { path: expanded, securityAt, raggioSoglia, soste };
     }
 
     const keys = Object.keys(ARCHETYPES);
@@ -3090,7 +3101,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
       const cacheKey = flusso ? 'flusso' + flussi.indexOf(flusso)
                               : spawnIdx + "_" + gateIdx; // varco+gate, come prima
       if (!routeCache.has(cacheKey)) routeCache.set(cacheKey, expandRoute(rawPath));
-      const { path, securityAt, raggioSoglia } = routeCache.get(cacheKey);
+      const { path, securityAt, raggioSoglia, soste } = routeCache.get(cacheKey);
       const segLen = [];
       let totalLen = 0;
       for (let s = 0; s < path.length - 1; s++) {
@@ -3099,11 +3110,16 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
         segLen.push(dd); totalLen += dd;
       }
       agents.push({
-        id: i, archetype, group, path, segLen, totalLen, securityAt, raggioSoglia,
+        id: i, archetype, group, path, segLen, totalLen, securityAt, raggioSoglia, soste,
         flusso: flusso ? flusso.nome : null,
         startDelay: startDelays[i],
         speed: ARCHETYPES[archetype].speed * (0.9 + Math.random() * 0.2),
         waitAtControl: 4 + Math.random() * 8,
+        // Quanto ci si siede in una sosta riconosciuta (sala d'attesa, lounge,
+        // sala espositiva): Raffaella, direttiva 7 — "il check-in e' chiuso,
+        // si siede; poi si mette in fila. Sta aspettando che si apra il gate:
+        // si siede." Stesso ordine di grandezza della sosta al varco.
+        waitAtRest: 6 + Math.random() * 10,
       });
     }
     // ordine di coda al varco sicurezza: chi parte prima arriva prima in coda
@@ -3157,15 +3173,32 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
       for (const ag of agents) {
         const elapsed = t - ag.startDelay;
         if (elapsed < 0) continue;
-        const { path, segLen, totalLen, securityAt } = ag;
+        const { path, segLen, totalLen, securityAt, soste } = ag;
         if (totalLen <= 0 || path.length < 2) continue;
         let state = "MOVING";
+        let sedutoQui = false;
         // velocita' realistica (Fase 1 roadmap: 2.2 -> 1.0). Configurabile per
         // eventuali preset "Real Time / Review / Stress Test" futuri.
         let dist = elapsed * ag.speed * (window.__veritasSpeedMultiplier || 1.0);
         if (securityAt !== null) {
           if (dist > securityAt && dist < securityAt + ag.waitAtControl * ag.speed * 0.5) { state = "WAITING"; dist = securityAt; }
           else if (dist > securityAt && state !== "WAITING") dist += ag.waitAtControl * ag.speed * 0.2;
+        }
+        // PRIMA L'OCCHIO, ANCHE QUI: la sosta e' una tappa che l'occhio (o il
+        // nome del modello) ha gia' riconosciuto come sala d'attesa/lounge —
+        // direttiva 7, "capito che sono sedute implica che li' ci si ferma".
+        // Stessa logica del varco sopra: pinnata mentre si e' nella finestra
+        // di sosta, poi un piccolo recupero permanente cosi' non si perde
+        // tempo di cammino quando si riparte.
+        if (soste && soste.length) {
+          for (const s of soste) {
+            if (state === "WAITING") break;
+            if (dist > s.at && dist < s.at + ag.waitAtRest * ag.speed * 0.5) {
+              state = "WAITING"; dist = s.at; sedutoQui = true;
+            } else if (dist > s.at) {
+              dist += ag.waitAtRest * ag.speed * 0.2;
+            }
+          }
         }
         if (dist >= totalLen) { state = "ARRIVED"; dist = totalLen; }
         let acc = 0, seg = 0;
@@ -3193,7 +3226,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
         // Questo tratto e' un collegamento dichiarato (scala mobile, salto)?
         // Lo dice il percorso, che l'ha misurato una volta sola.
         const suPonte = !!(path[seg].fuoriMesh || (path[seg + 1] && path[seg + 1].fuoriMesh));
-        if (state === "WAITING" && securityAt !== null) {
+        if (state === "WAITING" && securityAt !== null && Math.abs(dist - securityAt) < 0.5) {
           // coda visibile: si dispone in fila dietro il varco, su 2 colonne,
           // arretrando lungo la direzione di provenienza in base alla posizione in coda
           const slot = queueSlot.get(ag.id) || 0;
@@ -3259,7 +3292,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
         const stress = state === "WAITING" ? 0.7 + Math.sin(t + ag.id) * 0.2 : state === "ARRIVED" ? 0.1 : 0.2 + seg * 0.08;
         const pos = [x, y, z];
         lastPos.set(ag.id, pos);
-        frameAgents.push({ id: ag.id, pos, rot, state, group: ag.group, archetype: ag.archetype, stress });
+        frameAgents.push({ id: ag.id, pos, rot, state, group: ag.group, archetype: ag.archetype, stress, seduto: sedutoQui });
       }
       resolveOverlaps(frameAgents);
       // L'ultima parola ce l'ha il cammino. Stessa identica regola che si
@@ -6347,7 +6380,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
       for (const a of f.agents) {
         let arr = TRACCE.get(a.id);
         if (!arr) TRACCE.set(a.id, arr = []);
-        arr.push({ pos: a.pos, state: a.state, t: f.t });
+        arr.push({ pos: a.pos, state: a.state, seduto: !!a.seduto, t: f.t });
       }
     }
   }
@@ -6403,11 +6436,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
         if (!v.mixer || !v.group.visible) continue;
         const p = v.group.position;
         const traccia = TRACCE.get(v.id);
-        let statoVero = null, velocitaVera = 0;
+        let statoVero = null, velocitaVera = 0, sedutoVero = false;
         if (traccia && traccia.length > 1) {
           const i = trovaSullaTraccia(traccia, v.traccia, p.x, p.z);
           if (i >= 0) {
             statoVero = traccia[i].state;
+            sedutoVero = !!traccia[i].seduto;
             // 14/09/2026 — LA VELOCITA' SI MEDIA, NON SI CAMPIONA A DUE PUNTI.
             //
             // ⛔ Misurato sulla pagina viva: con due soli campioni consecutivi
@@ -6450,6 +6484,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-15-k";
 
         if (dt > 0) {
           const vuole = v.seduto ? 'Sitting_Idle_Loop'
+            // Direttiva 7: le sedute non sono un'etichetta, sono un comportamento.
+            // Chi e' fermo proprio in una sosta riconosciuta (sala d'attesa,
+            // lounge, sala espositiva) si siede; altrove resta la posa d'attesa
+            // in piedi di sempre. Corpo permanente (v.seduto, carrozzina) resta
+            // sopra a tutto: non si toglie mai da seduto.
+            : (statoVero === 'WAITING' && sedutoVero) ? 'Sitting_Idle_Loop'
             : !inMoto ? 'Idle_Loop'          // fermo: in coda, o arrivato — stessa posa d'attesa
             : corsa ? 'Jog_Fwd_Loop'
             : 'Walk_Loop';
@@ -29952,7 +29992,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=30"></script>
+<script type="module" src="./veritas_montaggio.js?v=31"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 </body>
 </html>

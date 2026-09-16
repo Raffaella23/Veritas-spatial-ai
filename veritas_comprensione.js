@@ -94,7 +94,12 @@ export const VOLUMI_PER_MAZZETTO = 6;
 
 // Sotto questa fiducia dichiarata dal cervello, «ho capito» non basta.
 // Un modello che dice «ho capito, fiducia 0.3» sta dicendo «non ho capito».
-export const FIDUCIA_PER_AGIRE = 0.7;
+// Raffaella, 16/09/2026: «diamo pieni poteri decisionali all'occhio» — la
+// soglia scende da 0.7 a 0.6 apposta, per dichiararsi «abbastanza sicuro»
+// un giro prima. Non e' un limite alla qualita' della risposta (resta la
+// stessa identica domanda, lo stesso identico giudizio): e' quanto ci si
+// fida del giudizio quando arriva presto.
+export const FIDUCIA_PER_AGIRE = 0.6;
 
 // Se restano piu' di questa quota di volumi senza nome, lo spazio non e'
 // compreso anche se il cervello e' contento: significa che si sta per
