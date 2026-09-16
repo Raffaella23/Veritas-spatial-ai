@@ -36,7 +36,17 @@
 //   node --check veritas_apertura.js
 // =============================================================================
 
+// 16/09/2026 — MISURATO DAL VIVO: la geometria sola ha impiegato 12s, e un
+// giro di percezione vero arriva via via dopo, non tutto insieme. Un teatro
+// fisso a 30s spesso chiude PRIMA che il primo ambiente venga riconosciuto —
+// peggio di niente, perche' promette un'accensione e non la mantiene mai.
+// Quindi: un fondo garantito (si vede comunque il modello prendere peso),
+// e ogni accensione vera SPOSTA IN AVANTI la chiusura di qualche secondo,
+// fino a un tetto — mai un'attesa infinita, mai un buio che si chiude muto
+// se sta succedendo qualcosa di vero proprio ora.
 const DURATA_DEFAULT = 30000;
+const PROROGA_PER_ACCENSIONE = 4000;
+const DURATA_MASSIMA = 90000;
 
 // La stessa formula delle velature del marchio (decisione-vestito-carta):
 // oklch(.965 .026 H) per un fondo di pannello, il grado 266 ("modello") tenuto
@@ -252,12 +262,27 @@ function agganciaEventiVeri(S) {
           }
           if (nuovi && S.riga1) {
             S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente riconosciuto' : 'ambienti riconosciuti');
+            prorogaChiusura(S, nuovi);
           }
         }
       } catch (e) { /* la messa in scena non deve mai far cadere il vero assegnamento */ }
     }
     return out;
   };
+}
+
+// Qualcosa di vero sta succedendo ORA: si allontana la chiusura, MAI la si
+// anticipa (una sola accensione precoce non deve tagliare corto il teatro di
+// base) e mai oltre il tetto assoluto, contato dalla nascita di questa
+// apertura, non da questa proroga.
+function prorogaChiusura(S, quanteNuove) {
+  const tetto = S.nascita + DURATA_MASSIMA;
+  const proposta = Date.now() + PROROGA_PER_ACCENSIONE * Math.min(quanteNuove, 3);
+  S.chiusuraPrevista = Math.min(tetto, Math.max(S.chiusuraPrevista, proposta));
+  const restano = S.chiusuraPrevista - Date.now();
+  if (restano <= 0) return;
+  clearTimeout(S.timerFine);
+  S.timerFine = setTimeout(chiudi, restano);
 }
 
 function sgancia(S) {
@@ -315,14 +340,15 @@ function costruisciEApri() {
   replicaFantasma(THREE, radice, scena);
   reticoloPavimento(THREE, scena, box);
 
+  const nascita = Date.now();
+  const durata = window.__veritasAperturaDurata || DURATA_DEFAULT;
   S = {
     aperto: true, velo, tela, strati, pannello, lista, riga1, riga2, ren, scena, cam,
     larghezza, altezza, raggioScena: raggio, volumi: [], gia: new Set(), ultimo: 0,
+    nascita, chiusuraPrevista: nascita + durata,
   };
   riga1.textContent = 'sto guardando lo spazio...';
   agganciaEventiVeri(S);
-
-  const durata = window.__veritasAperturaDurata || DURATA_DEFAULT;
   S.timerFine = setTimeout(chiudi, durata);
   // Un ridimensionamento della finestra non deve lasciare l'apertura storta.
   S.onResize = () => {
