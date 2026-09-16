@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
+window.__EIDETICA_COSTRUZIONE = "2026-09-16-g";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -4163,18 +4163,18 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
     if (!esito || !esito.assegnate || !esito.assegnate.length) return 0;
     const nodi = zone && zone.length ? zone : currentNodes;
     if (!nodi || !nodi.length) return 0;
-    // Stessa lettura di assegnaZoneMisurate: il tipo di progetto e' gia'
-    // salvato in italiano ("aeroporto"/"museo"/"gaming"), e quando manca si
-    // usano nomi che descrivono la funzione invece di indovinare l'edificio.
-    // ⚠️ PRIMA IL LESSICO IMPARATO — 08/09/2026. La tabella qui sotto ha tre
-    //    tipi soli: su una scuola, un ospedale o una chiesa cascava sul
-    //    generico. `veritas_lessico.js` chiede al cervello, una volta sola per
-    //    tipo, come chiama chi ci lavora ognuno degli otto comportamenti, e se
-    //    lo tiene. Cosi' i tipi coperti non sono tre: sono tutti.
-    const tipoDichiarato = window.__veritasProjectType;
-    const imparato = window.__veritasLessico && window.__veritasLessico.ora(tipoDichiarato);
-    const dominio = (imparato || LESSICO_ZONE[tipoDichiarato]) ? tipoDichiarato : "generico";
-    const voc = imparato || LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
+    // Il tipo di progetto e' gia' salvato in italiano ("aeroporto"/"museo"/
+    // "gaming"): serve solo a scegliere la voce di ETICHETTA_OCCHI qui sotto,
+    // per una FUNZIONE gia' riconosciuta (a.funzione) — non a indovinare un
+    // nome per una zona che nessuno ha ancora guardato. Quel vocabolario
+    // (LESSICO_ZONE, per lo `a.tipo` strutturale) e' stato tolto il 16/09:
+    // Raffaella, dal vivo, ha riconosciuto i suoi stessi "Ingresso",
+    // "Accettazione", "Controllo", "Lounge", "Gate" su zone che l'occhio non
+    // aveva ancora confermato — Regola 0-bis, lo stesso buco gia' chiuso il
+    // 29/08 in questa stessa funzione, riaperto da un ramo che non era stato
+    // tolto insieme al resto. Vedi FRONTE 0 in assegnaZoneMisurate: la stessa
+    // pulizia, fatta li' otto giorni fa, mancava qui.
+    const dominio = window.__veritasProjectType || "generico";
 
     let cambiati = 0;
     const scartati = [];
@@ -4226,19 +4226,21 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
       //    del riempimento iniziale anche quando il cervello aveva capito.
       const tipoBuono = a.tipo || n.type;
 
-      // ⚠️ REGOLA 0-BIS, ed era il buco piu' grosso di tutti. Se chi ha guardato
-      //    porta un NOME — letto sul modello, «sala d'attesa» perche' ci sono le
-      //    sedute — quello vince. Le tabelle qui sotto sono parole scelte PRIMA
-      //    di guardare (`aeroporto: Ingresso / Accettazione / Controllo`) e
-      //    restano solo come ultima riserva, per chi un nome non ce l'ha.
-      //
-      //    Fino al 29/08 vincevano sempre loro: il cervello poteva capire
-      //    perfettamente e a schermo compariva comunque il vocabolario
-      //    d'aeroporto. La Regola 0-bis era rispettata nella lettura e violata
-      //    nell'ultimo centimetro.
+      // ⚠️ REGOLA 0-BIS. Se chi ha guardato porta un NOME — letto sul
+      //    modello, «sala d'attesa» perche' ci sono le sedute — quello vince.
+      //    ETICHETTA_OCCHI resta come riserva per una FUNZIONE gia' vista
+      //    (a.funzione) ma senza un nome proprio. Il vocabolario per il solo
+      //    `a.tipo` strutturale (`aeroporto: Ingresso / Accettazione /
+      //    Controllo`) — scelto PRIMA di guardare, senza che l'occhio avesse
+      //    detto niente — e' stato tolto il 16/09: era rientrato dalla porta
+      //    accanto dopo la chiusura del 29/08, e Raffaella l'ha riconosciuto
+      //    a schermo prima ancora di me.
       const tab = ETICHETTA_OCCHI[a.funzione];
       const letto = a.nome && String(a.nome).trim();
-      const nuova = letto || (tab && (tab[dominio] || tab.generico)) || voc[a.tipo] || n.label;
+      // Senza un nome letto e senza una voce di funzione, si tiene quello che
+      // la zona aveva gia' — che e' "Zona N · X m²" se nessuno l'ha ancora
+      // guardata (vedi FRONTE 0), mai un vocabolario scelto prima di guardare.
+      const nuova = letto || (tab && (tab[dominio] || tab.generico)) || n.label;
       if (n.type !== tipoBuono || n.label !== nuova) cambiati++;
       n.type = tipoBuono;
       n.label = nuova;
@@ -4499,42 +4501,19 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
     return spostate + escluse.length;
   };
 
-  // Le cinque tappe non cambiano — si entra, ci si presenta, si passa un
-  // filtro, si sosta, si arriva — ma i NOMI di un aeroporto su un museo sono
-  // sbagliati e si vedono: "Accettazione" e "Controllo" su una sala espositiva
-  // dicono a chi legge il referto che lo strumento non ha capito cosa sta
-  // guardando. Cambia l'etichetta, non il comportamento: e' la distinzione fra
-  // Agent Core e Agent Skin applicata allo spazio invece che alla persona.
-  //
-  // Il vocabolario dei `type` resta intatto di proposito: ci si appoggiano il
-  // generatore di traiettorie, l'altezza dei marker e il grafo delle missioni,
-  // in una ventina di punti. Cambiarlo sarebbe un refactor, non una correzione.
-  const LESSICO_ZONE = {
-    aeroporto: { origine: "Ingresso", accoglienza: "Accettazione", filtro: "Controllo",
-                 sosta: "Lounge", destinazione: "Gate ", passaggio: "Passaggio ",
-                 // Le aree all'aperto: da qui arriva la gente, e finora non
-                 // avevano un nome perche' non si sapeva nemmeno che fossero
-                 // all'aperto.
-                 arrivo: "Parcheggio", esterno: "Area esterna " },
-    museo:     { origine: "Ingresso", accoglienza: "Biglietteria", filtro: "Controllo accessi",
-                 sosta: "Sala espositiva", destinazione: "Uscita ", passaggio: "Passaggio ",
-                 arrivo: "Piazzale d'ingresso", esterno: "Area esterna " },
-    gaming:    { origine: "Spawn", accoglienza: "Hub", filtro: "Varco",
-                 sosta: "Arena", destinazione: "Obiettivo ", passaggio: "Corridoio ",
-                 arrivo: "Punto di ritrovo", esterno: "Area esterna " },
-    // Quando il tipo di progetto non e' dichiarato non si indovina: si usano
-    // nomi che descrivono la FUNZIONE e valgono in qualunque edificio.
-    generico:  { origine: "Ingresso", accoglienza: "Accoglienza", filtro: "Filtro",
-                 sosta: "Area di sosta", destinazione: "Destinazione ", passaggio: "Passaggio ",
-                 arrivo: "Arrivo", esterno: "Area esterna " },
-  };
-
+  // ⚠️ 16/09/2026 — TOLTO LESSICO_ZONE, la tabella di parole per dominio
+  //    (aeroporto: Ingresso/Accettazione/Controllo/Lounge/Gate; museo:
+  //    Ingresso/Biglietteria/...). Raffaella l'aveva gia' chiesto tempo fa:
+  //    e' esattamente la Regola 0-bis — "un nome scritto in codice e'
+  //    deciso PRIMA di guardare" — e produceva parole plausibili
+  //    indistinguibili da un riconoscimento vero. Vedi FRONTE 0 qui sotto:
+  //    una zona non ancora guardata si chiama con quello che ne e' stato
+  //    MISURATO (un numero e la sua area), non con un vocabolario scelto a
+  //    tavolino. Il vocabolario dei `type` (origine/accoglienza/filtro/
+  //    sosta/destinazione/...) resta intatto: e' architettonico, non
+  //    di dominio, e la simulazione ne dipende in una ventina di punti.
   function assegnaZoneMisurate(zones, root, dominio) {
     if (!zones || zones.length < 2) return null;
-    // Prima il lessico imparato per questo tipo di edificio, poi la tabella
-    // dei tre tipi, poi il generico (vedi la nota piu' sopra).
-    const voc = (window.__veritasLessico && window.__veritasLessico.ora(dominio))
-      || LESSICO_ZONE[dominio] || LESSICO_ZONE.generico;
 
     // 1. I nomi, quando ci sono. Non sono la fonte della posizione: sono
     //    un'etichetta da appoggiare sopra una zona gia' misurata.
@@ -4649,7 +4628,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
     // un'ipotesi sull'edificio, non una misura, e va usata sapendolo.
     const seq = ["origine", "accoglienza", "filtro", "sosta", "destinazione"];
     const nodi = [];
-    let contatoreGate = 0, nSosta = 0, nPassaggio = 0, nSenzaNome = 0, nEsterne = 0;
+    let nSenzaNome = 0, nEsterne = 0;
 
     // I ruoli delle zone di mezzo.
     //
@@ -4851,7 +4830,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
         nodi.push({
           pos: [z.pos[0], z.pos[1], z.pos[2]],
           type: "esterno",
-          label: (voc.esterno || "Area esterna ") + nEsterne
+          label: "Area esterna " + nEsterne
                + (z.areaM2 ? " \u00b7 " + Math.round(z.areaM2) + " m\u00b2" : ""),
           scale: 1.0, scaleZ: 1.0,
           id: "zona_" + i,
@@ -4882,27 +4861,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
         // sull'edificio e non una misura.
         else type = seq[Math.min(i, seq.length - 2)] || "sosta";
 
-        if (i === iArrivo) {
-          label = voc.arrivo || voc.origine;
-        } else if (type === "sosta") {
-          // La sala principale ha un nome proprio; le altre sono numerate
-          // lungo il FLUSSO, cioe' nell'ordine in cui si attraversano.
-          // "Sala espositiva 1, 2, 3" si legge e si ritrova sullo schermo:
-          // quattro stanze chiamate tutte uguale, no.
-          if (i === iSosta) label = voc.sosta + " principale";
-          else { nSosta++; label = voc.sosta + " " + nSosta; }
-        } else {
-          label = type === "origine" ? voc.origine
-                : type === "accoglienza" ? voc.accoglienza
-                : type === "filtro" ? voc.filtro
-                : voc.destinazione + String.fromCharCode(65 + contatoreGate);
-        }
+        // Il nome si decide piu' sotto (FRONTE 0), sempre dalla misura: qui
+        // sopra si decide solo il RUOLO (type), che serve alla simulazione.
         // Una zona misurata come corridoio non e' un luogo dove si sosta: e'
-        // un passaggio. Chiamarla "Lounge" perche' capita in quella posizione
-        // della sequenza e' il modo di far sostare gli agenti in un corridoio.
+        // un passaggio.
         if (z.role === "corridoio" && type !== "origine" && type !== "destinazione" && i !== iArrivo) {
-          if (type === "sosta" && i !== iSosta) nSosta--;
-          type = "sosta"; nPassaggio++; label = voc.passaggio + nPassaggio;
+          type = "sosta";
         }
 
         // ⚠️ FRONTE 0 — REGOLA 0-BIS, L'ULTIMO POSTO IN CUI ERA VIOLATA.
@@ -4932,7 +4896,6 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-16-f";
         label = (z.role === "corridoio" ? "Passaggio " : "Zona ") + nSenzaNome
               + (z.areaM2 ? " \u00b7 " + Math.round(z.areaM2) + " m\u00b2" : "");
       }
-      if (type === "destinazione") contatoreGate++;
       nodi.push({
         pos: [z.pos[0], z.pos[1], z.pos[2]],
         type, label,
