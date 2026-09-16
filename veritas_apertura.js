@@ -107,7 +107,7 @@ function creaVelo() {
     + 'opacity:0;transition:opacity 600ms ease;';
   pannello.innerHTML = `<div style="padding:12px 16px;background:${VEIL_266};border-bottom:1px solid rgba(35,40,56,0.08);">`
     + `<div style="font-size:10px;letter-spacing:0.1em;color:${INCHIOSTRO_MUTO};">MODELLO</div>`
-    + `<div style="font-size:12.5px;color:${INCHIOSTRO};font-weight:600;">ciò che sto capendo</div></div>`
+    + `<div style="font-size:12.5px;color:${INCHIOSTRO};font-weight:600;">ciò che l'occhio ha già confermato</div></div>`
     + '<div id="va-lista" style="flex:1;overflow-y:auto;padding:6px 0;"></div>';
   velo.appendChild(pannello);
   requestAnimationFrame(() => { pannello.style.opacity = '1'; });
@@ -239,27 +239,37 @@ function illuminaSeNuovo(S, n, sottotitolo) {
   return true;
 }
 
-// 16/09/2026 — LO SPAZZOLAMENTO INIZIALE. Raffaella, dal vivo: aveva ragione,
-// l'apertura si chiudeva prima che la prima vera risposta arrivasse (misurato
-// quella sera: 4 minuti e mezzo la prima volta, su questa macchina) — quindi
-// non si vedeva MAI accendersi niente, anche quando il resto dell'app aveva
-// gia' capito parecchio nel frattempo. Un'apertura onesta non aspetta solo il
-// futuro: mostra SUBITO quello che e' gia' vero, poi continua ad ascoltare.
+// ⚠️ 16/09/2026, CORRETTO DOPO UNA FALSA PROVA — Raffaella aveva ragione:
+//    la prima versione lasciava passare `origine === "nome+misura"` e
+//    `"misura"` insieme a `"occhi"`/`"comprensione"`. Le prime due sono la
+//    lettura del nome sulla mesh o la sola misura geometrica — la tabella
+//    generica per dominio (`LESSICO_ZONE.aeroporto`: "Ingresso", "Accettazione",
+//    "Controllo", "Lounge", "Gate ") — MAI l'occhio che ha davvero guardato
+//    questo modello. Le ho mostrate come se fossero riconoscimento vero: non
+//    lo erano. Ora SOLO queste due contano come "l'occhio ha parlato":
+const ORIGINI_OCCHIO = new Set(['occhi', 'comprensione']);
+
+// LO SPAZZOLAMENTO INIZIALE. L'apertura si chiudeva prima che la prima vera
+// risposta arrivasse (misurato: 4 minuti e mezzo la prima volta, su questa
+// macchina) — quindi non si vedeva MAI accendersi niente, anche quando il
+// resto dell'app aveva gia' capito qualcosa nel frattempo. Un'apertura
+// onesta non aspetta solo il futuro: mostra SUBITO quello che e' gia' vero
+// per davvero — e SOLO quello, mai un ripiego spacciato per riconoscimento.
 function spazzolamentoIniziale(S) {
   if (typeof window.__veritasGetNodes !== 'function') return;
   let nodi = [];
   try { nodi = window.__veritasGetNodes() || []; } catch (e) { return; }
   let nuovi = 0;
   for (const n of nodi) {
-    // Solo cio' che e' stato VISTO o dichiarato per davvero — non i posti
-    // segnaposto ("auto") che nessun occhio ha ancora confermato.
-    if (!n || n.origine === 'auto' || !n.origine) continue;
+    if (!n || !ORIGINI_OCCHIO.has(n.origine)) continue;
     if (illuminaSeNuovo(S, n, n.type)) nuovi++;
   }
   if (nuovi) {
-    S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente riconosciuto' : 'ambienti riconosciuti');
-    log('spazzolamento iniziale: ' + nuovi + ' gia veri, accesi subito');
+    S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente confermato dall\'occhio' : 'ambienti confermati dall\'occhio');
+    log('spazzolamento iniziale: ' + nuovi + ' gia confermati dall\'occhio, accesi subito');
     prorogaChiusura(S, nuovi);
+  } else {
+    log('spazzolamento iniziale: nessun ambiente ancora confermato dall\'occhio (' + nodi.length + ' nodi, nessuno con origine occhi/comprensione)');
   }
 }
 
@@ -289,10 +299,14 @@ function agganciaEventiVeri(S) {
           for (const a of esito.assegnate) {
             const n = nodi && nodi[a.indice];
             if (a.sicurezza === 'bassa') continue;
+            // Questa chiamata e' letteralmente l'occhio che parla — ma si
+            // ricontrolla lo stesso: se nel frattempo qualcos'altro ha
+            // riscritto il nodo con un ripiego, non si accende un ripiego.
+            if (n && !ORIGINI_OCCHIO.has(n.origine)) continue;
             if (illuminaSeNuovo(S, n, a.tipo)) nuovi++;
           }
           if (nuovi && S.riga1) {
-            S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente riconosciuto' : 'ambienti riconosciuti');
+            S.riga1.textContent = S.gia.size + ' ' + (S.gia.size === 1 ? 'ambiente confermato dall\'occhio' : 'ambienti confermati dall\'occhio');
             prorogaChiusura(S, nuovi);
           }
         }
