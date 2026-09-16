@@ -7,7 +7,7 @@ import fs from 'node:fs';
 const html = fs.readFileSync(new URL('./index.html', import.meta.url), 'utf8');
 // Si estrae dal LESSICO in giu': la tabella dei nomi sta fuori dalla funzione
 // (la usa anche il chiamante) e senza di lei il corpo non gira.
-const a = html.indexOf('  const LESSICO_ZONE = {');
+const a = html.indexOf('  function assegnaZoneMisurate(zones, root, dominio) {');
 const fine = html.indexOf('\n  function applyAutoAssignment', a);
 if (a < 0 || fine < 0) { console.error('Ancore non trovate.'); process.exit(2); }
 
