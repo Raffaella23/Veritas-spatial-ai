@@ -184,17 +184,17 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Riconoscimento formato dai primi byte | ✔ | ✔ | ✔ | ✔ | ✔ | firma "glTF" letta correttamente; ripiego sull'estensione se fallisce |
 | Caricamento IFC | ✔ | ✔ | ✔ | ✖ | ✔ | il percorso esiste (`veritas_bim.js`) ma **non è mai riuscito dal vivo**: vedi §6.3 e §6.4 |
 | Caricamento splat/nuvola | ✔ | ✔ | ✔ | ✖ | ✔ | mai provato in questa sessione |
-| Ciclo occhio-cervello (Regola 0) | ✔ | ✔ | ✔ | ◐ | ✔ | gira e produce riconoscimenti; **durante le prove del 16-17/09 l'occhio non ha risposto** («Failed to fetch»), quindi le zone viste erano senza conferma dell'occhio |
+| Ciclo occhio-cervello (Regola 0) | ✔ | ✔ | ✔ | ✔ | ✔ | **17/09 sera risponde, sulla pagina pubblicata**: 13 viste, primo sguardo del cervello (qwen2.5-vl-7b, LM Studio) dopo ~3 min e mezzo, giro finito a ~5 min; consegna **0 cose con posizione dalla pianta e 18 legate a un'area** (primi piani), 12 «all'aperto»; poi *«l'occhio ha parlato: 9 → 10 ambienti, 1 accesso da fuori»*. Il 16-17/09 pomeriggio non rispondeva («Failed to fetch») |
 | Zone misurate e nominate | ✔ | ✔ | ✔ | ◐ | ✔ | `assegnaZoneMisurate` gira; nomi neutri («Zona 3 · 210 m²») finché l'occhio non parla |
 | Vocabolario di dominio rimosso (Regola 0-bis) | ✔ | ✔ | ✔ | ◐ | ✔ | `LESSICO_ZONE` eliminata (`631204a`); resta `ETICHETTA_OCCHI`, legittima perché applicata **solo dopo** un riconoscimento vero. Etichette vecchie possono restare salvate nei progetti: §6.5 |
 | Accessi / varchi d'ingresso | ✔ | ✔ | ✔ | ◐ | ✔ | verificato l'11/09 con `trova()` a mano; il ricalcolo automatico su `veritas:vista` non scatta da solo |
-| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | funziona, ma ricade spesso sulla linea retta che attraversa i muri: §6.1 |
+| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | **nella versione pubblicata nessuna marcatura arriva sulla mappa** (`marcaOstacoli` assente dal ponte, misurato 17/09 sera); correzione pronta nel workspace. I 3 tragitti in linea retta vengono da tappe fuori dal modello: §6.1 |
 | Corpo fisico Rapier (28 capsule) | ✔ | ✔ | ✔ | ✔ | ✔ | misurato 17/09: 28 corpi, 21.947 passi, mondo e collisore edificio reali |
 | Correzione «dentro un muro» | ✔ | ✔ | ✔ | ✔ | ✖ | **scritta e misurata, NON pubblicata**: attende autorizzazione. §6.2 |
 | Sosta: gli agenti si siedono | ✔ | ✔ | ✔ | ✖ | ✔ | pubblicata 16/09 (`44038c5`), **mai vista funzionare a schermo** |
 | Frecce del modello come obbligo di percorso | ✔ | ✔ | ✔ | ✖ | ✔ | `84ec89c`; il commit precedente dichiara «senza browser per verificare» |
 | Apertura (scena che prende forma) | ✔ | ✔ | ✔ | ✔ | ✔ | velo bloccante corretto e verificato 17/09 (`03d43e6`) |
-| Report laterale progressivo | ✔ | ✔ | ◐ | ✖ | ◐ | il pannello dell'apertura elenca ciò che l'occhio conferma; **non è ancora il report richiesto** (§9) |
+| Report laterale progressivo | ✔ | ✔ | ◐ | ✖ | ◐ | il pannello dell'apertura elenca ciò che l'occhio conferma; **non è ancora il report richiesto** (§9). Misurato 17/09 sera: l'apertura si apre a 10 s e **si chiude a 40 s senza aver acceso niente**, perché l'occhio parla dopo ~5 min: è l'«attesa muta» che la regola 2 del §9 vieta |
 | Deposito del modello nel browser | ✔ | ✔ | ✔ | ✔ | ✔ | funziona; il file non è condiviso fra browser diversi, per scelta |
 | Motore Python (Render) | ✔ | ✔ | ✔ | ◐ | ✔ | raggiungibile a intermittenza; il ripiego JS è dichiarato con un pallino viola |
 
@@ -215,18 +215,39 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   `muriDalModello` (~riga 2046), `resolveOverlaps` (~riga 2392), la catena di
   ripiego dei tragitti (~righe 2330-2384). `veritas_navigazione.js`: `marcaOstacoli`,
   `creaMappaDaNuvola`, `trovaPercorso`.
-- **Causa accertata** (letta nel codice e confermata dai log dal vivo il 17/09):
-  1. il campionamento del pavimento **non vede muri più sottili di ~0,57 m**, mentre
-     un muro reale sta fra 0,10 e 0,30 m → di fatto cieco su ogni parete vera;
-  2. `muriDalModello` legge i triangoli verticali, ma su un export senza semantica
-     non distingue una parete da un chiosco o da un monitor;
-  3. quando entrambe falliscono, il tragitto ricade sul grafo delle zone, che
-     **collega i baricentri con linee rette** — il codice stesso avvisa:
-     *«nessuna strada … si passa in linea retta, che può attraversare un muro»*.
-- **Test eseguiti.** 17/09, sul modello `airport_foot_traffic.glb` caricato dal vivo:
-  la mappa dichiara *«i muri sono dedotti dal campionamento: sotto 0.574 m di
-  spessore non si vedono»* e compaiono tre avvisi «nessuna strada … linea retta».
-  Misurato inoltre: **1.505 posizioni dentro un solido su 5.477 controllate (27,5%)**.
+- **Causa accertata — MISURATA sulla pagina pubblicata il 17/09 sera** (sostituisce
+  le ipotesi del pomeriggio):
+  1. **Il collegamento era staccato.** Il ponte `window.__veritasNavigazione`
+     inlinato in `index.html` **non esponeva `marcaOstacoli`**: `veritasMappaCammino`
+     la cerca con `typeof nav.marcaOstacoli === "function"`, trovava `undefined`, e
+     **nessuna marcatura arrivava mai sulla mappa** — né i muri letti dal modello né
+     qualunque altra fonte. Nessun errore, nessun avviso. Controllato due volte, anche
+     a pagina appena ricaricata. `veritas_muri.test.mjs` passava lo stesso perché si
+     costruiva un ponte finto con le funzioni del FILE.
+  2. **Collegata, la lettura regge.** Prova sulla pagina pubblicata con la funzione
+     agganciata prima di aprire il progetto: *«muri letti dal modello: 297675
+     campioni, 4520 celle chiuse (13.6% del calpestabile)»* al piano terra, *«1573
+     celle chiuse (16.7%)»* al primo; *«i muri sono letti dal modello, quindi si
+     vedono anche i tramezzi sottili»*. Sotto il tetto del 35%: applicata. L'ipotesi
+     «la lettura viene scartata perché chiude troppo» è **smentita**.
+  3. **I tre «nessuna strada … linea retta» NON dipendono dai muri**: restano 3 anche
+     con i muri letti. Partono da tappe con coordinate **fuori dal modello** —
+     [-45,-38], [48,32] — mentre il modello va da x −85 a 21,4 e da z −33,7 a 25,7; il
+     log dice *«tappe: 0 appoggiate sul pavimento»*. **[DA VERIFICARE]** da dove
+     vengono quelle tappe (probabile `nodes_config` salvato, vedi §6.5).
+  4. **Resta vero il limite di impianto**: la lettura dei muri dai triangoli **su uno
+     splat non esiste** (non ci sono triangoli) e non sa CHE COSA sta chiudendo — i
+     campioni più pesanti sono `Cylinder_0`, i due aerei (`Plane001/002`), `Cube002_0`.
+     È un parere secondario: la precedenza di giudizio è dell'occhio (§9).
+- **Correzione pronta nel workspace, NON pubblicata:** `marcaOstacoli` aggiunta al
+  ponte (1 parola) + prova 0 in `veritas_muri.test.mjs`, che controlla il ponte VERO:
+  ogni `nav.X` chiamato dalla mappa deve comparire lì. La prova fallisce senza la
+  correzione e passa con lei. Attende autorizzazione.
+- **Test eseguiti (pomeriggio).** 17/09, `airport_foot_traffic.glb` caricato dal vivo:
+  *«i muri sono dedotti dal campionamento: sotto 0.574 m di spessore non si vedono»*,
+  tre avvisi «nessuna strada … linea retta». Misurato inoltre: **1.505 posizioni
+  dentro un solido su 5.477 controllate (27,5%)** — misura fatta col collegamento
+  staccato, da rifare dopo la pubblicazione.
 - **Nota sul modello di prova.** `airport_foot_traffic.glb` **non è un modello
   architettonico**: l'elenco delle sue mesh contiene aerei, persone, chioschi,
   monitor, frecce e centinaia di `Part###`/`Cube###`. Non esiste una mesh «muro».
@@ -318,13 +339,20 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Correzione «dentro un muro», A/B stessa traiettoria | 17/09 | reale nel browser | ✔ nessun blocco, tempo invariato; percentuale non migliorata (§6.2) |
 | Mappa di cammino: origine dei muri | 17/09 | reale nel browser | ✖ ricade sul campionamento (cieco sotto 0,574 m); 3 tragitti in linea retta attraverso i muri |
 | Caricamento IFC 414 MB | 17/09 | reale nel browser | ✖ nessuna reazione dopo la scelta del file |
+| Ponte della navigazione nella pagina pubblicata | 17/09 sera | reale nel browser | ✖ `typeof __veritasNavigazione.marcaOstacoli` = `undefined`, anche a pagina appena ricaricata |
+| Muri letti dal modello, funzione agganciata prima dell'apertura del progetto | 17/09 sera | reale nel browser | ✔ 13,6% chiuso al piano terra, 16,7% al primo, applicata; ✖ i 3 tragitti in linea retta restano (tappe fuori dal modello) |
+| `veritas_muri.test.mjs` con la prova 0 sul ponte vero | 17/09 sera | automatico, workspace | ✖ senza correzione (manca `marcaOstacoli`), ✔ con la correzione; `veritas_navigazione` ✔, `veritas_navmesh` ✔, `veritas_percorso` 23/24 **identico prima e dopo** (fallimento pre-esistente) |
+| Giro dell'occhio sulla pagina pubblicata | 17/09 sera | reale nel browser | ✔ risponde: giro finito a ~5 min; 0 posizioni dalla pianta, 18 cose legate a un'area |
+| Apertura mentre l'occhio lavora | 17/09 sera | reale nel browser | ✖ aperta a 10 s, chiusa a 40 s senza accendere niente |
 
 **Limiti della verifica, dichiarati:**
 
-- Il **motore fisico Python su Render non era raggiungibile** durante le prove: le
-  traiettorie misurate venivano dal generatore JS locale.
-- **L'occhio non ha risposto** («Failed to fetch») nelle sessioni del 16-17/09:
-  tutto ciò che riguarda il riconoscimento non è stato verificato dal vivo.
+- Il **motore fisico Python su Render non era raggiungibile** durante le prove del
+  pomeriggio: le traiettorie misurate venivano dal generatore JS locale. La sera
+  `/health` rispondeva in 0,25 s dalla pagina pubblicata.
+- **L'occhio non ha risposto** («Failed to fetch») il 16/09 e il 17/09 pomeriggio. **La
+  sera del 17/09 sì** (vedi sopra): il riconoscimento è verificato dal vivo per
+  quanto consegna, cioè aree e non posizioni puntuali.
 - I test automatici non toccano la scena: verificano funzioni estratte da
   `index.html` per àncore testuali. Se un'àncora cambia, il test si ferma subito —
   è successo il 16/09 ed è stato corretto.
@@ -406,7 +434,8 @@ di sì, ma è un'apertura in una barriera e va confermata esplicitamente.
 ## 11. LIMITI E AVVERTENZE
 
 **Non verificato:**
-- il riconoscimento dell'occhio dal vivo (non ha risposto il 16 e il 17/09);
+- che l'occhio sappia dire DOVE sta un muro o una porta: il 17/09 sera ha risposto,
+  ma ha consegnato solo aree (18) e nessuna posizione dalla pianta;
 - il motore fisico Python su Render (non raggiungibile durante le prove);
 - il caricamento IFC, in nessuna delle sue due strade;
 - il caricamento di splat e nuvole;
