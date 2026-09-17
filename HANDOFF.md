@@ -233,8 +233,8 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   3. **I tre «nessuna strada … linea retta» NON dipendono dai muri**: restano 3 anche
      con i muri letti. Partono da tappe con coordinate **fuori dal modello** —
      [-45,-38], [48,32] — mentre il modello va da x −85 a 21,4 e da z −33,7 a 25,7; il
-     log dice *«tappe: 0 appoggiate sul pavimento»*. **[DA VERIFICARE]** da dove
-     vengono quelle tappe (probabile `nodes_config` salvato, vedi §6.5).
+     log dice *«tappe: 0 appoggiate sul pavimento»*. **Verificato 17/09 sera:** sono le
+     tappe **cablate nel bundle** (§6.5), non un `nodes_config` salvato.
   4. **Resta vero il limite di impianto**: la lettura dei muri dai triangoli **su uno
      splat non esiste** (non ci sono triangoli) e non sa CHE COSA sta chiudendo — i
      campioni più pesanti sono `Cylinder_0`, i due aerei (`Plane001/002`), `Cube002_0`.
@@ -307,15 +307,32 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 - **Nota.** La versione più piccola dello stesso progetto (33 MB) si apre in 322 ms
   ma è **vuota**: 0 `IfcSpace`, 0 geometrie. Non serve a niente.
 
-### 6.5 — Etichette di zona vecchie nei progetti salvati
+### 6.5 — ⛔ CODICI FITTIZI NEL BUNDLE: tappe, traiettoria e inquadrature da aeroporto scritte a mano
 
-- **Sintomo.** In un progetto già analizzato compaiono ancora «Ingresso/Parcheggio,
-  Accettazione, Controllo, Lounge, Gate A1».
-- **Ipotesi (non verificata).** Sono nomi salvati in `projects.nodes_config` **prima**
-  della rimozione di `LESSICO_ZONE` (`631204a`), semplicemente rimostrati. Il codice
-  che li genera oggi è corretto.
-- **Prossima verifica.** Un «Re-analyze mesh» su un progetto pulito, leggendo se
-  ricompaiono le stesse parole. Tentato il 16/09, non conclusivo (console satura).
+- **Sintomo.** Compaiono «Ingresso / Parcheggio, Accettazione, Controllo, Lounge,
+  Imbarco A, Gate A1» anche dove nessuno le ha misurate né viste; 3 tragitti in linea
+  retta partono da tappe fuori dal modello.
+- **Causa accertata (17/09 sera, letta nel bundle e vista sulla pagina pubblicata).**
+  L'ipotesi «nomi salvati in `nodes_config`» è **smentita**. Dentro il bundle
+  (`index.html` ~riga 12843, minificato):
+  1. `iB` = **6 tappe da aeroporto cablate** a coordinate fisse di un altro scalo
+     (`ingresso [-45,0,-38]` … `gate_A1 [48,0,32]`), usate quando il progetto non ha
+     `nodes_config` (`window.__veritasInitialNodes` vuoto);
+  2. `hV()` costruisce da `iB[0..5]` una **traiettoria dimostrativa finta** (360
+     fotogrammi, 28 agenti) con **KPI finti**;
+  3. `hK` = **inquadrature cablate** con nomi da aeroporto («Varco 3D / Security Scan»,
+     «Lounge / Attesa 12m», «Imbarco A / Boarding», «Gate A / Gate A1 Close», «Controllo
+     / Dettaglio Varco») puntate su quelle coordinate.
+  Fuori dal bundle, `index.html` ~righe 4419-4461 **sposta** quelle tappe sugli oggetti o
+  sul cammino (origine `cose`/`cammino`) **lasciando i nomi**. Visto sulla pagina
+  pubblicata: 6 nodi, tutti da quel modello, nessuno misurato.
+- **Danno fatto da me e già corretto nel workspace:** l'apertura `2026-09-17-b`
+  leggeva le zone da `__veritasGetNodes()` e mostrava queste tappe come «misurate».
+  Dalla `-c` legge solo le zone del motore geometrico (§5).
+- **Ordine di Raffaella, 17/09 sera: «rimuovi i codici fittizi quando li trovi».**
+  Prossimo intervento. ⚠️ `hV()` legge `iB[0]`…`iB[5]` per indice: togliere le tappe
+  senza toccare `hV()` fa cadere il bundle al primo render. Serve una prova di
+  caricamento reale prima di pubblicare.
 
 ### 6.6 — Difetti chiusi ma mai riconfermati dal vivo
 
@@ -429,6 +446,8 @@ di sì, ma è un'apertura in una barriera e va confermata esplicitamente.
 | 16/09 | `LESSICO_ZONE` eliminata: era Regola 0-bis violata, rientrata dalla porta accanto |
 | 17/09 | **Nel dubbio vince l'occhio.** E: non si cerca un file già intelligente (IFC, mesh nominate) — la conoscenza sta nel programma, non nel file. Deve funzionare su uno splat |
 | 17/09 | Finché l'occhio non ha parlato: accensione progressiva delle zone e report laterali che si aprono man mano |
+| 17/09 | **I codici fittizi si rimuovono appena trovati** (tappe, nomi, traiettorie, KPI, inquadrature scritti a mano): «rimuovi i codici fittizi quando li trovi». Vale anche dentro il bundle, con prova di caricamento reale prima di pubblicare |
+| 17/09 | Il canale dell'occhio si costruisce **sulle immagini**, perché funzioni su tutti i modelli, splat compresi; serve anche a risolvere il **riconoscimento delle zone**, non solo i muri |
 
 ---
 
@@ -450,7 +469,7 @@ di sì, ma è un'apertura in una barriera e va confermata esplicitamente.
   lettura dei numeri, non un'osservazione a schermo (§6.2).
 
 **Da non modificare:**
-- il **bundle React minificato** (~riga 9011 di `index.html`): nessun sorgente, si
+- il **bundle React minificato** (~riga 9011 di `index.html`): nessun sorgente, si tocca solo per togliere codici fittizi (ordine del 17/09) e con prova di caricamento reale; per il resto si
   interviene solo dall'esterno;
 - `veritas_corpo.js`: è una **copia morta**, il codice vivo è dentro `index.html`;
 - l'ordine dei blocchi `<script>` in `index.html`: il bundle deve restare il terzo,
