@@ -118,6 +118,84 @@ export function confermataDallOcchio(n) {
 
 function numero(x) { return (Math.round(x * 10) / 10).toFixed(1).replace('.', ','); }
 
+/**
+ * LE ZONE MISURATE, dal motore geometrico (`__veritasPercezione.zones`).
+ *
+ * ⚠️ 17/09 SERA, VISTO SULLA PAGINA PUBBLICATA (costruzione -b): la prima
+ *    versione leggeva le zone da `__veritasGetNodes()`, e li' dentro ci sono
+ *    anche le TAPPE CABLATE NEL BUNDLE — «Ingresso / Parcheggio»,
+ *    «Accettazione», «Controllo», «Lounge», «Imbarco A», «Gate A1», nate a
+ *    coordinate fisse di un altro aeroporto e poi spostate sugli oggetti
+ *    (origine «cose»/«cammino») senza cambiare nome. L'apertura le mostrava
+ *    come «misurate»: era la Regola 0-bis violata davanti al cliente.
+ *    Ora le zone vengono SOLO dal motore che le misura, col nome neutro che
+ *    la misura permette. Le tappe non si mostrano mai.
+ */
+export function zoneMisurate(percezione) {
+  const zone = (percezione && Array.isArray(percezione.zones)) ? percezione.zones : [];
+  let ambienti = 0, passaggi = 0;
+  const out = [];
+  zone.forEach((q, i) => {
+    if (!q || typeof q.centroidX !== 'number' || typeof q.centroidZ !== 'number') return;
+    const corridoio = q.kind === 'corridoio';
+    const numero = corridoio ? ++passaggi : ++ambienti;
+    out.push({
+      id: 'ambiente_' + i,
+      pos: [q.centroidX, typeof q.y === 'number' ? q.y : 0, q.centroidZ],
+      label: (corridoio ? 'Passaggio ' : 'Ambiente ') + numero
+        + (q.areaM2 > 0 ? ' · ' + Math.round(q.areaM2) + ' m²' : ''),
+      origine: 'misura',
+      areaM2: q.areaM2 > 0 ? q.areaM2 : null,
+      formaLungo: q.formaLungo > 0 ? q.formaLungo : null,
+      formaLargo: q.formaLargo > 0 ? q.formaLargo : null,
+      formaAngolo: typeof q.formaAngolo === 'number' ? q.formaAngolo : null,
+    });
+  });
+  return out;
+}
+
+/** Il punto (x, z) sta dentro l'impronta della zona? Rettangolo orientato se
+ *  la forma e' misurata, altrimenti il cerchio della sua area. */
+function dentroImpronta(z, x, zz) {
+  const dx = x - z.pos[0], dz = zz - z.pos[2];
+  if (z.formaLungo > 0 && z.formaLargo > 0) {
+    // La stessa rotazione del volume disegnato: rotation.y = -formaAngolo.
+    const a = typeof z.formaAngolo === 'number' ? z.formaAngolo : 0;
+    const u = dx * Math.cos(a) + dz * Math.sin(a);
+    const v = -dx * Math.sin(a) + dz * Math.cos(a);
+    return Math.abs(u) <= z.formaLungo / 2 && Math.abs(v) <= z.formaLargo / 2;
+  }
+  const r = z.areaM2 > 0 ? Math.sqrt(z.areaM2 / Math.PI) : 3;
+  return dx * dx + dz * dz <= r * r;
+}
+
+/**
+ * Dove l'occhio ha parlato. Ogni nodo la cui origine e' davvero l'occhio si
+ * posa sulla zona misurata che lo contiene (la piu' piccola, se piu' d'una):
+ * quella zona prende il nome dell'occhio. Un nodo dell'occhio che non cade in
+ * nessuna zona si mostra da solo — e' comunque qualcosa che l'occhio ha visto
+ * li'. I nodi che non vengono dall'occhio non entrano mai.
+ */
+export function conLOcchio(zone, nodi, tipi) {
+  const out = zone.map((z) => ({ ...z }));
+  for (const n of (nodi || [])) {
+    if (!confermataDallOcchio(n) || !Array.isArray(n.pos)) continue;
+    let meglio = -1;
+    out.forEach((z, i) => {
+      if (confermataDallOcchio(z) && z.nodoOcchio) return;   // gia' presa da un altro nodo
+      if (!dentroImpronta(z, n.pos[0], n.pos[2])) return;
+      if (meglio < 0 || (z.areaM2 || Infinity) < (out[meglio].areaM2 || Infinity)) meglio = i;
+    });
+    const tipo = tipi && tipi.get ? tipi.get(chiaveNodo(n)) : null;
+    if (meglio >= 0) {
+      Object.assign(out[meglio], { origine: n.origine, label: n.label || out[meglio].label, nodoOcchio: n.id || true, tipo: tipo || null });
+    } else {
+      out.push({ ...n, tipo: tipo || null, nodoOcchio: n.id || true });
+    }
+  }
+  return out;
+}
+
 /** La riga delle misure di una scheda: solo quello che e' misurato. */
 export function misureDi(n) {
   const parti = [];
@@ -349,7 +427,7 @@ function coloraImpronta(z) {
 
 function accendiZona(S, k, n) {
   const z = {
-    chiave: k, nodo: n, label: n.label || 'Zona', tipo: null,
+    chiave: k, nodo: n, label: n.label || 'Ambiente', tipo: n.tipo || null,
     confermata: confermataDallOcchio(n), nata: performance.now(), spenta: 0,
   };
   z.imp = creaImpronta(window.THREE, S, n);
@@ -417,7 +495,9 @@ function nodiDiAdesso() {
 
 function battito() {
   if (!S || !S.aperto) return;
-  const nodi = nodiDiAdesso();
+  // Le zone: SOLO quelle misurate dal motore, con sopra il nome dell'occhio
+  // dove l'occhio ha parlato. Mai le tappe (vedi zoneMisurate).
+  const nodi = conLOcchio(zoneMisurate(window.__veritasPercezione), nodiDiAdesso(), S.tipiOcchio);
   const vive = new Map([...S.accese].filter(([, z]) => !z.spenta));
   const { adesso, nuove, promosse, spente, rinominate } = confronta(vive, nodi);
   const ora = performance.now();
@@ -431,7 +511,7 @@ function battito() {
       else if (ora - z.mancaDa >= ASSENZA_PRIMA_DI_SPEGNERE) spegniZona(S, z);
     }
   }
-  for (const k of promosse) promuovi(S, vive.get(k), adesso.get(k), null);
+  for (const k of promosse) promuovi(S, vive.get(k), adesso.get(k), adesso.get(k).tipo);
   for (const k of rinominate) {
     const z = vive.get(k);
     z.nodo = adesso.get(k); z.label = z.nodo.label || z.label;
@@ -440,7 +520,11 @@ function battito() {
   // In coda nell'ordine in cui arrivano, una alla volta.
   for (const k of nuove) if (!S.coda.includes(k)) S.coda.push(k);
   S.coda = S.coda.filter((k) => adesso.has(k) && !vive.has(k));
-  if (S.coda.length && ora - S.ultimaAccensione >= PASSO_ACCENSIONE) {
+  // Se il battito e' arrivato in ritardo (la pagina era occupata dall'analisi:
+  // misurato il 17/09, fino a 45 s di scheda ferma), si recupera: fino a tre
+  // zone per battito, mai tutte insieme.
+  const dovute = S.ultimaAccensione ? Math.floor((ora - S.ultimaAccensione) / PASSO_ACCENSIONE) : 1;
+  for (let i = 0; i < Math.min(3, dovute) && S.coda.length; i++) {
     const k = S.coda.shift();
     const vecchia = S.accese.get(k);           // una zona che si stava spegnendo con la stessa chiave
     if (vecchia && vecchia.spenta) S.accese.delete(k);
@@ -519,16 +603,20 @@ function agganciaEventiVeri(S) {
       try {
         if (S && S.aperto && esito && esito.assegnate) {
           const nodi = (zone && zone.length) ? zone : nodiDiAdesso();
+          let dette = 0;
           for (const a of esito.assegnate) {
             if (a.sicurezza === 'bassa') continue;
             const n = nodi && nodi[a.indice];
             // Questa chiamata e' l'occhio che parla — ma si ricontrolla lo
             // stesso: se nel frattempo qualcos'altro ha riscritto il nodo con
-            // un ripiego, non si promuove un ripiego.
+            // un ripiego, non si promuove un ripiego. La promozione vera la
+            // fa il battito, posando il nodo sulla zona misurata che lo
+            // contiene; qui si ricorda solo che cosa l'occhio ha detto.
             if (!confermataDallOcchio(n)) continue;
-            const z = S.accese.get(chiaveNodo(n));
-            if (z && !z.spenta) promuovi(S, z, n, a.tipo);
+            if (a.tipo) S.tipiOcchio.set(chiaveNodo(n), a.tipo);
+            dette++;
           }
+          if (dette) { S.occhioHaParlato = true; S.ultimaNotizia = Date.now(); }
         }
       } catch (e) { /* la messa in scena non deve mai far cadere il vero assegnamento */ }
     }
@@ -603,7 +691,7 @@ function costruisciEApri() {
   S = {
     aperto: true, velo, tela, strati, pannello, lista, conta, riga1, riga2, ren, scena, cam,
     larghezza, altezza, raggioScena: raggio,
-    accese: new Map(), coda: [], ultimaAccensione: 0,
+    accese: new Map(), coda: [], ultimaAccensione: 0, tipiOcchio: new Map(),
     nascita: Date.now(), durataMinima: window.__veritasAperturaDurata || DURATA_MINIMA,
     occhioHaParlato: false, ultimaNotizia: 0,
     esitoAllaNascita: window.__veritasComprensione || null, esitoLetto: false, esitoOcchio: null,

@@ -8,6 +8,7 @@
 // 17/09 sera era un velo chiuso a 40 s senza aver acceso niente.
 import {
   chiaveNodo, confermataDallOcchio, misureDi, quandoChiudere, confronta,
+  zoneMisurate, conLOcchio,
   DURATA_MINIMA, RESPIRO_DOPO_OCCHIO, TETTO_ATTESA,
 } from './veritas_apertura.js';
 
@@ -76,6 +77,56 @@ check('un nome misurato cambiato si riscrive, senza promuovere', c2.rinominate.l
 const c3 = confronta(new Map(), [misurata, { ...misurata }, perNome]);
 check('un nodo ripetuto si accende una volta sola', c3.nuove.length === 2, c3.nuove.join(' | '));
 check('nodi assenti: nessun errore, niente da fare', confronta(new Map(), undefined).nuove.length === 0);
+
+// ---------------------------------------------------------------------------
+// 6. LE ZONE VENGONO SOLO DAL MOTORE CHE LE MISURA — 17/09 sera, pagina
+//    pubblicata -b: l'apertura accendeva «Ingresso / Parcheggio»,
+//    «Accettazione», «Gate A1»: tappe cablate nel bundle, origine «cose» e
+//    «cammino», mostrate come «misurate». Regola 0-bis violata a schermo.
+// ---------------------------------------------------------------------------
+console.log('\n6. le zone vengono solo dal motore che le misura');
+const percezione = { zones: [
+  { centroidX: -14, centroidZ: -8, y: 0.5, areaM2: 420.4, kind: 'ambiente', formaLungo: 28, formaLargo: 15, formaAngolo: 0 },
+  { centroidX: 16, centroidZ: -8, y: 0.5, areaM2: 300, kind: 'ambiente', formaLungo: 24, formaLargo: 12.5, formaAngolo: Math.PI / 2 },
+  { centroidX: 15, centroidZ: 11, y: 0.5, areaM2: 90, kind: 'corridoio' },
+  { areaM2: 50, kind: 'ambiente' },                                     // senza baricentro: non si accende
+] };
+const zm = zoneMisurate(percezione);
+check('tre zone con baricentro, la quarta scartata', zm.length === 3, zm.map((z) => z.label).join(' | '));
+check('nomi neutri dalla misura: Ambiente / Passaggio con i m²',
+  zm[0].label === 'Ambiente 1 · 420 m²' && zm[2].label === 'Passaggio 1 · 90 m²');
+check('tutte con origine «misura», nessuna confermata', zm.every((z) => z.origine === 'misura' && !confermataDallOcchio(z)));
+check('senza percezione, nessuna zona e nessun errore', zoneMisurate(undefined).length === 0 && zoneMisurate({}).length === 0);
+
+const tappeDelBundle = [
+  { id: 'ingresso', pos: [-67, 0, -2], type: 'spawn', label: 'Ingresso / Parcheggio', origine: 'cose' },
+  { id: 'accettazione', pos: [-14, 0, -8], type: 'checkin', label: 'Accettazione', origine: 'cammino' },
+  { id: 'gate_A1', pos: [16, 0, -8], type: 'gate', label: 'Gate A1', origine: 'nome+cose' },
+];
+const conTappe = conLOcchio(zm, tappeDelBundle, new Map());
+check('le tappe cablate del bundle non entrano mai, nemmeno sopra una zona',
+  conTappe.length === 3 && conTappe.every((z) => /^(Ambiente|Passaggio) /.test(z.label)),
+  conTappe.map((z) => z.label).join(' | '));
+
+// L'occhio parla: un nodo dentro la seconda zona, che e' ruotata di 90 gradi
+// (lunga 24 m lungo z, larga 12,5 m lungo x). Il punto (18, 0, 0) sta 2 m a
+// est e 8 m a nord del centro: dentro solo se la rotazione e' letta giusta.
+const tipi = new Map();
+const nodoOcchio = { id: 'zona_7', pos: [18, 0.5, 0], label: 'Sedute', origine: 'occhi' };
+tipi.set(chiaveNodo(nodoOcchio), 'ci si siede');
+const vista2 = conLOcchio(zm, [...tappeDelBundle, nodoOcchio], tipi);
+check('il nodo dell\'occhio si posa sulla zona ruotata che lo contiene',
+  vista2[1].label === 'Sedute' && confermataDallOcchio(vista2[1]) && vista2[1].tipo === 'ci si siede',
+  vista2.map((z) => z.label).join(' | '));
+check('le altre zone restano misurate', !confermataDallOcchio(vista2[0]) && !confermataDallOcchio(vista2[2]));
+check('la chiave della zona non cambia quando l\'occhio la conferma (si promuove, non si riaccende)',
+  chiaveNodo(vista2[1]) === chiaveNodo(zm[1]));
+const lontano = { id: 'zona_9', pos: [200, 0, 200], label: 'Banchi', origine: 'comprensione' };
+const vista3 = conLOcchio(zm, [lontano], new Map());
+check('un nodo dell\'occhio fuori da ogni zona si mostra da solo, confermato',
+  vista3.length === 4 && vista3[3].label === 'Banchi' && confermataDallOcchio(vista3[3]));
+const promo = confronta(new Map(zm.map((z) => [chiaveNodo(z), { label: z.label, confermata: false }])), vista2);
+check('il confronto vede la promozione, non una zona nuova', promo.promosse.length === 1 && promo.nuove.length === 0);
 
 console.log(ko ? '\n' + ko + ' PROVE FALLITE' : '\ntutte le prove passate');
 process.exit(ko ? 1 : 0);
