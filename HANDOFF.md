@@ -10,7 +10,7 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 17/09/2026, pomeriggio |
+| **Aggiornato** | 17/09/2026, sera (§4: metodo di lavoro vincolante) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit pubblicato** | `03d43e6` — *fix: il velo dell'apertura non si toglieva piu' - bloccava ogni clic* |
@@ -123,28 +123,54 @@ file caricato ──► riconoscimento formato dai primi byte (__veritasIngest)
 
 ## 4. REGOLE OPERATIVE VINCOLANTI
 
-1. **GitHub è l'unica fonte.** Si legge e si pubblica lì. Cartelle locali, copie
-   `-main`, cloni vuoti: non sono fonti e non si aprono.
-2. **Si lavora in un workspace temporaneo isolato** (clone sparso in una cartella di
-   lavoro dedicata), mai nella cartella locale del Desktop.
-3. **Nessuna modifica, commit o push senza autorizzazione esplicita**, richiesta
-   volta per volta. Un'autorizzazione vale per quell'intervento, non per i successivi.
-4. **Modifiche minime e mirate.** Prima di scrivere codice si dichiara: causa
+> Metodo di lavoro dettato da Raffaella il 17/09/2026. **Sono regole, non suggerimenti.**
+
+**I quattro ambienti — si distinguono prima di ogni intervento:**
+
+| | |
+|---|---|
+| **Codice ufficiale** | GitHub, `Raffaella23/Veritas-spatial-ai`, ramo `main`. L'unica fonte |
+| **Workspace temporaneo** | clone isolato in una cartella di lavoro dedicata: qui si analizza, si modifica, si prova |
+| **Versione pubblicata** | https://raffaella23.github.io/Veritas-spatial-ai/ — si verifica nel browser |
+| **Cartella locale esclusa** | `...\VERITAS\Veritas-spatial-ai` sul Desktop: non è un repository Git valido, non si apre, non si modifica, non si usa. Nessuna cartella locale è una fonte |
+
+1. **GitHub è l'unica fonte; il lavoro sta nel workspace temporaneo isolato.**
+   Analisi, modifiche e test si fanno lì, mai in una cartella del Desktop.
+2. **Il browser non è l'ambiente di sviluppo.** Serve solo a: aprire la versione
+   pubblicata; verificare il comportamento dell'interfaccia; controllare il risultato
+   finale; eseguire prove reali che il workspace non può simulare. Il lavoro non si
+   sposta dentro Chrome.
+3. **Tutto ciò che si può fare da soli si fa da soli**: letture del codice, analisi,
+   verifiche, test, diagnosi. Non si chiede a Raffaella di aprire Chrome, entrare negli
+   strumenti per sviluppatori, premere F12 o copiare log, se non è indispensabile.
+4. **Se una verifica richiede davvero Raffaella nel browser:** (a) si spiega perché non
+   si può eseguire da soli; (b) si predispone, se possibile, un test visibile
+   direttamente nell'interfaccia; (c) istruzioni brevi e precise; (d) si chiede solo
+   l'azione minima necessaria; (e) **si aspetta il risultato prima di modificare il
+   codice**.
+5. **Nessuna modifica al progetto ufficiale, nessun commit, nessun push senza
+   autorizzazione esplicita**, richiesta volta per volta. Un'autorizzazione vale per
+   quell'intervento, non per i successivi. **Unica eccezione: questo documento.**
+   Ogni aggiornamento del HANDOFF si pubblica su GitHub appena è scritto, senza
+   chiedere (autorizzazione permanente di Raffaella, 17/09/2026).
+6. **Le decisioni scritte in questo documento si eseguono, non si richiedono.** Non si
+   ripropongono come domande o proposte: si chiede solo ciò che nessuna regola scritta
+   decide. *(17/09: le due regole del §9 erano state trasformate in domande.)*
+7. **Modifiche minime e mirate.** Prima di scrivere codice si dichiara: causa
    accertata, file coinvolti, modifica proposta, cosa NON verrà toccato, criterio di
    successo.
-5. **Nessun refactoring non richiesto.** Nessuna riscrittura, nessuna architettura
+8. **Nessun refactoring non richiesto.** Nessuna riscrittura, nessuna architettura
    nuova, nessuna funzione duplicata.
-6. **«Semantico» e «social behavior» non si usano a vuoto.** Un nome preso da una
+9. **«Semantico» e «social behavior» non si usano a vuoto.** Un nome preso da una
    tabella non è semantica. Un'animazione non è un comportamento sociale. Se una
    libreria è installata ma non collegata si dice «installata, non integrata».
-7. **Test con limiti espliciti:** timeout, numero massimo di tentativi, condizione di
-   uscita, messaggio d'errore. Niente cicli che interrogano all'infinito, niente
-   attese indefinite spacciate per lavoro in corso.
-8. **Dopo ogni intervento** si comunica, in quest'ordine: costruzione, commit, file
-   modificati, problema affrontato, test eseguiti, risultato, limite residuo,
-   prossimo passo unico.
-9. **Niente F12 come procedura ordinaria.** I log si leggono con gli strumenti; se
-   serve una riga a Raffaella si chiede QUELLA riga, dicendo perché.
+10. **Test con limiti espliciti:** timeout, numero massimo di tentativi, condizione di
+    uscita, messaggio d'errore. Niente cicli che interrogano all'infinito, niente
+    attese indefinite spacciate per lavoro in corso.
+11. **Dopo ogni intervento** si eseguono i test necessari e si comunica, in
+    quest'ordine: costruzione, commit, file modificati, problema affrontato, test
+    eseguiti, risultato, limite residuo, prossimo passo unico. **Ci si ferma** se manca
+    una verifica decisiva o un'autorizzazione.
 
 ---
 
