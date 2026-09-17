@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-16-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-17-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -20198,9 +20198,18 @@ export default {
 //
 // Il blocco boot e' uno script classico e non puo' importare un modulo:
 // lo raggiunge da qui, come gia' fa con il motore percettivo.
+//
+// ⚠️ 17/09/2026 — `marcaOstacoli` MANCAVA da questo ponte. La mappa di cammino
+//    la cerca con `typeof nav.marcaOstacoli === "function"`: trovava undefined
+//    e i muri letti dal modello non arrivavano MAI sulla mappa, senza errore.
+//    Misurato sulla pagina viva (airport_foot_traffic.glb): collegata, la
+//    lettura chiude il 13,5% del calpestabile al piano terra e il 16% al
+//    primo — sotto il tetto del 35%, quindi viene applicata. La guardia sta in
+//    veritas_muri.test.mjs, prova 0: ogni `nav.X` chiamato dalla mappa deve
+//    comparire qui.
 // ---------------------------------------------------------------
 window.__veritasNavigazione = {
-  creaMappa, creaMappaDaNuvola, trovaPercorso, segmentoLibero,
+  creaMappa, creaMappaDaNuvola, marcaOstacoli, trovaPercorso, segmentoLibero,
   calpestabile, agganciaCella, cellaDa, centroCella, tiraLaCorda, eFuori,
   DEFAULTS: NAVIGAZIONE_DEFAULTS,
 };

@@ -24,6 +24,29 @@ const sorgente = html.slice(a, b + '  let lastZoneGraph = null;'.length);
 let ko = 0;
 const check = (n, ok, d = '') => { console.log((ok ? '  ok  ' : ' FAIL ') + n + (d ? '   ' + d : '')); if (!ok) ko++; };
 
+// ---------------------------------------------------------------------------
+// 0. IL PONTE VERO. Le prove piu' sotto si costruiscono un ponte FINTO con le
+//    funzioni importate dal FILE `veritas_navigazione.js`. Se il ponte vero,
+//    quello inlinato in index.html, non espone una funzione, qui passa tutto e
+//    sulla pagina no. Successo fino al 17/09/2026: `marcaOstacoli` mancava dal
+//    ponte inlinato, `typeof nav.marcaOstacoli` era "undefined", e i muri letti
+//    dal modello non arrivavano MAI sulla mappa — nessun errore, nessun avviso,
+//    solo «i muri sono dedotti dal campionamento». Misurato sulla pagina viva.
+// ---------------------------------------------------------------------------
+console.log('0. il ponte vero in index.html espone tutto quello che la mappa chiama');
+const PONTE = 'window.__veritasNavigazione = {';
+const inizioPonte = html.indexOf(PONTE);
+const finePonte = inizioPonte < 0 ? -1 : html.indexOf('};', inizioPonte);
+check('il ponte vero si trova in index.html', inizioPonte >= 0 && finePonte > inizioPonte);
+const esposte = new Set(inizioPonte < 0 ? [] : html.slice(inizioPonte + PONTE.length, finePonte)
+  .split(/[,\s]+/).map((s) => s.split(':')[0].trim()).filter(Boolean));
+const chiamate = [...new Set([...sorgente.matchAll(/\bnav\.([A-Za-z_]\w*)/g)].map((m) => m[1]))];
+check('la mappa di cammino chiama qualcosa sul ponte', chiamate.length > 0, chiamate.join(', '));
+for (const f of chiamate) {
+  check('il ponte vero espone ' + f, esposte.has(f),
+    esposte.has(f) ? '' : 'la mappa la chiama, la pagina non la vede: si spegne in silenzio');
+}
+
 // --- lo spazio di prova: due sale, un muro, una porta spostata ---------------
 // La porta e' in alto (z 17.4-18.6): la linea fra i due baricentri passa a
 // meta' altezza, cioe' nel pieno del muro. E' la pianta che riproduce il
