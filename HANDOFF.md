@@ -13,9 +13,9 @@
 | **Aggiornato** | 17/09/2026, sera (§4: metodo di lavoro vincolante) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit pubblicato** | `03d43e6` — *fix: il velo dell'apertura non si toglieva piu' - bloccava ogni clic* |
-| **Deploy** | GitHub Pages da `main` (build Pages #564 completata con successo su `03d43e6`). ⚠️ la CDN ha servito la versione precedente per diversi minuti dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-16-g` — **non aggiornata** dai commit del 17/09 |
+| **Ultimo commit di codice pubblicato** | `46dacdc` — *fix: la mappa di cammino riceve di nuovo le marcature — marcaOstacoli nel ponte* |
+| **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
+| **Costruzione dichiarata nel file** | `2026-09-17-a` (servita da Pages, controllata) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -188,7 +188,7 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Zone misurate e nominate | ✔ | ✔ | ✔ | ◐ | ✔ | `assegnaZoneMisurate` gira; nomi neutri («Zona 3 · 210 m²») finché l'occhio non parla |
 | Vocabolario di dominio rimosso (Regola 0-bis) | ✔ | ✔ | ✔ | ◐ | ✔ | `LESSICO_ZONE` eliminata (`631204a`); resta `ETICHETTA_OCCHI`, legittima perché applicata **solo dopo** un riconoscimento vero. Etichette vecchie possono restare salvate nei progetti: §6.5 |
 | Accessi / varchi d'ingresso | ✔ | ✔ | ✔ | ◐ | ✔ | verificato l'11/09 con `trova()` a mano; il ricalcolo automatico su `veritas:vista` non scatta da solo |
-| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | **nella versione pubblicata nessuna marcatura arriva sulla mappa** (`marcaOstacoli` assente dal ponte, misurato 17/09 sera); correzione pronta nel workspace. I 3 tragitti in linea retta vengono da tappe fuori dal modello: §6.1 |
+| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | fino alla costruzione `-16-g` nessuna marcatura arrivava sulla mappa (`marcaOstacoli` assente dal ponte); **corretto e pubblicato in `2026-09-17-a`** (`46dacdc`), controllo a schermo da fare. I 3 tragitti in linea retta vengono da tappe fuori dal modello: §6.1 |
 | Corpo fisico Rapier (28 capsule) | ✔ | ✔ | ✔ | ✔ | ✔ | misurato 17/09: 28 corpi, 21.947 passi, mondo e collisore edificio reali |
 | Correzione «dentro un muro» | ✔ | ✔ | ✔ | ✔ | ✖ | **scritta e misurata, NON pubblicata**: attende autorizzazione. §6.2 |
 | Sosta: gli agenti si siedono | ✔ | ✔ | ✔ | ✖ | ✔ | pubblicata 16/09 (`44038c5`), **mai vista funzionare a schermo** |
@@ -239,10 +239,10 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
      splat non esiste** (non ci sono triangoli) e non sa CHE COSA sta chiudendo — i
      campioni più pesanti sono `Cylinder_0`, i due aerei (`Plane001/002`), `Cube002_0`.
      È un parere secondario: la precedenza di giudizio è dell'occhio (§9).
-- **Correzione pronta nel workspace, NON pubblicata:** `marcaOstacoli` aggiunta al
-  ponte (1 parola) + prova 0 in `veritas_muri.test.mjs`, che controlla il ponte VERO:
-  ogni `nav.X` chiamato dalla mappa deve comparire lì. La prova fallisce senza la
-  correzione e passa con lei. Attende autorizzazione.
+- **Correzione PUBBLICATA (`46dacdc`, costruzione `2026-09-17-a`):** `marcaOstacoli`
+  aggiunta al ponte (1 parola) + prova 0 in `veritas_muri.test.mjs`, che controlla il
+  ponte VERO: ogni `nav.X` chiamato dalla mappa deve comparire lì. La prova fallisce
+  senza la correzione e passa con lei.
 - **Test eseguiti (pomeriggio).** 17/09, `airport_foot_traffic.glb` caricato dal vivo:
   *«i muri sono dedotti dal campionamento: sotto 0.574 m di spessore non si vedono»*,
   tre avvisi «nessuna strada … linea retta». Misurato inoltre: **1.505 posizioni
@@ -366,13 +366,14 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Problema** | dopo il caricamento di un modello la pagina diventava incliccabile: nessun pulsante rispondeva, «Play» compreso |
-| **Causa** | `chiudi()` programmava la rimozione del velo con `setTimeout(900 ms)` leggendo `S.velo` dentro la callback; `S` veniva azzerato subito dopo, nella stessa funzione, quindi allo scattare del timer il `.remove()` falliva in silenzio (catch vuoto). Il velo restava nel DOM: invisibile (opacità 0) ma con `pointer-events` attivo e z-index altissimo su tutto lo schermo |
-| **Modifica** | la callback cattura la variabile locale `velo`, presa prima di azzerare `S` |
-| **File modificati** | `veritas_apertura.js` — **1 file, 7 righe aggiunte, 2 tolte** (di cui 5 di commento) |
-| **Commit / push** | `03d43e6`, pubblicato su `main`; Pages build #564 completata |
-| **Verifica successiva** | ciclo apri→chiudi completo con modello vero in scena: zero elementi bloccanti a schermo intero dopo la chiusura (prima della correzione: uno, misurato) |
-| **Problemi rimasti** | la CDN di Pages ha continuato a servire la costruzione precedente per minuti dopo il deploy; `window.__EIDETICA_COSTRUZIONE` è rimasta a `2026-09-16-g` e va aggiornata al prossimo commit |
+| **Costruzione** | `2026-09-17-a` — servita da Pages al terzo controllo (~1 min dopo il push) |
+| **Commit / push** | `46dacdc`, pubblicato su `main` con autorizzazione di Raffaella (17/09 sera) |
+| **File modificati** | `index.html` (ponte `window.__veritasNavigazione`: + `marcaOstacoli`, commento, numero di costruzione) · `veritas_muri.test.mjs` (prova 0 sul ponte vero) — 34 righe aggiunte, 2 tolte |
+| **Problema** | nessuna marcatura arrivava sulla mappa di cammino: il ponte inlinato non esponeva `marcaOstacoli`, e la mappa si spegneva in silenzio sui soli punti del pavimento (cieca sotto 0,57 m) |
+| **Test eseguiti** | workspace: `veritas_muri` ✖ senza / ✔ con la correzione; `veritas_navigazione` ✔, `veritas_navmesh` ✔, `veritas_percorso` 23/24 identico prima e dopo. Pagina pubblicata (funzione agganciata prima di aprire il progetto): muri letti, 13,6% e 16,7% chiusi, applicata |
+| **Risultato** | la pagina pubblicata ha il ponte corretto (controllato nel sorgente servito da Pages) |
+| **Limite residuo** | è il parere della geometria: su uno splat non legge niente e non sa cosa chiude. Il controllo finale a schermo sulla costruzione `-a` (log «muri letti dal modello» al caricamento) si fa insieme alla verifica delle zone. I 3 tragitti in linea retta vengono da tappe fuori dal modello (§6.1 punto 3) |
+| **Prossimo passo unico** | regola 2 del §9: zone che si accendono e report laterali mentre l'occhio lavora |
 
 ---
 
