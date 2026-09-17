@@ -352,8 +352,13 @@ function chiudi() {
   S.aperto = false;
   cancelAnimationFrame(S.raf);
   sgancia(S);
-  S.velo.style.opacity = '0';
-  setTimeout(() => { try { S.velo.remove(); } catch (e) {} }, 900);
+  const velo = S.velo;
+  velo.style.opacity = '0';
+  // ⚠️ Il timeout cattura `velo` (la variabile locale), non `S.velo`: S viene
+  // azzerato due righe sotto, e un riferimento a S.velo qui dentro troverebbe
+  // S nullo quando il timer scatta — il velo restava invisibile ma vivo,
+  // fisso su tutto lo schermo, a bloccare ogni clic (trovato il 17/09).
+  setTimeout(() => { try { velo.remove(); } catch (e) {} }, 900);
   log('chiusa — l\'analisi vera continua sotto, invariata');
   S = null;
 }
