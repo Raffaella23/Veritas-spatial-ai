@@ -343,7 +343,7 @@ export function titoloDi(v, L) {
 export function nomeZona(label, L) {
   const t = String(label == null ? '' : label);
   if (L === 'it') return t;
-  return t.replace(/^Ambiente (\d+)/, 'Room $1').replace(/^Passaggio (\d+)/, 'Passage $1');
+  return t.replace(/^Ambiente (\d+)/, 'Room $1').replace(/^Passaggio (\d+)/, 'Passage $1').replace(/^Accesso (\d+)/, 'Entrance $1');
 }
 
 /**
@@ -642,7 +642,7 @@ function scriviDettaglio(S) {
   if (S.stato === 'conformita' && d.verifiche) {
     righe = d.verifiche.tutte.map((v) => `${v.difformi ? '⚠' : '✓'} ${v.fonte} ${v.riferimento} · ${titoloDi(v, L)} · ${v.conformi + v.difformi} ${tt(L, 'misure', 'measures')}, ${v.difformi} ${tt(L, 'fuori soglia', 'below')}${v.validato ? '' : tt(L, ' · da validare', ' · pending validation')}`);
   } else if (S.stato === 'orientamento' && d.accessi) {
-    righe = d.accessi.map((a) => `${a.nome || tt(L, 'Accesso', 'Entrance')}${a.larghezza ? ' · ' + metri(a.larghezza, L) : ''}${a.indizi ? ' · ' + a.indizi + tt(L, ' indizi', ' clues') : ''}`);
+    righe = d.accessi.map((a) => `${a.nome ? nomeZona(a.nome, L) : tt(L, 'Accesso', 'Entrance')}${a.larghezza ? ' · ' + metri(a.larghezza, L) : ''}${a.indizi ? ' · ' + a.indizi + tt(L, ' indizi', ' clues') : ''}`);
   } else {
     righe = [...S.accese.values()].filter((z) => !z.spenta)
       .map((z) => `${z.confermata ? '◉' : '○'} ${nomeZona(z.label, L)}${misureDi(z.nodo) ? ' · ' + misureDi(z.nodo) : ''}${z.confermata ? tt(L, ' · confermata dall\'occhio', ' · confirmed by the eye') : ''}`);
@@ -936,7 +936,7 @@ function aggiornaSegni(S) {
   (d.accessi || []).forEach((a) => {
     if (!a.centro) return;
     const f = creaFascio(T, S, a.centro[0], a.centro[1], a.centro[2], TINTE.orientamento, a.larghezza || 1.2);
-    const et = creaEtichetta(S, TINTE.orientamento, (a.nome || tt(L, 'ACCESSO', 'ENTRANCE')).toUpperCase(), a.larghezza ? metri(a.larghezza, L) : '', 64);
+    const et = creaEtichetta(S, TINTE.orientamento, (a.nome ? nomeZona(a.nome, L) : tt(L, 'ACCESSO', 'ENTRANCE')).toUpperCase(), a.larghezza ? metri(a.larghezza, L) : '', 64);
     S.segni.push({ f, et, stato: 'orientamento', x: a.centro[0], y: a.centro[1], z: a.centro[2], forte: true });
   });
 }

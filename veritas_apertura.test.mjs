@@ -215,7 +215,7 @@ check('un muro, una porta, una cosa; un muro senza segmento non si disegna', so.
 check('la larghezza della porta viene dal suo segmento', Math.abs(so.porte[0].larghezza - 0.9) < 1e-9);
 check('i nomi neutri delle zone si traducono, quelli dell\'occhio no',
   nomeZona('Ambiente 3 · 23 m²', 'en') === 'Room 3 · 23 m²' && nomeZona('Passaggio 1 · 14 m²', 'en') === 'Passage 1 · 14 m²'
-  && nomeZona('Ambiente 3 · 23 m²', 'it') === 'Ambiente 3 · 23 m²' && nomeZona('pontile d\'imbarco', 'en') === 'pontile d\'imbarco');
+  && nomeZona('Ambiente 3 · 23 m²', 'it') === 'Ambiente 3 · 23 m²' && nomeZona('Accesso 2', 'en') === 'Entrance 2' && nomeZona('pontile d\'imbarco', 'en') === 'pontile d\'imbarco');
 
 check('i titoli delle norme in inglese, per id; senza voce resta l\'italiano',
   titoloDi({ id: 'it_dm236_porta', titolo: 'Luce netta delle porte' }, 'en') === 'Door clear width'
