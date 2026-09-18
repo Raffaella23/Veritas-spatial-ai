@@ -10,12 +10,12 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026 (canale dell'occhio provato dal vivo; codici fittizi tolti dal bundle) |
+| **Aggiornato** | 18/09/2026 (pagina di attesa nello stile delle immagini di riferimento, stati in successione) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `8b96908` — *fix: tolti dal bundle i codici fittizi — tappe da aeroporto, traiettoria dimostrativa, inquadrature (e il giro che nascondevano)* |
+| **Ultimo commit di codice pubblicato** | `b7a77f0` — *feat: pagina di attesa nello stile delle immagini di riferimento — stati in successione, solo dati misurati, GLB e Gaussian Splat* |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-c` (servita da Pages, controllata: le tappe finte non ci sono più) |
+| **Costruzione dichiarata nel file** | `2026-09-18-d` — link da dare a Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-d` (la query nuova scavalca la copia vecchia del browser) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -328,9 +328,10 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   runStructuralAnalysis → applyAutoAssignment → assegnaZoneMisurate → analyzeMesh`, 80
   volte, fino a «Maximum call stack size exceeded» e alla scheda crollata. Corretto con
   una guardia in `assegnaZoneMisurate` (non rifà l'analisi dentro se stessa).
-- **Resta da guardare [DA VERIFICARE]:** fra le tappe del primo caricamento compaiono
-  «Reception» e «Origin» (col sito in inglese) accanto a «Zona N · m²»: da capire se
-  vengono dai nomi delle mesh (`analyzeMesh`) o da un'etichetta di ruolo.
+- **«Reception» e «Origin» (visto il 18/09 nella sonda del banco):** sono nodi con
+  origine `nome+cose`, cioè nascono dai NOMI DELLE MESH del file (e dagli oggetti
+  attorno), non dal bundle. Resta da decidere se un nome di mesh inglese debba
+  diventare il nome di una tappa (Regola 0-bis: i nomi nascono dal riconoscimento).
 - **Visto una volta, non ripetuto:** un errore `RuntimeError: unreachable` dentro un
   modulo WebAssembly (probabilmente Rapier) durante una delle prove; nelle due prove da
   200 s successive non è ricomparso.
@@ -343,6 +344,25 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 - **Sosta che si siede** (`44038c5`, 16/09): pubblicata, mai vista a schermo.
 - **Ricalcolo automatico degli accessi** su `veritas:vista`: non scatta da solo, il
   perché non è stato indagato.
+
+### 6.7 — Visti nel banco il 18/09, mentre si faceva la pagina di attesa
+
+- **Durante il lavoro dell'occhio la pagina si ferma a tratti** (OWLv2 in wasm sul
+  filo principale, Chrome senza GPU del banco): anche il velo si ferma. Le righe del
+  report ora entrano con l'opacità e non restano vuote, ma l'animazione si blocca lo
+  stesso. Rimedio vero: l'occhio in un Web Worker. Nel Chrome di Raffaella, con la
+  GPU, non ancora misurato.
+- **Splat: sotto il velo l'app inquadra male** (camera attaccata al pavimento): il
+  riquadro dello splat per la camera dell'app è vuoto (`Box3.setFromObject` non vede
+  le gaussiane; Spark ha `getBoundingBox`). Il velo lo legge giusto.
+- **Splat di prova (appartamento, 3 stanze, porte da 0,75 / 0,90 / 1,20 m): il motore
+  geometrico vede UN solo ambiente da 88 m² e nessun varco.** Lo splat è fatto qui
+  (`scratchpad/banco_vivo/crea_splat.mjs`), letto giusto da Spark (scale e colori
+  controllati). È il caso in cui le zone le deve dare l'occhio.
+- **`veritas_corpo_collegato.test.mjs`: 2 prove falliscono già su `8b96908`** (non
+  toccato dal 18/09 -d): «blocco 3 byte-per-byte quello di sempre» (la guardia non
+  ritrova il blocco dopo che i codici fittizi sono stati tolti) e «il collisore
+  dell'edificio non riceve flag». Da guardare.
 
 ---
 
@@ -365,6 +385,10 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Canale dell'occhio sulla versione pubblicata -a e col codice -b | 18/09 | reale, Chrome senza finestra del workspace (accesso finto dello stub, modello scelto dal pulsante «Nuovo progetto», occhio OWLv2 vero) | ✔ posizioni dalla pianta 213 (prima 0); ✔ 48/48 riquadri dalle prospettive (con 8 s a foto; 25/48 con 2,5 s); ✔ 20 volumi con cose viste dentro; ✔ apertura: 11 zone accese, 2 confermate dall'occhio, chiusa dopo che l'occhio ha parlato; ✖ nessuna marcatura dell'occhio sulla mappa (niente di credibile visto); ✖ cervello non raggiungibile da quel Chrome |
 | Codici fittizi tolti dal bundle, caricamento reale | 18/09 | reale, banco del workspace (app vera, codice del workspace) | ✖ prima della guardia: giro infinito, «Maximum call stack size exceeded», scheda crollata; ✔ con la guardia: modello in 10 s, zero errori di pagina, solo «global», tappe = ambienti misurati; confronto di 200 s con la versione pubblicata: stesso ritmo di rigenerazione della traiettoria, stesse tappe finali |
 | `veritas_fittizi.test.mjs` | 18/09 | automatico | ✔ 19/19 sul workspace; ✖ sulla versione pubblicata prima di `8b96908` (come deve) |
+| Pagina di attesa, aeroporto GLB | 18/09 | reale, banco del workspace, codice del workspace | ✔ quattro stati in successione (attesa 3 s → zone → conformità → orientamento → zone...), zero errori di pagina; conformità vera: porte 6/6 ≥ 0,80 m (DM 236/1989 art. 8.1.1), strettoie 29/38 < 1,00 m (art. 8.1.9), caso peggiore 0,50 m ± 0,25 in Ambiente 1; 3 ingressi; 47 tratti in linea retta |
+| Pagina di attesa, Gaussian Splat di prova | 18/09 | reale, banco del workspace | ✔ lo splat si vede nel velo (61.079 gaussiane, stessi dati del modello); ✖ il motore vede un solo ambiente (§6.7) |
+| Pagina di attesa in inglese, 1280×720 | 18/09 | reale, banco del workspace | ✔ Standby / Zones / Compliance / Wayfinding; nomi neutri tradotti |
+| `veritas_apertura.test.mjs` | 18/09 | automatico | ✔ 72/72 (erano 34), fra cui «senza dati nessun numero, in nessuno stato, in nessuna lingua» |
 
 **Limiti della verifica, dichiarati:**
 
@@ -387,32 +411,33 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-c` — servita da Pages al secondo controllo |
-| **Commit / push** | `8b96908`, su `main` con autorizzazione di Raffaella («togliere dal bundle i codici finti… prima di pubblicare lo provo caricato davvero») |
-| **File modificati** | `index.html` (bundle: `iB` vuoto, `hV()` scena vuota, `hK` solo «global»; guardia in `assegnaZoneMisurate`; commento dei marker aggiornato; costruzione) · `veritas_fittizi.test.mjs` (nuovo) |
-| **Problema** | tappe, traiettoria e inquadrature da aeroporto scritte a mano nel bundle, mostrate come se fossero vere (§6.5) |
-| **Test eseguiti** | vedi §7: guardia nuova 19/19; suite identica; caricamento reale nel banco prima e dopo la guardia; confronto di 200 s con la versione pubblicata |
-| **Risultato** | pubblicata e controllata: il sorgente servito da Pages non contiene più le tappe finte |
-| **Limite residuo** | «Reception»/«Origin» fra le tappe del primo caricamento, da capire (§6.5); i 3 tragitti in linea retta restano, adesso fra tappe MISURATE: è la mappa che non le collega (§6.1) |
-| **Prossimo passo unico** | vedere l'occhio segnare muri e porte dal vivo (§9 punto 1) |
+| **Costruzione** | `2026-09-18-d` |
+| **Commit / push** | `b7a77f0`, su `main` con autorizzazione di Raffaella («quando è possibile aggiorna GitHub, fermati e fornisci link alla pagina aggiornata») |
+| **File modificati** | `veritas_apertura.js` (riscritto: la pagina di attesa) · `veritas_apertura.test.mjs` (72 prove) · `index.html` (`veritas_apertura.js?v=8`, costruzione) |
+| **Problema** | Raffaella, con quattro immagini di riferimento: «vorrei che la pagina di attesa avesse questo stile con una successione di stati. Il modello glb oppure il Gaussian Splat...» |
+| **Cosa fa ora** | fondo scuro col fumo, modello vero in argilla scura (splat: stessi dati, scurito), report a terminale sul lato; stati: attesa → zone → conformità → orientamento, a giro finché l'occhio non ha parlato; solo misure vere, «--» dove mancano; clic su uno stato lo ferma 20 s; «Entra» chiude sempre; «Dati del modello» dà file, peso, ingombro, mesh o gaussiane |
+| **Test eseguiti** | §7: 72/72 automatiche; banco reale su aeroporto GLB, splat di prova, inglese 1280×720; suite: identica a prima salvo `veritas_corpo_collegato` (2 prove già rotte su `8b96908`, §6.7) |
+| **Limite residuo** | §6.7: pagina che si ferma mentre l'occhio lavora (banco senza GPU); splat inquadrato male dall'app sotto il velo; zone dello splat di prova non trovate dal motore |
+| **Prossimo passo unico** | Raffaella guarda la pagina dal link con `?v=2026-09-18-d` e dice se lo stile e la successione sono quelli voluti |
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**Il canale è aperto e pubblicato (`3a49378`, `67e1cfc`); i codici fittizi sono tolti (`8b96908`). Adesso:**
+**Pagina di attesa pubblicata (`b7a77f0`, -d). Adesso:**
 
-1. **Vedere l'occhio segnare muri e porte dal vivo**: nel Chrome di Raffaella (cervello
-   acceso, più giri, viste da dentro) oppure su un modello con interni. Sull'aeroporto,
-   nel banco, l'occhio non ha visto muri né porte credibili.
-2. **I 3 tragitti in linea retta fra tappe misurate**: la mappa non le collega (§6.1).
-3. **Il riconoscimento delle zone sugli splat**: dare al cervello volumi anche dove
-   non ci sono mucchi di oggetti misurati (gli ambienti del motore geometrico).
-4. **«Reception» / «Origin»** fra le tappe del primo caricamento: da dove vengono (§6.5).
+1. **Raffaella guarda la pagina di attesa** dal link con `?v=2026-09-18-d` e decide
+   se stile e successione degli stati sono giusti. Non si cambia lo stile prima.
+2. **Vedere l'occhio segnare muri e porte dal vivo**: la pagina di attesa ora li
+   DISEGNA (lame per i muri, cornici per le porte, piramidi dove l'occhio guarda),
+   ma sull'aeroporto l'occhio non ne ha dati di credibili. Serve un modello con interni.
+3. **L'occhio in un Web Worker** perché la pagina non si fermi mentre guarda (§6.7).
+4. **Splat**: inquadratura dell'app sotto il velo; zone che il motore non trova (§6.7).
+5. **I tratti in linea retta** (47 sull'aeroporto) e `veritas_corpo_collegato` (§6.7).
 
-Il banco del workspace funziona e si riusa: `scratchpad/banco_vivo/prova_occhio.mjs` e
-`prova_confronto.mjs` (Chrome senza finestra, stub di Supabase, pulsante «Nuovo
-progetto», con `DAL_WORKSPACE=1` il codice del workspace al posto di quello pubblicato).
+Il banco del workspace funziona e si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`
+(fotografie del velo a istanti dati; `MODELLO`, `SCATTI`, `LINGUA`, `LARGO`/`ALTO`),
+`sonda_stati.mjs` (quali dati esistono e quando), `crea_splat.mjs` (lo splat di prova).
 ⚠️ Lo scratchpad è temporaneo: se non c'è più, si rifà da `banco/finti/supabase_finto.js`.
 
 - **Regole di impianto decise da Raffaella (17/09), eseguite:**
@@ -447,6 +472,8 @@ progetto», con `DAL_WORKSPACE=1` il codice del workspace al posto di quello pub
 | 17/09 | Finché l'occhio non ha parlato: accensione progressiva delle zone e report laterali che si aprono man mano |
 | 17/09 | **I codici fittizi si rimuovono appena trovati** (tappe, nomi, traiettorie, KPI, inquadrature scritti a mano): «rimuovi i codici fittizi quando li trovi». Vale anche dentro il bundle, con prova di caricamento reale prima di pubblicare |
 | 17/09 | Il canale dell'occhio si costruisce **sulle immagini**, perché funzioni su tutti i modelli, splat compresi; serve anche a risolvere il **riconoscimento delle zone**, non solo i muri |
+| 18/09 | **La pagina di attesa prende lo stile delle immagini di riferimento di Raffaella**: scuro col fumo, modello vero, report a terminale sul lato, quattro stati in successione (attesa, zone, conformità, orientamento). Il resto della piattaforma resta carta. I numeri d'esempio delle immagini non si copiano: solo misure |
+| 18/09 | **Dopo ogni pubblicazione si dà a Raffaella il link con la costruzione nella query** (`?v=<costruzione>`), perché il suo browser le mostrava versioni vecchie. «Quando è possibile aggiorna GitHub, fermati e fornisci link» |
 
 ---
 
