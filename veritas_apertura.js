@@ -321,6 +321,24 @@ export function segniDellOcchio(visto) {
 
 const tt = (L, it, en) => (L === 'it' ? it : en);
 
+// I titoli delle regole in inglese, per id: veritas_normative.js li scrive in
+// italiano (e vive in due copie, file e index.html). Senza voce, l'italiano.
+const TITOLI_EN = {
+  it_dm236_porta: 'Door clear width', it_dm236_corridoio: 'Corridor width',
+  it_dm236_rotazione: 'Turning space, 360° rotation', it_dm236_rampa: 'Ramp slope',
+  us_ada_percorso: 'Clear width of the accessible route', us_ada_porta: 'Door clear width',
+  us_ada_rotazione: 'Turning space', us_ada_rampa: 'Ramp slope', us_ada_altezza: 'Headroom under protruding objects',
+  it_dm1998_uscita: 'Minimum exit width', it_dm2015_via_esodo: 'Minimum escape route width',
+  it_dm1998_percorso: 'Maximum escape route length', it_dm1998_moduli: 'Total exit width relative to occupancy',
+  us_ibc_uscita: 'Clear width of exit doors', us_ibc_corridoio_esodo: 'Minimum exit corridor width',
+  fruin_los_camminamento: 'Density beyond which walking degrades', sicurezza_folla: 'Crowd risk density',
+  green_guide_statico: 'Maximum density for standing audience areas', hall_distanza_sociale: 'Interpersonal distance while waiting',
+};
+/** Il titolo di una regola nella lingua di chi legge. */
+export function titoloDi(v, L) {
+  return (L !== 'it' && v && TITOLI_EN[v.id]) || (v && v.titolo) || '';
+}
+
 /** Il nome neutro di una zona misurata nella lingua di chi legge. */
 export function nomeZona(label, L) {
   const t = String(label == null ? '' : label);
@@ -404,7 +422,7 @@ export function reportDi(stato, d, L) {
     riga(tt(L, 'Norma', 'Standard'), fonti.join(' · '));
     for (const v of ver.principali.slice(0, 2)) {
       const art = String(v.riferimento).replace(/^art.s*/i, '');
-      riga(tt(L, 'Art. ', 'Art. ') + art + ' · ' + v.titolo.toLowerCase(), (v.operatore === '>=' ? '≥ ' : v.operatore + ' ') + formatta(v.soglia, 2, L) + ' ' + v.unita);
+      riga(tt(L, 'Art. ', 'Art. ') + art + ' · ' + titoloDi(v, L).toLowerCase(), (v.operatore === '>=' ? '≥ ' : v.operatore + ' ') + formatta(v.soglia, 2, L) + ' ' + v.unita);
       riga(tt(L, 'Misurati', 'Measured'), (v.conformi + v.difformi) + ' · ' + tt(L, 'fuori soglia ', 'below threshold ') + v.difformi, v.difformi ? 'ko' : 'ok');
       riga(tt(L, 'Verifica', 'Check'), v.difformi ? tt(L, 'NON SUPERATA ⚠', 'FAILED ⚠') : tt(L, 'SUPERATA ✓', 'PASSED ✓'), v.difformi ? 'ko' : 'ok');
       if (v.difformi && v.peggiore != null && (!peggio || v.peggiore - v.soglia < peggio.peggiore - peggio.soglia)) peggio = v;
@@ -412,7 +430,7 @@ export function reportDi(stato, d, L) {
     if (peggio) {
       riga(tt(L, 'Caso peggiore', 'Worst case'), formatta(peggio.peggiore, 2, L) + ' m < ' + formatta(peggio.soglia, 2, L) + ' m', 'ko');
       if (d.dovePeggiore) riga(tt(L, 'Posizione', 'Location'), nomeZona(d.dovePeggiore, L));
-      nota(tt(L, 'Requisito: ', 'Requirement: ') + peggio.titolo.toLowerCase() + ' ≥ ' + formatta(peggio.soglia, 2, L) + ' m (' + peggio.fonte + ', ' + peggio.riferimento + ')');
+      nota(tt(L, 'Requisito: ', 'Requirement: ') + titoloDi(peggio, L).toLowerCase() + ' ≥ ' + formatta(peggio.soglia, 2, L) + ' m (' + peggio.fonte + ', ' + peggio.riferimento + ')');
       nota(tt(L, 'Rilevato: ', 'Detected: ') + formatta(peggio.peggiore, 2, L) + ' m' + (d.incertezzaPeggiore ? ' ± ' + formatta(d.incertezzaPeggiore, 2, L) : '') + tt(L, ' — da verificare in sito', ' — to be verified on site'), 'ko');
     } else {
       nota(tt(L, 'Tutte le misure rispettano le soglie di accessibilità', 'Every measure meets the accessibility thresholds'), 'ok');
@@ -622,7 +640,7 @@ function scriviDettaglio(S) {
   const L = S.lingua, d = S.dati || {};
   let righe = [];
   if (S.stato === 'conformita' && d.verifiche) {
-    righe = d.verifiche.tutte.map((v) => `${v.difformi ? '⚠' : '✓'} ${v.fonte} ${v.riferimento} · ${v.titolo} · ${v.conformi + v.difformi} ${tt(L, 'misure', 'measures')}, ${v.difformi} ${tt(L, 'fuori soglia', 'below')}${v.validato ? '' : tt(L, ' · da validare', ' · pending validation')}`);
+    righe = d.verifiche.tutte.map((v) => `${v.difformi ? '⚠' : '✓'} ${v.fonte} ${v.riferimento} · ${titoloDi(v, L)} · ${v.conformi + v.difformi} ${tt(L, 'misure', 'measures')}, ${v.difformi} ${tt(L, 'fuori soglia', 'below')}${v.validato ? '' : tt(L, ' · da validare', ' · pending validation')}`);
   } else if (S.stato === 'orientamento' && d.accessi) {
     righe = d.accessi.map((a) => `${a.nome || tt(L, 'Accesso', 'Entrance')}${a.larghezza ? ' · ' + metri(a.larghezza, L) : ''}${a.indizi ? ' · ' + a.indizi + tt(L, ' indizi', ' clues') : ''}`);
   } else {

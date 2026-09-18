@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-18-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-18-f";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -15907,8 +15907,8 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       upload_parsing: (n) => `Leggo ${n}...`, upload_ready: (n) => `Ambiente caricato — ${n} mesh. Analizzo lo spazio...`,
       upload_error: "Non sono riuscito a leggere il file. Verifica che sia un .glb/.gltf/.fbx valido.",
       no_model: "Carica prima un ambiente 3D.",
-      layers_title: "Spatial Layers", layer_zones: "Zone", layer_agents: "Agenti", layer_advanced: "Pannelli avanzati",
-      report_title: "Analysis / Report", report_struct: "Report struttura", report_sell: "Report EIDETICA (KPI)",
+      layers_title: "Strati", layer_zones: "Zone", layer_agents: "Agenti", layer_advanced: "Pannelli avanzati",
+      report_title: "Analisi / Report", report_struct: "Report struttura", report_sell: "Report EIDETICA (KPI)",
       report_perception: "Percezione agenti",
       opening_perception: "Apro il report di percezione (cosa hanno visto gli agenti)...",
       no_perception: "Nessun dato percettivo: avvia prima una simulazione con il motore reale collegato (Render).",
@@ -15918,7 +15918,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       analyzing: "Analizzo la mesh reale (raycast + clustering pavimento)...", opening_report: "Apro il report struttura...", opening_sellreport: "Apro il report EIDETICA (KPI + raccomandazioni)...",
       starting_sim: "Avvio la simulazione...", regen: "Rigenero con le zone attuali...", speed_set: (v) => `Velocita' ${v}x.`,
       agents_hint: "Imposta gli agenti dalla schermata impostazioni prima di avviare, o chiedimi di rigenerare dopo.",
-      you: "Tu", ai: "VERITAS", welcome: "Ciao. Carica un ambiente 3D o scrivi un comando per iniziare.",
+      you: "Tu", ai: "EIDETICA", welcome: "Ciao. Carica un ambiente 3D o scrivi un comando per iniziare.",
       console_toggle: "Mostra/nascondi la conversazione",
       assign_done: (l, t) => `Zona "${l}" assegnata come ${t}.`,
       assign_nospace: "Non ho ancora zone rilevate su cui appoggiare l'assegnazione. Analizza prima lo spazio.",
@@ -15955,7 +15955,7 @@ import { MeshBVH, acceleratedRaycast, computeBoundsTree, disposeBoundsTree } fro
       analyzing: "Analyzing the real mesh (raycast + floor clustering)...", opening_report: "Opening structure report...", opening_sellreport: "Opening EIDETICA report (KPIs + recommendations)...",
       starting_sim: "Starting simulation...", regen: "Regenerating with current zones...", speed_set: (v) => `Speed ${v}x.`,
       agents_hint: "Set agents in the settings screen before starting, or ask me to regenerate after.",
-      you: "You", ai: "VERITAS", welcome: "Hi. Upload a 3D environment or type a command to start.",
+      you: "You", ai: "EIDETICA", welcome: "Hi. Upload a 3D environment or type a command to start.",
       console_toggle: "Show/hide the conversation",
       assign_done: (l, t) => `Zone "${l}" assigned as ${t}.`,
       assign_nospace: "No detected zones to place the assignment on yet. Analyze the space first.",
@@ -30123,6 +30123,7 @@ if (typeof window !== 'undefined') {
      window.veritasCarta.spegni(). Va per primo cosi' il bianco c'e'
      gia' quando il resto si disegna, e non si vede il salto. -->
 <script type="module" src="./veritas_carta.js?v=6"></script>
+<script type="module" src="./veritas_lingua.js?v=1"></script>
 <script type="module" src="./veritas_accessi.js?v=11"></script>
 <script type="module" src="./veritas_cinema.js?v=48"></script>
 <script type="module" src="./veritas_catena.js?v=2"></script>
@@ -30133,6 +30134,6 @@ if (typeof window !== 'undefined') {
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
 <script type="module" src="./veritas_montaggio.js?v=33"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
-<script type="module" src="./veritas_apertura.js?v=8"></script>
+<script type="module" src="./veritas_apertura.js?v=9"></script>
 </body>
 </html>

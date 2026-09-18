@@ -10,7 +10,7 @@ import {
   chiaveNodo, confermataDallOcchio, misureDi, quandoChiudere, confronta,
   zoneMisurate, conLOcchio,
   DURATA_MINIMA, RESPIRO_DOPO_OCCHIO, TETTO_ATTESA,
-  prossimoStato, reportDi, verificheDiConformita, segniDaVerificare, segniDellOcchio, formatta, nomeZona,
+  prossimoStato, reportDi, verificheDiConformita, segniDaVerificare, segniDellOcchio, formatta, nomeZona, titoloDi,
   STATI, DURATA_STATO, DURATA_ATTESA,
 } from './veritas_apertura.js';
 
@@ -216,6 +216,11 @@ check('la larghezza della porta viene dal suo segmento', Math.abs(so.porte[0].la
 check('i nomi neutri delle zone si traducono, quelli dell\'occhio no',
   nomeZona('Ambiente 3 · 23 m²', 'en') === 'Room 3 · 23 m²' && nomeZona('Passaggio 1 · 14 m²', 'en') === 'Passage 1 · 14 m²'
   && nomeZona('Ambiente 3 · 23 m²', 'it') === 'Ambiente 3 · 23 m²' && nomeZona('pontile d\'imbarco', 'en') === 'pontile d\'imbarco');
+
+check('i titoli delle norme in inglese, per id; senza voce resta l\'italiano',
+  titoloDi({ id: 'it_dm236_porta', titolo: 'Luce netta delle porte' }, 'en') === 'Door clear width'
+  && titoloDi({ id: 'it_dm236_porta', titolo: 'Luce netta delle porte' }, 'it') === 'Luce netta delle porte'
+  && titoloDi({ id: 'sconosciuta', titolo: 'Titolo' }, 'en') === 'Titolo');
 
 console.log(ko ? '\n' + ko + ' PROVE FALLITE' : '\ntutte le prove passate');
 process.exit(ko ? 1 : 0);
