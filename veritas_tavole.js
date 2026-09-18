@@ -239,7 +239,9 @@ export function abaco(THREE, renderer, radice, opzioni = {}) {
         larghezzaMondo: misura.x, altezzaMondo: misura.z,
         vicino: 0.001, lontano: Math.max(0.5, y - scatola.min.y) + 1,
       });
-      if (t) fuori.push(t);
+      // La pianta dice a quale piano appartiene (18/09/2026): cio' che l'occhio
+      // ci vede si posa su QUESTO piano della mappa di cammino, non su tutti.
+      if (t) { t.quotaPiano = pav; fuori.push(t); }
     });
   } else {
     nota("nessun livello misurato: niente piante. Non e' che non c'erano piani, e' che non li ho.");

@@ -762,7 +762,7 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
       if (e && e.ok) {
         fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: "pianta del pavimento", esito: e });
-        dallaPianta(fuori, e, "pianta del pavimento");
+        dallaPianta(fuori, e, "pianta del pavimento", ctx.pianta && ctx.pianta.quotaPavimento);
       }
     } catch (e) { /* la pianta muta non deve fermare gli scorci */ }
   }
@@ -796,7 +796,7 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
       if (e && e.ok) {
         if (!fuori.esitoPianta) fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: v.etichetta || "pianta", esito: e });
-        dallaPianta(fuori, e, v.etichetta || "pianta");
+        dallaPianta(fuori, e, v.etichetta || "pianta", v.quotaPiano);
       }
     } catch (err) { /* una tavola muta non deve fermare le altre */ }
   }
@@ -928,7 +928,10 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
 // I limiti, dichiarati: i riquadri piu' sicuri per foto, e un tempo massimo
 // per foto; oltre, la foto passa e lo si conta (`fuori.posa.tempoEsaurito`).
 export const RIQUADRI_POSATI_PER_VISTA = 24;
-export const TEMPO_POSA_PER_VISTA_MS = 2500;
+// ⚠️ 18/09/2026, MISURATO sulla pagina pubblicata (aeroporto, Chrome senza
+//    finestra): con 2,5 s per foto 23 riquadri su 48 restavano senza posto.
+//    Il giro dell'occhio dura minuti: otto secondi per foto non si sentono.
+export const TEMPO_POSA_PER_VISTA_MS = 8000;
 
 async function posaNelMondo(ctx, vista, grezze, perChiedi, fuori, rilevazioniMondo, etichetta) {
   if (typeof ctx.posa !== "function" || !vista || !vista.camera) return;
@@ -968,11 +971,13 @@ async function posaNelMondo(ctx, vista, grezze, perChiedi, fuori, rilevazioniMon
   }
 }
 
-/** Le cose viste dalla pianta hanno gia' il loro rettangolo: entrano cosi'. */
-function dallaPianta(fuori, esito, etichetta) {
+/** Le cose viste dalla pianta hanno gia' il loro rettangolo: entrano cosi',
+ *  con la quota del piano a cui la pianta appartiene (quando la pianta la sa). */
+function dallaPianta(fuori, esito, etichetta, quotaPiano) {
+  const q = typeof quotaPiano === "number" && Number.isFinite(quotaPiano) ? quotaPiano : null;
   for (const v of (esito && esito.viste) || []) {
     if (!v || !v.mondo) continue;
-    fuori.nelMondo.push({ ...v, vista: etichetta, punti: null, segmento: null, da: "pianta" });
+    fuori.nelMondo.push({ ...v, vista: etichetta, punti: null, segmento: null, da: "pianta", quotaPiano: q });
   }
 }
 

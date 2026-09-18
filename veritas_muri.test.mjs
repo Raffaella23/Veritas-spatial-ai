@@ -325,5 +325,27 @@ const suAltroPiano = costruisci({ ...conPieno, __veritasVistoNelMondo: altroPian
 check('una porta vista al piano di sopra non apre il muro di questo piano',
   !suAltroPiano.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
 
+// Le cose viste in PIANTA: rettangoli dall'alto, con la quota del loro piano.
+const dallaPiantaSottile = [{ termine: 'wall', passo: 'ferma', da: 'pianta', quotaPiano: 0,
+  centro: [20.05, 0, 8.5], mondo: { min: [19.9, 0, 0], max: [20.2, 0, 17.3] } },
+  { termine: 'wall', passo: 'ferma', da: 'pianta', quotaPiano: 0,
+  centro: [20.05, 0, 19.3], mondo: { min: [19.9, 0, 18.7], max: [20.2, 0, 20] } }];
+const pianta1 = costruisci({ ...finestra, __veritasVistoNelMondo: dallaPiantaSottile }, NUVOLA_CIECA, ZONE);
+check('un muro visto in pianta, sottile e sul piano giusto, chiude',
+  !pianta1.lineHasSupport([10, 0, 10], [32, 0, 10], NUVOLA_CIECA));
+const salaIntera = [{ termine: 'wall', passo: 'ferma', da: 'pianta', quotaPiano: 0,
+  centro: [21, 0, 10], mondo: { min: [5, 0, 2], max: [37, 0, 18] } }];
+const pianta2 = costruisci({ ...finestra, __veritasVistoNelMondo: salaIntera }, NUVOLA_CIECA, ZONE);
+check('un riquadro largo come una sala, chiamato «muro», non traccia niente in mezzo alla sala',
+  pianta2.lineHasSupport([10, 0, 10], [32, 0, 10], NUVOLA_CIECA));
+const portaPiantaSopra = [{ termine: 'door', passo: 'varco', da: 'pianta', quotaPiano: 4.5,
+  centro: [20.05, 0, 18], mondo: { min: [19.8, 0, 17.6], max: [20.3, 0, 18.4] } }];
+const pianta3 = costruisci({ ...conPieno, __veritasVistoNelMondo: portaPiantaSopra }, NUVOLA_CIECA, ZONE);
+check('una porta vista nella pianta di un altro piano non apre questo piano',
+  !pianta3.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+const portaPiantaQui = [{ ...portaPiantaSopra[0], quotaPiano: 0 }];
+const pianta4 = costruisci({ ...conPieno, __veritasVistoNelMondo: portaPiantaQui }, NUVOLA_CIECA, ZONE);
+check('la stessa porta nella pianta di questo piano apre', pianta4.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));
 process.exit(ko ? 1 : 0);

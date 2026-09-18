@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-18-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-18-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2066,8 +2066,24 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-18-a";
     const delPiano = (o) => {
       const c = o.centro || (o.mondo && o.mondo.centro);
       if (!c) return false;
-      if (o.da !== "prospettiva") return livelli <= 1;
+      // Una pianta sa a quale piano appartiene (quotaPiano, 18/09/2026): vale per
+      // quel piano. Se non lo sa, vale solo quando il piano e' uno.
+      if (o.da !== "prospettiva") {
+        if (typeof o.quotaPiano === "number") return Math.abs(o.quotaPiano - quota) <= 1.0;
+        return livelli <= 1;
+      }
       return c[1] >= quota - OCCHIO_QUOTA_SOTTO_M && c[1] <= quota + OCCHIO_QUOTA_SOPRA_M;
+    };
+    // Visto dall'ALTO, un elemento che separa e' sottile e lungo: un riquadro
+    // largo (una sala intera chiamata «muro») non traccia una linea in mezzo
+    // alla sala. E un varco visto dall'alto e' piccolo come una porta.
+    const credibileDallAlto = (o) => {
+      if (o.da === "prospettiva" || !o.mondo) return true;
+      const lx = o.mondo.max[0] - o.mondo.min[0], lz = o.mondo.max[2] - o.mondo.min[2];
+      const corto = Math.min(lx, lz), lungo = Math.max(lx, lz);
+      if (o.passo === "ferma") return corto <= 1.5 && lungo / Math.max(corto, 0.1) >= 3;
+      if (o.passo === "varco") return lungo <= 4;
+      return false;
     };
     // Il tratto su cui sta una cosa vista: l'asse principale dei suoi punti,
     // da un estremo all'altro. Senza punti, l'asse lungo del suo rettangolo.
@@ -2095,7 +2111,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-18-a";
     let chiuse = 0, aperte = 0, aperteSulMuro = 0, muri = 0, varchi = 0;
     // 1) chiude
     for (const o of osservazioni) {
-      if (!o || o.passo !== "ferma" || !delPiano(o)) continue;
+      if (!o || o.passo !== "ferma" || !delPiano(o) || !credibileDallAlto(o)) continue;
       const t = tratto(o);
       if (!t || lungo(t[0], t[1]) > OCCHIO_LATO_MASSIMO_M) continue;
       muri++;
@@ -2109,7 +2125,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-18-a";
     }
     // 2) apre, per ultimo
     for (const o of osservazioni) {
-      if (!o || o.passo !== "varco" || !delPiano(o)) continue;
+      if (!o || o.passo !== "varco" || !delPiano(o) || !credibileDallAlto(o)) continue;
       const t = o.segmento ? [[o.segmento[0][0], o.segmento[0][2]], [o.segmento[1][0], o.segmento[1][2]]] : tratto(o);
       if (!t || lungo(t[0], t[1]) > OCCHIO_LATO_MASSIMO_M) continue;
       varchi++;
@@ -30097,7 +30113,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=32"></script>
+<script type="module" src="./veritas_montaggio.js?v=33"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 <script type="module" src="./veritas_apertura.js?v=7"></script>
 </body>
