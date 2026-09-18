@@ -10,12 +10,12 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026 (pagina di attesa nello stile delle immagini di riferimento, stati in successione) |
+| **Aggiornato** | 18/09/2026 (fix 1 di 4: lingua — interfaccia fatta, conversazione da fare; tappe finte della linea del tempo tolte) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `b7a77f0` — *feat: pagina di attesa nello stile delle immagini di riferimento — stati in successione, solo dati misurati, GLB e Gaussian Splat* |
+| **Ultimo commit di codice pubblicato** | `eb2b966` — *fix: interfaccia in una sola lingua — strato veritas_lingua.js, EIDETICA nella conversazione* (prima: `39199e2`, tappe finte della linea del tempo) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-d` — link da dare a Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-d` (la query nuova scavalca la copia vecchia del browser) |
+| **Costruzione dichiarata nel file** | `2026-09-18-f` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-f` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -320,6 +320,10 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   tragitti in linea retta fuori dal modello. L'ipotesi «nomi salvati in
   `nodes_config`» era sbagliata.
 - **Cosa c'è adesso:** tappe iniziali vuote, una scena vuota finché non arriva la
+- **18/09, trovate facendo l'inventario delle scritte e tolte (`39199e2`):** sotto la
+  linea del tempo c'erano cinque `<span>` fissi «INGRESSO · ACCETTAZIONE · CONTROLLO ·
+  LOUNGE · GATE A1», che non venivano da nessuna zona. La guardia
+  `veritas_fittizi.test.mjs` (sezione 4) fallisce se tornano.
   simulazione vera, una sola inquadratura («global»). La guardia
   `veritas_fittizi.test.mjs` legge il bundle vero e fallisce se tornano.
 - ⚠️ **Nascondevano un difetto vero, trovato dalla prova di caricamento reale:** con
@@ -389,6 +393,9 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Pagina di attesa, Gaussian Splat di prova | 18/09 | reale, banco del workspace | ✔ lo splat si vede nel velo (61.079 gaussiane, stessi dati del modello); ✖ il motore vede un solo ambiente (§6.7) |
 | Pagina di attesa in inglese, 1280×720 | 18/09 | reale, banco del workspace | ✔ Standby / Zones / Compliance / Wayfinding; nomi neutri tradotti |
 | `veritas_apertura.test.mjs` | 18/09 | automatico | ✔ 72/72 (erano 34), fra cui «senza dati nessun numero, in nessuno stato, in nessuna lingua» |
+| Tappe finte della linea del tempo tolte, caricamento reale | 18/09 | reale, banco del workspace | ✔ zero errori di pagina, 9 zone e 6 varchi come prima; la riga sotto la linea del tempo è vuota |
+| Inventario delle scritte, prima e dopo `veritas_lingua.js` | 18/09 | reale, banco del workspace (`inventario_lingua.mjs` + `analizza_lingua.mjs`) | prima: una trentina di scritte nella lingua sbagliata; dopo: in italiano nessuna, in inglese solo i messaggi della conversazione (e il nome del progetto, che è un dato) |
+| `veritas_lingua.test.mjs` | 18/09 | automatico | ✔ 35/35 |
 
 **Limiti della verifica, dichiarati:**
 
@@ -411,33 +418,34 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-d` |
-| **Commit / push** | `b7a77f0`, su `main` con autorizzazione di Raffaella («quando è possibile aggiorna GitHub, fermati e fornisci link alla pagina aggiornata») |
-| **File modificati** | `veritas_apertura.js` (riscritto: la pagina di attesa) · `veritas_apertura.test.mjs` (72 prove) · `index.html` (`veritas_apertura.js?v=8`, costruzione) |
-| **Problema** | Raffaella, con quattro immagini di riferimento: «vorrei che la pagina di attesa avesse questo stile con una successione di stati. Il modello glb oppure il Gaussian Splat...» |
-| **Cosa fa ora** | fondo scuro col fumo, modello vero in argilla scura (splat: stessi dati, scurito), report a terminale sul lato; stati: attesa → zone → conformità → orientamento, a giro finché l'occhio non ha parlato; solo misure vere, «--» dove mancano; clic su uno stato lo ferma 20 s; «Entra» chiude sempre; «Dati del modello» dà file, peso, ingombro, mesh o gaussiane |
-| **Test eseguiti** | §7: 72/72 automatiche; banco reale su aeroporto GLB, splat di prova, inglese 1280×720; suite: identica a prima salvo `veritas_corpo_collegato` (2 prove già rotte su `8b96908`, §6.7) |
-| **Limite residuo** | §6.7: pagina che si ferma mentre l'occhio lavora (banco senza GPU); splat inquadrato male dall'app sotto il velo; zone dello splat di prova non trovate dal motore |
-| **Prossimo passo unico** | Raffaella guarda la pagina dal link con `?v=2026-09-18-d` e dice se lo stile e la successione sono quelli voluti |
+| **Costruzione** | `2026-09-18-f` |
+| **Commit / push** | `39199e2` (tappe finte della linea del tempo) e `eb2b966` (lingua), su `main`. Autorizzazione di Raffaella: «comincia fix e commit uno alla volta» |
+| **File modificati** | `index.html` (bundle: `children:[]` al posto delle cinque tappe; conversazione firmata EIDETICA; «Strati», «Analisi / Report»; `veritas_lingua.js?v=1`; `veritas_apertura.js?v=9`) · `veritas_lingua.js` e `veritas_lingua.test.mjs` (nuovi) · `veritas_apertura.js` (titoli delle norme in inglese) · `veritas_fittizi.test.mjs` (sezione 4) |
+| **Problema** | fix 1 di 4 della lista del 18/09: «una parte dell'interfaccia è ancora metà in italiano e metà in inglese» |
+| **Test eseguiti** | §7 |
+| **Limite residuo** | in inglese i messaggi della conversazione di EIDETICA restano in italiano (nascono in italiano in una decina di punti del codice): è la seconda metà di questo fix |
+| **Prossimo passo unico** | Raffaella guarda la -f dal link; poi, col suo via, la conversazione in inglese |
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**Pagina di attesa pubblicata (`b7a77f0`, -d). Adesso:**
+**I quattro fix chiesti da Raffaella il 18/09, uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»):
 
-1. **Raffaella guarda la pagina di attesa** dal link con `?v=2026-09-18-d` e decide
-   se stile e successione degli stati sono giusti. Non si cambia lo stile prima.
-2. **Vedere l'occhio segnare muri e porte dal vivo**: la pagina di attesa ora li
-   DISEGNA (lame per i muri, cornici per le porte, piramidi dove l'occhio guarda),
-   ma sull'aeroporto l'occhio non ne ha dati di credibili. Serve un modello con interni.
-3. **L'occhio in un Web Worker** perché la pagina non si fermi mentre guarda (§6.7).
-4. **Splat**: inquadratura dell'app sotto il velo; zone che il motore non trova (§6.7).
-5. **I tratti in linea retta** (47 sull'aeroporto) e `veritas_corpo_collegato` (§6.7).
+1. **Lingua** — interfaccia fatta (`eb2b966`); resta la **conversazione** in inglese
+   (messaggi di EIDETICA: «Ho ricevuto il modello», «Ho riconosciuto un ambiente
+   articolato»... — FRASI da aggiungere a `veritas_lingua.js`).
+2. **Pagina che non rallenta mentre l'occhio guarda**: l'occhio in un Web Worker (§6.7).
+3. **Soglie di norma**: una tabella delle 19 soglie con la fonte, da far validare a
+   Raffaella; se lo vuole, distinguere i corridoi dagli spazi fra le sedute.
+4. **Nomi giusti agli ambienti** dall'occhio: prova nel Chrome di Raffaella con LM
+   Studio acceso, e un modello con interni veri.
 
-Il banco del workspace funziona e si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`
-(fotografie del velo a istanti dati; `MODELLO`, `SCATTI`, `LINGUA`, `LARGO`/`ALTO`),
-`sonda_stati.mjs` (quali dati esistono e quando), `crea_splat.mjs` (lo splat di prova).
+Altri punti aperti: vedere l'occhio segnare muri e porte (la pagina di attesa li
+disegna); splat inquadrato male sotto il velo; `veritas_corpo_collegato` (§6.7).
+
+Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
+`sonda_stati.mjs`, `crea_splat.mjs`, `inventario_lingua.mjs` + `analizza_lingua.mjs`.
 ⚠️ Lo scratchpad è temporaneo: se non c'è più, si rifà da `banco/finti/supabase_finto.js`.
 
 - **Regole di impianto decise da Raffaella (17/09), eseguite:**
@@ -474,6 +482,8 @@ Il banco del workspace funziona e si riusa: `scratchpad/banco_vivo/prova_attesa.
 | 17/09 | Il canale dell'occhio si costruisce **sulle immagini**, perché funzioni su tutti i modelli, splat compresi; serve anche a risolvere il **riconoscimento delle zone**, non solo i muri |
 | 18/09 | **La pagina di attesa prende lo stile delle immagini di riferimento di Raffaella**: scuro col fumo, modello vero, report a terminale sul lato, quattro stati in successione (attesa, zone, conformità, orientamento). Il resto della piattaforma resta carta. I numeri d'esempio delle immagini non si copiano: solo misure |
 | 18/09 | **Dopo ogni pubblicazione si dà a Raffaella il link con la costruzione nella query** (`?v=<costruzione>`), perché il suo browser le mostrava versioni vecchie. «Quando è possibile aggiorna GitHub, fermati e fornisci link» |
+| 18/09 | **I fix si fanno uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»); ordine: lingua → pagina fluida → soglie di norma → nomi degli ambienti |
+| 18/09 | Le scritte dell'interfaccia nelle due lingue stanno in **un solo dizionario** (`veritas_lingua.js`), che traduce anche il bundle senza toccarlo |
 
 ---
 
