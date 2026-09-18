@@ -10,12 +10,12 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026, mattina (canale dell'occhio provato dal vivo nel workspace; prossimo: codici fittizi del bundle) |
+| **Aggiornato** | 18/09/2026 (canale dell'occhio provato dal vivo; codici fittizi tolti dal bundle) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `67e1cfc` — *fix: il canale dell'occhio, dopo la prova dal vivo — ogni pianta sa il suo piano, e un «muro» grande come l'edificio non traccia niente* |
+| **Ultimo commit di codice pubblicato** | `8b96908` — *fix: tolti dal bundle i codici fittizi — tappe da aeroporto, traiettoria dimostrativa, inquadrature (e il giro che nascondevano)* |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-b` (servita da Pages, controllata) |
+| **Costruzione dichiarata nel file** | `2026-09-18-c` (servita da Pages, controllata: le tappe finte non ci sono più) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -310,32 +310,30 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 - **Nota.** La versione più piccola dello stesso progetto (33 MB) si apre in 322 ms
   ma è **vuota**: 0 `IfcSpace`, 0 geometrie. Non serve a niente.
 
-### 6.5 — ⛔ CODICI FITTIZI NEL BUNDLE: tappe, traiettoria e inquadrature da aeroporto scritte a mano
+### 6.5 — ✅ CODICI FITTIZI NEL BUNDLE — TOLTI il 18/09 (`8b96908`)
 
-- **Sintomo.** Compaiono «Ingresso / Parcheggio, Accettazione, Controllo, Lounge,
-  Imbarco A, Gate A1» anche dove nessuno le ha misurate né viste; 3 tragitti in linea
-  retta partono da tappe fuori dal modello.
-- **Causa accertata (17/09 sera, letta nel bundle e vista sulla pagina pubblicata).**
-  L'ipotesi «nomi salvati in `nodes_config`» è **smentita**. Dentro il bundle
-  (`index.html` ~riga 12843, minificato):
-  1. `iB` = **6 tappe da aeroporto cablate** a coordinate fisse di un altro scalo
-     (`ingresso [-45,0,-38]` … `gate_A1 [48,0,32]`), usate quando il progetto non ha
-     `nodes_config` (`window.__veritasInitialNodes` vuoto);
-  2. `hV()` costruisce da `iB[0..5]` una **traiettoria dimostrativa finta** (360
-     fotogrammi, 28 agenti) con **KPI finti**;
-  3. `hK` = **inquadrature cablate** con nomi da aeroporto («Varco 3D / Security Scan»,
-     «Lounge / Attesa 12m», «Imbarco A / Boarding», «Gate A / Gate A1 Close», «Controllo
-     / Dettaglio Varco») puntate su quelle coordinate.
-  Fuori dal bundle, `index.html` ~righe 4419-4461 **sposta** quelle tappe sugli oggetti o
-  sul cammino (origine `cose`/`cammino`) **lasciando i nomi**. Visto sulla pagina
-  pubblicata: 6 nodi, tutti da quel modello, nessuno misurato.
-- **Danno fatto da me e già corretto nel workspace:** l'apertura `2026-09-17-b`
-  leggeva le zone da `__veritasGetNodes()` e mostrava queste tappe come «misurate».
-  Dalla `-c` legge solo le zone del motore geometrico (§5).
-- **Ordine di Raffaella, 17/09 sera: «rimuovi i codici fittizi quando li trovi».**
-  Prossimo intervento. ⚠️ `hV()` legge `iB[0]`…`iB[5]` per indice: togliere le tappe
-  senza toccare `hV()` fa cadere il bundle al primo render. Serve una prova di
-  caricamento reale prima di pubblicare.
+- **Cosa c'era** (bundle, `index.html` ~riga 12843): `iB` = sei tappe da aeroporto a
+  coordinate fisse di un altro scalo, usate quando il progetto non ha `nodes_config`;
+  `hV()` = una traiettoria dimostrativa di 28 figure finte con una durata inventata
+  di 180 s; `hK` = inquadrature con nomi da aeroporto. Da lì venivano i nomi
+  «Ingresso / Parcheggio, Accettazione, Controllo, Lounge, Imbarco A, Gate A1» e i
+  tragitti in linea retta fuori dal modello. L'ipotesi «nomi salvati in
+  `nodes_config`» era sbagliata.
+- **Cosa c'è adesso:** tappe iniziali vuote, una scena vuota finché non arriva la
+  simulazione vera, una sola inquadratura («global»). La guardia
+  `veritas_fittizi.test.mjs` legge il bundle vero e fallisce se tornano.
+- ⚠️ **Nascondevano un difetto vero, trovato dalla prova di caricamento reale:** con
+  «almeno due nodi» in scena `applyAutoAssignment` non assegnava le zone misurate al
+  primo caricamento. Tolte le tappe finte partiva il giro `analyzeMesh →
+  runStructuralAnalysis → applyAutoAssignment → assegnaZoneMisurate → analyzeMesh`, 80
+  volte, fino a «Maximum call stack size exceeded» e alla scheda crollata. Corretto con
+  una guardia in `assegnaZoneMisurate` (non rifà l'analisi dentro se stessa).
+- **Resta da guardare [DA VERIFICARE]:** fra le tappe del primo caricamento compaiono
+  «Reception» e «Origin» (col sito in inglese) accanto a «Zona N · m²»: da capire se
+  vengono dai nomi delle mesh (`analyzeMesh`) o da un'etichetta di ruolo.
+- **Visto una volta, non ripetuto:** un errore `RuntimeError: unreachable` dentro un
+  modulo WebAssembly (probabilmente Rapier) durante una delle prove; nelle due prove da
+  200 s successive non è ricomparso.
 
 ### 6.6 — Difetti chiusi ma mai riconfermati dal vivo
 
@@ -365,6 +363,8 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Giro dell'occhio sulla pagina pubblicata | 17/09 sera | reale nel browser | ✔ risponde: giro finito a ~5 min; 0 posizioni dalla pianta, 18 cose legate a un'area |
 | Apertura mentre l'occhio lavora | 17/09 sera | reale nel browser | ✖ aperta a 10 s, chiusa a 40 s senza accendere niente |
 | Canale dell'occhio sulla versione pubblicata -a e col codice -b | 18/09 | reale, Chrome senza finestra del workspace (accesso finto dello stub, modello scelto dal pulsante «Nuovo progetto», occhio OWLv2 vero) | ✔ posizioni dalla pianta 213 (prima 0); ✔ 48/48 riquadri dalle prospettive (con 8 s a foto; 25/48 con 2,5 s); ✔ 20 volumi con cose viste dentro; ✔ apertura: 11 zone accese, 2 confermate dall'occhio, chiusa dopo che l'occhio ha parlato; ✖ nessuna marcatura dell'occhio sulla mappa (niente di credibile visto); ✖ cervello non raggiungibile da quel Chrome |
+| Codici fittizi tolti dal bundle, caricamento reale | 18/09 | reale, banco del workspace (app vera, codice del workspace) | ✖ prima della guardia: giro infinito, «Maximum call stack size exceeded», scheda crollata; ✔ con la guardia: modello in 10 s, zero errori di pagina, solo «global», tappe = ambienti misurati; confronto di 200 s con la versione pubblicata: stesso ritmo di rigenerazione della traiettoria, stesse tappe finali |
+| `veritas_fittizi.test.mjs` | 18/09 | automatico | ✔ 19/19 sul workspace; ✖ sulla versione pubblicata prima di `8b96908` (come deve) |
 
 **Limiti della verifica, dichiarati:**
 
@@ -387,31 +387,33 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-b` — servita da Pages al secondo controllo |
-| **Commit / push** | `3a49378` (canale dell'occhio) + `67e1cfc` (correzioni dopo la prova dal vivo), su `main` con autorizzazione di Raffaella |
-| **File modificati** | nuovi: `veritas_posa.js`, `veritas_posa.test.mjs`, `veritas_occhionelmondo.test.mjs` · modificati: `index.html` (`marcaDallOcchio` + guardia «credibile dall'alto»; telecamera nelle foto), `veritas_vista.js` (copia identica), `veritas_comprensione.js`, `veritas_riconosce.js` (`PASSO_DI`), `veritas_montaggio.js`, `veritas_tavole.js` (`quotaPiano`), `veritas_anteprima.js`, `veritas_passo.js`, `veritas_muri.test.mjs` |
-| **Problema** | l'occhio non aveva voce sulla mappa né posizioni dalle foto; le piante grandi mandavano fuori posto ciò che vedeva |
-| **Test eseguiti** | workspace: `veritas_posa` 21/21, `veritas_occhionelmondo` 13/13, `veritas_muri` 13 prove nuove, tutto il resto identico. Dal vivo (§7): versione pubblicata e poi codice -b nell'app vera |
-| **Risultato** | la pianta dà posizioni (213, prima 0); le foto in prospettiva danno posizioni (48/48); 20 volumi con cose viste dentro; la guardia ha fermato due «muri» grandi come l'edificio |
-| **Limite residuo** | **sull'aeroporto l'occhio non ha visto muri né porte credibili**: la marcatura della mappa dall'occhio è provata solo nei test, non ancora dal vivo. Il giro si è fermato presto perché il cervello non rispondeva (in quel Chrome LM Studio non è raggiungibile): nel Chrome di Raffaella, col cervello acceso, i giri successivi guardano anche le viste da dentro, dove muri e porte si vedono. Splat: mai provati |
-| **Prossimo passo unico** | togliere dal bundle i codici fittizi (§6.5), con prova di caricamento reale prima di pubblicare |
+| **Costruzione** | `2026-09-18-c` — servita da Pages al secondo controllo |
+| **Commit / push** | `8b96908`, su `main` con autorizzazione di Raffaella («togliere dal bundle i codici finti… prima di pubblicare lo provo caricato davvero») |
+| **File modificati** | `index.html` (bundle: `iB` vuoto, `hV()` scena vuota, `hK` solo «global»; guardia in `assegnaZoneMisurate`; commento dei marker aggiornato; costruzione) · `veritas_fittizi.test.mjs` (nuovo) |
+| **Problema** | tappe, traiettoria e inquadrature da aeroporto scritte a mano nel bundle, mostrate come se fossero vere (§6.5) |
+| **Test eseguiti** | vedi §7: guardia nuova 19/19; suite identica; caricamento reale nel banco prima e dopo la guardia; confronto di 200 s con la versione pubblicata |
+| **Risultato** | pubblicata e controllata: il sorgente servito da Pages non contiene più le tappe finte |
+| **Limite residuo** | «Reception»/«Origin» fra le tappe del primo caricamento, da capire (§6.5); i 3 tragitti in linea retta restano, adesso fra tappe MISURATE: è la mappa che non le collega (§6.1) |
+| **Prossimo passo unico** | vedere l'occhio segnare muri e porte dal vivo (§9 punto 1) |
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**Il canale è aperto e pubblicato (`3a49378`, `67e1cfc`). Adesso, nell'ordine deciso da Raffaella:**
+**Il canale è aperto e pubblicato (`3a49378`, `67e1cfc`); i codici fittizi sono tolti (`8b96908`). Adesso:**
 
-1. **Togliere dal bundle i codici fittizi** (§6.5): tappe cablate, traiettoria e KPI
-   dimostrativi, inquadrature con nomi da aeroporto. `hV()` legge `iB[0..5]` per
-   indice: prima di pubblicare, prova di caricamento reale (il banco del workspace
-   ora funziona: `banco_vivo/prova_occhio.mjs` nello scratchpad — Chrome senza
-   finestra, stub di Supabase, pulsante «Nuovo progetto», codice del workspace
-   servito al posto di quello pubblicato).
-2. **Vedere l'occhio segnare muri e porte dal vivo**: nel Chrome di Raffaella (cervello
-   acceso, più giri, viste da dentro) oppure su un modello con interni.
+1. **Vedere l'occhio segnare muri e porte dal vivo**: nel Chrome di Raffaella (cervello
+   acceso, più giri, viste da dentro) oppure su un modello con interni. Sull'aeroporto,
+   nel banco, l'occhio non ha visto muri né porte credibili.
+2. **I 3 tragitti in linea retta fra tappe misurate**: la mappa non le collega (§6.1).
 3. **Il riconoscimento delle zone sugli splat**: dare al cervello volumi anche dove
    non ci sono mucchi di oggetti misurati (gli ambienti del motore geometrico).
+4. **«Reception» / «Origin»** fra le tappe del primo caricamento: da dove vengono (§6.5).
+
+Il banco del workspace funziona e si riusa: `scratchpad/banco_vivo/prova_occhio.mjs` e
+`prova_confronto.mjs` (Chrome senza finestra, stub di Supabase, pulsante «Nuovo
+progetto», con `DAL_WORKSPACE=1` il codice del workspace al posto di quello pubblicato).
+⚠️ Lo scratchpad è temporaneo: se non c'è più, si rifà da `banco/finti/supabase_finto.js`.
 
 - **Regole di impianto decise da Raffaella (17/09), eseguite:**
   1. **Nel dubbio vince l'occhio** — la mappa applica l'occhio dopo la geometria; un
