@@ -402,6 +402,47 @@ const CALPESTIO_DI = Object.freeze({
   stairs: "passaggio", stairway: "passaggio", escalator: "passaggio",
 });
 
+// ---------------------------------------------------------------------------
+// 2-quater. IL PASSO: ferma chi cammina, o ci si passa?
+// ---------------------------------------------------------------------------
+//
+// HANDOFF §9, 17/09/2026: «cio' che l'occhio riconosce — "qui e' una parete",
+// "qui si passa" — deve marcare la mappa di cammino. La geometria resta un
+// parere secondario. Nel dubbio vince l'occhio.» E Raffaella, lo stesso
+// giorno: *«non trovo la scritta muro... io voglio un'intelligenza che capisce
+// guardando»*. Muro e varco sono conclusioni da indizi visti, non nomi di mesh.
+//
+// E' la quarta sorella di POSTURA_DI, ARIA_APERTA_DI e CALPESTIO_DI: una
+// parola, una conseguenza. Due valori soli:
+//   · "ferma" — un elemento che separa: dove l'occhio lo vede, di li' non si
+//     passa, anche se la geometria non ci ha visto niente;
+//   · "varco" — un'apertura in una separazione: dove l'occhio lo vede, di li'
+//     si passa, anche se la geometria ci vede un muro pieno (la porta
+//     modellata chiusa).
+//
+// 📌 LA FONTE: Uniclass 2015, tabella EF (Elements/functions), letta il
+//    17/09/2026 da github.com/buildig/uniclass-2015 -> Uniclass2015_EF.csv:
+//      EF_25     Wall and barrier elements
+//      EF_25_10  Walls                    -> "ferma"
+//      EF_25_30  Doors and windows        -> la porta e' "varco", la finestra
+//                                            e' parte della parete: "ferma"
+//      EF_25_55  Barriers                 -> "ferma" (recinzioni, parapetti)
+//    Le scale e le rampe (EF_35) NON stanno qui: collegano piani, e quel
+//    collegamento lo dichiara gia' la navmesh (collegamentiVerticali).
+//
+// ⚠️ QUI NON SI SCRIVE NESSUN TIPO DI EDIFICIO (Regola 0-bis). Le chiavi sono
+//    OGGETTI che l'occhio sa nominare; la conseguenza viene dalla tabella.
+const PASSO_DI = Object.freeze({
+  wall: "ferma",                 // EF_25_10
+  windowpane: "ferma",           // EF_25_30, la finestra
+  fence: "ferma",                // EF_25_55
+  railing: "ferma",              // EF_25_55
+  bannister: "ferma",            // EF_25_55
+  door: "varco",                 // EF_25_30, la porta
+  "screen door": "varco",        // EF_25_30, la porta a vetri
+  "a turnstile": "varco",        // aggiunta dichiarata: si passa, uno alla volta
+});
+
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
 // piu' onesto di una traduzione inventata, e succede solo per gli oggetti che
 // non diventano mai il nome di una zona.
@@ -577,7 +618,8 @@ export const VOCABOLARIO = Object.freeze(
     //    questo registro esiste — resterebbe senza. Una passata sola su
     //    entrambe, e nessuna parola puo' restare indietro per la porta da cui
     //    e' entrata.
-    .map((v) => ({ ...v, calpestio: v.calpestio || CALPESTIO_DI[v.termine] || null }))
+    .map((v) => ({ ...v, calpestio: v.calpestio || CALPESTIO_DI[v.termine] || null,
+                   passo: v.passo || PASSO_DI[v.termine] || null }))
 );
 
 /**
@@ -658,7 +700,7 @@ export function scatolaInMondo(inq, box) {
 //    referto, perche' non ci sarebbe una misura sotto a reggerlo.
 
 /** Quanto due impronte si sovrappongono, rispetto alla piu' piccola. */
-function sovrapposizione(a, b) {
+export function sovrapposizione(a, b) {
   const larg = Math.min(a.max[0], b.max[0]) - Math.max(a.min[0], b.min[0]);
   const prof = Math.min(a.max[2], b.max[2]) - Math.max(a.min[2], b.min[2]);
   if (larg <= 0 || prof <= 0) return 0;
@@ -919,10 +961,13 @@ export async function riconosci(posti, opz = {}) {
       //    che e' lo stesso identico difetto di `occhioSuTutteLeViste()`,
       //    scritta giusta e mai chiamata per due settimane.
       calpestio: r.voce.calpestio || null,
+      // e la quarta: ferma chi cammina, o ci si passa (PASSO_DI)
+      passo: r.voce.passo || null,
       luogo: !!r.voce.luogo,
       controprova: !!r.voce.controprova,
       score: +r.score.toFixed(3),
       centro: r.mondo && r.mondo.centro ? r.mondo.centro.slice() : null,
+      mondo: r.mondo ? { min: r.mondo.min.slice(), max: r.mondo.max.slice() } : null,
     })),
   };
 }
@@ -1327,7 +1372,7 @@ if (typeof window !== "undefined") {
 }
 
 const ESPORTATE = {
-  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI,
+  VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI, PASSO_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,

@@ -258,5 +258,72 @@ const esitoOk = NAV.marcaOstacoli(mappaBase, pochi, finestra.__veritasPerception
 check('un tramezzo normale invece viene accettato',
   esitoOk.applicata, 'chiude il ' + esitoOk.fraseCalo + '% del calpestabile');
 
+// ===========================================================================
+// 7. L'OCCHIO SULLA MAPPA — HANDOFF §9, 17/09/2026: «nel dubbio vince l'occhio».
+// ===========================================================================
+// Le cose viste arrivano posate nel mondo (window.__veritasVistoNelMondo), con
+// la loro conseguenza sul passo. Qui si prova che la mappa le ascolta: dove la
+// geometria non vede niente l'occhio chiude, dove la geometria vede un muro
+// pieno l'occhio apre la porta. Come su uno splat: nessun triangolo richiesto.
+console.log('\n7. l\'occhio sulla mappa di cammino');
+const puntiDiMuro = (z0, z1) => {
+  const p = [];
+  for (let z = z0; z <= z1 + 1e-9; z += 0.5) p.push([20.05, 1.2, z], [20.05, 1.8, z]);
+  return p;
+};
+const muroVisto = [
+  { termine: 'wall', passo: 'ferma', da: 'prospettiva', centro: [20.05, 1.5, 8.7], punti: puntiDiMuro(0, 17.3) },
+  { termine: 'wall', passo: 'ferma', da: 'prospettiva', centro: [20.05, 1.5, 19.3], punti: puntiDiMuro(18.7, 20) },
+];
+detto.length = 0;
+const occhioChiude = costruisci({ ...finestra, __veritasVistoNelMondo: muroVisto }, NUVOLA_CIECA, ZONE);
+check('dove la geometria non vede niente, il muro visto dall\'occhio BLOCCA la linea dritta',
+  !occhioChiude.lineHasSupport([10, 0, 10], [32, 0, 10], NUVOLA_CIECA),
+  'la nuvola dice pavimento continuo; l\'occhio dice muro');
+check('e la mappa lo dichiara', detto.some((r) => /l'occhio sulla mappa/.test(r) && /2 elementi che separano/.test(r)),
+  detto.find((r) => /l'occhio sulla mappa/.test(r)) || 'nessuna riga');
+check('il passaggio lasciato libero dall\'occhio resta libero',
+  occhioChiude.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+
+// La porta modellata chiusa: la geometria legge un muro PIENO da z=0 a z=20.
+const geomPieno = [
+  ...paretina(20.05, 0, 20.05, 20, 0, 3),
+  ...[0, 0, 0, 42, 0, 0, 42, 0, 20, 0, 0, 0, 42, 0, 20, 0, 0, 20],
+];
+const modelloPieno = {
+  updateMatrixWorld() {},
+  traverse(f) {
+    f({ isMesh: true, name: 'Parete', matrixWorld: {},
+        geometry: { index: null, attributes: { position: { count: geomPieno.length / 3, array: geomPieno } } } });
+  },
+};
+const conPieno = { ...finestraConModello, __veritasModelRoot: modelloPieno };
+const senzaOcchio = costruisci(conPieno, NUVOLA_CIECA, ZONE);
+check('(controprova) senza occhio il muro pieno non si passa da nessuna parte',
+  !senzaOcchio.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+const portaVista = [{ termine: 'door', passo: 'varco', da: 'prospettiva', centro: [20.05, 1, 18],
+  segmento: [[20.05, 1, 17.6], [20.05, 1, 18.4]] }];
+detto.length = 0;
+const occhioApre = costruisci({ ...conPieno, __veritasVistoNelMondo: portaVista }, NUVOLA_CIECA, ZONE);
+check('la porta vista dall\'occhio APRE il muro che la geometria vede pieno',
+  occhioApre.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+check('e la mappa dice che ha aperto dove prima c\'era un muro',
+  detto.some((r) => /vince l'occhio/.test(r)), detto.find((r) => /l'occhio sulla mappa/.test(r)) || 'nessuna riga');
+check('il resto del muro resta chiuso', !occhioApre.lineHasSupport([10, 0, 10], [32, 0, 10], NUVOLA_CIECA));
+const viaPorta = occhioApre.findRoute([10, 0, 10], [32, 0, 10]);
+let zPorta = null, rx = 10, rz = 10;
+for (const t of viaPorta) {
+  if ((rx < 20.05) !== (t[0] < 20.05)) zPorta = rz + (t[2] - rz) * ((20.05 - rx) / (t[0] - rx));
+  rx = t[0]; rz = t[2];
+}
+check('il percorso passa dalla porta vista dall\'occhio', zPorta !== null && zPorta > 17.0 && zPorta < 19.0,
+  zPorta === null ? 'non attraversa mai il muro' : 'a z=' + zPorta.toFixed(2));
+
+const altroPiano = [{ termine: 'door', passo: 'varco', da: 'prospettiva', centro: [20.05, 6, 18],
+  segmento: [[20.05, 6, 17.6], [20.05, 6, 18.4]] }];
+const suAltroPiano = costruisci({ ...conPieno, __veritasVistoNelMondo: altroPiano }, NUVOLA_CIECA, ZONE);
+check('una porta vista al piano di sopra non apre il muro di questo piano',
+  !suAltroPiano.lineHasSupport([19, 0, 18], [22, 0, 18], NUVOLA_CIECA));
+
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));
 process.exit(ko ? 1 : 0);

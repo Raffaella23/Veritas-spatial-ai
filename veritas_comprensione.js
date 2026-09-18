@@ -55,7 +55,7 @@
 //
 // ===========================================================================
 
-import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio } from "./veritas_riconosce.js?v=4";
+import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio, abbina, sovrapposizione } from "./veritas_riconosce.js?v=5";
 
 // ---------------------------------------------------------------------------
 // 1. Le soglie. Dichiarate qui, una volta, e non sparse nel codice.
@@ -744,8 +744,12 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
 
   // `regioni`: le testimonianze dei primi piani, ognuna legata al RETTANGOLO
   // di mondo che quello scorcio ha inquadrato. Vedi il commento piu' sotto.
+  // `nelMondo` (17/09/2026): TUTTO cio' che l'occhio ha visto e che si e' potuto
+  // posare nello spazio — dalle piante (rettangolo) e dalle prospettive (raggi
+  // dalla telecamera della foto). Serve alla mappa di cammino e alle zone.
   const fuori = { esitoPianta: null, esitiPianta: [], testimonianza: null,
-                  viste: [], regioni: [] };
+                  viste: [], regioni: [], nelMondo: [], perVolume: [],
+                  posa: { viste: 0, riquadri: 0, posati: 0, senzaColpo: 0, tempoEsaurito: 0 } };
   if (typeof ctx.rileva !== "function") return fuori;
 
   // (a) la pianta: e' l'unica che da' posizioni, e passa dalla strada di sempre
@@ -758,6 +762,7 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
       if (e && e.ok) {
         fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: "pianta del pavimento", esito: e });
+        dallaPianta(fuori, e, "pianta del pavimento");
       }
     } catch (e) { /* la pianta muta non deve fermare gli scorci */ }
   }
@@ -791,6 +796,7 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
       if (e && e.ok) {
         if (!fuori.esitoPianta) fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: v.etichetta || "pianta", esito: e });
+        dallaPianta(fuori, e, v.etichetta || "pianta");
       }
     } catch (err) { /* una tavola muta non deve fermare le altre */ }
   }
@@ -804,10 +810,13 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
   const scorci = tutteLeViste.filter((v) => !v.inquadratura);
   // Per risalire dalla parola chiesta alla voce che porta le conseguenze.
   const perChiedi = new Map(voci.map((v) => [v.chiedi, v]));
+  const rilevazioniMondo = [];
   for (let i = 0; i < scorci.length; i++) {
     let grezze = null;
     try { grezze = await ctx.rileva(scorci[i], chiedi); } catch (e) { grezze = null; }
     if (!Array.isArray(grezze)) continue;
+    await posaNelMondo(ctx, scorci[i], grezze, perChiedi, fuori, rilevazioniMondo,
+      scorci[i].etichetta || ("scorcio " + (i + 1)));
     const conta = new Map(), meglio = new Map();
     for (const g of grezze) {
       if (!g || typeof g.score !== "number" || !g.label) continue;
@@ -887,8 +896,112 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
     annunciaVista(ctx, fuori.viste[fuori.viste.length - 1], i + 1, scorci.length);
   }
 
+  // ⚠️ I NOMI DAI RIQUADRI POSATI — 17/09/2026. Le cose viste in prospettiva e
+  //    posate nel mondo passano dallo STESSO abbinamento della pianta: una
+  //    seduta vista da dentro, a un metro e sessanta, nomina il mucchio di
+  //    sedute sotto di lei esattamente come la vedrebbe la pianta dall'alto.
+  //    Non e' un secondo meccanismo: e' `abbina`, con piu' occhi.
+  if (rilevazioniMondo.length && Array.isArray(ctx.posti) && ctx.posti.length) {
+    try {
+      const e = abbina(ctx.posti, rilevazioniMondo);
+      const nominati = (e.posti || []).filter((p) => p.nome).length;
+      fuori.esitiPianta.push({ vista: "viste in prospettiva, posate nel mondo",
+        esito: { ok: true, ...e, rilevazioni: rilevazioniMondo.length, nominati } });
+    } catch (e) { /* un abbinamento che non riesce non cancella la testimonianza */ }
+  }
+  fuori.perVolume = cosePerVolume(ctx.posti, fuori.nelMondo);
   fuori.testimonianza = riassuntoTestimonianza(fuori);
   return fuori;
+}
+
+// ---------------------------------------------------------------------------
+// 4-ter. DOVE STA CIO' CHE L'OCCHIO VEDE — 17/09/2026, HANDOFF §9
+// ---------------------------------------------------------------------------
+//
+// Fino a oggi da una prospettiva usciva solo un elenco di parole: «ho visto
+// sedute», senza un posto. Adesso ogni foto porta la sua telecamera, e ogni
+// riquadro dell'occhio si rimette nello spazio lanciando raggi da quella
+// telecamera dentro il riquadro (veritas_posa.js, iniettato come `ctx.posa`).
+// Un varco (porta, tornello) si posa sul piano del muro attorno al buco, non su
+// quello che si vede attraverso (`ctx.posaVarco`).
+//
+// I limiti, dichiarati: i riquadri piu' sicuri per foto, e un tempo massimo
+// per foto; oltre, la foto passa e lo si conta (`fuori.posa.tempoEsaurito`).
+export const RIQUADRI_POSATI_PER_VISTA = 24;
+export const TEMPO_POSA_PER_VISTA_MS = 2500;
+
+async function posaNelMondo(ctx, vista, grezze, perChiedi, fuori, rilevazioniMondo, etichetta) {
+  if (typeof ctx.posa !== "function" || !vista || !vista.camera) return;
+  fuori.posa.viste++;
+  if (typeof ctx.aggiornaModello === "function") { try { ctx.aggiornaModello(); } catch (e) {} }
+  const candidate = grezze
+    .filter((g) => g && g.box && typeof g.score === "number"
+      && g.score >= FIDUCIA_MINIMA_TESTIMONE && perChiedi.get(g.label))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, RIQUADRI_POSATI_PER_VISTA);
+  const inizio = Date.now();
+  for (let k = 0; k < candidate.length; k++) {
+    if (Date.now() - inizio > TEMPO_POSA_PER_VISTA_MS) { fuori.posa.tempoEsaurito += candidate.length - k; break; }
+    const g = candidate[k], v = perChiedi.get(g.label);
+    fuori.posa.riquadri++;
+    let p = null;
+    try {
+      p = (v.passo === "varco" && typeof ctx.posaVarco === "function")
+        ? await ctx.posaVarco(vista, g.box)
+        : await ctx.posa(vista, g.box);
+    } catch (e) { p = null; }
+    if (!p || !p.mondo) { fuori.posa.senzaColpo++; continue; }
+    fuori.posa.posati++;
+    fuori.nelMondo.push({
+      termine: v.termine, nome: v.nome, score: +g.score.toFixed(3), vista: etichetta,
+      passo: v.passo || null, calpestio: v.calpestio || null, ariaAperta: v.ariaAperta || null,
+      postura: v.postura || null, funzione: v.funzione || null,
+      luogo: !!v.luogo, controprova: !!v.controprova,
+      mondo: p.mondo, centro: p.centro || p.mondo.centro || null,
+      punti: Array.isArray(p.punti) ? p.punti.slice(0, 25) : null,
+      segmento: p.segmento || null,
+      da: "prospettiva",
+    });
+    rilevazioniMondo.push({ score: g.score, voce: v, mondo: p.mondo });
+    // la pagina respira fra un riquadro e l'altro: l'analisi non deve fermarla
+    await new Promise((r) => setTimeout(r, 0));
+  }
+}
+
+/** Le cose viste dalla pianta hanno gia' il loro rettangolo: entrano cosi'. */
+function dallaPianta(fuori, esito, etichetta) {
+  for (const v of (esito && esito.viste) || []) {
+    if (!v || !v.mondo) continue;
+    fuori.nelMondo.push({ ...v, vista: etichetta, punti: null, segmento: null, da: "pianta" });
+  }
+}
+
+/**
+ * PER OGNI VOLUME MISURATO, che cosa l'occhio ci ha visto DENTRO.
+ * E' la testimonianza che serve al riconoscimento delle zone: non «ho visto
+ * sedute» in generale, ma «nel volume 3 ho visto sedute, da quattro foto».
+ */
+export function cosePerVolume(posti, nelMondo) {
+  const out = [];
+  (posti || []).forEach((p, id) => {
+    if (!p || !p.ingombro) return;
+    const cose = new Map();
+    for (const o of (nelMondo || [])) {
+      if (!o || !o.mondo || o.controprova || o.luogo) continue;
+      const c = o.centro || o.mondo.centro;
+      const dentro = !!c && c[0] >= p.ingombro.min[0] - 0.5 && c[0] <= p.ingombro.max[0] + 0.5
+        && c[2] >= p.ingombro.min[2] - 0.5 && c[2] <= p.ingombro.max[2] + 0.5;
+      if (!dentro && !(sovrapposizione(p.ingombro, o.mondo) > 0)) continue;
+      const q = cose.get(o.nome) || { nome: o.nome, viste: new Set(), fiducia: 0, quante: 0 };
+      q.viste.add(o.vista); q.quante++; q.fiducia = Math.max(q.fiducia, o.score || 0);
+      cose.set(o.nome, q);
+    }
+    if (!cose.size) return;
+    out.push({ id, area: p.area != null ? Math.round(p.area) : null,
+      cose: [...cose.values()].sort((a, b) => b.viste.size - a.viste.size || b.fiducia - a.fiducia)
+        .slice(0, 5).map((q) => ({ nome: q.nome, viste: q.viste.size, quante: q.quante, fiducia: +q.fiducia.toFixed(2) })) });
+  });
+  return out;
 }
 
 // Sotto questa fiducia una rilevazione su una prospettiva e' rumore: sulla
@@ -915,6 +1028,16 @@ function riassuntoTestimonianza(o) {
     righe.push(v.vista + ": " + (v.cose.length
       ? v.cose.map((x) => x.cosa + " x" + x.quante).join(", ")
       : "niente di riconosciuto"));
+  }
+  // ⚠️ E DOVE — 17/09/2026. Per volume, quello che l'occhio ci ha visto dentro,
+  //    posato nel mondo. Pochi volumi e poche cose: il prompt resta corto.
+  if (o.perVolume && o.perVolume.length) {
+    righe.push("DOVE l'occhio ha visto le cose (posate nello spazio, volume per volume):");
+    for (const v of o.perVolume.slice(0, 12)) {
+      righe.push("volume " + v.id + (v.area != null ? " (" + v.area + " m2)" : "") + ": "
+        + v.cose.map((c) => c.nome + " (" + c.viste + (c.viste === 1 ? " foto" : " foto diverse")
+          + ", fiducia " + c.fiducia + ")").join(", "));
+    }
   }
   return righe.length ? righe.join("\n") : null;
 }
@@ -1150,7 +1273,22 @@ export async function comprendiGuardando(ctx) {
         //    leggerebbe — che e' il difetto di `occhioSuTutteLeViste()`,
         //    scritta giusta e mai chiamata per due settimane.
         window.__veritasVisteRegione = (visto && visto.regioni) || [];
+        // 17/09/2026: cio' che l'occhio ha visto, posato nel mondo. Lo legge
+        // la mappa di cammino (muri e varchi visti) — vince l'occhio.
+        window.__veritasVistoNelMondo = (visto && visto.nelMondo) || [];
       } catch (e) {}
+      if (visto && visto.posa) {
+        const P = visto.posa, nm = visto.nelMondo || [];
+        console.log("[VERITAS occhio] nel mondo: " + nm.length + " cose posate ("
+          + nm.filter((o) => o.da === "pianta").length + " dalle piante, "
+          + nm.filter((o) => o.da === "prospettiva").length + " dalle prospettive: "
+          + P.posati + " riquadri su " + P.riquadri + " da " + P.viste + " foto"
+          + (P.senzaColpo ? ", " + P.senzaColpo + " senza colpo" : "")
+          + (P.tempoEsaurito ? ", " + P.tempoEsaurito + " saltati per tempo" : "") + ") — "
+          + nm.filter((o) => o.passo === "ferma").length + " elementi che separano, "
+          + nm.filter((o) => o.passo === "varco").length + " varchi; "
+          + (visto.perVolume || []).length + " volumi con qualcosa visto dentro");
+      }
       const regioni = (visto && visto.regioni) || [];
       console.log("[VERITAS occhio] ha guardato per primo "
         + (1 + (ctx.scorci || []).length) + " viste col vocabolario intero"

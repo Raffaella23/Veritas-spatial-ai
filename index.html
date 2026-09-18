@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-17-c";
+window.__EIDETICA_COSTRUZIONE = "2026-09-18-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -1943,12 +1943,18 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-17-c";
   // rileggono con un'altra domanda. Si costruisce una volta per analisi, non a
   // ogni percorso, e una per livello: in un edificio a piu' piani il piano
   // terra non dice dove sono i muri del primo.
-  let navMappe = null, navMappePer = null;
+  let navMappe = null, navMappePer = null, navOcchioPer = null;
   let navSegnalato = false;
   function veritasMappaCammino(y) {
     const nav = window.__veritasNavigazione;
     if (!nav) return null;
-    if (navMappePer !== lastNavigablePoints) { navMappe = null; navMappePer = lastNavigablePoints; }
+    // Si rifa' anche quando l'occhio consegna cose nuove posate nel mondo
+    // (17/09/2026): la mappa deve ascoltarlo, non restare quella di prima.
+    const occhio = (typeof window !== "undefined" && Array.isArray(window.__veritasVistoNelMondo))
+      ? window.__veritasVistoNelMondo : null;
+    if (navMappePer !== lastNavigablePoints || navOcchioPer !== occhio) {
+      navMappe = null; navMappePer = lastNavigablePoints; navOcchioPer = occhio;
+    }
     if (!navMappe) {
       navMappe = [];
       const motore = window.__veritasPerceptionEngine;
@@ -1979,6 +1985,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-17-c";
               }
             }
           }
+          // ⚠️ E L'ULTIMA PAROLA E' DELL'OCCHIO — HANDOFF §9, 17/09/2026: «nel
+          //    dubbio vince l'occhio». Dopo la geometria, non prima.
+          if (m && occhio && occhio.length) m = marcaDallOcchio(m, occhio, q, motore, quote.length);
           if (m) navMappe.push(m);
         } catch (e) { console.warn("[VERITAS cammino] livello " + q + " non mappato:", e && e.message); }
       }
@@ -2022,6 +2031,112 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-17-c";
       if (d < bd) { bd = d; best = m; }
     }
     return best;
+  }
+
+  // L'OCCHIO SULLA MAPPA DI CAMMINO — HANDOFF §9, 17/09/2026.
+  //
+  // Raffaella: «cio' che l'occhio riconosce — "qui e' una parete", "qui si
+  // passa" — deve marcare la mappa di cammino. La geometria resta un parere
+  // secondario. Nel dubbio vince l'occhio.» E: deve funzionare anche su uno
+  // splat, dove di triangoli non ce n'e' nessuno.
+  //
+  // Le cose viste arrivano gia' posate nel mondo (veritas_posa.js, dentro il
+  // giro dell'occhio): ognuna porta la sua conseguenza sul passo (PASSO_DI in
+  // veritas_riconosce.js, dalla tabella Uniclass EF):
+  //   · "ferma" (muro, vetrata, ringhiera, recinzione): si chiude la linea su
+  //     cui l'occhio l'ha vista, anche dove la geometria non ci vedeva niente;
+  //   · "varco" (porta, porta a vetri, tornello): si APRE il passaggio, anche
+  //     dove la geometria vede un muro pieno — la porta modellata chiusa.
+  // Prima le chiusure, poi le aperture: una porta vista dentro un muro visto
+  // resta una porta. Una linea, non un'area: l'occhio che sbaglia un posto
+  // chiude un tratto, non mezza sala.
+  const OCCHIO_QUOTA_SOTTO_M = 0.5, OCCHIO_QUOTA_SOPRA_M = 3.0;
+  const OCCHIO_LATO_MASSIMO_M = 60;
+  const OCCHIO_MEZZA_PORTA_M = 0.45;
+  function marcaDallOcchio(m, osservazioni, quota, motore, livelli) {
+    if (!m || !motore || typeof motore.distanceTransform !== "function") return m;
+    const libera = m.libera.slice();
+    const muroLetto = m.muroLetto ? m.muroLetto.slice() : new Uint8Array(m.libera.length);
+    const cella = (x, z) => {
+      const cx = Math.floor((x - m.minX) / m.cellSize), cz = Math.floor((z - m.minZ) / m.cellSize);
+      return (cx < 0 || cz < 0 || cx >= m.w || cz >= m.h) ? -1 : cz * m.w + cx;
+    };
+    // Del piano: una cosa vista in prospettiva ha la sua quota vera; una vista
+    // in pianta non ce l'ha, e vale solo se il piano e' uno.
+    const delPiano = (o) => {
+      const c = o.centro || (o.mondo && o.mondo.centro);
+      if (!c) return false;
+      if (o.da !== "prospettiva") return livelli <= 1;
+      return c[1] >= quota - OCCHIO_QUOTA_SOTTO_M && c[1] <= quota + OCCHIO_QUOTA_SOPRA_M;
+    };
+    // Il tratto su cui sta una cosa vista: l'asse principale dei suoi punti,
+    // da un estremo all'altro. Senza punti, l'asse lungo del suo rettangolo.
+    const tratto = (o) => {
+      let xz = (o.punti || []).filter((p) => Array.isArray(p)
+        && (o.da !== "prospettiva" || (p[1] >= quota + 0.1 && p[1] <= quota + 2.5))).map((p) => [p[0], p[2]]);
+      if (xz.length < 2 && o.mondo) {
+        const a = o.mondo.min, b = o.mondo.max;
+        const lx = b[0] - a[0], lz = b[2] - a[2], cz = (a[2] + b[2]) / 2, cx = (a[0] + b[0]) / 2;
+        xz = lx >= lz ? [[a[0], cz], [b[0], cz]] : [[cx, a[2]], [cx, b[2]]];
+      }
+      if (!xz.length) return null;
+      if (xz.length === 1) return [xz[0], xz[0]];
+      let mx = 0, mz = 0;
+      for (const p of xz) { mx += p[0]; mz += p[1]; }
+      mx /= xz.length; mz /= xz.length;
+      let sxx = 0, szz = 0, sxz = 0;
+      for (const p of xz) { const dx = p[0] - mx, dz = p[1] - mz; sxx += dx * dx; szz += dz * dz; sxz += dx * dz; }
+      const ang = 0.5 * Math.atan2(2 * sxz, sxx - szz), ux = Math.cos(ang), uz = Math.sin(ang);
+      let t0 = Infinity, t1 = -Infinity;
+      for (const p of xz) { const t = (p[0] - mx) * ux + (p[1] - mz) * uz; if (t < t0) t0 = t; if (t > t1) t1 = t; }
+      return [[mx + ux * t0, mz + uz * t0], [mx + ux * t1, mz + uz * t1]];
+    };
+    const lungo = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+    let chiuse = 0, aperte = 0, aperteSulMuro = 0, muri = 0, varchi = 0;
+    // 1) chiude
+    for (const o of osservazioni) {
+      if (!o || o.passo !== "ferma" || !delPiano(o)) continue;
+      const t = tratto(o);
+      if (!t || lungo(t[0], t[1]) > OCCHIO_LATO_MASSIMO_M) continue;
+      muri++;
+      const n = Math.max(1, Math.ceil(lungo(t[0], t[1]) / (m.cellSize * 0.5)));
+      for (let k = 0; k <= n; k++) {
+        const f = k / n, i = cella(t[0][0] + (t[1][0] - t[0][0]) * f, t[0][1] + (t[1][1] - t[0][1]) * f);
+        if (i < 0) continue;
+        muroLetto[i] = 1;
+        if (libera[i]) { libera[i] = 0; chiuse++; }
+      }
+    }
+    // 2) apre, per ultimo
+    for (const o of osservazioni) {
+      if (!o || o.passo !== "varco" || !delPiano(o)) continue;
+      const t = o.segmento ? [[o.segmento[0][0], o.segmento[0][2]], [o.segmento[1][0], o.segmento[1][2]]] : tratto(o);
+      if (!t || lungo(t[0], t[1]) > OCCHIO_LATO_MASSIMO_M) continue;
+      varchi++;
+      const r = Math.max(OCCHIO_MEZZA_PORTA_M, m.cellSize);
+      const x0 = Math.min(t[0][0], t[1][0]) - r, x1 = Math.max(t[0][0], t[1][0]) + r;
+      const z0 = Math.min(t[0][1], t[1][1]) - r, z1 = Math.max(t[0][1], t[1][1]) + r;
+      const L2 = Math.max(1e-9, (t[1][0] - t[0][0]) ** 2 + (t[1][1] - t[0][1]) ** 2);
+      for (let z = z0; z <= z1; z += m.cellSize * 0.5) {
+        for (let x = x0; x <= x1; x += m.cellSize * 0.5) {
+          const u = Math.max(0, Math.min(1, ((x - t[0][0]) * (t[1][0] - t[0][0]) + (z - t[0][1]) * (t[1][1] - t[0][1])) / L2));
+          const px = t[0][0] + (t[1][0] - t[0][0]) * u, pz = t[0][1] + (t[1][1] - t[0][1]) * u;
+          if (Math.hypot(x - px, z - pz) > r) continue;
+          const i = cella(x, z);
+          if (i < 0 || libera[i]) continue;
+          if (muroLetto[i]) aperteSulMuro++;
+          libera[i] = 1; muroLetto[i] = 0; aperte++;
+        }
+      }
+    }
+    if (!muri && !varchi) return m;
+    const ft = motore.distanceTransform({ w: m.w, h: m.h, free: libera, cellSize: m.cellSize });
+    console.log("[VERITAS cammino] l'occhio sulla mappa (livello " + (+quota).toFixed(2) + " m): "
+      + muri + " elementi che separano, " + chiuse + " celle chiuse; "
+      + varchi + " varchi, " + aperte + " celle aperte"
+      + (aperteSulMuro ? " (" + aperteSulMuro + " dove prima c'era un muro: vince l'occhio)" : ""));
+    return { ...m, libera, distanza: ft.dist, muroLetto,
+             dallOcchio: { muri, varchi, chiuse, aperte, aperteSulMuro } };
   }
 
   // I MURI LETTI DAL MODELLO, invece che dedotti dai buchi.
@@ -13577,6 +13692,19 @@ function mondoAPixel(inq, x, z) {
  * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
  * Logica pura, provabile in node.
  */
+// La telecamera di una foto, com'era nell'istante dello scatto (17/09/2026).
+// Con questa, un riquadro disegnato dall'occhio si rimette nello spazio del
+// modello lanciando raggi dalla stessa telecamera: veritas_posa.js.
+function istantaneaDellaCamera(cam) {
+  if (!cam || !cam.projectionMatrix || !cam.matrixWorld) return null;
+  return {
+    ortografica: !!cam.isOrthographicCamera,
+    proiezione: Array.from(cam.projectionMatrix.elements),
+    mondo: Array.from(cam.matrixWorld.elements),
+    vicino: cam.near, lontano: cam.far,
+  };
+}
+
 function raddrizza(pixel, larghezza, altezza) {
   const fuori = new Uint8Array(pixel.length);
   const riga = larghezza * 4;
@@ -14009,6 +14137,9 @@ function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
                        larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
                        etichetta: opzioni.etichetta || null,
                        regione,
+                       // la telecamera dello scatto: serve a posare nel mondo cio' che
+                       // l'occhio vedra' in questa foto (veritas_posa.js)
+                       camera: istantaneaDellaCamera(cam),
                        altezzaTelecamera: +quotaTelecamera.toFixed(2),
                        pixelPerMetro: +(altezza / (2 * distanza
                          * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
@@ -14523,6 +14654,8 @@ function vistaDalCamminatore(THREE, renderer, radice, opzioni = {}) {
       // la stessa forma di uno scorcio ravvicinato: chi la legge non deve
       // sapere da dove viene
       regione,
+      // la telecamera dello scatto, per posare nel mondo cio' che l'occhio vede
+      camera: istantaneaDellaCamera(cam),
       // ...e il ventaglio vero, per chi vorra' essere esatto
       poligono: iso ? iso.polygon : null,
       quantoPiuLargo,
@@ -29964,7 +30097,7 @@ if (typeof window !== 'undefined') {
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=31"></script>
+<script type="module" src="./veritas_montaggio.js?v=32"></script>
 <script type="module" src="./veritas_passo.js?v=1"></script>
 <script type="module" src="./veritas_apertura.js?v=7"></script>
 </body>

@@ -65,12 +65,15 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=13"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=14"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=15";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=4";
+import { anteprima } from "./veritas_anteprima.js?v=16";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=5";
+// Dove sta cio' che l'occhio vede (17/09/2026): i riquadri in frazioni, e i
+// raggi dalla telecamera della foto fino al modello.
+import { inFrazioni, posaRiquadro, posaVarco } from "./veritas_posa.js?v=1";
 
 // ⚠️ L'OCCHIO E' UNO SOLO, E NELLA PAGINA C'E' GIA'.
 //
@@ -983,7 +986,17 @@ window.__veritasComprendi = async function (opz = {}) {
     //    stessa pagina sono il guasto del 06/09 — tre occhi accesi, e a
     //    scrivere le maniglie era l'ultima che finiva di caricarsi, cioe' a
     //    caso. Una chiusura sola, usata da tutti e due.
-    const guardaUnaTela = (immagine, parole) => rilevatore(telaDa(immagine), parole);
+    //
+    // ⚠️ E I RIQUADRI ESCONO SEMPRE IN FRAZIONI DELLA TELA MANDATA — 17/09/2026.
+    //    OWLv2 li da' in pixel della tela che riceve, e la tela di una pianta
+    //    grande e' rimpicciolita qui sopra (2048 -> 1024): `scatolaInMondo` li
+    //    leggeva come pixel della pianta intera e metteva ogni cosa a meta'
+    //    strada dal suo posto. Il VLM li divideva gia'; adesso tutti.
+    const guardaUnaTela = async (immagine, parole) => {
+      const tela = telaDa(immagine);
+      const grezze = await rilevatore(tela, parole);
+      return inFrazioni(grezze, tela && tela.width, tela && tela.height);
+    };
     window.__veritasRileva = guardaUnaTela;
 
     const ctx = pannello.collega({
@@ -993,6 +1006,12 @@ window.__veritasComprendi = async function (opz = {}) {
       scorci,                    // le altre inquadrature dello stesso posto
       dominio: opz.dominio || window.__veritasProjectType || null,
       rileva: guardaUnaTela,
+      // ⚠️ DOVE STA CIO' CHE L'OCCHIO VEDE — 17/09/2026, HANDOFF §9. Ogni foto
+      //    porta la sua telecamera; un riquadro dell'occhio si rimette nello
+      //    spazio con i raggi di quella telecamera. Vale per mesh, IFC e splat.
+      posa: (vista, box) => posaRiquadro(THREE, radice, vista, box, { aggiorna: false }),
+      posaVarco: (vista, box) => posaVarco(THREE, radice, vista, box, { aggiorna: false }),
+      aggiornaModello: () => { try { (radice.parent || radice).updateMatrixWorld(true); } catch (e) {} },
       cervello: opz.cervello || cervello,
       // ⚠️ LO SCHERMO SI AGGIORNA A OGNI GIRO, non alla fine — 09/09/2026.
       //    Raffaella: *«man mano che l'occhio si rende in grado di fare le

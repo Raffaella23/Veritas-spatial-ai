@@ -87,7 +87,20 @@ export function mondoAPixel(inq, x, z) {
  * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
  * Logica pura, provabile in node.
  */
-export function raddrizza(pixel, larghezza, altezza) {
+export // La telecamera di una foto, com'era nell'istante dello scatto (17/09/2026).
+// Con questa, un riquadro disegnato dall'occhio si rimette nello spazio del
+// modello lanciando raggi dalla stessa telecamera: veritas_posa.js.
+function istantaneaDellaCamera(cam) {
+  if (!cam || !cam.projectionMatrix || !cam.matrixWorld) return null;
+  return {
+    ortografica: !!cam.isOrthographicCamera,
+    proiezione: Array.from(cam.projectionMatrix.elements),
+    mondo: Array.from(cam.matrixWorld.elements),
+    vicino: cam.near, lontano: cam.far,
+  };
+}
+
+function raddrizza(pixel, larghezza, altezza) {
   const fuori = new Uint8Array(pixel.length);
   const riga = larghezza * 4;
   for (let y = 0; y < altezza; y++) {
@@ -519,6 +532,9 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
                        larghezza, altezza, azimuth, elevazioneGradi, densita, numeroMesh,
                        etichetta: opzioni.etichetta || null,
                        regione,
+                       // la telecamera dello scatto: serve a posare nel mondo cio' che
+                       // l'occhio vedra' in questa foto (veritas_posa.js)
+                       camera: istantaneaDellaCamera(cam),
                        altezzaTelecamera: +quotaTelecamera.toFixed(2),
                        pixelPerMetro: +(altezza / (2 * distanza
                          * Math.tan(fovGradi * Math.PI / 360))).toFixed(1) });
@@ -1033,6 +1049,8 @@ export function vistaDalCamminatore(THREE, renderer, radice, opzioni = {}) {
       // la stessa forma di uno scorcio ravvicinato: chi la legge non deve
       // sapere da dove viene
       regione,
+      // la telecamera dello scatto, per posare nel mondo cio' che l'occhio vede
+      camera: istantaneaDellaCamera(cam),
       // ...e il ventaglio vero, per chi vorra' essere esatto
       poligono: iso ? iso.polygon : null,
       quantoPiuLargo,
