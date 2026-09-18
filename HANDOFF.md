@@ -10,12 +10,12 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026 (fix 1 di 4: lingua — interfaccia fatta, conversazione da fare; tappe finte della linea del tempo tolte) |
+| **Aggiornato** | 18/09/2026 (fix 1 di 4 chiuso: interfaccia e conversazione nella lingua scelta) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `eb2b966` — *fix: interfaccia in una sola lingua — strato veritas_lingua.js, EIDETICA nella conversazione* (prima: `39199e2`, tappe finte della linea del tempo) |
+| **Ultimo commit di codice pubblicato** | `9e4648e` — *fix: la conversazione di EIDETICA in inglese, frase per frase* (prima: `eb2b966` interfaccia, `39199e2` tappe finte della linea del tempo) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-f` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-f` |
+| **Costruzione dichiarata nel file** | `2026-09-18-g` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-g` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -396,6 +396,7 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Tappe finte della linea del tempo tolte, caricamento reale | 18/09 | reale, banco del workspace | ✔ zero errori di pagina, 9 zone e 6 varchi come prima; la riga sotto la linea del tempo è vuota |
 | Inventario delle scritte, prima e dopo `veritas_lingua.js` | 18/09 | reale, banco del workspace (`inventario_lingua.mjs` + `analizza_lingua.mjs`) | prima: una trentina di scritte nella lingua sbagliata; dopo: in italiano nessuna, in inglese solo i messaggi della conversazione (e il nome del progetto, che è un dato) |
 | `veritas_lingua.test.mjs` | 18/09 | automatico | ✔ 35/35 |
+| Conversazione in inglese, banco | 18/09 | reale, banco del workspace, piattaforma in inglese, 45 s | ✔ 14 messaggi su 14 in inglese, 87 scritte tradotte, nessuna scritta italiana visibile (salvo il nome del progetto); `veritas_lingua.test.mjs` 45/45 |
 
 **Limiti della verifica, dichiarati:**
 
@@ -418,13 +419,13 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-f` |
-| **Commit / push** | `39199e2` (tappe finte della linea del tempo) e `eb2b966` (lingua), su `main`. Autorizzazione di Raffaella: «comincia fix e commit uno alla volta» |
+| **Costruzione** | `2026-09-18-g` |
+| **Commit / push** | `39199e2` (tappe finte della linea del tempo), `eb2b966` (interfaccia) e `9e4648e` (conversazione), su `main`. Autorizzazione di Raffaella: «comincia fix e commit uno alla volta» |
 | **File modificati** | `index.html` (bundle: `children:[]` al posto delle cinque tappe; conversazione firmata EIDETICA; «Strati», «Analisi / Report»; `veritas_lingua.js?v=1`; `veritas_apertura.js?v=9`) · `veritas_lingua.js` e `veritas_lingua.test.mjs` (nuovi) · `veritas_apertura.js` (titoli delle norme in inglese) · `veritas_fittizi.test.mjs` (sezione 4) |
 | **Problema** | fix 1 di 4 della lista del 18/09: «una parte dell'interfaccia è ancora metà in italiano e metà in inglese» |
 | **Test eseguiti** | §7 |
-| **Limite residuo** | in inglese i messaggi della conversazione di EIDETICA restano in italiano (nascono in italiano in una decina di punti del codice): è la seconda metà di questo fix |
-| **Prossimo passo unico** | Raffaella guarda la -f dal link; poi, col suo via, la conversazione in inglese |
+| **Limite residuo** | una frase della conversazione che il dizionario non conosce resta intera in italiano: si vede in `window.__veritasLingua.daTradurre()` e si aggiunge alle FRASI di `veritas_lingua.js`. I nomi dati dall'occhio restano come l'occhio li dice |
+| **Prossimo passo unico** | Raffaella guarda la -g dal link; col suo via, il fix 2 (pagina che non rallenta mentre l'occhio guarda) |
 
 ---
 
@@ -432,9 +433,7 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 **I quattro fix chiesti da Raffaella il 18/09, uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»):
 
-1. **Lingua** — interfaccia fatta (`eb2b966`); resta la **conversazione** in inglese
-   (messaggi di EIDETICA: «Ho ricevuto il modello», «Ho riconosciuto un ambiente
-   articolato»... — FRASI da aggiungere a `veritas_lingua.js`).
+1. ✅ **Lingua** — interfaccia (`eb2b966`) e conversazione (`9e4648e`), costruzione -g.
 2. **Pagina che non rallenta mentre l'occhio guarda**: l'occhio in un Web Worker (§6.7).
 3. **Soglie di norma**: una tabella delle 19 soglie con la fonte, da far validare a
    Raffaella; se lo vuole, distinguere i corridoi dagli spazi fra le sedute.
