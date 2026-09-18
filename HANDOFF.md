@@ -10,18 +10,20 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 17/09/2026, sera (§4: metodo di lavoro vincolante) |
+| **Aggiornato** | 18/09/2026, mattina (canale dell'occhio pubblicato, verifica dal vivo da fare) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `46dacdc` — *fix: la mappa di cammino riceve di nuovo le marcature — marcaOstacoli nel ponte* |
+| **Ultimo commit di codice pubblicato** | `3a49378` — *feat: il canale dell'occhio sulle immagini — cio' che vede si posa nel mondo e marca la mappa* |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-17-a` (servita da Pages, controllata) |
+| **Costruzione dichiarata nel file** | `2026-09-18-a` (servita da Pages, controllata) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
 genera flussi e fa camminare 28 corpi fisici veri (Rapier). Il circuito
-occhio-cervello gira. **Ma l'occhio non ha voce sulla mappa di cammino**, ed è
-questo il problema di impianto aperto (§6.1), non un difetto isolato.
+occhio-cervello gira e risponde (~5 min per giro sull'aeroporto). **Dal 18/09
+(`3a49378`) l'occhio ha un canale verso la mappa di cammino e verso le zone**: ciò
+che vede si posa nel mondo con i raggi della telecamera della foto. **Non ancora
+verificato dal vivo** (§8): è la prima cosa da fare.
 
 ---
 
@@ -188,13 +190,14 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Zone misurate e nominate | ✔ | ✔ | ✔ | ◐ | ✔ | `assegnaZoneMisurate` gira; nomi neutri («Zona 3 · 210 m²») finché l'occhio non parla |
 | Vocabolario di dominio rimosso (Regola 0-bis) | ✔ | ✔ | ✔ | ◐ | ✔ | `LESSICO_ZONE` eliminata (`631204a`); resta `ETICHETTA_OCCHI`, legittima perché applicata **solo dopo** un riconoscimento vero. Etichette vecchie possono restare salvate nei progetti: §6.5 |
 | Accessi / varchi d'ingresso | ✔ | ✔ | ✔ | ◐ | ✔ | verificato l'11/09 con `trova()` a mano; il ricalcolo automatico su `veritas:vista` non scatta da solo |
-| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | fino alla costruzione `-16-g` nessuna marcatura arrivava sulla mappa (`marcaOstacoli` assente dal ponte); **corretto e pubblicato in `2026-09-17-a`** (`46dacdc`), controllo a schermo da fare. I 3 tragitti in linea retta vengono da tappe fuori dal modello: §6.1 |
+| Mappa di cammino e percorsi | ✔ | ✔ | ✔ | ◐ | ✔ | `46dacdc` (-17-a): le marcature arrivano di nuovo sulla mappa — visto dal vivo al caricamento, «muri letti dal modello, 13,6%». `3a49378` (-18-a): **ascolta l'occhio** (muri visti chiudono, varchi visti aprono anche un muro pieno), provato nel workspace, **non ancora dal vivo**. I 3 tragitti in linea retta vengono dalle tappe cablate del bundle (§6.5) |
 | Corpo fisico Rapier (28 capsule) | ✔ | ✔ | ✔ | ✔ | ✔ | misurato 17/09: 28 corpi, 21.947 passi, mondo e collisore edificio reali |
 | Correzione «dentro un muro» | ✔ | ✔ | ✔ | ✔ | ✖ | **scritta e misurata, NON pubblicata**: attende autorizzazione. §6.2 |
 | Sosta: gli agenti si siedono | ✔ | ✔ | ✔ | ✖ | ✔ | pubblicata 16/09 (`44038c5`), **mai vista funzionare a schermo** |
 | Frecce del modello come obbligo di percorso | ✔ | ✔ | ✔ | ✖ | ✔ | `84ec89c`; il commit precedente dichiara «senza browser per verificare» |
 | Apertura (scena che prende forma) | ✔ | ✔ | ✔ | ✔ | ✔ | velo bloccante corretto e verificato 17/09 (`03d43e6`) |
-| Report laterale progressivo | ✔ | ✔ | ◐ | ✖ | ◐ | il pannello dell'apertura elenca ciò che l'occhio conferma; **non è ancora il report richiesto** (§9). Misurato 17/09 sera: l'apertura si apre a 10 s e **si chiude a 40 s senza aver acceso niente**, perché l'occhio parla dopo ~5 min: è l'«attesa muta» che la regola 2 del §9 vieta |
+| Report laterale progressivo | ✔ | ✔ | ✔ | ◐ | ✔ | pubblicato `d1082de` (-b) e corretto `e6196f4` (-c): gli ambienti misurati si accendono uno alla volta con la scheda di lato; il nome dell'occhio solo dove l'occhio ha parlato; mai le tappe cablate del bundle. Provato nel workspace con fonti vere; sulla pagina pubblicata visto accendersi (-b), la -c non ancora vista dal vivo |
+| Canale occhio → mondo (posizioni dalle foto) | ✔ | ✔ | ✔ | ◐ | ✔ | `3a49378`: `veritas_posa.js` posa ogni riquadro dell'occhio con i raggi della telecamera della foto (mesh/IFC con BVH, splat con `SplatMesh.raycast`); i riquadri sempre in frazioni della foto (il dimezzamento delle piante grandi era un difetto). 21+13+9 prove nel workspace; **dal vivo da verificare**: «[VERITAS occhio] nel mondo: …» e «[VERITAS cammino] l'occhio sulla mappa …» |
 | Deposito del modello nel browser | ✔ | ✔ | ✔ | ✔ | ✔ | funziona; il file non è condiviso fra browser diversi, per scelta |
 | Motore Python (Render) | ✔ | ✔ | ✔ | ◐ | ✔ | raggiungibile a intermittenza; il ripiego JS è dichiarato con un pallino viola |
 
@@ -383,47 +386,39 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-17-a` — servita da Pages al terzo controllo (~1 min dopo il push) |
-| **Commit / push** | `46dacdc`, pubblicato su `main` con autorizzazione di Raffaella (17/09 sera) |
-| **File modificati** | `index.html` (ponte `window.__veritasNavigazione`: + `marcaOstacoli`, commento, numero di costruzione) · `veritas_muri.test.mjs` (prova 0 sul ponte vero) — 34 righe aggiunte, 2 tolte |
-| **Problema** | nessuna marcatura arrivava sulla mappa di cammino: il ponte inlinato non esponeva `marcaOstacoli`, e la mappa si spegneva in silenzio sui soli punti del pavimento (cieca sotto 0,57 m) |
-| **Test eseguiti** | workspace: `veritas_muri` ✖ senza / ✔ con la correzione; `veritas_navigazione` ✔, `veritas_navmesh` ✔, `veritas_percorso` 23/24 identico prima e dopo. Pagina pubblicata (funzione agganciata prima di aprire il progetto): muri letti, 13,6% e 16,7% chiusi, applicata |
-| **Risultato** | la pagina pubblicata ha il ponte corretto (controllato nel sorgente servito da Pages) |
-| **Limite residuo** | è il parere della geometria: su uno splat non legge niente e non sa cosa chiude. Il controllo finale a schermo sulla costruzione `-a` (log «muri letti dal modello» al caricamento) si fa insieme alla verifica delle zone. I 3 tragitti in linea retta vengono da tappe fuori dal modello (§6.1 punto 3) |
-| **Prossimo passo unico** | regola 2 del §9: zone che si accendono e report laterali mentre l'occhio lavora |
+| **Costruzione** | `2026-09-18-a` — servita da Pages al secondo controllo |
+| **Commit / push** | `3a49378`, su `main` con autorizzazione di Raffaella («alla fine fai commit su GitHub», 17/09 notte) |
+| **File modificati** | nuovi: `veritas_posa.js`, `veritas_posa.test.mjs`, `veritas_occhionelmondo.test.mjs` · modificati: `index.html` (`marcaDallOcchio` nella mappa di cammino; telecamera nelle due funzioni che scattano le foto; versioni), `veritas_vista.js` (stesse modifiche della copia inline, le due copie restano identiche), `veritas_comprensione.js` (le cose viste si posano nel mondo, nominano i mucchi, e al cervello arrivano volume per volume), `veritas_riconosce.js` (`PASSO_DI`), `veritas_montaggio.js` (riquadri in frazioni, `ctx.posa`), `veritas_anteprima.js`/`veritas_passo.js` (versioni), `veritas_muri.test.mjs` (prove 7) — 908 righe aggiunte, 17 tolte |
+| **Problema** | l'occhio non aveva voce sulla mappa di cammino né posizioni dalle foto in prospettiva; le piante grandi mandavano fuori posto ciò che vedeva (riquadri in pixel della tela rimpicciolita letti come pixel della pianta intera) |
+| **Test eseguiti** | workspace: `veritas_posa` 21/21 su scena three vera (muro, seduta davanti al muro, porta aperta con muro di fondo dietro, genitore spostato); `veritas_occhionelmondo` 13/13; `veritas_muri` tutte, 9 nuove (l'occhio chiude dove la geometria è cieca, apre la porta nel muro pieno e il percorso ci passa, un altro piano non conta). Tutti gli altri `*.test.mjs` con lo stesso esito di prima (quelli che fallivano già fallivano uguale) |
+| **Risultato** | pubblicato e servito da Pages |
+| **Limite residuo** | **non ancora visto dal vivo**: il 18/09 mattina il Chrome di Raffaella non era collegato (estensione non raggiungibile). Sugli splat i raggi sono quelli di Spark, **mai provati su uno splat vero**. Il riconoscimento delle zone di uno splat ha bisogno dei «volumi» da dare al cervello: sugli splat i mucchi misurati (`veritas_cose`) non ci sono, quindi la testimonianza «volume per volume» resta vuota — da fare |
+| **Prossimo passo unico** | verifica dal vivo sull'aeroporto (nel log: posizioni dalla pianta > 0, «nel mondo: …», «l'occhio sulla mappa …»); poi togliere dal bundle i codici fittizi (§6.5) |
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**Uno solo: aprire il canale dall'occhio alla mappa di cammino.**
+**Il canale è aperto (`3a49378`). Adesso, nell'ordine deciso da Raffaella il 17/09:**
 
-- **Obiettivo.** Ciò che l'occhio riconosce — «qui è una parete», «qui si passa» —
-  deve **marcare la mappa di cammino**. La geometria resta un parere secondario.
-  Deve funzionare anche dove di triangoli non ce n'è nessuno (splat).
-- **Regole di impianto già decise da Raffaella (17/09):**
-  1. **Nel dubbio vince l'occhio.** Quando occhio e geometria si contraddicono,
-     l'ultima parola è dell'occhio.
-  2. **Finché l'occhio non ha parlato**, la scena mostra le zone che si accendono
-     **progressivamente**, con i **report che si aprono man mano lateralmente**: il
-     cliente deve avere un riscontro immediato, non un'attesa muta.
-- **Ambito.** Solo il canale e la marcatura. Nessun refactoring della navigazione,
-  nessuna riscrittura del ciclo di percezione, nessun intervento sul bundle.
-- **File probabilmente coinvolti.** `index.html` (`veritasMappaCammino`, il punto in
-  cui oggi si chiama `muriDalModello`), `veritas_navigazione.js` (`marcaOstacoli`,
-  che già accetta punti-ostacolo e sa rifiutare una marcatura troppo aggressiva),
-  e la sorgente dei riconoscimenti dell'occhio.
-- **Verifica richiesta.** Dal vivo, su un modello dove l'occhio risponde davvero:
-  la mappa deve dichiarare che i muri vengono da ciò che è stato visto, e il numero
-  di tragitti «in linea retta attraverso un muro» deve scendere.
-- **Condizioni per fermarsi.** Se l'occhio non risponde (motore non raggiungibile),
-  ci si ferma e lo si dichiara: **non si sostituisce l'occhio con un'euristica**.
-  Se serve una decisione di impianto non ancora presa, si chiede.
+1. **Verifica dal vivo del canale** sull'aeroporto, nel suo Chrome: la mappa deve
+   dichiarare ciò che l'occhio ha segnato («l'occhio sulla mappa: N elementi che
+   separano, M varchi»), la pianta deve dare posizioni (prima 0), e i tragitti in
+   linea retta non devono aumentare.
+2. **Togliere dal bundle i codici fittizi** (§6.5): tappe cablate, traiettoria e KPI
+   dimostrativi, inquadrature con nomi da aeroporto. `hV()` legge `iB[0..5]` per
+   indice: prima di pubblicare, prova di caricamento reale.
+3. **Il riconoscimento delle zone sugli splat**: dare al cervello volumi anche dove
+   non ci sono mucchi di oggetti misurati (gli ambienti del motore geometrico).
 
-**Domanda ancora aperta, da decidere prima di scrivere:** un varco riconosciuto
-dall'occhio deve **aprire un passaggio dove la geometria vede un muro pieno** (caso
-della porta modellata chiusa)? Il punto 1 («nel dubbio vince l'occhio») suggerisce
-di sì, ma è un'apertura in una barriera e va confermata esplicitamente.
+- **Regole di impianto decise da Raffaella (17/09), eseguite:**
+  1. **Nel dubbio vince l'occhio** — la mappa applica l'occhio dopo la geometria; un
+     varco visto apre anche un muro pieno (la domanda aperta del 17/09 era decisa da
+     questa regola: si esegue, non si richiede).
+  2. **Finché l'occhio non ha parlato**, zone che si accendono e report laterali:
+     fatto (`d1082de`, `e6196f4`).
+- **Condizioni per fermarsi.** Se l'occhio non risponde, ci si ferma e lo si
+  dichiara: **non si sostituisce l'occhio con un'euristica**.
 
 ---
 
