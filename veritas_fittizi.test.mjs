@@ -56,5 +56,11 @@ check('resta solo «global»', (hk.match(/\{id:"/g) || []).length === 1 && hk.in
 for (const parola of ['Security Scan', 'Boarding', 'Gate A1 Close', 'Check-in', 'Attesa 12m', 'Dettaglio Varco'])
   check('nessuna inquadratura «' + parola + '»', !bundle.includes(parola));
 
+// 4. Sotto la linea del tempo c'erano cinque tappe da aeroporto fisse (trovate
+// il 18/09 facendo l'inventario delle scritte): non venivano da nessuna zona.
+console.log('\n4. nessuna tappa da aeroporto sotto la linea del tempo');
+for (const parola of ['INGRESSO', 'ACCETTAZIONE', 'CONTROLLO', 'LOUNGE', 'GATE A1'])
+  check('la linea del tempo non scrive «' + parola + '»', !bundle.includes('children:"' + parola + '"'));
+
 console.log(ko ? '\n' + ko + ' PROVE FALLITE' : '\ntutte le prove passate');
 process.exit(ko ? 1 : 0);
