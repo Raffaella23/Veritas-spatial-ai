@@ -10,20 +10,20 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026, mattina (canale dell'occhio pubblicato, verifica dal vivo da fare) |
+| **Aggiornato** | 18/09/2026, mattina (canale dell'occhio provato dal vivo nel workspace; prossimo: codici fittizi del bundle) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `3a49378` — *feat: il canale dell'occhio sulle immagini — cio' che vede si posa nel mondo e marca la mappa* |
+| **Ultimo commit di codice pubblicato** | `67e1cfc` — *fix: il canale dell'occhio, dopo la prova dal vivo — ogni pianta sa il suo piano, e un «muro» grande come l'edificio non traccia niente* |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-a` (servita da Pages, controllata) |
+| **Costruzione dichiarata nel file** | `2026-09-18-b` (servita da Pages, controllata) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
 genera flussi e fa camminare 28 corpi fisici veri (Rapier). Il circuito
-occhio-cervello gira e risponde (~5 min per giro sull'aeroporto). **Dal 18/09
-(`3a49378`) l'occhio ha un canale verso la mappa di cammino e verso le zone**: ciò
-che vede si posa nel mondo con i raggi della telecamera della foto. **Non ancora
-verificato dal vivo** (§8): è la prima cosa da fare.
+occhio-cervello gira. **Dal 18/09 l'occhio posa nel mondo ciò che vede** (piante e
+foto in prospettiva) e questo arriva alla mappa di cammino e al cervello, volume per
+volume. Provato dal vivo sulla versione pubblicata (§7): sull'aeroporto l'occhio vede
+quasi solo il lato aerei, e la mappa non ha ricevuto muri o porte credibili da lui.
 
 ---
 
@@ -197,7 +197,7 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | Frecce del modello come obbligo di percorso | ✔ | ✔ | ✔ | ✖ | ✔ | `84ec89c`; il commit precedente dichiara «senza browser per verificare» |
 | Apertura (scena che prende forma) | ✔ | ✔ | ✔ | ✔ | ✔ | velo bloccante corretto e verificato 17/09 (`03d43e6`) |
 | Report laterale progressivo | ✔ | ✔ | ✔ | ◐ | ✔ | pubblicato `d1082de` (-b) e corretto `e6196f4` (-c): gli ambienti misurati si accendono uno alla volta con la scheda di lato; il nome dell'occhio solo dove l'occhio ha parlato; mai le tappe cablate del bundle. Provato nel workspace con fonti vere; sulla pagina pubblicata visto accendersi (-b), la -c non ancora vista dal vivo |
-| Canale occhio → mondo (posizioni dalle foto) | ✔ | ✔ | ✔ | ◐ | ✔ | `3a49378`: `veritas_posa.js` posa ogni riquadro dell'occhio con i raggi della telecamera della foto (mesh/IFC con BVH, splat con `SplatMesh.raycast`); i riquadri sempre in frazioni della foto (il dimezzamento delle piante grandi era un difetto). 21+13+9 prove nel workspace; **dal vivo da verificare**: «[VERITAS occhio] nel mondo: …» e «[VERITAS cammino] l'occhio sulla mappa …» |
+| Canale occhio → mondo (posizioni dalle foto) | ✔ | ✔ | ✔ | ◐ | ✔ | `3a49378` + `67e1cfc`. **Dal vivo (18/09, versione pubblicata, Chrome senza finestra, occhio vero):** 213 cose posate dalle piante (prima 0), 48/48 riquadri posati dalle prospettive, 20 volumi con «cose viste dentro». La mappa: nessuna marcatura dall'occhio su questo modello — i suoi 2 «muri» erano riquadri grandi come l'edificio (101 × 57 m), scartati dalla guardia. Il cervello (LM Studio) non era raggiungibile da quel Chrome: la parte «volume per volume al cervello» non è vista funzionare |
 | Deposito del modello nel browser | ✔ | ✔ | ✔ | ✔ | ✔ | funziona; il file non è condiviso fra browser diversi, per scelta |
 | Motore Python (Render) | ✔ | ✔ | ✔ | ◐ | ✔ | raggiungibile a intermittenza; il ripiego JS è dichiarato con un pallino viola |
 
@@ -364,6 +364,7 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 | `veritas_muri.test.mjs` con la prova 0 sul ponte vero | 17/09 sera | automatico, workspace | ✖ senza correzione (manca `marcaOstacoli`), ✔ con la correzione; `veritas_navigazione` ✔, `veritas_navmesh` ✔, `veritas_percorso` 23/24 **identico prima e dopo** (fallimento pre-esistente) |
 | Giro dell'occhio sulla pagina pubblicata | 17/09 sera | reale nel browser | ✔ risponde: giro finito a ~5 min; 0 posizioni dalla pianta, 18 cose legate a un'area |
 | Apertura mentre l'occhio lavora | 17/09 sera | reale nel browser | ✖ aperta a 10 s, chiusa a 40 s senza accendere niente |
+| Canale dell'occhio sulla versione pubblicata -a e col codice -b | 18/09 | reale, Chrome senza finestra del workspace (accesso finto dello stub, modello scelto dal pulsante «Nuovo progetto», occhio OWLv2 vero) | ✔ posizioni dalla pianta 213 (prima 0); ✔ 48/48 riquadri dalle prospettive (con 8 s a foto; 25/48 con 2,5 s); ✔ 20 volumi con cose viste dentro; ✔ apertura: 11 zone accese, 2 confermate dall'occhio, chiusa dopo che l'occhio ha parlato; ✖ nessuna marcatura dell'occhio sulla mappa (niente di credibile visto); ✖ cervello non raggiungibile da quel Chrome |
 
 **Limiti della verifica, dichiarati:**
 
@@ -386,28 +387,29 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-a` — servita da Pages al secondo controllo |
-| **Commit / push** | `3a49378`, su `main` con autorizzazione di Raffaella («alla fine fai commit su GitHub», 17/09 notte) |
-| **File modificati** | nuovi: `veritas_posa.js`, `veritas_posa.test.mjs`, `veritas_occhionelmondo.test.mjs` · modificati: `index.html` (`marcaDallOcchio` nella mappa di cammino; telecamera nelle due funzioni che scattano le foto; versioni), `veritas_vista.js` (stesse modifiche della copia inline, le due copie restano identiche), `veritas_comprensione.js` (le cose viste si posano nel mondo, nominano i mucchi, e al cervello arrivano volume per volume), `veritas_riconosce.js` (`PASSO_DI`), `veritas_montaggio.js` (riquadri in frazioni, `ctx.posa`), `veritas_anteprima.js`/`veritas_passo.js` (versioni), `veritas_muri.test.mjs` (prove 7) — 908 righe aggiunte, 17 tolte |
-| **Problema** | l'occhio non aveva voce sulla mappa di cammino né posizioni dalle foto in prospettiva; le piante grandi mandavano fuori posto ciò che vedeva (riquadri in pixel della tela rimpicciolita letti come pixel della pianta intera) |
-| **Test eseguiti** | workspace: `veritas_posa` 21/21 su scena three vera (muro, seduta davanti al muro, porta aperta con muro di fondo dietro, genitore spostato); `veritas_occhionelmondo` 13/13; `veritas_muri` tutte, 9 nuove (l'occhio chiude dove la geometria è cieca, apre la porta nel muro pieno e il percorso ci passa, un altro piano non conta). Tutti gli altri `*.test.mjs` con lo stesso esito di prima (quelli che fallivano già fallivano uguale) |
-| **Risultato** | pubblicato e servito da Pages |
-| **Limite residuo** | **non ancora visto dal vivo**: il 18/09 mattina il Chrome di Raffaella non era collegato (estensione non raggiungibile). Sugli splat i raggi sono quelli di Spark, **mai provati su uno splat vero**. Il riconoscimento delle zone di uno splat ha bisogno dei «volumi» da dare al cervello: sugli splat i mucchi misurati (`veritas_cose`) non ci sono, quindi la testimonianza «volume per volume» resta vuota — da fare |
-| **Prossimo passo unico** | verifica dal vivo sull'aeroporto (nel log: posizioni dalla pianta > 0, «nel mondo: …», «l'occhio sulla mappa …»); poi togliere dal bundle i codici fittizi (§6.5) |
+| **Costruzione** | `2026-09-18-b` — servita da Pages al secondo controllo |
+| **Commit / push** | `3a49378` (canale dell'occhio) + `67e1cfc` (correzioni dopo la prova dal vivo), su `main` con autorizzazione di Raffaella |
+| **File modificati** | nuovi: `veritas_posa.js`, `veritas_posa.test.mjs`, `veritas_occhionelmondo.test.mjs` · modificati: `index.html` (`marcaDallOcchio` + guardia «credibile dall'alto»; telecamera nelle foto), `veritas_vista.js` (copia identica), `veritas_comprensione.js`, `veritas_riconosce.js` (`PASSO_DI`), `veritas_montaggio.js`, `veritas_tavole.js` (`quotaPiano`), `veritas_anteprima.js`, `veritas_passo.js`, `veritas_muri.test.mjs` |
+| **Problema** | l'occhio non aveva voce sulla mappa né posizioni dalle foto; le piante grandi mandavano fuori posto ciò che vedeva |
+| **Test eseguiti** | workspace: `veritas_posa` 21/21, `veritas_occhionelmondo` 13/13, `veritas_muri` 13 prove nuove, tutto il resto identico. Dal vivo (§7): versione pubblicata e poi codice -b nell'app vera |
+| **Risultato** | la pianta dà posizioni (213, prima 0); le foto in prospettiva danno posizioni (48/48); 20 volumi con cose viste dentro; la guardia ha fermato due «muri» grandi come l'edificio |
+| **Limite residuo** | **sull'aeroporto l'occhio non ha visto muri né porte credibili**: la marcatura della mappa dall'occhio è provata solo nei test, non ancora dal vivo. Il giro si è fermato presto perché il cervello non rispondeva (in quel Chrome LM Studio non è raggiungibile): nel Chrome di Raffaella, col cervello acceso, i giri successivi guardano anche le viste da dentro, dove muri e porte si vedono. Splat: mai provati |
+| **Prossimo passo unico** | togliere dal bundle i codici fittizi (§6.5), con prova di caricamento reale prima di pubblicare |
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**Il canale è aperto (`3a49378`). Adesso, nell'ordine deciso da Raffaella il 17/09:**
+**Il canale è aperto e pubblicato (`3a49378`, `67e1cfc`). Adesso, nell'ordine deciso da Raffaella:**
 
-1. **Verifica dal vivo del canale** sull'aeroporto, nel suo Chrome: la mappa deve
-   dichiarare ciò che l'occhio ha segnato («l'occhio sulla mappa: N elementi che
-   separano, M varchi»), la pianta deve dare posizioni (prima 0), e i tragitti in
-   linea retta non devono aumentare.
-2. **Togliere dal bundle i codici fittizi** (§6.5): tappe cablate, traiettoria e KPI
+1. **Togliere dal bundle i codici fittizi** (§6.5): tappe cablate, traiettoria e KPI
    dimostrativi, inquadrature con nomi da aeroporto. `hV()` legge `iB[0..5]` per
-   indice: prima di pubblicare, prova di caricamento reale.
+   indice: prima di pubblicare, prova di caricamento reale (il banco del workspace
+   ora funziona: `banco_vivo/prova_occhio.mjs` nello scratchpad — Chrome senza
+   finestra, stub di Supabase, pulsante «Nuovo progetto», codice del workspace
+   servito al posto di quello pubblicato).
+2. **Vedere l'occhio segnare muri e porte dal vivo**: nel Chrome di Raffaella (cervello
+   acceso, più giri, viste da dentro) oppure su un modello con interni.
 3. **Il riconoscimento delle zone sugli splat**: dare al cervello volumi anche dove
    non ci sono mucchi di oggetti misurati (gli ambienti del motore geometrico).
 
