@@ -10,12 +10,12 @@
 
 | | |
 |---|---|
-| **Aggiornato** | 18/09/2026 (fix 1 di 4 chiuso: interfaccia e conversazione nella lingua scelta) |
+| **Aggiornato** | 20/09/2026 (fix 2 di 4 chiuso: l'occhio in un Web Worker) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `9e4648e` — *fix: la conversazione di EIDETICA in inglese, frase per frase* (prima: `eb2b966` interfaccia, `39199e2` tappe finte della linea del tempo) |
+| **Ultimo commit di codice pubblicato** | `fdb5eaa` — *fix: l'occhio in una stanza sua* (prima: `9e4648e` conversazione, `eb2b966` interfaccia, `39199e2` tappe finte) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-18-g` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-18-g` |
+| **Costruzione dichiarata nel file** | `2026-09-20-h` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-20-h` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -351,11 +351,14 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 ### 6.7 — Visti nel banco il 18/09, mentre si faceva la pagina di attesa
 
-- **Durante il lavoro dell'occhio la pagina si ferma a tratti** (OWLv2 in wasm sul
-  filo principale, Chrome senza GPU del banco): anche il velo si ferma. Le righe del
-  report ora entrano con l'opacità e non restano vuote, ma l'animazione si blocca lo
-  stesso. Rimedio vero: l'occhio in un Web Worker. Nel Chrome di Raffaella, con la
-  GPU, non ancora misurato.
+- ✅ **Durante il lavoro dell'occhio la pagina si ferma a tratti — CHIUSO il
+  20/09** (`fdb5eaa`, costruzione -h). Non era il motore ONNX, che il `proxy` aveva
+  già spostato: era il contorno che transformers.js faceva sul filo della pagina
+  (ridimensionare la pianta a 960×960, normalizzarla, spezzare in simboli 177 parole,
+  e leggere 3.600 riquadri **per ogni parola**). Ora l'occhio intero sta in un Web
+  Worker. Misurato a pagina isolata: blocco peggiore 394 → **183 ms**, attività lunga
+  peggiore 241 → **114 ms**, sguardo 13,1 → 11,7 s, e **le stesse 91 cose con gli
+  stessi punteggi**. Nel Chrome di Raffaella, con la GPU, resta non misurato.
 - **Splat: sotto il velo l'app inquadra male** (camera attaccata al pavimento): il
   riquadro dello splat per la camera dell'app è vuoto (`Box3.setFromObject` non vede
   le gaussiane; Spark ha `getBoundingBox`). Il velo lo legge giusto.
@@ -367,6 +370,40 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   toccato dal 18/09 -d): «blocco 3 byte-per-byte quello di sempre» (la guardia non
   ritrova il blocco dopo che i codici fittizi sono stati tolti) e «il collisore
   dell'edificio non riceve flag». Da guardare.
+
+---
+
+### 6.8 — ⛔ Alla prima visita la pagina si blocca da sola, e non è l'occhio
+
+Misurato nel banco il 20/09 (`banco/vivo/prova_fluidita.mjs`, manopola
+`SENZA_OCCHIO`). Con l'occhio **acceso ma che non guarda**, su un profilo nuovo:
+
+| | prima visita | visita di ritorno |
+|---|---|---|
+| pagina `crossOriginIsolated` | **no** | sì |
+| blocco peggiore, occhio fermo | **87,6 s** | — |
+| attività lunga peggiore | 19,9 s | 241 ms |
+| fotogrammi | 3,4 al secondo | 13,4 al secondo |
+
+Un'attesa programmata di 70 s ne ha impiegati 145: il filo principale era occupato
+al punto da far slittare i timer di più del doppio. **L'occhio non c'entra — era
+fermo.** È lavoro d'avvio della pagina stessa.
+
+Due conseguenze:
+
+1. **È un difetto più grosso di quello appena chiuso**, e va guardato prima di
+   rimettere mano alla fluidità: finché dura, qualunque misura fatta alla prima
+   visita descrive questo e non ciò che si sta misurando.
+2. `veritas_fili.js` installa il lavoratore di servizio che isola la pagina, ma un
+   lavoratore di servizio prende il comando **solo dal caricamento successivo**. Alla
+   prima visita la pagina non è isolata, il motore ONNX resta a un filo solo, e lo
+   stesso sguardo passa da 13 s a 120. Chi apre EIDETICA per la prima volta prende la
+   macchina peggiore, ed è esattamente il cliente nuovo.
+
+⚠️ **Le misure di fluidità si fanno a pagina isolata, e si dichiara sempre in quale
+delle due condizioni si è**: la prova lo stampa (`contorno:`). Due giri sullo stesso
+identico codice, uno isolato e uno no, danno 13 s e 120 s — chi li mescola non sta
+misurando niente.
 
 ---
 
@@ -419,13 +456,14 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-18-g` |
-| **Commit / push** | `39199e2` (tappe finte della linea del tempo), `eb2b966` (interfaccia) e `9e4648e` (conversazione), su `main`. Autorizzazione di Raffaella: «comincia fix e commit uno alla volta» |
-| **File modificati** | `index.html` (bundle: `children:[]` al posto delle cinque tappe; conversazione firmata EIDETICA; «Strati», «Analisi / Report»; `veritas_lingua.js?v=1`; `veritas_apertura.js?v=9`) · `veritas_lingua.js` e `veritas_lingua.test.mjs` (nuovi) · `veritas_apertura.js` (titoli delle norme in inglese) · `veritas_fittizi.test.mjs` (sezione 4) |
-| **Problema** | fix 1 di 4 della lista del 18/09: «una parte dell'interfaccia è ancora metà in italiano e metà in inglese» |
-| **Test eseguiti** | §7 |
-| **Limite residuo** | una frase della conversazione che il dizionario non conosce resta intera in italiano: si vede in `window.__veritasLingua.daTradurre()` e si aggiunge alle FRASI di `veritas_lingua.js`. I nomi dati dall'occhio restano come l'occhio li dice |
-| **Prossimo passo unico** | Raffaella guarda la -g dal link; col suo via, il fix 2 (pagina che non rallenta mentre l'occhio guarda) |
+| **Costruzione** | `2026-09-20-h` |
+| **Commit / push** | `fdb5eaa` — *l'occhio in una stanza sua*, su `main`. Autorizzazione di Raffaella: «un fix e un commit alla volta, prova nel banco prima di pubblicare» |
+| **File modificati** | `veritas_occhio_lavoratore.js` (**nuovo**: l'occhio intero in un Web Worker) · `veritas_riconosce.js` (prova il lavoratore, e ricade sulla strada di prima se non si apre; freno sulle accensioni in corso; una sola scala di formati; `stato().dove` dice da dove guarda) · `index.html` + `veritas_anteprima.js`, `veritas_comprensione.js`, `veritas_montaggio.js`, `veritas_passo.js` (solo la cascata dei `?v=`: riconosce 5→6, anteprima 16→17, comprensione 15→16, passo 1→2, montaggio 33→34) · `banco/vivo/prova_fluidita.mjs` e `occhio_sui_renderi.mjs` (**nuovi**) · `.gitignore` |
+| **Problema** | fix 2 di 4 della lista del 18/09: la pagina si ferma mentre l'occhio guarda (§6.7) |
+| **Test eseguiti** | §7, più il banco dal vivo: quattro coppie prima/dopo sulla versione pubblicata e sul workspace, a pagina isolata e non |
+| **Risultato** | a pagina isolata: blocco peggiore 394 → **183 ms**, attività lunga peggiore 241 → **114 ms**, sguardo 13,1 → 11,7 s. **Le stesse 91 cose con gli stessi punteggi**: il trasloco non cambia ciò che l'occhio vede |
+| **Limite residuo** | ① nel Chrome di Raffaella, con la GPU, non misurato. ② L'accensione dentro il lavoratore è variabile (11,6 s e 110,6 s in due giri a parità di condizioni): da tenere d'occhio, succede una volta per pagina. ③ **§6.8**: alla prima visita la pagina si blocca fino a 87,6 s **da sola**, con l'occhio fermo — più di quanto la bloccasse l'occhio. ④ `veritas_riconosce.test.mjs` 1 prova rossa, `veritas_zone` 23, `veritas_corpo_collegato` 2: **rosse già su `a6550eb`**, verificato togliendo le mie modifiche |
+| **Prossimo passo unico** | Raffaella guarda la -h dal link. Poi §6.8 (la pagina che si blocca da sola) **prima** del fix 3, perché finché dura falsa ogni misura fatta alla prima visita |
 
 ---
 
@@ -434,7 +472,9 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 **I quattro fix chiesti da Raffaella il 18/09, uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»):
 
 1. ✅ **Lingua** — interfaccia (`eb2b966`) e conversazione (`9e4648e`), costruzione -g.
-2. **Pagina che non rallenta mentre l'occhio guarda**: l'occhio in un Web Worker (§6.7).
+2. ✅ **Pagina che non rallenta mentre l'occhio guarda** — l'occhio in un Web Worker
+   (`fdb5eaa`), costruzione -h. Sono emersi §6.8 (la pagina si blocca da sola alla
+   prima visita) e la conferma che OWLv2 vede quasi solo il lato aerei.
 3. **Soglie di norma**: una tabella delle 19 soglie con la fonte, da far validare a
    Raffaella; se lo vuole, distinguere i corridoi dagli spazi fra le sedute.
 4. **Nomi giusti agli ambienti** dall'occhio: prova nel Chrome di Raffaella con LM
@@ -483,6 +523,11 @@ Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 | 18/09 | **Dopo ogni pubblicazione si dà a Raffaella il link con la costruzione nella query** (`?v=<costruzione>`), perché il suo browser le mostrava versioni vecchie. «Quando è possibile aggiorna GitHub, fermati e fornisci link» |
 | 18/09 | **I fix si fanno uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»); ordine: lingua → pagina fluida → soglie di norma → nomi degli ambienti |
 | 18/09 | Le scritte dell'interfaccia nelle due lingue stanno in **un solo dizionario** (`veritas_lingua.js`), che traduce anche il bundle senza toccarlo |
+| 20/09 | **Dentro il lavoratore il proxy di ONNX si SPEGNE.** Era stato acceso il 04/09 perché l'occhio non trovava i 255,5 MB del motore con la scena 3D caricata: la stanza separata adesso è il lavoratore stesso, e tenerlo acceso aprirebbe un lavoratore dentro il lavoratore e una seconda copia del motore in WebAssembly |
+| 20/09 | **Si misura il BLOCCO, non l'occupazione del filo.** Col lavoratore la pagina torna a disegnare e ogni fotogramma è lavoro: a contare il filo occupato, il rimedio risulta peggiore del male. Conta il blocco più lungo e i fotogrammi che escono |
+| 20/09 | **Accesso SAM concesso (20/09). Si parte da `facebook/sam3`, non da `sam3.1`**: `sam3` è confezionato per la libreria che già usiamo (`AutoModel`, pronto per un server) e ha la versione ONNX per il browser; `sam3.1` è un checkpoint nudo, una seconda strada di codice per una precisione che non sappiamo ancora misurare. Passare a 3.1 sarà cambiare i pesi, non l'impianto |
+| 20/09 | **SAM non sostituisce OWLv2, lo completa**: uno trova e nomina (rettangoli), l'altro ritaglia il contorno (sagome). Per il §6.1 servono le sagome — una porta è un vuoto in un muro, non un rettangolo. La faccia di SAM che trova per nome gira solo su server con scheda video; quella che ritaglia gira nel browser, e `Sam3Tracker` è già dentro transformers.js 3.8.1 |
+| 20/09 | ⛔ **SegFormer su ADE20K NON SI CONSIDERA.** Deciso da Raffaella: «non consideriamo assolutamente questo prodotto». Regge anche da sola la ragione tecnica — i pesi NVIDIA sono §3.3, «solo uso non commerciale» — ma la decisione è sua e non si riapre. ⚠️ La tentazione è in casa: `ADE20K_150` sta in `veritas_riconosce.js:97`. **Quell'elenco è un vocabolario di parole, non pesi NVIDIA, e come vocabolario resta**; quello che non entra è il modello |
 | 20/09 | **Dei modelli Meta si prende solo SAM 3.1**, e solo come occhio da server (sostituto di OWLv2), tenendo locchio nel browser come ripiego. SAM 3D Objects/Body no: EIDETICA il 3D ce lha gia e non puo accettare misure inventate. DINOv3 rimandato: da vettori, non nomi, e servirebbe un insieme etichettato. Licenze e conformita in `third_party_licenses/` |
 
 ---
