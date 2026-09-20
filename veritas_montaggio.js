@@ -65,12 +65,12 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=15"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=16"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=16";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=5";
+import { anteprima } from "./veritas_anteprima.js?v=17";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=6";
 // Dove sta cio' che l'occhio vede (17/09/2026): i riquadri in frazioni, e i
 // raggi dalla telecamera della foto fino al modello.
 import { inFrazioni, posaRiquadro, posaVarco } from "./veritas_posa.js?v=1";

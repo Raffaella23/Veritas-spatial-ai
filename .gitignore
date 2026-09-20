@@ -64,3 +64,10 @@ banco/aspetto/
 banco/*.ifc
 !banco/finti/*.ifc
 banco/bim_collegato.png
+# Il banco dal vivo: profili di Chrome (39 MB l'uno), immagini estratte e
+# referti delle misure. Si rigenerano eseguendo le prove; nel repo restano
+# solo gli script, perche' un profilo di browser porta dentro anche i cookie.
+banco/vivo/profilo*/
+banco/vivo/fluidita_*.json
+banco/vivo/controllo_*.json
+banco/vivo/renderi/

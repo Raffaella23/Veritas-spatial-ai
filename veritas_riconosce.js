@@ -986,9 +986,169 @@ export async function riconosci(posti, opz = {}) {
 
 export const MODELLO = "Xenova/owlv2-base-patch16-ensemble";
 
-let _occhio = null, _stato = { fase: "spento", device: null, perche: null };
+let _occhio = null, _inCorso = null, _stato = { fase: "spento", device: null, perche: null };
 
 export function stato() { return { ..._stato }; }
+
+// ⚠️ L'INDIRIZZO PER ESTESO DELLA LIBRERIA. Serve al lavoratore, che non puo'
+//    usare l'importmap di `index.html` (le mappe di importazione non valgono
+//    dentro un Web Worker). Tenerlo qui, in chiaro, e' la stessa scelta gia'
+//    fatta per il `.wasm` di web-ifc in `veritas_bim.js`: una costante che
+//    `banco/monta.sh` possa riscrivere quando il CDN non si raggiunge.
+//    `window.__veritasTransformersUrl` la scavalca senza toccare il file.
+export const LIBRERIA =
+  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js";
+
+// La scala dei formati: una sola, e sta qui. La usano tutte e due le strade.
+const TENTATIVI = [
+  { device: "wasm", dtype: "q8" },       // MISURATO: e' quello che apre
+  { device: "wasm", dtype: "fp32" },     // nessuna compressione: l'ultima spiaggia
+];
+
+function perche(e) {
+  if (e == null) return "motivo non detto";
+  if (typeof e === "string" || typeof e === "number") return String(e);
+  return e.message ? e.message : String(e);
+}
+
+// I pixel da mandare di la'. Si RICOPIANO sempre, mai si passa l'originale:
+// un ArrayBuffer trasferito viene svuotato da questa parte, e chi ce l'aveva
+// si ritroverebbe l'immagine vuota senza un errore — la pianta e gli scorci
+// vengono riusati dal cervello e dal referto dopo che l'occhio li ha visti.
+function pixelDa(immagine, doc) {
+  if (!immagine) return null;
+  // Una vista grezza (`piantaDelPavimento`, `scorciTreQuarti`): i pixel ci sono gia'.
+  if (immagine.pixel && immagine.larghezza && immagine.altezza)
+    return { dati: new Uint8Array(immagine.pixel).buffer,
+             larghezza: immagine.larghezza, altezza: immagine.altezza };
+  // Una tela. ⚠️ Se `getContext` dice di no (una tela gia' presa da WebGL non
+  //    restituisce un contesto 2D) non si va avanti a testa bassa: si scende
+  //    alla strada sotto, che ridisegna su una tela nuova. Un `getImageData`
+  //    su `null` qui dentro tornerebbe a chi chiama come uno sguardo vuoto, e
+  //    l'occhio sembrerebbe cieco invece che ostacolato.
+  if (typeof immagine.getContext === "function") {
+    const c = immagine.getContext("2d", { willReadFrequently: true });
+    if (c) {
+      const d = c.getImageData(0, 0, immagine.width, immagine.height);
+      return { dati: d.data.buffer, larghezza: immagine.width, altezza: immagine.height };
+    }
+  }
+  // Qualunque altra immagine (un `<img>`, un ImageBitmap): si passa da una tela.
+  const D = doc || (typeof document !== "undefined" ? document : null);
+  const l = immagine.width || immagine.naturalWidth, a = immagine.height || immagine.naturalHeight;
+  if (!D || !l || !a) return null;
+  const t = D.createElement("canvas");
+  t.width = l; t.height = a;
+  const ctx = t.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(immagine, 0, 0);
+  const d = ctx.getImageData(0, 0, l, a);
+  return { dati: d.data.buffer, larghezza: l, altezza: a };
+}
+
+/**
+ * L'occhio in una stanza sua: apre `veritas_occhio_lavoratore.js` in un Web
+ * Worker e gli parla per messaggi. Restituisce una `rileva` con la stessa
+ * firma di sempre, oppure `null` se la stanza non si apre — e in quel caso
+ * chi chiama ripiega sulla strada vecchia, che resta qui sotto intatta.
+ *
+ * ⚠️ IL MOTIVO E' IL §6.7 DEL HANDOFF: durante il lavoro dell'occhio la pagina
+ *    si fermava a tratti, e si fermava anche il velo. Non era il motore ONNX —
+ *    quello stava gia' di la' col `proxy`. Era il contorno che transformers.js
+ *    fa sul filo di chi chiama: ridimensionare l'immagine a 960x960,
+ *    normalizzarla, spezzare in simboli fino a 158 parole, e poi leggere 3.600
+ *    riquadri PER OGNI parola. Spostando tutto, sul filo della pagina non
+ *    resta che la copia dei pixel.
+ */
+async function occhioNelLavoratore(opz = {}) {
+  if (typeof Worker === "undefined" || typeof window === "undefined") return null;
+
+  let lav = null;
+  try {
+    lav = new Worker(new URL("./veritas_occhio_lavoratore.js?v=1", import.meta.url),
+                     { type: "module" });
+  } catch (e) {
+    _stato = { fase: "spento", device: null, dove: "lavoratore",
+               perche: "la stanza separata non si apre: " + perche(e) };
+    return null;
+  }
+
+  const attese = new Map();
+  let numero = 0, rispondiAccensione = null, finito = null;
+
+  lav.onmessage = function (ev) {
+    const m = ev.data || {};
+    if (m.tipo === "pronto" || m.tipo === "spento") {
+      if (rispondiAccensione) { const f = rispondiAccensione; rispondiAccensione = null; f(m); }
+      return;
+    }
+    const a = attese.get(m.id);
+    if (!a) return;
+    attese.delete(m.id);
+    if (m.tipo === "visto") a.ok(m.esito);
+    else a.ko(new Error(m.perche || "sguardo non riuscito"));
+  };
+  // Se il lavoratore muore, muore in silenzio: nessuno riceverebbe mai una
+  // risposta e ogni attesa resterebbe appesa per sempre. Qui si fa il contrario
+  // di quello che vieta la regola 10: si chiude tutto e si dice cos'e' successo.
+  lav.onerror = lav.onmessageerror = function (ev) {
+    finito = (ev && ev.message) || "il lavoratore si e' fermato";
+    if (rispondiAccensione) { const f = rispondiAccensione; rispondiAccensione = null; f({ tipo: "spento", perche: finito }); }
+    for (const a of attese.values()) a.ko(new Error(finito));
+    attese.clear();
+  };
+
+  // Accensione, con un tetto d'attesa esplicito: al primo giro il modello si
+  // scarica (centinaia di MB), quindi il tetto e' largo — ma c'e'.
+  const tettoAccensione = opz.attesaAccensione != null ? opz.attesaAccensione : 300000;
+  const esito = await new Promise(function (risolvi) {
+    rispondiAccensione = risolvi;
+    const sveglia = setTimeout(function () {
+      if (rispondiAccensione) { rispondiAccensione = null;
+        risolvi({ tipo: "spento", perche: "l'occhio non ha risposto entro "
+                  + Math.round(tettoAccensione / 1000) + " s" }); }
+    }, tettoAccensione);
+    const chiudi = function (m) { clearTimeout(sveglia); risolvi(m); };
+    rispondiAccensione = chiudi;
+    lav.postMessage({
+      tipo: "accendi",
+      libreria: opz.libreria || window.__veritasTransformersUrl || LIBRERIA,
+      modello: opz.modello || MODELLO,
+      tentativi: opz.tentativi || TENTATIVI,
+      soglia: opz.soglia != null ? opz.soglia : FIDUCIA_MINIMA,
+      fili: navigator.hardwareConcurrency || 2,
+    });
+  });
+
+  if (esito.tipo !== "pronto") {
+    try { lav.terminate(); } catch (e) {}
+    _stato = { fase: "spento", device: null, dove: "lavoratore", perche: esito.perche };
+    return null;
+  }
+
+  _stato = { fase: "pronto", device: esito.device, dtype: esito.dtype,
+             dove: "lavoratore", perche: null };
+
+  const tettoSguardo = opz.attesaSguardo != null ? opz.attesaSguardo : 600000;
+  return async function rileva(immagine, parole) {
+    if (finito) throw new Error(finito);
+    const p = pixelDa(immagine);
+    if (!p) throw new Error("non ho capito che immagine mi hai dato");
+    const id = ++numero;
+    return await new Promise(function (ok, ko) {
+      const sveglia = setTimeout(function () {
+        attese.delete(id);
+        ko(new Error("l'occhio non ha finito di guardare entro "
+                     + Math.round(tettoSguardo / 1000) + " s"));
+      }, tettoSguardo);
+      attese.set(id, { ok: function (v) { clearTimeout(sveglia); ok(v); },
+                       ko: function (e) { clearTimeout(sveglia); ko(e); } });
+      lav.postMessage({ tipo: "guarda", id, dati: p.dati,
+                        larghezza: p.larghezza, altezza: p.altezza,
+                        parole, soglia: opz.soglia != null ? opz.soglia : FIDUCIA_MINIMA },
+                      [p.dati]);
+    });
+  };
+}
 
 /**
  * Costruisce il rilevatore vero. Restituisce una funzione `rileva`.
@@ -999,6 +1159,39 @@ export function stato() { return { ..._stato }; }
  */
 export async function occhioLocale(opz = {}) {
   if (_occhio) return _occhio;
+  // ⚠️ UNA SOLA ACCENSIONE PER VOLTA, e questo freno mancava.
+  //
+  //    La guardia sopra vede solo l'occhio GIA' ACCESO: due chiamate che
+  //    arrivano mentre il modello sta ancora aprendosi passavano tutte e due.
+  //    Nella pagina succede davvero — lo sguardo automatico parte 8 s dopo il
+  //    caricamento, e chi chiede un giro nel frattempo entra insieme a lui.
+  //    Prima costava un secondo scaricamento; da oggi costerebbe anche un
+  //    SECONDO LAVORATORE, cioe' due copie di OWLv2 in memoria: esattamente il
+  //    carico che fa fallire l'apertura (il numero nudo 267935216 del 04/09).
+  //    Chi arriva secondo non riaccende niente: aspetta lo stesso risultato.
+  if (_inCorso) return await _inCorso;
+  _inCorso = accendiOcchioVero(opz);
+  try { return await _inCorso; } finally { _inCorso = null; }
+}
+
+async function accendiOcchioVero(opz = {}) {
+  // ⚠️ PRIMA LA STANZA SEPARATA, POI LA STRADA DI SEMPRE. Non si toglie
+  //    niente: se il lavoratore non si apre (browser vecchio, modulo non
+  //    servito, motore che non parte di la') si ricade qui sotto, dove il
+  //    codice e' quello di prima, riga per riga. Un fix che spegne l'occhio
+  //    quando fallisce sarebbe peggio del difetto che cura.
+  //
+  //    Non ci si prova quando la prova inietta `importa`: quelle prove esistono
+  //    apposta per non scaricare niente, e un lavoratore andrebbe a cercare la
+  //    libreria vera sul CDN.
+  if (opz.lavoratore !== false && !opz.importa) {
+    _stato = { fase: "carico", device: null, dove: "lavoratore", perche: null };
+    const nellaStanza = await occhioNelLavoratore(opz);
+    if (nellaStanza) { _occhio = nellaStanza; return _occhio; }
+    try { console.warn("[VERITAS occhio] stanza separata non disponibile ("
+      + _stato.perche + ") — si guarda dal filo della pagina"); } catch (e) {}
+  }
+
   const importa = opz.importa || (() => import("@huggingface/transformers"));
   _stato = { fase: "carico", device: null, perche: null };
 
@@ -1006,7 +1199,7 @@ export async function occhioLocale(opz = {}) {
   try {
     ({ pipeline, env } = await importa());
   } catch (e) {
-    _stato = { fase: "spento", device: null, perche: "libreria non caricata: " + (e && e.message) };
+    _stato = { fase: "spento", device: null, dove: "pagina", perche: "libreria non caricata: " + (e && e.message) };
     return null;
   }
 
@@ -1068,10 +1261,10 @@ export async function occhioLocale(opz = {}) {
   //    La stessa correzione era gia' stata fatta nella lista di
   //    `veritas_montaggio.js` e non era mai arrivata qui: due liste, una
   //    corretta e una no.
-  const tentativi = opz.tentativi || [
-    { device: "wasm", dtype: "q8" },       // MISURATO: e' quello che apre
-    { device: "wasm", dtype: "fp32" },     // nessuna compressione: l'ultima spiaggia
-  ];
+  //    ⚠️ La lista ora e' UNA SOLA (`TENTATIVI`, in cima) e la usano tutte e
+  //       due le strade, quella nel lavoratore e questa. Il difetto raccontato
+  //       qui sopra era proprio due liste che divergono.
+  const tentativi = opz.tentativi || TENTATIVI;
   let detector = null, usato = null, ultimo = null;
   for (const t of tentativi) {
     try {
@@ -1081,12 +1274,13 @@ export async function occhioLocale(opz = {}) {
     } catch (e) { ultimo = e; }
   }
   if (!detector) {
-    _stato = { fase: "spento", device: null,
+    _stato = { fase: "spento", device: null, dove: "pagina",
                perche: "modello non caricato: " + (ultimo && ultimo.message ? ultimo.message : ultimo) };
     return null;
   }
 
-  _stato = { fase: "pronto", device: usato.device, dtype: usato.dtype, perche: null };
+  _stato = { fase: "pronto", device: usato.device, dtype: usato.dtype,
+             dove: "pagina", perche: null };
   _occhio = async function rileva(immagine, parole) {
     const out = await detector(immagine, parole, {
       threshold: opz.soglia != null ? opz.soglia : FIDUCIA_MINIMA,
@@ -1373,7 +1567,7 @@ if (typeof window !== "undefined") {
 
 const ESPORTATE = {
   VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI, PASSO_DI,
-  SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO,
+  SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO, LIBRERIA,
   piantaInTela,
   vocabolarioPer, scatolaInMondo, abbina, riconosci,
   occhioLocale, stato, racconta,

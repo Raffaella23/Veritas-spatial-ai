@@ -58,7 +58,7 @@
 //
 // ===========================================================================
 
-import { piantaInTela } from "./veritas_riconosce.js?v=5";
+import { piantaInTela } from "./veritas_riconosce.js?v=6";
 import { mondoAPixel } from "./veritas_vista.js?v=10";
 
 const COLORI = {
