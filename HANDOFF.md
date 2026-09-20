@@ -483,6 +483,7 @@ Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 | 18/09 | **Dopo ogni pubblicazione si dà a Raffaella il link con la costruzione nella query** (`?v=<costruzione>`), perché il suo browser le mostrava versioni vecchie. «Quando è possibile aggiorna GitHub, fermati e fornisci link» |
 | 18/09 | **I fix si fanno uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»); ordine: lingua → pagina fluida → soglie di norma → nomi degli ambienti |
 | 18/09 | Le scritte dell'interfaccia nelle due lingue stanno in **un solo dizionario** (`veritas_lingua.js`), che traduce anche il bundle senza toccarlo |
+| 20/09 | **Dei modelli Meta si prende solo SAM 3.1**, e solo come occhio da server (sostituto di OWLv2), tenendo locchio nel browser come ripiego. SAM 3D Objects/Body no: EIDETICA il 3D ce lha gia e non puo accettare misure inventate. DINOv3 rimandato: da vettori, non nomi, e servirebbe un insieme etichettato. Licenze e conformita in `third_party_licenses/` |
 
 ---
 
