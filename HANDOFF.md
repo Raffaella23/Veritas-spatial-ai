@@ -407,6 +407,48 @@ misurando niente.
 
 ---
 
+### 6.9 — ⛔ MISURATO: l'occhio non sbaglia, sta troppo lontano
+
+Misura del 20/09 (`banco/vivo/occhio_sui_renderi.mjs`, aeroporto, 177 parole, OWLv2
+q8). È la riga di partenza per il confronto con SAM 3, e spiega la frase del §1
+«sull'aeroporto l'occhio vede quasi solo il lato aerei».
+
+| immagine | rilevazioni | sopra 30% | migliore | che cosa pesca |
+|---|---|---|---|---|
+| pianta dall'alto | 19 | **0** | 19% | schermo, cielo, bacheca, grattacielo, computer, monitor, quadro |
+| scorcio 1 | 37 | 5 | 50% | aereo ×9, pontile ×6, scala ×5 |
+| scorcio 2 | 39 | 5 | 37% | pontile ×10, aereo ×7, grattacielo ×4 |
+| scorcio 3 | 64 | 5 | 52% | aereo ×14, pontile ×10, grattacielo ×4 |
+
+**La causa si vede guardando le immagini, e non è il modello.**
+
+1. **La pianta dall'alto è quasi vuota**: due rettangoli grigi piatti, proiezione
+   ortografica senza ombre né altezza. Non ci sono sedute, banconi, muri leggibili.
+   OWLv2 risponde «schermo / monitor / quadro / manifesto» perché è **esattamente
+   quello che l'immagine mostra**: pannelli piatti. Non è un errore dell'occhio, è
+   una risposta corretta a una figura senza architettura dentro.
+2. **Negli scorci il terminal è un francobollo.** Misurato: **8,4 pixel al metro**.
+   Una seduta da 55 cm è **4,5 pixel**; un bancone da 3 m è 25 pixel; un aereo da
+   40 m è 336. Poi OWLv2 rimpicciolisce ancora a 960×960. L'occhio nomina gli aerei
+   e i pontili perché sono le uniche cose abbastanza grandi da esistere.
+
+⚠️ **CONSEGUENZA SULLA STRATEGIA: prima l'inquadratura, poi il modello.** Nessun
+modello — né SAM 3, né Grounding DINO — può dare un nome a una seduta di quattro
+pixel. Cambiare occhio senza cambiare distanza non sposta niente, e costerebbe un
+server con scheda video per scoprirlo. Il passo che ha senso è **avvicinare
+l'occhio**: scorci che inquadrano una PORZIONE dell'edificio a 40-60 pixel al metro,
+dove una seduta è 25-35 pixel. È un cambio di inquadratura, non di impianto, e il
+banco lo misura già.
+
+**Lo sfondo trasparente costa.** La stessa pianta, con il bianco sotto invece del
+fondo trasparente, passa da 19% a 30% di fiducia migliore e comincia a pescare
+**«muro» ×3 e «soffitto»** invece di «schermo» e «grattacielo». L'app oggi passa
+all'occhio i pixel con l'alfa, che diventa NERO: gli stiamo mostrando una pianta
+chiara su fondo nero, cioè una cosa che somiglia a uno schermo acceso. Mettere un
+fondo prima di far guardare è una riga, e sposta le parole verso l'edificio.
+
+---
+
 ## 7. TEST E VERIFICHE
 
 | Test | Data | Tipo | Risultato |
@@ -463,7 +505,7 @@ misurando niente.
 | **Test eseguiti** | §7, più il banco dal vivo: quattro coppie prima/dopo sulla versione pubblicata e sul workspace, a pagina isolata e non |
 | **Risultato** | a pagina isolata: blocco peggiore 394 → **183 ms**, attività lunga peggiore 241 → **114 ms**, sguardo 13,1 → 11,7 s. **Le stesse 91 cose con gli stessi punteggi**: il trasloco non cambia ciò che l'occhio vede |
 | **Limite residuo** | ① nel Chrome di Raffaella, con la GPU, non misurato. ② L'accensione dentro il lavoratore è variabile (11,6 s e 110,6 s in due giri a parità di condizioni): da tenere d'occhio, succede una volta per pagina. ③ **§6.8**: alla prima visita la pagina si blocca fino a 87,6 s **da sola**, con l'occhio fermo — più di quanto la bloccasse l'occhio. ④ `veritas_riconosce.test.mjs` 1 prova rossa, `veritas_zone` 23, `veritas_corpo_collegato` 2: **rosse già su `a6550eb`**, verificato togliendo le mie modifiche |
-| **Prossimo passo unico** | Raffaella guarda la -h dal link. Poi §6.8 (la pagina che si blocca da sola) **prima** del fix 3, perché finché dura falsa ogni misura fatta alla prima visita |
+| **Prossimo passo unico** | Raffaella guarda la -h dal link. Poi, in ordine: **§6.9** (avvicinare l'occhio e mettergli un fondo — è il passo che sblocca il §6.1 e costa poco) e **§6.8** (la pagina che si blocca da sola), tutti e due **prima** del fix 3: il primo perché senza di lui nessun cambio di modello serve a niente, il secondo perché falsa ogni misura fatta alla prima visita |
 
 ---
 
