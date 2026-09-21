@@ -213,6 +213,80 @@ function tavola(THREE, renderer, radice, opts) {
 }
 
 /**
+ * LE PIANTE, E SOLO QUELLE: una per livello, tagliata alla quota del manuale
+ * (1,10 m) sopra il pavimento di QUEL livello.
+ *
+ * ⚠️ ESISTE PERCHE' ALL'OCCHIO NON ARRIVAVANO — 21/09/2026.
+ *    Chi assegna i nomi agli ambienti (`veritas_riconosce.js`,
+ *    `window.__veritasGuarda`) fino a oggi si disegnava da solo UNA pianta
+ *    sola: `piantaDelPavimento(..., tutto: true)`, cioe' il modello intero
+ *    schiacciato dall'alto. Su un edificio a piu' piani e' una lastra in cui
+ *    il piano terra e il primo si coprono a vicenda, e cio' che l'occhio ci
+ *    riconosce non si sa a che piano appartenga.
+ *    Queste piante l'abaco le disegnava gia', ma uscivano solo da `abaco()`,
+ *    insieme a prospetti e sezioni: chiederle costava tutto il resto.
+ *
+ * ⛔ UNA SOLA IMPLEMENTAZIONE: `abaco()` chiama QUESTA. Due disegnatori di
+ *    piante tarati diversi darebbero due letture dello stesso piano — la
+ *    stessa ragione per cui il sole delle tavole e' quello di
+ *    `veritas_vista.js` e non un secondo sole tarato a parte.
+ *
+ * ⛔ REGOLA 0-bis: qui non c'e' una parola di tipologia. Una pianta per
+ *    livello si disegna uguale per un aeroporto, una scuola e una chiesa.
+ *
+ * @param {Array} opzioni.livelli i livelli misurati; se mancano si usa
+ *                                `window.__veritasPercezione.levels`
+ * @returns {Array} le tavole di genere "pianta", ognuna con `inquadratura`
+ *                  (dove sta a terra, per posare cio' che ci si vede) e
+ *                  `quotaPiano` (a che piano appartiene). Nessun livello
+ *                  misurato → nessuna pianta, e si dice invece di fingere.
+ */
+export function piantePerLivello(THREE, renderer, radice, opzioni = {}) {
+  if (!THREE || !renderer || !radice) return [];
+  radice.updateMatrixWorld(true);
+  const scatola = new THREE.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) { nota("nessun ingombro: non c'e' niente da disegnare"); return []; }
+
+  const centro = scatola.getCenter(new THREE.Vector3());
+  const misura = scatola.getSize(new THREE.Vector3());
+  const lato = opzioni.lato || 1300;
+  const quota = regola("quota_taglio_pianta_m", 1.10);
+  const P = (typeof window !== "undefined" && window.__veritasPercezione) || {};
+  const livelli = opzioni.livelli || P.levels || [];
+
+  if (!regola("una_pianta_per_livello", true) || !livelli.length) {
+    nota("nessun livello misurato: niente piante. Non e' che non c'erano piani, e' che non li ho.");
+    return [];
+  }
+
+  // La telecamera sta ALLA quota di taglio e guarda in giu': tutto quello che
+  // sta piu' in alto — soffitti, coperture, aerei — finisce dietro di lei e non
+  // copre il pavimento. E' la stessa idea della pianta del pavimento, applicata
+  // a ogni livello invece che a uno solo.
+  const fuori = [];
+  livelli.forEach((l, i) => {
+    const pav = typeof l.levelY === "number" ? l.levelY : scatola.min.y;
+    const y = pav + quota;
+    const t = tavola(THREE, renderer, radice, {
+      genere: "pianta", lato,
+      etichetta: "PIANTA livello " + (i + 1) + " di " + livelli.length
+        + " — taglio a " + quota.toFixed(2).replace(".", ",") + " m sopra quota "
+        + pav.toFixed(2).replace(".", ",") + " m"
+        + (l.navigableAreaM2 ? " (" + Math.round(l.navigableAreaM2) + " m2 calpestabili)" : ""),
+      posizione: new THREE.Vector3(centro.x, y, centro.z),
+      direzione: new THREE.Vector3(0, -1, 0),
+      alto: new THREE.Vector3(0, 0, -1),
+      larghezzaMondo: misura.x, altezzaMondo: misura.z,
+      vicino: 0.001, lontano: Math.max(0.5, y - scatola.min.y) + 1,
+    });
+    // La pianta dice a quale piano appartiene (18/09/2026): cio' che l'occhio
+    // ci vede si posa su QUESTO piano della mappa di cammino, non su tutti.
+    if (t) { t.quotaPiano = pav; fuori.push(t); }
+  });
+  return fuori;
+}
+
+/**
  * L'ABACO. Piante (una per livello), prospetti (i quattro fronti), sezioni
  * (una per asse principale), tutte in proiezione ortogonale.
  *
@@ -247,36 +321,13 @@ export function abaco(THREE, renderer, radice, opzioni = {}) {
   }
 
   const fuori = [];
-  const quota = regola("quota_taglio_pianta_m", 1.10);
-
   // --- LE PIANTE: una per livello, tagliate a 1,10 m sopra il pavimento -----
-  // La telecamera sta ALLA quota di taglio e guarda in giu': tutto quello che
-  // sta piu' in alto — soffitti, coperture, aerei — finisce dietro di lei e non
-  // copre il pavimento. E' la stessa idea della pianta del pavimento, applicata
-  // a ogni livello invece che a uno solo.
-  if (regola("una_pianta_per_livello", true) && livelli.length) {
-    livelli.forEach((l, i) => {
-      const pav = typeof l.levelY === "number" ? l.levelY : scatola.min.y;
-      const y = pav + quota;
-      const t = tavola(THREE, renderer, radice, {
-        genere: "pianta", lato,
-        etichetta: "PIANTA livello " + (i + 1) + " di " + livelli.length
-          + " — taglio a " + quota.toFixed(2).replace(".", ",") + " m sopra quota "
-          + pav.toFixed(2).replace(".", ",") + " m"
-          + (l.navigableAreaM2 ? " (" + Math.round(l.navigableAreaM2) + " m2 calpestabili)" : ""),
-        posizione: new THREE.Vector3(centro.x, y, centro.z),
-        direzione: new THREE.Vector3(0, -1, 0),
-        alto: new THREE.Vector3(0, 0, -1),
-        larghezzaMondo: misura.x, altezzaMondo: misura.z,
-        vicino: 0.001, lontano: Math.max(0.5, y - scatola.min.y) + 1,
-      });
-      // La pianta dice a quale piano appartiene (18/09/2026): cio' che l'occhio
-      // ci vede si posa su QUESTO piano della mappa di cammino, non su tutti.
-      if (t) { t.quotaPiano = pav; fuori.push(t); }
-    });
-  } else {
-    nota("nessun livello misurato: niente piante. Non e' che non c'erano piani, e' che non li ho.");
-  }
+  // ⚠️ IL DISEGNO STA IN `piantePerLivello`, non piu' qui: dal 21/09 le stesse
+  //    piante le chiede anche l'occhio che nomina gli ambienti
+  //    (`veritas_riconosce.js`), e due disegnatori tarati diversi darebbero
+  //    due letture dello stesso piano. Qui cambia solo DOVE sta il disegno:
+  //    l'abaco fa le stesse tavole di ieri, nello stesso ordine.
+  for (const t of piantePerLivello(THREE, renderer, radice, { livelli, lato })) fuori.push(t);
 
   // --- I PROSPETTI: i quattro fronti, spezzati se troppo lunghi -------------
   const fronti = [
@@ -361,5 +412,5 @@ export function abaco(THREE, renderer, radice, opzioni = {}) {
 }
 
 if (typeof window !== "undefined") {
-  window.__veritasTavole = { abaco, quantiSegmenti };
+  window.__veritasTavole = { abaco, piantePerLivello, quantiSegmenti };
 }

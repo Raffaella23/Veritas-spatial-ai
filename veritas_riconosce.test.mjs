@@ -350,5 +350,45 @@ check('due passate danno gli stessi nomi sugli stessi mucchi',
       JSON.stringify(r.posti.map((p) => [p.nome, p.centro]))
       === JSON.stringify(due.posti.map((p) => [p.nome, p.centro])));
 
+// ---------------------------------------------------------------------------
+console.log('\nogni ambiente si giudica sulla pianta del piano su cui POGGIA');
+// ---------------------------------------------------------------------------
+//
+// ⚠️ LA REGOLA E' D'ARCHITETTURA, non di programma. Raffaella, 21/09/2026:
+//    la pianta si taglia a 1,10 m sopra lo zero di QUEL piano, e quella e' la
+//    planimetria. Quindi un mucchio si mostra all'occhio su una pianta sola:
+//    quella del piano su cui appoggia. Qui si prova la regola, non il disegno.
+
+const quote = [0, 3.35];                     // piano terra e primo, solaio compreso
+
+const suTerra = pezzo([10, 0.4, 5], { min: [9, 0, 4], max: [11, 0.8, 6] });
+check('un mucchio appoggiato a quota 0 va sulla pianta del piano terra',
+      R.pianoDi(suTerra, quote) === 0);
+
+const suPrimo = pezzo([10, 3.8, 5], { min: [9, 3.35, 4], max: [11, 4.2, 6] });
+check('un mucchio appoggiato sul solaio a 3,35 va sulla pianta del primo',
+      R.pianoDi(suPrimo, quote) === 1);
+
+// La doppia altezza: una sala alta sei metri POGGIA a quota zero. Si nomina una
+// volta sola, sulla pianta del piano terra — sulla pianta di sopra quella sala
+// e' vuoto, si vede in proiezione, e li' non si nomina niente.
+const doppiaAltezza = pezzo([20, 3, 5], { min: [15, 0, 0], max: [25, 6, 10] });
+check('una sala a doppia altezza si nomina UNA volta, sul piano su cui poggia',
+      R.pianoDi(doppiaAltezza, quote) === 0);
+
+// Un arredo non appoggia mai esattamente alla quota dichiarata del solaio: i
+// piedi stanno qualche centimetro sotto o sopra. Il gioco e' dichiarato (10 cm).
+const appenaSopra = pezzo([10, 3.5, 5], { min: [9, 3.30, 4], max: [11, 3.9, 6] });
+check('cinque centimetri sotto la quota del solaio restano quel piano, non quello sotto',
+      R.pianoDi(appenaSopra, quote) === 1);
+
+// Sotto il livello piu' basso non si inventa un piano: si va col piu' basso che
+// c'e', invece di far sparire il mucchio dal giro.
+const interrato = pezzo([10, -2, 5], { min: [9, -2.5, 4], max: [11, -1.5, 6] });
+check('un mucchio sotto il livello piu basso non sparisce: va col piu basso che c e',
+      R.pianoDi(interrato, quote) === 0);
+
+check('senza livelli misurati resta una pianta sola', R.pianoDi(suPrimo, []) === 0);
+
 console.log(ko ? `\n${ko} PROVE FALLITE` : '\ntutte le prove passano');
 process.exit(ko ? 1 : 0);

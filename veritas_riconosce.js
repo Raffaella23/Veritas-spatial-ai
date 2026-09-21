@@ -1355,6 +1355,102 @@ export function piantaInTela(pianta, doc) {
 }
 
 // ---------------------------------------------------------------------------
+// 7-bis. UNA PIANTA PER LIVELLO — la convenzione, non un'opzione
+// ---------------------------------------------------------------------------
+//
+// Raffaella, 21/09/2026: *«in architettura, relativamente allo zero del piano,
+// si taglia a 1,10 m. E quella è la planimetria. Punto.»*
+//
+// Fino a oggi a quest'occhio arrivava UNA sola pianta: il modello intero
+// schiacciato dall'alto (`piantaDelPavimento`, `tutto: true`), cioè tutti i
+// livelli stampati uno sopra l'altro. Su un edificio a più piani è una macchia
+// in cui il piano terra e il primo si coprono a vicenda. Le piante giuste
+// `veritas_tavole.js` le disegnava già, ma qui non arrivavano.
+//
+// ⚠️ OGNI AMBIENTE SI GIUDICA SULLA PIANTA DEL PIANO SU CUI POGGIA, e il piano
+//    su cui poggia è quello del suo SOLAIO — non quello dove arriva la sua
+//    testa. È la regola che regge la DOPPIA ALTEZZA, il caso posto da Raffaella
+//    lo stesso giorno: una sala alta sei metri poggia a quota zero e si nomina
+//    UNA volta, sulla pianta tagliata a 1,10. Sulla pianta del livello sopra
+//    — 3,05 + solaio + 1,10 — quella stessa sala c'è ancora, ma è VUOTO: si
+//    vede in proiezione, giù fino al pavimento di sotto. Lì non si nomina
+//    niente, o la stessa sala prenderebbe due nomi: sé stessa, e quello che
+//    sembra la balaustra vista dall'alto.
+//
+// ⛔ LA STRADA SCARTATA, perché non si ripresenti: «mostrare ogni mucchio su
+//    TUTTE le piante e tenere la lettura col punteggio migliore». È una
+//    scorciatoia da programmatore che in architettura non vuol dire niente:
+//    una pianta non è un tentativo, è il piano a cui appartiene.
+//
+// ⚠️ LIMITE DEL MODELLO, NON DEL DISEGNO: su uno SPACCATO senza solai — come
+//    l'aeroporto di prova — la pianta del livello 1 mostra lo stesso il piano
+//    terra, perché non c'è niente che lo copra. È esattamente il motivo per
+//    cui questa assegnazione serve: senza, l'occhio nominerebbe due volte il
+//    piano terra.
+
+/**
+ * A quale pianta appartiene un mucchio: quella del piano su cui POGGIA.
+ *
+ * @param posto un mucchio misurato (`ingombro`, `centro`)
+ * @param quote le quote dei pavimenti, NELL'ORDINE delle piante
+ * @returns l'indice della pianta. Mai null: un mucchio sotto il livello più
+ *          basso (un interrato non misurato) va con il più basso che c'è,
+ *          invece di sparire.
+ */
+export function pianoDi(posto, quote) {
+  if (!quote || !quote.length) return 0;
+  // Il pavimento del mucchio e' il punto piu' basso del suo ingombro: e' li'
+  // che appoggia. Il centro e' l'ultima rete, e si dichiara che e' una rete.
+  const y = (posto && posto.ingombro && posto.ingombro.min
+             && typeof posto.ingombro.min[1] === "number") ? posto.ingombro.min[1]
+          : (posto && posto.centro && typeof posto.centro[1] === "number") ? posto.centro[1]
+          : null;
+  // Il gioco fra la quota dichiarata del solaio e i piedi di cio' che ci sta
+  // sopra. Dieci centimetri, scritti qui e non sparsi.
+  const GIOCO = 0.10;
+  let scelto = -1, quotaScelta = -Infinity, piuBasso = 0, minima = Infinity;
+  quote.forEach((q, i) => {
+    if (typeof q !== "number") return;
+    if (q < minima) { minima = q; piuBasso = i; }
+    if (y != null && q <= y + GIOCO && q > quotaScelta) { quotaScelta = q; scelto = i; }
+  });
+  return scelto >= 0 ? scelto : piuBasso;
+}
+
+/**
+ * Le letture dei singoli piani tornano a essere un referto solo.
+ *
+ * I numeri si sommano, gli elenchi si accodano: ogni mucchio compare una volta
+ * sola perche' e' stato guardato su una pianta sola. `piante` dice su quanti
+ * disegni si e' guardato — senza, un referto povero non si distingue da un
+ * edificio povero.
+ */
+function unisciLetture(letture) {
+  const buone = (letture || []).filter((x) => x && x.esito && x.esito.ok);
+  if (!buone.length) return null;
+  if (buone.length === 1) return Object.assign({}, buone[0].esito, { piante: 1 });
+  const u = { ok: true, posti: [], senzaNome: 0, scartate: 0, scarti: [], scartatePerMotivo: {},
+              persone: 0, luoghi: 0, luoghiVisti: [], rilevazioni: 0, chieste: 0,
+              nominati: 0, viste: [], piante: buone.length };
+  for (const { esito } of buone) {
+    u.posti = u.posti.concat(esito.posti || []);
+    u.scarti = u.scarti.concat(esito.scarti || []);
+    u.luoghiVisti = u.luoghiVisti.concat(esito.luoghiVisti || []);
+    u.viste = u.viste.concat(esito.viste || []);
+    u.senzaNome += esito.senzaNome || 0;
+    u.scartate += esito.scartate || 0;
+    u.persone += esito.persone || 0;
+    u.luoghi += esito.luoghi || 0;
+    u.rilevazioni += esito.rilevazioni || 0;
+    u.nominati += esito.nominati || 0;
+    u.chieste = Math.max(u.chieste, esito.chieste || 0);
+    for (const k of Object.keys(esito.scartatePerMotivo || {}))
+      u.scartatePerMotivo[k] = (u.scartatePerMotivo[k] || 0) + esito.scartatePerMotivo[k];
+  }
+  return u;
+}
+
+// ---------------------------------------------------------------------------
 // 8. Si aggancia da solo
 // ---------------------------------------------------------------------------
 //
@@ -1382,22 +1478,82 @@ if (typeof window !== "undefined") {
     if (!trovate || !trovate.posti || !trovate.posti.length)
       return { ok: false, perche: "non ho ancora misurato nessun mucchio di oggetti" };
 
-    const pianta = vista.piantaDelPavimento(THREE, rend, radice,
-      Object.assign({ tutto: true, conLuce: true }, opz.pianta || {}));
-    if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
-    const tela = piantaInTela(pianta);
-    if (!tela) return { ok: false, perche: "non sono riuscito a costruire l'immagine" };
-
+    // ⚠️ L'OCCHIO SI CHIEDE PRIMA DI DISEGNARE. Le piante da disegnare adesso
+    //    sono una per livello, non una sola: scoprire DOPO che l'occhio non si
+    //    accende vorrebbe dire buttare via tutte quelle rese.
     const rileva = opz.rileva || await occhioLocale(opz);
     if (!rileva) return { ok: false, perche: (stato().perche || "l'occhio non si e' acceso") };
 
-    const r = await riconosci(trovate.posti, {
-      ...opz,
-      inquadratura: pianta,
-      pianta: tela,
-      rileva,
-      dominio: opz.dominio || window.__veritasProjectType || null,
-    });
+    // --- UNA PIANTA PER LIVELLO (sezione 7-bis) ------------------------------
+    const T = window.__veritasTavole;
+    const livelli = (opz.tavole && opz.tavole.livelli)
+      || (window.__veritasPercezione && window.__veritasPercezione.levels) || [];
+    let piante = [];
+    if (T && typeof T.piantePerLivello === "function") {
+      try {
+        // ⚠️ LA STESSA FINEZZA DI PRIMA, non quella dell'abaco. La pianta
+        //    schiacciata che si disegnava qui chiedeva `latoMax: 2048` — su
+        //    questo aeroporto 19 pixel al metro. L'abaco disegna a 1300 (12
+        //    px/m), che basta a un occhio umano su un foglio e non a un
+        //    rilevatore: una seduta larga 55 cm passerebbe da 10 pixel a 6.
+        //    Misurato nel banco il 21/09: a 1300 le cose viste raddoppiano
+        //    rispetto alla lastra schiacciata, ma i mucchi nominati calano.
+        piante = T.piantePerLivello(THREE, rend, radice,
+          Object.assign({ lato: 2048 }, opz.tavole || {}, { livelli })) || [];
+      } catch (e) {
+        piante = [];
+        console.warn("[VERITAS occhio] le piante per livello non si sono disegnate: "
+          + ((e && e.message) || e));
+      }
+    }
+
+    const letture = [];
+    if (piante.length) {
+      // ⚠️ L'APPARTENENZA SI LEGGE DALLA TAVOLA, non dall'indice: se una pianta
+      //    non e' uscita, le altre restano appaiate al loro pavimento lo stesso.
+      const quote = piante.map((t) => t.quotaPiano);
+      const perPiano = piante.map(() => []);
+      for (const p of trovate.posti) perPiano[pianoDi(p, quote)].push(p);
+      console.log("[VERITAS occhio] " + piante.length + " piante per livello, mucchi per piano: "
+        + perPiano.map((g, i) => (typeof quote[i] === "number" ? "quota " + quote[i].toFixed(2) : "?")
+          + " → " + g.length).join(" · "));
+      for (let i = 0; i < piante.length; i++) {
+        // Un piano senza mucchi non si guarda: sarebbe una domanda senza
+        // nessuno a cui riferire la risposta.
+        if (!perPiano[i].length) continue;
+        const t = piante[i];
+        const tela = piantaInTela(t);
+        if (!tela) continue;
+        const esito = await riconosci(perPiano[i], {
+          ...opz,
+          inquadratura: Object.assign({}, t.inquadratura, { quotaPavimento: t.quotaPiano }),
+          pianta: tela,
+          rileva,
+          dominio: opz.dominio || window.__veritasProjectType || null,
+        });
+        letture.push({ etichetta: t.etichetta, esito });
+      }
+    }
+
+    let r = unisciLetture(letture);
+    if (!r) {
+      // ⚠️ LA STRADA DI PRIMA, e resta quella giusta: senza livelli misurati
+      //    «la pianta del suo piano» non esiste, e di un edificio a un piano
+      //    solo la pianta schiacciata e' la pianta.
+      const pianta = vista.piantaDelPavimento(THREE, rend, radice,
+        Object.assign({ tutto: true, conLuce: true }, opz.pianta || {}));
+      if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
+      const tela = piantaInTela(pianta);
+      if (!tela) return { ok: false, perche: "non sono riuscito a costruire l'immagine" };
+      r = await riconosci(trovate.posti, {
+        ...opz,
+        inquadratura: pianta,
+        pianta: tela,
+        rileva,
+        dominio: opz.dominio || window.__veritasProjectType || null,
+      });
+      r.piante = 0;
+    }
     window.__veritasVisto = r;
     if (!r.ok) return r;
 
@@ -1569,7 +1725,7 @@ const ESPORTATE = {
   VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI, PASSO_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO, LIBRERIA,
   piantaInTela,
-  vocabolarioPer, scatolaInMondo, abbina, riconosci,
+  vocabolarioPer, scatolaInMondo, abbina, riconosci, pianoDi,
   occhioLocale, stato, racconta,
 };
 export default ESPORTATE;
