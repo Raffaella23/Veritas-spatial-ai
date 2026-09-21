@@ -35,12 +35,12 @@ compito da spuntare: è la regola con cui si giudica qualunque schermata nuova.
 
 | | |
 |---|---|
-| **Aggiornato** | 21/09/2026 (il sole all'occhio: da 0 a 14 cose riconosciute dentro un ambiente) |
+| **Aggiornato** | 21/09/2026 sera (l'abaco era morto da un giorno; all'occhio arriva una pianta per livello) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `1d5c25b` — *il sole all'occhio* (prima: `fdb5eaa` l'occhio in una stanza sua, `9e4648e` conversazione, `eb2b966` interfaccia) |
+| **Ultimo commit di codice pubblicato** | `5577a5e` — *una pianta per livello all'occhio* (prima: `4e08685` l'abaco era morto, `1d5c25b` il sole all'occhio, `fdb5eaa` l'occhio in una stanza sua) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-21-i` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-i` |
+| **Costruzione dichiarata nel file** | `2026-09-21-k` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-k` (verificata servita da Pages) |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -472,8 +472,12 @@ raggruppare.
 
 **Resta aperto:** la passata in ordine a 117,9 px/m inquadra ~6,5 m alla volta,
 cioe' striscia a scala di mobile lungo un edificio di duecento metri: quasi tutti
-i suoi scatti sono aria. E le planimetrie a 1,10 m per livello di
-`veritas_tavole.js` all'occhio continuano a non arrivare.
+i suoi scatti sono aria.
+
+✅ **Le planimetrie per livello ora arrivano** (`5577a5e`, §6.12). E la frase
+«all'occhio continuano a non arrivare» era piu' vera di quanto sembrasse: non
+arrivavano perche' l'abaco era rotto da `1d5c25b` e non ne disegnava NESSUNA
+(§6.11).
 
 ---
 
@@ -486,6 +490,92 @@ codici fittizi (`8b96908`). Ogni reinline stampa **BUNDLE ALTERATO** e la
 verifica non protegge piu' niente. E' lo stesso allarme delle 2 prove rosse di
 `veritas_corpo_collegato.test.mjs` (§6.7). Va rimessa in pari l'impronta, dopo
 aver controllato che il blocco 3 sia davvero quello di `main`.
+
+---
+
+### 6.11 — ✅ CHIUSO il 21/09 sera: l'abaco era morto da un giorno
+
+`scatta()` in `veritas_tavole.js` chiamava `accendiIlSole(..., opzioni)` con una
+variabile che in quella funzione **non esiste**. Ogni tavola moriva con
+`opzioni is not defined`: piante, prospetti e sezioni, tutte, sempre. Nato con
+`1d5c25b` (il sole), insieme alla correzione dell'ombra; al commit prima quella
+riga non c'era.
+
+**Perche' non si vedeva.** `abaco()` sta dentro un `try`: il giro scriveva una
+riga di log — *«non sono riuscito a disegnare l'abaco: opzioni is not
+defined»* — e proseguiva senza nessun disegno canonico. La funzione rispondeva
+«niente tavole» invece di fermarsi: **un difetto silenzioso**, il tipo peggiore,
+e lo stesso schema gia' pagato col travaso dei nomi (28/08) e col ponte della
+navigazione (17/09).
+
+**Conseguenza architettonica:** per un giorno intero all'occhio non e' arrivato
+niente di canonico — ne' le piante per livello, ne' i quattro fronti, ne' le
+sezioni. Cioe' l'unica cosa che gli mostra l'edificio per intero, e la ragione
+per cui l'abaco esiste (08/09: una pianta porta 2.759 m2 in una figura, contro
+tredici fotografie di cui sette vuote).
+
+**Correzione** (`4e08685`, costruzione `2026-09-21-j`): `scatta()` riceve le
+opzioni della tavola — quello che il commento del sole dichiarava gia' di fare.
+Misurato nel banco: *«l'abaco: 11 tavole (2 piante, 6 prospetti, 3 sezioni) — da
+12 a 24 pixel al metro»*.
+
+⚠️ **Cosa insegna, e vale per i prossimi:** un `try` che scrive in console e
+   tira dritto nasconde un guasto totale dietro una riga di log. Dove il
+   fallimento significa «il giro prosegue senza l'informazione principale», non
+   basta scriverlo: va contato e va detto nel referto.
+
+---
+
+### 6.12 — ✅ CHIUSO il 21/09 sera: all'occhio arriva una pianta PER LIVELLO
+
+Fino a oggi `__veritasGuarda` — l'occhio che assegna i nomi — si disegnava da
+solo **una** pianta: `piantaDelPavimento(..., tutto: true)`, il modello intero
+schiacciato dall'alto, tutti i livelli stampati uno sopra l'altro.
+
+**La regola l'ha dettata Raffaella il 21/09:** *«in architettura, relativamente
+allo zero del piano, si taglia a 1,10 m. E quella e' la planimetria. Punto.»*
+Quindi una pianta per livello, e **ogni ambiente si giudica sulla pianta del
+piano su cui POGGIA** — il piano del suo solaio, non quello dove arriva la sua
+testa.
+
+**La doppia altezza**, posta da lei lo stesso giorno, e' il caso che la regola
+deve reggere: una sala alta sei metri poggia a quota zero e si nomina UNA volta,
+sulla pianta a 1,10. Sulla pianta del livello sopra quella sala c'e' ancora, ma
+e' VUOTO: si vede in proiezione, giu' fino al pavimento di sotto, e li' non si
+nomina niente — o prenderebbe due nomi, se stessa e quello che sembra la
+balaustra vista dall'alto.
+
+⛔ **Strada scartata, scritta perche' non si ripresenti:** «mostrare ogni mucchio
+   su TUTTE le piante e tenere la lettura col punteggio migliore». E' una
+   scorciatoia da programmatore: una pianta non e' un tentativo, e' il piano a
+   cui appartiene.
+
+**Misurato nel banco** (`banco/vivo/piante_all_occhio.mjs`, aeroporto GLB):
+
+| | lastra schiacciata | 2 piante per livello |
+|---|---|---|
+| piante all'occhio | 0 | **2** |
+| mucchi per piano | — | quota 0,55 → 14 · quota 2,63 → 6 |
+| rilevazioni | 80 | **227** |
+| mucchi nominati | **8** | **6** |
+| nomi dati | pontile, land, scale, aereo, pista, windowpane x2, aereo | aereo, schermo, scale, aereo, armadietti, aereo |
+
+**Risultato doppio, e si dichiara.** L'occhio vede quasi il triplo e comincia a
+vedere l'INTERNO — tornello, armadietti, scala mobile, nastro bagagli, cartello,
+schermo, sala a gradoni — dove prima rispondeva quasi solo pontili, aerei e
+pista. Ma i mucchi **nominati calano da 8 a 6**, e le buttate salgono a 205: 83
+battute, 51 troppo grandi, **44 sul vuoto**, 27 sfiorate. Altre 16 erano nomi di
+LUOGO (sala d'attesa, gate, varco) e restano testimonianza.
+
+Il calo ha una spiegazione d'architettura: tagliando a 1,10 tutto cio' che sta
+piu' in alto finisce dietro la telecamera, e spariscono proprio le cose ALTE che
+prima davano i nomi — pontili, aerei, pista. Sono nomi che a un edificio non
+servivano.
+
+**Resta da capire: le 44 «sul vuoto»** — l'occhio vede qualcosa dove la
+geometria non ha misurato nessun mucchio. E' il §6.1 visto dall'altro lato: non
+«l'occhio non parla alla mappa», ma «la mappa non ha un posto dove mettere quello
+che l'occhio dice».
 
 ---
 
@@ -516,6 +606,9 @@ aver controllato che il blocco 3 sia davvero quello di `main`.
 | Inventario delle scritte, prima e dopo `veritas_lingua.js` | 18/09 | reale, banco del workspace (`inventario_lingua.mjs` + `analizza_lingua.mjs`) | prima: una trentina di scritte nella lingua sbagliata; dopo: in italiano nessuna, in inglese solo i messaggi della conversazione (e il nome del progetto, che è un dato) |
 | `veritas_lingua.test.mjs` | 18/09 | automatico | ✔ 35/35 |
 | Conversazione in inglese, banco | 18/09 | reale, banco del workspace, piattaforma in inglese, 45 s | ✔ 14 messaggi su 14 in inglese, 87 scritte tradotte, nessuna scritta italiana visibile (salvo il nome del progetto); `veritas_lingua.test.mjs` 45/45 |
+| L'abaco disegna di nuovo | 21/09 sera | reale, banco del workspace (`banco/vivo/piante_all_occhio.mjs`) | ✖ prima: «non sono riuscito a disegnare l'abaco: opzioni is not defined»; ✔ dopo: «11 tavole (2 piante, 6 prospetti, 3 sezioni) — da 12 a 24 px/m» (§6.11) |
+| Piante per livello all'occhio, prima/dopo sullo stesso modello | 21/09 sera | reale, banco del workspace, occhio OWLv2 vero | ✔ 2 piante ricevute (0 prima), mucchi divisi 14 + 6 per piano, rilevazioni 80 → 227, cose di dentro riconosciute per la prima volta dalla pianta; ✖ mucchi nominati 8 → 6, buttate 60 → 205 (§6.12) |
+| `veritas_riconosce.test.mjs` con le prove della regola del piano | 21/09 sera | automatico, workspace | ✔ 6 prove nuove verdi (doppia altezza compresa); 1 rossa **identica prima e dopo**, verificata rimettendo il codice di `main`. `veritas_zone` 23 e `veritas_corpo_collegato` 2 invariate |
 
 **Limiti della verifica, dichiarati:**
 
@@ -536,16 +629,27 @@ aver controllato che il blocco 3 sia davvero quello di `main`.
 
 ## 8. ULTIMO INTERVENTO
 
+> Due guasti distinti, due commit, come chiesto da Raffaella («un fix e un commit
+> alla volta»). Il secondo non poteva funzionare senza il primo.
+
+### 8.a — `4e08685`, costruzione `2026-09-21-j`
+
 | | |
 |---|---|
-| **Costruzione** | `2026-09-21-i` |
-| **Commit / push** | `1d5c25b` — *il sole all'occhio*, su `main`. Autorizzazione di Raffaella: «accendi la luce all'occhio e rimisura tutto», «fai in modo che l'occhio non abbia piu' difficolta' a vedere» |
-| **File modificati** | `veritas_occhio_lavoratore.js` (**nuovo**: l'occhio intero in un Web Worker) · `veritas_riconosce.js` (prova il lavoratore, e ricade sulla strada di prima se non si apre; freno sulle accensioni in corso; una sola scala di formati; `stato().dove` dice da dove guarda) · `index.html` + `veritas_anteprima.js`, `veritas_comprensione.js`, `veritas_montaggio.js`, `veritas_passo.js` (solo la cascata dei `?v=`: riconosce 5→6, anteprima 16→17, comprensione 15→16, passo 1→2, montaggio 33→34) · `banco/vivo/prova_fluidita.mjs` e `occhio_sui_renderi.mjs` (**nuovi**) · `.gitignore` |
-| **Problema** | l'occhio non riconosceva niente dentro l'edificio (§6.9). Causa vera: le rese erano senza luce |
-| **Test eseguiti** | §7, più il banco dal vivo: quattro coppie prima/dopo sulla versione pubblicata e sul workspace, a pagina isolata e non |
-| **Risultato** | a pagina isolata: blocco peggiore 394 → **183 ms**, attività lunga peggiore 241 → **114 ms**, sguardo 13,1 → 11,7 s. **Le stesse 91 cose con gli stessi punteggi**: il trasloco non cambia ciò che l'occhio vede |
-| **Limite residuo** | ① nel Chrome di Raffaella, con la GPU, non misurato. ② L'accensione dentro il lavoratore è variabile (11,6 s e 110,6 s in due giri a parità di condizioni): da tenere d'occhio, succede una volta per pagina. ③ **§6.8**: alla prima visita la pagina si blocca fino a 87,6 s **da sola**, con l'occhio fermo — più di quanto la bloccasse l'occhio. ④ `veritas_riconosce.test.mjs` 1 prova rossa, `veritas_zone` 23, `veritas_corpo_collegato` 2: **rosse già su `a6550eb`**, verificato togliendo le mie modifiche |
-| **Prossimo passo unico** | Raffaella guarda la -i dal link. Poi: **far arrivare all'occhio le planimetrie a 1,10 m per livello** che `veritas_tavole.js` gia' produce, e **rifare la passata in ordine** che oggi inquadra 6,5 m alla volta. Restano dietro §6.8 (la pagina che si blocca da sola alla prima visita) e §6.10 (l'impronta del bundle) |
+| **Problema** | l'abaco era morto da `1d5c25b`: ogni tavola moriva con `opzioni is not defined`, dentro un `try` che scriveva una riga di log e tirava dritto (§6.11) |
+| **File modificati** | `veritas_tavole.js` (`scatta()` riceve le opzioni della tavola) · `veritas_montaggio.js` e `index.html`: solo la cascata dei `?v=` (tavole 4→5, montaggio 35→36) |
+| **Test** | banco dal vivo: prima «non sono riuscito a disegnare l'abaco», dopo «11 tavole (2 piante, 6 prospetti, 3 sezioni)» |
+| **Cosa NON cambia** | nessun disegno ritarato, nessuna vista riordinata: l'abaco torna a fare quello del 20/09, col sole in piu' |
+
+### 8.b — `5577a5e`, costruzione `2026-09-21-k`
+
+| | |
+|---|---|
+| **Problema** | §8, primo passo: all'occhio che assegna i nomi arrivava una sola lastra col modello schiacciato, non le piante a 1,10 m per livello (§6.12) |
+| **File modificati** | `veritas_tavole.js` (le piante escono da `abaco()`: `piantePerLivello`, e `abaco()` chiama quella — un disegnatore solo) · `veritas_riconosce.js` (`__veritasGuarda` chiede le piante per livello, `pianoDi` assegna ogni mucchio al piano su cui poggia, le letture si uniscono; l'occhio si chiede PRIMA di disegnare; finezza `lato: 2048` come prima) · `veritas_riconosce.test.mjs` (6 prove nuove) · `banco/vivo/piante_all_occhio.mjs` (**nuovo**) · `.gitignore` · cascata dei `?v=` su anteprima 18→19, comprensione 17→18, riconosce 7→8, passo 3→4 |
+| **Risultato** | rilevazioni 80 → **227**, piante all'occhio 0 → **2**, mucchi divisi 14 + 6 per piano; per la prima volta dalla pianta escono cose di DENTRO (tornello, armadietti, scala mobile, nastro bagagli, schermo). **Ma i nominati calano 8 → 6** e le buttate salgono a 205 |
+| **Limite residuo** | ① le 44 rilevazioni «sul vuoto»: l'occhio vede dove la geometria non ha misurato niente. ② su questo modello i «livelli» stanno a 0,55 e 2,63 — 2,08 m l'uno dall'altro, su uno spaccato senza solai: non si sa se siano i piani veri. ③ `veritas_occhi.js` guarda ancora la fetta bassa a 45 cm (serve LM Studio, §9 punto 4). ④ la passata in ordine inquadra ancora 6,5 m alla volta |
+| **Prossimo passo unico** | Raffaella guarda la `-k`. Poi **rifare la passata in ordine** (§9) — e, se lo decide lei, guardare le 44 «sul vuoto», che sono il §6.1 visto dall'altro lato |
 
 ---
 
@@ -562,8 +666,16 @@ aver controllato che il blocco 3 sia davvero quello di `main`.
 4. **Nomi giusti agli ambienti** dall'occhio: prova nel Chrome di Raffaella con LM
    Studio acceso, e un modello con interni veri.
 
+⚠️ **Il §8 del 21/09 sera aggiunge il passo che viene prima del 3 e del 4:**
+**rifare la passata in ordine**, che a 117,9 px/m inquadra 6,5 m alla volta e
+fotografa quasi sempre aria. E le 44 rilevazioni «sul vuoto» del §6.12, che sono
+il §6.1 visto dall'altro lato: la mappa non ha un posto dove mettere quello che
+l'occhio dice.
+
 Altri punti aperti: vedere l'occhio segnare muri e porte (la pagina di attesa li
-disegna); splat inquadrato male sotto il velo; `veritas_corpo_collegato` (§6.7).
+disegna); splat inquadrato male sotto il velo; `veritas_corpo_collegato` (§6.7);
+`veritas_occhi.js` guarda ancora la fetta bassa a 45 cm invece delle piante per
+livello — non si pubblica senza prova, e quella prova vuole LM Studio acceso.
 
 Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 `sonda_stati.mjs`, `crea_splat.mjs`, `inventario_lingua.mjs` + `analizza_lingua.mjs`.
@@ -598,6 +710,9 @@ Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 | 16/09 | Il prodotto si chiama **EIDETICA**; `VERITAS` resta solo prefisso interno dei file |
 | 16/09 | `LESSICO_ZONE` eliminata: era Regola 0-bis violata, rientrata dalla porta accanto |
 | 17/09 | **Nel dubbio vince l'occhio.** E: non si cerca un file già intelligente (IFC, mesh nominate) — la conoscenza sta nel programma, non nel file. Deve funzionare su uno splat |
+| 21/09 | **La pianta si taglia a 1,10 m sopra lo zero di QUEL piano, e quella è la planimetria. Punto.** Una per livello. Non è un'opzione ne' una taratura: è la convenzione del disegno d'architettura |
+| 21/09 | **Ogni ambiente si giudica sulla pianta del piano su cui POGGIA** — quello del suo solaio, non quello dove arriva la sua testa. La sala a doppia altezza si nomina una volta sola; sulla pianta di sopra è vuoto visto in proiezione, e li' non si nomina niente |
+| 21/09 | **Scartata**: «mostrare ogni mucchio su tutte le piante e tenere il punteggio migliore». Una pianta non è un tentativo, è il piano a cui appartiene |
 | 17/09 | Finché l'occhio non ha parlato: accensione progressiva delle zone e report laterali che si aprono man mano |
 | 17/09 | **I codici fittizi si rimuovono appena trovati** (tappe, nomi, traiettorie, KPI, inquadrature scritti a mano): «rimuovi i codici fittizi quando li trovi». Vale anche dentro il bundle, con prova di caricamento reale prima di pubblicare |
 | 17/09 | Il canale dell'occhio si costruisce **sulle immagini**, perché funzioni su tutti i modelli, splat compresi; serve anche a risolvere il **riconoscimento delle zone**, non solo i muri |
