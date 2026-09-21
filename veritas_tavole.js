@@ -79,7 +79,17 @@ export function quantiSegmenti(lunghezza, altezza) {
 }
 
 /** Scatta una figura con la telecamera data. Il modello TORNA sempre dov'era. */
-function scatta(THREE, renderer, radice, cam, larghezza, altezza) {
+function scatta(THREE, renderer, radice, cam, larghezza, altezza, opzioni = {}) {
+  // ⚠️ QUESTO PARAMETRO MANCAVA, e l'abaco era morto — 21/09/2026.
+  //    Il sole qui sotto veniva chiamato con `opzioni`, che in questa funzione
+  //    non esisteva: ogni tavola — piante, prospetti, sezioni — moriva con
+  //    `opzioni is not defined`. L'errore finiva in una riga di log
+  //    («non sono riuscito a disegnare l'abaco») e nessuno la leggeva: il giro
+  //    proseguiva senza NESSUN disegno canonico, cioè senza l'unica cosa che
+  //    mostra all'occhio l'edificio per intero. Nato con `1d5c25b` insieme al
+  //    sole; al commit prima questa riga non c'era.
+  //    ⛔ Un difetto silenzioso: la funzione rispondeva "niente tavole" invece
+  //       di fermarsi, ed è il tipo peggiore.
   const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
     format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
@@ -198,7 +208,7 @@ function tavola(THREE, renderer, radice, opts) {
       origine: [opts.posizione.x - (w * ARIA) / 2,
                 opts.posizione.z - (h * ARIA) / 2],
     } : null,
-    pixel: scatta(THREE, renderer, radice, cam, W, H),
+    pixel: scatta(THREE, renderer, radice, cam, W, H, opts),
   };
 }
 

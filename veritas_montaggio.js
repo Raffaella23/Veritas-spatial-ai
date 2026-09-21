@@ -1,5 +1,5 @@
 import "./veritas_manuale.js?v=2";
-import { abaco } from "./veritas_tavole.js?v=4";
+import { abaco } from "./veritas_tavole.js?v=5";
 import "./veritas_divide.js?v=2";
 import "./veritas_lessico.js?v=2";
 // ===========================================================================
