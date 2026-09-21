@@ -35,12 +35,12 @@ compito da spuntare: è la regola con cui si giudica qualunque schermata nuova.
 
 | | |
 |---|---|
-| **Aggiornato** | 20/09/2026 (fix 2 di 4 chiuso: l'occhio in un Web Worker) |
+| **Aggiornato** | 21/09/2026 (il sole all'occhio: da 0 a 14 cose riconosciute dentro un ambiente) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `fdb5eaa` — *fix: l'occhio in una stanza sua* (prima: `9e4648e` conversazione, `eb2b966` interfaccia, `39199e2` tappe finte) |
+| **Ultimo commit di codice pubblicato** | `1d5c25b` — *il sole all'occhio* (prima: `fdb5eaa` l'occhio in una stanza sua, `9e4648e` conversazione, `eb2b966` interfaccia) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-20-h` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-20-h` |
+| **Costruzione dichiarata nel file** | `2026-09-21-i` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-i` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -432,70 +432,60 @@ misurando niente.
 
 ---
 
-### 6.9 — ⛔ MISURATO: l'occhio non sbaglia, sta troppo lontano
+### 6.9 — ✅ CHIUSO il 21/09: l'occhio non era cieco, era AL BUIO
 
-Misura del 20/09 (`banco/vivo/occhio_sui_renderi.mjs`, aeroporto, 177 parole, OWLv2
-q8). È la riga di partenza per il confronto con SAM 3, e spiega la frase del §1
-«sull'aeroporto l'occhio vede quasi solo il lato aerei».
+⚠️ **LA DIAGNOSI SCRITTA QUI IL 20/09 ERA SBAGLIATA e va letta come un errore da
+non rifare.** Diceva «l'occhio sta troppo lontano, prima l'inquadratura poi il
+modello». Era una conclusione tratta da UNA SOLA vista — la veduta larga — mentre
+il giro vero ne monta quattro. Misurando tutte:
 
-| immagine | rilevazioni | sopra 30% | migliore | che cosa pesca |
-|---|---|---|---|---|
-| scorcio 1 | 37 | 5 | 50% | aereo ×9, pontile ×6, scala ×5 |
-| scorcio 2 | 39 | 5 | 37% | pontile ×10, aereo ×7, grattacielo ×4 |
-| scorcio 3 | 64 | 5 | 52% | aereo ×14, pontile ×10, grattacielo ×4 |
+| tipo di vista | quanto e' fitta | cose di dentro trovate |
+|---|---|---|
+| veduta larga | 8,4 px/m | 4 |
+| ravvicinate ai gruppi | 11 → 51 px/m | 1, 0, 0, 8 |
+| passata in ordine | **117,9 px/m** | 0, 0, 0, 2 |
+| da dentro gli ambienti | 73-87 px/m | **0, 0, 0** |
 
-⚠️ **LA RIGA DELLA PIANTA È STATA TOLTA: era misurata sull'immagine sbagliata.**
-`renderi_per_sam.mjs` e `occhio_sui_renderi.mjs` chiedevano la pianta **senza**
-`tutto: true`, e senza quello la piattaforma taglia la fetta di 45 cm da terra e
-restituisce il **pavimento nudo** — due rettangoli grigi. Sedute, banconi, gate e
-nastri stanno tutti più in alto. Visto da Raffaella guardando il PNG: «quella è la
-vista dal basso». Corretto il 20/09; la misura sulla pianta è **da rifare**.
-(Controllato anche il sospetto di pianta specchiata, con quattro cubi colorati negli
-angoli noti del mondo: **non è specchiata**, l'orientamento è giusto e `mondoAPixel`
-corrisponde — `banco/vivo/pianta_specchiata.mjs`.)
+A 117,9 pixel al metro una seduta e' larga 60 pixel e un metal detector 120, e
+l'occhio trovava NIENTE. **Non era la distanza.**
 
-**La causa degli scorci resta, ed è misurata.**
+**La causa vera: ogni resa passava da `spegniLuci`** — materiali sostituiti con
+equivalenti non illuminati. Conservava il colore e buttava via il rilievo, e
+senza luce non c'e' forma: un muro grigio, un pavimento grigio, una colonna
+grigia e un bancone grigio sono lo stesso rettangolo grigio. Le viste da dentro
+rispondevano «pista, cielo, ponte, terra» — roba di FUORI, stando dentro — oppure
+niente.
 
-1. **Negli scorci il terminal è un francobollo.** Misurato: **8,4 pixel al metro**.
-   Una seduta da 55 cm è **4,5 pixel**; un bancone da 3 m è 25 pixel; un aereo da
-   40 m è 336. Poi OWLv2 rimpicciolisce ancora a 960×960. L'occhio nomina gli aerei
-   e i pontili perché sono le uniche cose abbastanza grandi da esistere.
+**Acceso il sole** (`accendiIlSole`, `veritas_vista.js`), stesse identiche viste,
+un solo cambiamento per volta:
 
-⚠️ **CONSEGUENZA SULLA STRATEGIA: prima l'inquadratura, poi il modello.** Nessun
-modello — né SAM 3, né Grounding DINO — può dare un nome a una seduta di quattro
-pixel, né a un metal detector di otto. Cambiare occhio senza cambiare distanza non
-sposta niente, e costerebbe un server con scheda video per scoprirlo.
+| da dentro | senza luce | con il sole |
+|---|---|---|
+| 86,8 px/m | 0 | **2** — sala d'attesa con file di sedute, tornello |
+| 73,4 px/m | **0** | **14** — sedie, sedute, colonna, scala mobile, sala d'attesa |
+| 81,7 px/m | **0** | **4** — sala d'attesa, sedute girevoli, aula a gradoni |
 
-**NON È IL VOCABOLARIO.** Verificato il 20/09: le parole ci sono già tutte —
-«metal detector», «security», «checkpoint», «waiting», «gate», «seat», «counter»,
-«turnstile», «baggage», «check-in». L'occhio le ha chieste tutte e 177 e non ne ha
-trovata nessuna. Aggiungere parole non serve finché non vede.
+Sono i nomi che servono al §6.1. **Resta vero** che il vocabolario non c'entrava
+(le parole c'erano gia' tutte) e che una stanza non e' un oggetto: il nome del
+luogo nasce dal gruppo, e `riconosci()` lo fa gia' — ora ha qualcosa da
+raggruppare.
 
-**E UNA STANZA NON È UN OGGETTO.** «Sala d'attesa» e «controllo sicurezza» l'occhio
-non può vederle: vede COSE. Il controllo sicurezza è *metal detector + nastro +
-transenne in fila*; la sala d'attesa è *molte sedute affacciate nella stessa
-direzione*. Il nome del luogo nasce dal GRUPPO, e quel passaggio esiste già
-(`riconosci()` raggruppa e nomina). Non può raggruppare niente se sotto non trova
-oggetti.
+**Resta aperto:** la passata in ordine a 117,9 px/m inquadra ~6,5 m alla volta,
+cioe' striscia a scala di mobile lungo un edificio di duecento metri: quasi tutti
+i suoi scatti sono aria. E le planimetrie a 1,10 m per livello di
+`veritas_tavole.js` all'occhio continuano a non arrivare.
 
-### La strada: l'occhio si muove — chiesto da Raffaella da tempo, 20/09
+---
 
-> «Se l'occhio potesse fare zoom e pan o ruotare il modello avremmo risolto l'occhio,
-> ed è una cosa che ho chiesto da tantissimo.»
+### 6.10 — ⛔ La guardia dell'impronta del bundle e' ferma
 
-È la stessa cosa che dice la misura, detta meglio: oggi l'occhio riceve **scatti
-fissi e lontani** e deve farseli bastare. Deve invece poter **scegliere da dove
-guardare** — avvicinarsi, spostarsi, girare intorno, salire di livello. Due passi
-concreti, tutti e due senza cambiare modello:
-
-1. **Dargli i disegni che già facciamo.** `veritas_tavole.js:219` produce già **una
-   pianta per livello, tagliata a 1,10 m** (regola `quota_taglio_pianta_m` nel
-   manuale, con la motivazione di Raffaella: «a 1,10 la sezione taglia porte e
-   finestre e passa sopra i banconi bassi»). L'occhio non le riceve:
-   `veritas_occhi.js:459` è ancora sulla **fetta di 45 cm** (vecchio errore, mai
-   corretto) e `veritas_riconosce.js:1385` prende tutto il modello schiacciato.
-2. **Avvicinarlo.** Scorci su una PORZIONE dell'edificio a 40-60 pixel al metro, dove
-   una seduta è 25-35 pixel e un metal detector 50. Il banco lo misura già.
+`banco/reinlina.py` rigenera le copie incollate, ma la sua verifica finale
+(«il blocco 3 byte-per-byte quello di sempre») cerca l'impronta
+`beb4953744b92c5b`, che non esiste piu' dal 18/09 — quando sono stati tolti i
+codici fittizi (`8b96908`). Ogni reinline stampa **BUNDLE ALTERATO** e la
+verifica non protegge piu' niente. E' lo stesso allarme delle 2 prove rosse di
+`veritas_corpo_collegato.test.mjs` (§6.7). Va rimessa in pari l'impronta, dopo
+aver controllato che il blocco 3 sia davvero quello di `main`.
 
 ---
 
@@ -548,14 +538,14 @@ concreti, tutti e due senza cambiare modello:
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-20-h` |
-| **Commit / push** | `fdb5eaa` — *l'occhio in una stanza sua*, su `main`. Autorizzazione di Raffaella: «un fix e un commit alla volta, prova nel banco prima di pubblicare» |
+| **Costruzione** | `2026-09-21-i` |
+| **Commit / push** | `1d5c25b` — *il sole all'occhio*, su `main`. Autorizzazione di Raffaella: «accendi la luce all'occhio e rimisura tutto», «fai in modo che l'occhio non abbia piu' difficolta' a vedere» |
 | **File modificati** | `veritas_occhio_lavoratore.js` (**nuovo**: l'occhio intero in un Web Worker) · `veritas_riconosce.js` (prova il lavoratore, e ricade sulla strada di prima se non si apre; freno sulle accensioni in corso; una sola scala di formati; `stato().dove` dice da dove guarda) · `index.html` + `veritas_anteprima.js`, `veritas_comprensione.js`, `veritas_montaggio.js`, `veritas_passo.js` (solo la cascata dei `?v=`: riconosce 5→6, anteprima 16→17, comprensione 15→16, passo 1→2, montaggio 33→34) · `banco/vivo/prova_fluidita.mjs` e `occhio_sui_renderi.mjs` (**nuovi**) · `.gitignore` |
-| **Problema** | fix 2 di 4 della lista del 18/09: la pagina si ferma mentre l'occhio guarda (§6.7) |
+| **Problema** | l'occhio non riconosceva niente dentro l'edificio (§6.9). Causa vera: le rese erano senza luce |
 | **Test eseguiti** | §7, più il banco dal vivo: quattro coppie prima/dopo sulla versione pubblicata e sul workspace, a pagina isolata e non |
 | **Risultato** | a pagina isolata: blocco peggiore 394 → **183 ms**, attività lunga peggiore 241 → **114 ms**, sguardo 13,1 → 11,7 s. **Le stesse 91 cose con gli stessi punteggi**: il trasloco non cambia ciò che l'occhio vede |
 | **Limite residuo** | ① nel Chrome di Raffaella, con la GPU, non misurato. ② L'accensione dentro il lavoratore è variabile (11,6 s e 110,6 s in due giri a parità di condizioni): da tenere d'occhio, succede una volta per pagina. ③ **§6.8**: alla prima visita la pagina si blocca fino a 87,6 s **da sola**, con l'occhio fermo — più di quanto la bloccasse l'occhio. ④ `veritas_riconosce.test.mjs` 1 prova rossa, `veritas_zone` 23, `veritas_corpo_collegato` 2: **rosse già su `a6550eb`**, verificato togliendo le mie modifiche |
-| **Prossimo passo unico** | Raffaella guarda la -h dal link. Poi, in ordine: **§6.9** (avvicinare l'occhio e mettergli un fondo — è il passo che sblocca il §6.1 e costa poco) e **§6.8** (la pagina che si blocca da sola), tutti e due **prima** del fix 3: il primo perché senza di lui nessun cambio di modello serve a niente, il secondo perché falsa ogni misura fatta alla prima visita |
+| **Prossimo passo unico** | Raffaella guarda la -i dal link. Poi: **far arrivare all'occhio le planimetrie a 1,10 m per livello** che `veritas_tavole.js` gia' produce, e **rifare la passata in ordine** che oggi inquadra 6,5 m alla volta. Restano dietro §6.8 (la pagina che si blocca da sola alla prima visita) e §6.10 (l'impronta del bundle) |
 
 ---
 
@@ -615,6 +605,9 @@ Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 | 18/09 | **Dopo ogni pubblicazione si dà a Raffaella il link con la costruzione nella query** (`?v=<costruzione>`), perché il suo browser le mostrava versioni vecchie. «Quando è possibile aggiorna GitHub, fermati e fornisci link» |
 | 18/09 | **I fix si fanno uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»); ordine: lingua → pagina fluida → soglie di norma → nomi degli ambienti |
 | 18/09 | Le scritte dell'interfaccia nelle due lingue stanno in **un solo dizionario** (`veritas_lingua.js`), che traduce anche il bundle senza toccarlo |
+| 21/09 | **IL SOLE E' LA REGOLA, il piatto l'eccezione.** Le viste tridimensionali dell'occhio si rendono illuminate, con ombre proprie e portate. La PIANTA resta piatta se non le si chiede il sole: da quella stessa pianta si legge la segnaletica a terra dal COLORE dei pixel, e un'ombra sopra una striscia gialla la fa diventare un'altra tinta |
+| 21/09 | **Un solo sole per tutta la piattaforma** (`accendiIlSole` in `veritas_vista.js`, riusato da `veritas_tavole.js`). Due soli tarati diversi darebbero due letture diverse dello stesso edificio |
+| 21/09 | **La costruzione si alza PRIMA di misurare nel banco.** Il 21/09 due giri col sole hanno dato immagini identiche al byte: il banco serviva la versione pubblicata e non il workspace, e siccome la costruzione era `-h` in tutti e due i casi il controllo non poteva accorgersene |
 | 20/09 | **Dentro il lavoratore il proxy di ONNX si SPEGNE.** Era stato acceso il 04/09 perché l'occhio non trovava i 255,5 MB del motore con la scena 3D caricata: la stanza separata adesso è il lavoratore stesso, e tenerlo acceso aprirebbe un lavoratore dentro il lavoratore e una seconda copia del motore in WebAssembly |
 | 20/09 | **Si misura il BLOCCO, non l'occupazione del filo.** Col lavoratore la pagina torna a disegnare e ogni fotogramma è lavoro: a contare il filo occupato, il rimedio risulta peggiore del male. Conta il blocco più lungo e i fotogrammi che escono |
 | 20/09 | **Accesso SAM concesso (20/09). Si parte da `facebook/sam3`, non da `sam3.1`**: `sam3` è confezionato per la libreria che già usiamo (`AutoModel`, pronto per un server) e ha la versione ONNX per il browser; `sam3.1` è un checkpoint nudo, una seconda strada di codice per una precisione che non sappiamo ancora misurare. Passare a 3.1 sarà cambiare i pesi, non l'impianto |
