@@ -48,9 +48,18 @@ const immagini = await p.evaluate(async (quanti) => {
     s.fillStyle = "#ffffff"; s.fillRect(0, 0, l, a); s.drawImage(c, 0, 0);
     return sotto.toDataURL("image/png");
   };
+  // ⚠️ `tutto: true` E' OBBLIGATORIO, e senza si sbaglia in silenzio. Senza,
+  //    la piattaforma taglia la fetta di 45 cm da terra e restituisce il
+  //    PAVIMENTO NUDO: sedute, banconi, gate e nastri stanno tutti piu' in
+  //    alto e spariscono. L'immagine che ne esce sono due rettangoli grigi, e
+  //    NON e' quella che guarda l'occhio dell'app (`veritas_riconosce.js` la
+  //    chiede con `tutto: true`). Sbagliato il 20/09: la misura fatta sulla
+  //    fetta diceva che l'occhio non riconosce niente, ma l'occhio non aveva
+  //    davanti quello che ha davanti nell'app. Visto da Raffaella guardando
+  //    il PNG: «quella e' la vista dal basso».
   const fuori = [];
   try {
-    const pianta = V.piantaDelPavimento(T, R, radice, {});
+    const pianta = V.piantaDelPavimento(T, R, radice, { tutto: true });
     if (pianta && pianta.pixel) fuori.push({ nome: "pianta_dall_alto", dataURL: inTela(pianta), larghezza: pianta.larghezza || pianta.inq.larghezza });
   } catch (e) { fuori.push({ nome: "pianta", perche: e.message }); }
   try {

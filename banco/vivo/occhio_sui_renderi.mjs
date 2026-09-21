@@ -77,9 +77,11 @@ const esito = await p.evaluate(async ([quanti, quante, soglia]) => {
   if (!R || !V || !T || !Rend || !radice) return { guaio: "manca la scena o il disegnatore" };
 
   // Le stesse immagini di renderi_per_sam.mjs, nello stesso ordine.
+  // ⚠️ `tutto: true` E' OBBLIGATORIO: vedi l'avviso in renderi_per_sam.mjs.
+  //    Senza, si misura il pavimento nudo e non quello che guarda l'occhio.
   const viste = [];
   try {
-    const pianta = V.piantaDelPavimento(T, Rend, radice, {});
+    const pianta = V.piantaDelPavimento(T, Rend, radice, { tutto: true });
     if (pianta && pianta.pixel) viste.push({ nome: "pianta_dall_alto", v: pianta });
   } catch (e) { return { guaio: "pianta: " + e.message }; }
   try {

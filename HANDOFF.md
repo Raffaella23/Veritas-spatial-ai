@@ -6,6 +6,31 @@
 
 ---
 
+## 0. DIRETTIVE DI RAFFAELLA — si eseguono, non si discutono
+
+### 0.1 — Il velo è il vestito di TUTTA la piattaforma (20/09/2026)
+
+> «Mi piacerebbe mantenere lo stesso render che abbiamo (velo) all'inizio anche
+> nella vista live e nelle viste degli agenti: questo permette alle analisi della
+> piattaforma di spiccare ed essere più evidenti.»
+
+Il modo di disegnare del velo di apertura **non è la grafica di una schermata**: è
+il modo in cui EIDETICA mostra lo spazio, ovunque. Vale per il velo, per la **vista
+dal vivo** e per le **viste degli agenti**. La ragione è di lettura, non di gusto:
+su un fondo trattenuto e uniforme, quello che la piattaforma ha **capito** — zone,
+percorsi, conformità, flussi — si stacca e si vede. Su un modello con i suoi
+materiali, colori e texture, l'analisi ci si perde dentro.
+
+⚠️ **Conseguenza: il modello originale non sparisce, si mette sotto un pulsante.**
+L'utente deve poter vedere il proprio modello com'è, quando vuole. Il pulsante segue
+la logica già in uso nell'interfaccia — non se ne inventa una nuova, e non si
+nasconde in un menù.
+
+⚠️ Questa direttiva **vale per ogni vista che si costruirà d'ora in poi**. Non è un
+compito da spuntare: è la regola con cui si giudica qualunque schermata nuova.
+
+---
+
 ## 1. STATO ATTUALE
 
 | | |
@@ -415,37 +440,62 @@ q8). È la riga di partenza per il confronto con SAM 3, e spiega la frase del §
 
 | immagine | rilevazioni | sopra 30% | migliore | che cosa pesca |
 |---|---|---|---|---|
-| pianta dall'alto | 19 | **0** | 19% | schermo, cielo, bacheca, grattacielo, computer, monitor, quadro |
 | scorcio 1 | 37 | 5 | 50% | aereo ×9, pontile ×6, scala ×5 |
 | scorcio 2 | 39 | 5 | 37% | pontile ×10, aereo ×7, grattacielo ×4 |
 | scorcio 3 | 64 | 5 | 52% | aereo ×14, pontile ×10, grattacielo ×4 |
 
-**La causa si vede guardando le immagini, e non è il modello.**
+⚠️ **LA RIGA DELLA PIANTA È STATA TOLTA: era misurata sull'immagine sbagliata.**
+`renderi_per_sam.mjs` e `occhio_sui_renderi.mjs` chiedevano la pianta **senza**
+`tutto: true`, e senza quello la piattaforma taglia la fetta di 45 cm da terra e
+restituisce il **pavimento nudo** — due rettangoli grigi. Sedute, banconi, gate e
+nastri stanno tutti più in alto. Visto da Raffaella guardando il PNG: «quella è la
+vista dal basso». Corretto il 20/09; la misura sulla pianta è **da rifare**.
+(Controllato anche il sospetto di pianta specchiata, con quattro cubi colorati negli
+angoli noti del mondo: **non è specchiata**, l'orientamento è giusto e `mondoAPixel`
+corrisponde — `banco/vivo/pianta_specchiata.mjs`.)
 
-1. **La pianta dall'alto è quasi vuota**: due rettangoli grigi piatti, proiezione
-   ortografica senza ombre né altezza. Non ci sono sedute, banconi, muri leggibili.
-   OWLv2 risponde «schermo / monitor / quadro / manifesto» perché è **esattamente
-   quello che l'immagine mostra**: pannelli piatti. Non è un errore dell'occhio, è
-   una risposta corretta a una figura senza architettura dentro.
-2. **Negli scorci il terminal è un francobollo.** Misurato: **8,4 pixel al metro**.
+**La causa degli scorci resta, ed è misurata.**
+
+1. **Negli scorci il terminal è un francobollo.** Misurato: **8,4 pixel al metro**.
    Una seduta da 55 cm è **4,5 pixel**; un bancone da 3 m è 25 pixel; un aereo da
    40 m è 336. Poi OWLv2 rimpicciolisce ancora a 960×960. L'occhio nomina gli aerei
    e i pontili perché sono le uniche cose abbastanza grandi da esistere.
 
 ⚠️ **CONSEGUENZA SULLA STRATEGIA: prima l'inquadratura, poi il modello.** Nessun
 modello — né SAM 3, né Grounding DINO — può dare un nome a una seduta di quattro
-pixel. Cambiare occhio senza cambiare distanza non sposta niente, e costerebbe un
-server con scheda video per scoprirlo. Il passo che ha senso è **avvicinare
-l'occhio**: scorci che inquadrano una PORZIONE dell'edificio a 40-60 pixel al metro,
-dove una seduta è 25-35 pixel. È un cambio di inquadratura, non di impianto, e il
-banco lo misura già.
+pixel, né a un metal detector di otto. Cambiare occhio senza cambiare distanza non
+sposta niente, e costerebbe un server con scheda video per scoprirlo.
 
-**Lo sfondo trasparente costa.** La stessa pianta, con il bianco sotto invece del
-fondo trasparente, passa da 19% a 30% di fiducia migliore e comincia a pescare
-**«muro» ×3 e «soffitto»** invece di «schermo» e «grattacielo». L'app oggi passa
-all'occhio i pixel con l'alfa, che diventa NERO: gli stiamo mostrando una pianta
-chiara su fondo nero, cioè una cosa che somiglia a uno schermo acceso. Mettere un
-fondo prima di far guardare è una riga, e sposta le parole verso l'edificio.
+**NON È IL VOCABOLARIO.** Verificato il 20/09: le parole ci sono già tutte —
+«metal detector», «security», «checkpoint», «waiting», «gate», «seat», «counter»,
+«turnstile», «baggage», «check-in». L'occhio le ha chieste tutte e 177 e non ne ha
+trovata nessuna. Aggiungere parole non serve finché non vede.
+
+**E UNA STANZA NON È UN OGGETTO.** «Sala d'attesa» e «controllo sicurezza» l'occhio
+non può vederle: vede COSE. Il controllo sicurezza è *metal detector + nastro +
+transenne in fila*; la sala d'attesa è *molte sedute affacciate nella stessa
+direzione*. Il nome del luogo nasce dal GRUPPO, e quel passaggio esiste già
+(`riconosci()` raggruppa e nomina). Non può raggruppare niente se sotto non trova
+oggetti.
+
+### La strada: l'occhio si muove — chiesto da Raffaella da tempo, 20/09
+
+> «Se l'occhio potesse fare zoom e pan o ruotare il modello avremmo risolto l'occhio,
+> ed è una cosa che ho chiesto da tantissimo.»
+
+È la stessa cosa che dice la misura, detta meglio: oggi l'occhio riceve **scatti
+fissi e lontani** e deve farseli bastare. Deve invece poter **scegliere da dove
+guardare** — avvicinarsi, spostarsi, girare intorno, salire di livello. Due passi
+concreti, tutti e due senza cambiare modello:
+
+1. **Dargli i disegni che già facciamo.** `veritas_tavole.js:219` produce già **una
+   pianta per livello, tagliata a 1,10 m** (regola `quota_taglio_pianta_m` nel
+   manuale, con la motivazione di Raffaella: «a 1,10 la sezione taglia porte e
+   finestre e passa sopra i banconi bassi»). L'occhio non le riceve:
+   `veritas_occhi.js:459` è ancora sulla **fetta di 45 cm** (vecchio errore, mai
+   corretto) e `veritas_riconosce.js:1385` prende tutto il modello schiacciato.
+2. **Avvicinarlo.** Scorci su una PORZIONE dell'edificio a 40-60 pixel al metro, dove
+   una seduta è 25-35 pixel e un metal detector 50. Il banco lo misura già.
 
 ---
 
