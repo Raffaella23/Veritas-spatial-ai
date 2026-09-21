@@ -35,12 +35,12 @@ compito da spuntare: è la regola con cui si giudica qualunque schermata nuova.
 
 | | |
 |---|---|
-| **Aggiornato** | 21/09/2026 sera (l'abaco era morto da un giorno; all'occhio arriva una pianta per livello) |
+| **Aggiornato** | 21/09/2026 notte (all'occhio che racconta arriva tutta la documentazione; due mie letture sbagliate corrette) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `5577a5e` — *una pianta per livello all'occhio* (prima: `4e08685` l'abaco era morto, `1d5c25b` il sole all'occhio, `fdb5eaa` l'occhio in una stanza sua) |
+| **Ultimo commit di codice pubblicato** | `7ba9a28` — *tutta la documentazione al narratore* (prima: `5577a5e` una pianta per livello, `4e08685` l'abaco era morto, `1d5c25b` il sole all'occhio) |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-21-k` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-k` (verificata servita da Pages) |
+| **Costruzione dichiarata nel file** | `2026-09-21-m` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-m` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -579,6 +579,100 @@ che l'occhio dice».
 
 ---
 
+### 6.13 — ✅ CHIUSO il 21/09 notte: il narratore leggeva un foglio quasi bianco
+
+Raffaella, davanti a due cartellini sbagliati — «SALA D'ATTESA 9» su un
+passaggio, «PISTA 5» su un bancone dentro l'edificio: *«sembra avere le
+allucinazioni»*. **Non erano allucinazioni.**
+
+Il modello che RACCONTA (`veritas_occhi.js`, via LM Studio) riceveva una fetta
+alta 45 cm del modello intero schiacciato. L'immagine è stata **salvata dal
+banco e guardata** (`banco/vivo/cosa_vede_il_narratore.mjs`): un rettangolo
+grigio piatto, due aerei, e sopra i sette pallini delle zone — due dei quali
+appoggiati sulle **ali degli aerei**. Nessun muro, nessun arredo, nessuna porta.
+Da li' un narratore non tace: produce nomi plausibili. Rispondeva all'unica
+domanda che quella figura permetteva.
+
+**Corretto** (`7ba9a28`): la fetta è tolta — non messa da parte come ripiego. Se
+una planimetria non c'è, `guarda()` dichiara e tace. E arriva **tutta** la
+documentazione, come chiesto da Raffaella (*«non sono solo le piante, anche i
+prospetti, le sezioni, le prospettive con il sole e le ombre... tutto»*):
+misurato, **2 piante + 18 allegati** (6 prospetti, 3 sezioni, 9 prospettive).
+
+**Misurato end-to-end**, LM Studio con `qwen2.5-vl-7b` caricato:
+
+| | prima | dopo |
+|---|---|---|
+| zone nominate | 0 — immagine illeggibile | **7 su 7** in 444 s |
+
+I nomi: *Area di sosta per i passeggeri* (x2), *Aeroporto internazionale* (x2),
+*Pista d'atterraggio*, *porta di imbarco*, *area di attesa*. Tutti a fiducia
+**media**.
+
+**Lettura onesta:** tre nomi su sette sono nomi di stanza vera. Due sono il nome
+dell'EDIFICIO, non della stanza. Due sono doppioni. Il collo di bottiglia si è
+**spostato**, non è sparito: adesso non è più *cosa mostriamo*, è **dove sono le
+zone** (§6.14).
+
+⚠️ **Da sapere, e costa mezz'ora se non si sa:** LM Studio può essere ACCESO e
+   non avere in memoria nessun modello che vede — li scarica dopo l'inattività.
+   Il sintomo è `HTTP 400` «No models loaded». Si controlla con
+   `lms ps` o `curl localhost:1234/api/v0/models` (campo `state`), si carica con
+   `lms load qwen2.5-vl-7b-instruct`. E dal banco la pagina è servita in **https**
+   mentre LM Studio sta su **http**: senza `--allow-running-insecure-content` il
+   browser risponde «Failed to fetch» e sembra spento.
+
+---
+
+### 6.14 — ⛔ PRIORITÀ: le tappe coprono un quarto dell'edificio
+
+Misurato il 21/09 notte (`banco/vivo/dove_stanno_le_tappe.mjs`), chiedendo alla
+mappa di cammino una tappa per volta invece di leggere un log:
+
+- **7 su 7 stanno sul calpestabile**, scostamento **0,00 m**;
+- **21 coppie su 21** si raggiungono a piedi;
+- **MA** le prime cinque sono a **4,6 m esatti** l'una dall'altra, in linea
+  retta, e tutte e sette stanno in una striscia di **24 m** (x da −67,3 a
+  −43,5) di un edificio lungo **106**. Il 77% del fabbricato non ha una tappa.
+- Solo **3 su 7** poggiano su qualcosa di misurato (`origine cose`); le altre
+  quattro sono `origine cammino` — infilate lungo il percorso per riempire.
+
+È la frase di Raffaella del 18/08, ancora aperta: *«le tappe stanno tutte in un
+posto dove si arriva davvero a piedi, ma non in maniera da avere senso»*.
+
+**E spiega i nomi del §6.13:** quella striscia sta dalla parte degli aerei e del
+piazzale, non dentro il terminal. Il narratore, guardando bene, ha risposto
+bene — «pista d'atterraggio», «porta di imbarco». **I nomi non erano sbagliati:
+erano sbagliati i posti a cui li abbiamo chiesti.**
+
+---
+
+### 6.15 — ⚠️ DUE LETTURE SBAGLIATE DEL 21/09, scritte per non rifarle
+
+Tutte e due mie, tutte e due riferite a Raffaella come guasti, tutte e due
+false. Il costo è stato il suo scoraggiamento, ed è il piu' alto della giornata.
+
+1. **«Nessuna meta poggia sul pavimento».** Veniva dalla riga
+   `tappe: 0 appoggiate sul pavimento`. Quel numero conta le tappe **SPOSTATE**
+   in quella passata, e vale 0 soprattutto nel caso BUONO — quando il gruppo
+   raggiungibile regge già e non c'è niente da correggere (`index.html`, ramo
+   `principale.length >= 2`). Un contatore di correzioni letto come un contatore
+   di difetti. La misura vera: 7 su 7 sul pavimento (§6.14).
+2. **«Gli agenti non usano la fisica».** Veniva da `ultimoEsito()` vuoto. Ma
+   `window.__veritasCorpoEsito` è l'esito della COSTRUZIONE del mondo
+   (`preparaDaScena`), non del filtraggio, e il mondo si costruisce benissimo:
+   186.074 triangoli, capsula r=0,3 h=2, scalino 0,4 m, pendenza 35°.
+   Resta **non stabilito** se una traiettoria passi davvero dal filtro del
+   corpo: nella finestra osservata (4 minuti, senza far partire la simulazione a
+   mano) nessuna c'è passata, e il motore Python su Render veniva chiamato ma
+   dorme. **Va misurato prima di dirlo di nuovo.**
+
+⛔ **La regola che ne esce:** un contatore non si legge dal nome. Prima di
+   riferire un numero come difetto si apre la riga che lo scrive e si guarda
+   **che cosa conta**.
+
+---
+
 ## 7. TEST E VERIFICHE
 
 | Test | Data | Tipo | Risultato |
@@ -609,6 +703,11 @@ che l'occhio dice».
 | L'abaco disegna di nuovo | 21/09 sera | reale, banco del workspace (`banco/vivo/piante_all_occhio.mjs`) | ✖ prima: «non sono riuscito a disegnare l'abaco: opzioni is not defined»; ✔ dopo: «11 tavole (2 piante, 6 prospetti, 3 sezioni) — da 12 a 24 px/m» (§6.11) |
 | Piante per livello all'occhio, prima/dopo sullo stesso modello | 21/09 sera | reale, banco del workspace, occhio OWLv2 vero | ✔ 2 piante ricevute (0 prima), mucchi divisi 14 + 6 per piano, rilevazioni 80 → 227, cose di dentro riconosciute per la prima volta dalla pianta; ✖ mucchi nominati 8 → 6, buttate 60 → 205 (§6.12) |
 | `veritas_riconosce.test.mjs` con le prove della regola del piano | 21/09 sera | automatico, workspace | ✔ 6 prove nuove verdi (doppia altezza compresa); 1 rossa **identica prima e dopo**, verificata rimettendo il codice di `main`. `veritas_zone` 23 e `veritas_corpo_collegato` 2 invariate |
+| Cosa vede il narratore, immagine salvata e guardata | 21/09 notte | reale, banco del workspace | ✖ prima: rettangolo grigio piatto, due aerei, zone 5 e 6 sulle ali — niente da leggere; ✔ dopo: pianta a 1,10 con sedute, transenne, banconi, nastri (§6.13) |
+| Narratore end-to-end con LM Studio (`qwen2.5-vl-7b`) | 21/09 notte | reale, banco del workspace, modello visivo caricato a mano | ✔ **7 zone su 7 nominate** in 444 s con 2 piante + 18 allegati; 3 nomi di stanza vera, 2 il nome dell'edificio, 2 doppioni, tutti a fiducia media |
+| Dove stanno le tappe, una per una | 21/09 notte | reale, banco del workspace | ✔ 7/7 sul calpestabile a 0,00 m, 21/21 coppie raggiungibili; ✖ cinque in fila a 4,6 m, tutte in 24 m su 106 (§6.14) |
+| Il mondo fisico si costruisce | 21/09 notte | reale, banco del workspace | ✔ 186.074 triangoli, capsula r=0,3 h=2, scalino 0,4 m, pendenza 35°; ⚠️ non stabilito se una traiettoria passi dal filtro (§6.15) |
+| `veritas_apertura.test.mjs` dopo la lama | 21/09 notte | automatico, workspace | ✔ 72/72 |
 
 **Limiti della verifica, dichiarati:**
 
@@ -629,27 +728,14 @@ che l'occhio dice».
 
 ## 8. ULTIMO INTERVENTO
 
-> Due guasti distinti, due commit, come chiesto da Raffaella («un fix e un commit
-> alla volta»). Il secondo non poteva funzionare senza il primo.
-
-### 8.a — `4e08685`, costruzione `2026-09-21-j`
-
 | | |
 |---|---|
-| **Problema** | l'abaco era morto da `1d5c25b`: ogni tavola moriva con `opzioni is not defined`, dentro un `try` che scriveva una riga di log e tirava dritto (§6.11) |
-| **File modificati** | `veritas_tavole.js` (`scatta()` riceve le opzioni della tavola) · `veritas_montaggio.js` e `index.html`: solo la cascata dei `?v=` (tavole 4→5, montaggio 35→36) |
-| **Test** | banco dal vivo: prima «non sono riuscito a disegnare l'abaco», dopo «11 tavole (2 piante, 6 prospetti, 3 sezioni)» |
-| **Cosa NON cambia** | nessun disegno ritarato, nessuna vista riordinata: l'abaco torna a fare quello del 20/09, col sole in piu' |
-
-### 8.b — `5577a5e`, costruzione `2026-09-21-k`
-
-| | |
-|---|---|
-| **Problema** | §8, primo passo: all'occhio che assegna i nomi arrivava una sola lastra col modello schiacciato, non le piante a 1,10 m per livello (§6.12) |
-| **File modificati** | `veritas_tavole.js` (le piante escono da `abaco()`: `piantePerLivello`, e `abaco()` chiama quella — un disegnatore solo) · `veritas_riconosce.js` (`__veritasGuarda` chiede le piante per livello, `pianoDi` assegna ogni mucchio al piano su cui poggia, le letture si uniscono; l'occhio si chiede PRIMA di disegnare; finezza `lato: 2048` come prima) · `veritas_riconosce.test.mjs` (6 prove nuove) · `banco/vivo/piante_all_occhio.mjs` (**nuovo**) · `.gitignore` · cascata dei `?v=` su anteprima 18→19, comprensione 17→18, riconosce 7→8, passo 3→4 |
-| **Risultato** | rilevazioni 80 → **227**, piante all'occhio 0 → **2**, mucchi divisi 14 + 6 per piano; per la prima volta dalla pianta escono cose di DENTRO (tornello, armadietti, scala mobile, nastro bagagli, schermo). **Ma i nominati calano 8 → 6** e le buttate salgono a 205 |
-| **Limite residuo** | ① le 44 rilevazioni «sul vuoto»: l'occhio vede dove la geometria non ha misurato niente. ② su questo modello i «livelli» stanno a 0,55 e 2,63 — 2,08 m l'uno dall'altro, su uno spaccato senza solai: non si sa se siano i piani veri. ③ `veritas_occhi.js` guarda ancora la fetta bassa a 45 cm (serve LM Studio, §9 punto 4). ④ la passata in ordine inquadra ancora 6,5 m alla volta |
-| **Prossimo passo unico** | Raffaella guarda la `-k`. Poi **rifare la passata in ordine** (§9) — e, se lo decide lei, guardare le 44 «sul vuoto», che sono il §6.1 visto dall'altro lato |
+| **Costruzione** | `2026-09-21-m` — commit `7ba9a28` su `main` |
+| **Problema** | il modello che RACCONTA riceveva una fetta a 45 cm del modello schiacciato: un foglio quasi bianco con due zone appoggiate sulle ali degli aerei (§6.13) |
+| **File modificati** | `veritas_occhi.js` (la fetta tolta; un giro per livello; `chiedi()` manda più immagini; `tavolaInImmagine()` nuova; `unisciEsiti()`) · `index.html` (copia reinlinata + costruzione) · `veritas_comprensione.js` (l'annuncio porta la vista) · `veritas_tavole.js` (ogni tavola dichiara il piano che taglia) · `veritas_apertura.js` (la lama segue quel taglio, nei due sensi; il referto dice quale disegno è in corso) · cascata dei `?v=` · 4 banchi nuovi |
+| **Risultato** | **7 zone su 7 nominate** (erano 0: l'immagine era illeggibile), 2 piante + 18 allegati, tutti a fiducia media |
+| **Limite residuo** | ① due nomi su sette sono il nome dell'EDIFICIO, due sono doppioni. ② La lama e il cono di luce **non sono ancora stati guardati dal vivo**: il codice è pubblicato, la prova visiva no. ③ §6.14: le tappe coprono 24 m su 106. ④ §6.15: due mie letture sbagliate, corrette |
+| **Prossimo passo unico** | **§6.14** — far coprire alle tappe tutto l'edificio, e farle poggiare su cose misurate invece che su un righello. È il passo da cui dipendono i nomi: finché le zone stanno sul piazzale, l'occhio risponderà «pista», e avrà ragione |
 
 ---
 
