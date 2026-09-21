@@ -363,7 +363,15 @@ export function reportDi(stato, d, L) {
     if (o.fallito) return tt(L, 'non ha potuto guardare', 'could not look');
     if (o.parlato) return tt(L, 'ha parlato', 'has spoken') + (o.viste ? ' · ' + o.viste + ' ' + tt(L, 'viste', 'views') : '');
     if (o.assente) return tt(L, 'non è partito', 'did not start');
-    if (o.viste || o.giro) return tt(L, 'sta guardando', 'looking') + (o.quante ? ' · ' + (o.quale || o.viste) + '/' + o.quante : o.viste ? ' · ' + o.viste + ' ' + tt(L, 'viste', 'views') : '');
+    if (o.viste || o.giro) {
+      // Il disegno in corso, senza la coda di misure: «SEZIONE longitudinale»,
+      // non «SEZIONE longitudinale — taglio sul baricentro..., segmento 2 di 3».
+      const disegno = o.disegno ? String(o.disegno).split('—')[0].trim() : '';
+      return tt(L, 'sta guardando', 'looking')
+        + (o.quante ? ' · ' + (o.quale || o.viste) + '/' + o.quante
+                    : o.viste ? ' · ' + o.viste + ' ' + tt(L, 'viste', 'views') : '')
+        + (disegno ? ' · ' + disegno : '');
+    }
     return tt(L, 'in attesa', 'standby');
   };
 
@@ -992,6 +1000,50 @@ function aggiornaSegniOcchio(S) {
 function mostraVista(S, info) {
   if (!S || !S.aperto || !info) return;
   const T = S.THREE, cam = info.camera;
+
+  // ⚠️ LA LAMA CHE DICE LA VERITÀ — 21/09/2026.
+  //    È il piano della telecamera che ha fatto QUEL disegno: orientata come
+  //    lei, grande come la sua inquadratura, e che viaggia nel verso in cui
+  //    LEI guarda. Una pianta scende dall'alto e si ferma alla quota di
+  //    taglio; una sezione longitudinale attraversa l'edificio per il lungo,
+  //    una trasversale per il corto; un prospetto arriva sul fronte. Così i
+  //    due sensi si vedono, e si completano — che è come si legge un progetto.
+  //    Raffaella, 21/09: *«vorrei vedere in tutti e due i sensi, longitudinale
+  //    e trasversale, che si completano»*.
+  //
+  // ⛔ PRIMA: una sola lama verticale che scorreva sempre lungo X, anche
+  //    mentre si disegnava una pianta o un prospetto. Chi guardava credeva di
+  //    vedere il taglio e vedeva un'animazione. Una lama che mente è peggio di
+  //    nessuna lama: è la stessa merce avariata dei numeri finti.
+  const tg = info.taglio;
+  if (tg && Array.isArray(tg.punto) && Array.isArray(tg.normale) && Array.isArray(tg.alto)) {
+    const z = new T.Vector3().fromArray(tg.normale).normalize();
+    const y = new T.Vector3().fromArray(tg.alto).normalize();
+    // l'alto reso perpendicolare al verso dello sguardo: se combaciassero, la
+    // terna non esisterebbe e la lama uscirebbe girata a caso
+    y.addScaledVector(z, -y.dot(z));
+    if (y.lengthSq() < 1e-6) y.set(0, 1, 0).addScaledVector(z, -z.y);
+    y.normalize();
+    const x = new T.Vector3().crossVectors(y, z).normalize();
+    const geo = new T.PlaneGeometry(Math.max(0.5, tg.larghezzaMondo || 1),
+                                    Math.max(0.5, tg.altezzaMondo || 1));
+    const lama = new T.Mesh(geo, materialeLuce(T, OCCHIO, 0.16, 'faccia'));
+    lama.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(x, y, z));
+    // il filo della lama: un piano trasparente, visto di taglio, non si legge
+    const bordo = new T.LineSegments(new T.EdgesGeometry(geo), materialeLuce(T, OCCHIO, 0.85, 'linea'));
+    lama.add(bordo);
+    const arrivo = new T.Vector3().fromArray(tg.punto);
+    const misura = new T.Vector3(); S.box.getSize(misura);
+    const corsa = Math.abs(z.x) * misura.x + Math.abs(z.y) * misura.y + Math.abs(z.z) * misura.z;
+    const partenza = arrivo.clone().addScaledVector(z, -Math.max(1, corsa));
+    lama.position.copy(partenza);
+    S.scena.add(lama);
+    S.impronteVista.push({ o: lama, nata: performance.now(), dura: 2600,
+                           da: partenza, a: arrivo, filo: bordo.material, opaca: 0.16 });
+    while (S.impronteVista.length > 7) { const v = S.impronteVista.shift(); S.scena.remove(v.o); }
+    return;
+  }
+
   if (cam && Array.isArray(cam.mondo) && cam.mondo.length === 16 && !cam.ortografica) {
     const m = cam.mondo;
     const p = [m[12], m[13], m[14]], av = [-m[8], -m[9], -m[10]], su = [m[4], m[5], m[6]], dx = [m[0], m[1], m[2]];
@@ -1090,6 +1142,17 @@ function aggiornaScena(S, t) {
   for (let i = S.impronteVista.length - 1; i >= 0; i--) {
     const iv = S.impronteVista[i], e = (t - iv.nata) / iv.dura;
     if (e >= 1) { S.scena.remove(iv.o); S.impronteVista.splice(i, 1); continue; }
+    if (iv.da && iv.a) {
+      // Rallenta arrivando sul taglio: il disegno SI POSA, non ci sbatte. E
+      // l'ultimo terzo di vita lo passa fermo sul piano — il momento in cui
+      // la tavola esiste davvero.
+      const k = 1 - Math.pow(1 - Math.min(1, e / 0.7), 3);
+      iv.o.position.lerpVectors(iv.da, iv.a, k);
+      const vita = e < 0.7 ? 1 : 1 - (e - 0.7) / 0.3;
+      iv.o.material.opacity = iv.opaca * vita;
+      if (iv.filo) iv.filo.opacity = 0.85 * vita;
+      continue;
+    }
     if (iv.passa) iv.o.position.x = iv.passa[0] + (iv.passa[1] - iv.passa[0]) * e;
     iv.o.material.opacity = (iv.passa ? 0.22 : 1) * (1 - e);
   }
@@ -1149,7 +1212,7 @@ function leggiDati(S) {
   if (cose && Array.isArray(cose.posti)) d.posti = cose.posti.length;
   d.occhio = {
     viste: S.viste || 0, quale: S.vistaQuale || null, quante: S.vistaQuante || null,
-    parlato: S.occhioHaParlato, assente: S.occhioAssente,
+    parlato: S.occhioHaParlato, assente: S.occhioAssente, disegno: S.vistaEtichetta || null,
     giro: W.__veritasGiroInCorso === true || W.__veritasGiroInCorso === 'true',
     fallito: S.esitoOcchio && S.esitoOcchio.ok === false ? (S.esitoOcchio.perche || tt(S.lingua, 'motivo non detto', 'reason not given')) : null,
   };
@@ -1261,6 +1324,9 @@ function agganciaEventiVeri(S) {
     S.viste++;
     const info = e && e.detail;
     if (info && info.quante) { S.vistaQuale = info.quale; S.vistaQuante = info.quante; }
+    // Il nome del disegno in corso: «PIANTA livello 1 di 2» dice a chi guarda
+    // molto piu' di «3/11». È la narrazione della lettura, non un di piu'.
+    if (info && info.etichetta) S.vistaEtichetta = String(info.etichetta);
     try { mostraVista(S, info); } catch (err) { /* la messa in scena non deve fermare il giro */ }
   };
   addEventListener('veritas:vista', S.suVista);

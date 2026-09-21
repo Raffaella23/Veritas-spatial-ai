@@ -208,6 +208,24 @@ function tavola(THREE, renderer, radice, opts) {
       origine: [opts.posizione.x - (w * ARIA) / 2,
                 opts.posizione.z - (h * ARIA) / 2],
     } : null,
+    // ⚠️ IL PIANO CHE SI TAGLIA, in coordinate del mondo — 21/09/2026.
+    //    Serve alla messa in scena. La pagina di attesa disegna già una LAMA
+    //    che passa sul modello mentre l'occhio legge, ma fino a oggi passava
+    //    SEMPRE nello stesso verso, qualunque disegno si stesse facendo: una
+    //    lama che mente è peggio di nessuna lama, perché fa credere che il
+    //    programma stia tagliando dove non taglia.
+    //    Raffaella, 21/09: *«vorrei vedere in tutti e due i sensi, longitudinale
+    //    e trasversale, che si completano»*.
+    //    Qui non si aggiunge nessun disegno: si dichiara quello che la
+    //    telecamera di questa tavola già è — dove sta, dove guarda, quanto
+    //    inquadra. Chi mette in scena non deve indovinarlo.
+    taglio: (opts.posizione && opts.direzione && opts.alto) ? {
+      genere: opts.genere,
+      punto:   [opts.posizione.x, opts.posizione.y, opts.posizione.z],
+      normale: [opts.direzione.x, opts.direzione.y, opts.direzione.z],
+      alto:    [opts.alto.x, opts.alto.y, opts.alto.z],
+      larghezzaMondo: w, altezzaMondo: h,
+    } : null,
     pixel: scatta(THREE, renderer, radice, cam, W, H, opts),
   };
 }

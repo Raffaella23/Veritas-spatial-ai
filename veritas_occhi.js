@@ -177,8 +177,15 @@ export function prompt(zone, opz = {}) {
   //    Si dice COME si guarda — gli oggetti sono gli indizi, la funzione si
   //    deduce da quelli — senza mai dare una risposta gia' scritta.
   return [
-    "Guardi la pianta di uno spazio reale, vista dall'alto, e devi dire CHE SPAZIO E' ognuna delle zone segnate.",
+    "Guardi la PLANIMETRIA di uno spazio reale — proiezione dall'alto, tagliata a 1,10 m dal pavimento, come si disegna in architettura — e devi dire CHE SPAZIO E' ognuna delle zone segnate.",
     dominio ? `Il progettista ha dichiarato che si tratta di: ${dominio}.` : '',
+    // ⚠️ GLI ALTRI DISEGNI SI ANNUNCIANO, o restano immagini mute in coda.
+    //    Un modello che riceve dieci figure senza sapere che cosa sono le
+    //    tratta come varianti della prima. Qui si dice che cosa sono e a cosa
+    //    servono: l'altezza e il numero dei piani, che in pianta non esistono.
+    (Array.isArray(opz.contesto) && opz.contesto.length)
+      ? `Dopo la planimetria trovi altri ${opz.contesto.length} disegni dello STESSO edificio: prospetti (i fronti visti da fuori), sezioni (l'edificio tagliato in verticale) e vedute prospettiche con il sole e le ombre. Servono a capire quanto e' alto, quanti piani ha, che cosa sta sopra a ogni zona e che aspetto hanno gli oggetti in rilievo. Le zone NON sono segnate su quei disegni: i numeri stanno solo sulla planimetria.`
+      : '',
     '',
     "Sull'immagine sono segnate e NUMERATE alcune zone. Per ognuna dammi DUE cose:",
     '',
@@ -347,6 +354,34 @@ export function riquadriZone(inq, zone, mondoAPixel) {
  * @param doc       document (iniettato: cosi' si prova con uno stub)
  * @param pianta    uscita di piantaDelPavimento
  */
+/**
+ * Una tavola dell'abaco (prospetto, sezione) diventa un'immagine da allegare.
+ *
+ * Non porta numeri di zona e non ne può portare: da una proiezione verticale
+ * un punto a terra non si ricava, ed è la regola del 26/08. Serve a far vedere
+ * l'edificio in alzato — quanti piani, quanto è alto, cosa c'è sopra.
+ */
+export function tavolaInImmagine(doc, tavola, opz = {}) {
+  if (!doc || !tavola || !tavola.pixel) return null;
+  const latoMax = opz.latoMax || 900;
+  const tela = doc.createElement('canvas');
+  tela.width = tavola.larghezza; tela.height = tavola.altezza;
+  const ctx = tela.getContext('2d');
+  const img = ctx.createImageData(tavola.larghezza, tavola.altezza);
+  img.data.set(tavola.pixel);
+  ctx.putImageData(img, 0, 0);
+  const scala = Math.min(1, latoMax / Math.max(tavola.larghezza, tavola.altezza));
+  let finale = tela;
+  if (scala < 1) {
+    finale = doc.createElement('canvas');
+    finale.width = Math.max(1, Math.round(tavola.larghezza * scala));
+    finale.height = Math.max(1, Math.round(tavola.altezza * scala));
+    finale.getContext('2d').drawImage(tela, 0, 0, finale.width, finale.height);
+  }
+  return { dataURL: finale.toDataURL('image/png'), etichetta: tavola.etichetta || null,
+           genere: tavola.genere || null };
+}
+
 export function immagineConZone(doc, pianta, zone, mondoAPixel, opz = {}) {
   if (!doc || !pianta) return null;
   const latoMax = opz.latoMax || 1024;
@@ -424,10 +459,21 @@ export async function chiedi(dataURL, domanda, cfg, opz = {}) {
         temperature: 0,
         max_tokens: opz.maxTokens || 900,
         messages: [
+          // ⚠️ LA DOCUMENTAZIONE, NON UNA FIGURA SOLA — 21/09/2026.
+          //    Raffaella: *«non sono solo le piante che devi dare all'occhio, ma
+          //    l'occhio deve avere le sezioni, deve avere i prospetti... deve
+          //    essere completa la documentazione tecnica che dai all'occhio, se
+          //    no l'occhio che cavolo deve vedere»*.
+          //    La PIANTA va per prima perché è l'unica con i numeri delle zone
+          //    sopra: è la figura su cui si risponde. Prospetti e sezioni
+          //    vengono dopo, e servono a sapere quant'è alto, quanti piani ci
+          //    sono, cosa sta sopra — cose che da una pianta non si vedono.
           { role: 'user', content: [
             { type: 'text', text: domanda },
             { type: 'image_url', image_url: { url: dataURL } },
-          ] },
+          ].concat((Array.isArray(opz.contesto) ? opz.contesto : [])
+            .filter((c) => c && c.dataURL)
+            .map((c) => ({ type: 'image_url', image_url: { url: c.dataURL } }))) },
         ],
       }),
       signal: ctrl ? ctrl.signal : undefined,
@@ -456,20 +502,26 @@ export async function guarda(ctx) {
   if (!THREE || !renderer || !radice || !vista || !doc)
     return { disponibile: false, perche: 'manca la scena da guardare' };
 
-  const pianta = vista.piantaDelPavimento(THREE, renderer, radice, {
-    metriPerPixel: ctx.metriPerPixel || 0.05,
-    latoMax: 2048,
-    conLuce: true,          // l'occhio vuole la forma, non solo il colore
-    punti: ctx.punti || null,
-  });
-  if (!pianta) return { disponibile: false, perche: 'non si e potuta disegnare la pianta' };
+  // ⛔ LA FETTA A 45 cm E' STATA TOLTA — 21/09/2026, ordine di Raffaella.
+  //    Fin qui il narratore riceveva una fetta alta 45 cm del modello intero
+  //    schiacciato: un pavimento nudo, tutti i livelli uno sull'altro. Da
+  //    quell'immagine non si legge un edificio, e un modello che RACCONTA non
+  //    tace: produce nomi plausibili. E' così che sono nati «SALA D'ATTESA 9»
+  //    su un passaggio e «PISTA 5» su un bancone.
+  //    Adesso qui entra SOLO una planimetria d'architettura: `ctx.piantaPronta`,
+  //    tagliata a 1,10 m sopra lo zero del suo livello. Se non c'è, non si
+  //    ripiega su niente: si dichiara e si tace, che è l'unica cosa onesta.
+  const pianta = ctx.piantaPronta;
+  if (!pianta) return { disponibile: false,
+    perche: 'nessuna planimetria: il narratore non guarda piu la fetta bassa a 45 cm' };
 
   const img = immagineConZone(doc, pianta, zone, vista.mondoAPixel, { latoMax: ctx.latoMax || 1024 });
   if (!img) return { disponibile: false, perche: 'non si e potuta preparare l immagine' };
 
   let testo;
   try {
-    testo = await chiedi(img.dataURL, prompt(zone, { dominio: ctx.dominio }), cfg, ctx);
+    testo = await chiedi(img.dataURL,
+      prompt(zone, { dominio: ctx.dominio, contesto: ctx.contesto }), cfg, ctx);
   } catch (e) {
     return { disponibile: false, perche: 'il modello che vede non risponde ('
              + ((e && e.message) || e) + ')', immagine: img };
@@ -484,6 +536,40 @@ export async function guarda(ctx) {
     immagine: img,
     grezza: testo,
   };
+}
+
+/**
+ * Le letture dei singoli piani tornano a essere un esito solo.
+ *
+ * Ogni zona compare una volta sola perche' e' stata mostrata su una pianta
+ * sola. `piante` dice su quanti disegni si e' guardato: senza, una lettura
+ * povera non si distingue da un edificio povero.
+ */
+export function unisciEsiti(pezzi, totale) {
+  const tutti = (pezzi || []).filter(Boolean);
+  const buoni = tutti.filter((e) => Array.isArray(e.assegnate));
+  // ⚠️ SE NESSUNO HA LETTO, non si torna indietro a ridisegnare la fetta:
+  //    si restituisce il primo fallimento com'e'. Porta con se' il MOTIVO
+  //    («il modello che vede non risponde») e l'IMMAGINE che era stata
+  //    preparata — cioè le due cose che servono a capire cos'e' successo.
+  //    Ricadere sulla vecchia strada qui vorrebbe dire nascondere che il
+  //    modello linguistico e' spento, disegnando in silenzio un'altra pianta.
+  if (!buoni.length)
+    return tutti.length ? Object.assign({}, tutti[0], { piante: tutti.length }) : null;
+  const fuori = { disponibile: false, perche: null, assegnate: [], scartate: [],
+                  totale: totale || 0, ms: 0, piante: buoni.length, grezza: null };
+  const grezze = [];
+  for (const e of buoni) {
+    fuori.assegnate = fuori.assegnate.concat(e.assegnate);
+    fuori.scartate = fuori.scartate.concat(e.scartate || []);
+    fuori.ms += e.ms || 0;
+    if (e.grezza) grezze.push(e.grezza);
+    if (!fuori.immagine && e.immagine) fuori.immagine = e.immagine;
+  }
+  fuori.grezza = grezze.join('\n---\n') || null;
+  fuori.disponibile = fuori.assegnate.length > 0;
+  if (!fuori.disponibile) fuori.perche = 'il modello non ha riconosciuto nessuna zona';
+  return fuori;
 }
 
 /**
@@ -509,7 +595,7 @@ export function racconta(esito, zone) {
 
 export default {
   CATEGORIE, categoriaDi, tipoDiFunzione, prompt, estraiJSON, validaRisposta,
-  riquadriZone, immagineConZone, chiedi, guarda, racconta,
+  riquadriZone, immagineConZone, tavolaInImmagine, chiedi, guarda, unisciEsiti, racconta,
 };
 
 // ---------------------------------------------------------------------------
@@ -531,7 +617,7 @@ if (typeof window !== 'undefined') {
 
     inCorso = true;
     try {
-      const esito = await guarda({
+      const base = {
         THREE: window.THREE,
         renderer: window.__veritasRenderer,
         radice: window.__veritasModelRoot,
@@ -542,7 +628,124 @@ if (typeof window !== 'undefined') {
         dominio: window.__veritasProjectType || null,
         punti: window.__veritasUltimiPunti || null,
         ...opz,
-      });
+      };
+
+      // ⚠️ AL NARRATORE LA STESSA DOCUMENTAZIONE DEL RILEVATORE — 21/09/2026.
+      //
+      //    Questo è il modello che RACCONTA, e fino a oggi raccontava a partire
+      //    da una fetta alta 45 cm del modello intero schiacciato: un pavimento
+      //    nudo con qualche puntino, tutti i livelli uno sull'altro. Da
+      //    un'immagine così un narratore non tace: produce nomi PLAUSIBILI.
+      //    Misurato con Raffaella davanti allo schermo il 21/09 — «SALA
+      //    D'ATTESA 9» su un passaggio, «PISTA 5» su un bancone dentro
+      //    l'edificio: *«sembra avere le allucinazioni»*. Non erano
+      //    allucinazioni: era la documentazione tecnica che non c'era.
+      //
+      //    Raffaella, lo stesso giorno: *«i disegni tecnici devono essere
+      //    completi, visibili, dettagliati, si devono vedere tutte le zone»*.
+      //    Ora riceve la PIANTA del livello su cui la zona poggia, tagliata a
+      //    1,10 m — la stessa che riceve il rilevatore.
+      //
+      // ⛔ UN GIRO PER LIVELLO, con le sole zone di quel livello: chiedere di
+      //    una zona del primo piano mostrando la pianta del terra è la domanda
+      //    che ha prodotto quei nomi.
+      const T = window.__veritasTavole, R = window.__veritasRiconosce;
+      const misurati = (window.__veritasPercezione && window.__veritasPercezione.levels) || [];
+      // ⚠️ NESSUN LIVELLO MISURATO NON VUOL DIRE NESSUNA PIANTA: vuol dire UN
+      //    livello, quello del pavimento. Un edificio a un piano solo ha la sua
+      //    planimetria come tutti gli altri. Così la fetta a 45 cm non rientra
+      //    dalla finestra come «ripiego».
+      const livelli = misurati.length ? misurati : [{}];
+      let piante = [], contesto = [];
+      if (T && typeof T.piantePerLivello === 'function') {
+        try {
+          // Due finezze diverse, e la ragione è il mestiere: sulla PIANTA si
+          // deve leggere una seduta da 55 cm, quindi 2048. Prospetti e sezioni
+          // dicono quanti piani e quanto è alto: a 1100 si leggono benissimo e
+          // non affogano il modello di pixel.
+          piante = T.piantePerLivello(window.THREE, window.__veritasRenderer,
+            window.__veritasModelRoot, { livelli, lato: 2048 }) || [];
+          if (typeof T.abaco === 'function' && typeof tavolaInImmagine === 'function') {
+            const tutte = T.abaco(window.THREE, window.__veritasRenderer,
+              window.__veritasModelRoot, { livelli, lato: 1100 }) || [];
+            const doc = typeof document !== 'undefined' ? document : null;
+            contesto = tutte.filter((t) => t.genere !== 'pianta')
+              .map((t) => tavolaInImmagine(doc, t, { latoMax: 900 }))
+              .filter(Boolean);
+            // ⚠️ E LE PROSPETTIVE, COL SOLE E LE OMBRE — 21/09/2026.
+            //    Raffaella: *«non solo le piante, anche i prospetti, le sezioni,
+            //    le prospettive con il sole e le ombre... tutto, mi
+            //    raccomando»*. Piante, prospetti e sezioni sono proiezioni
+            //    ortogonali: dicono le misure e non dicono com'è stare dentro.
+            //    La prospettiva sì, e con l'ombra portata si legge l'altezza di
+            //    un volume — che in pianta non esiste (§6.9: senza luce non c'è
+            //    forma).
+            //    Quante: le decide `numeroScorci` dalla densità di mesh del
+            //    modello, come per il rilevatore. Non un numero scelto qui.
+            const V = window.__veritasVista;
+            if (V && typeof V.scorciTreQuarti === 'function') {
+              const scorci = V.scorciTreQuarti(window.THREE, window.__veritasRenderer,
+                window.__veritasModelRoot, { conLuce: true, ombre: true }) || [];
+              for (const sc of scorci) {
+                const im = tavolaInImmagine(doc, sc, { latoMax: 900 });
+                if (im) {
+                  im.genere = 'prospettiva';
+                  im.etichetta = sc.etichetta || ('veduta a '
+                    + (typeof sc.azimuth === 'number'
+                        ? Math.round(sc.azimuth * 180 / Math.PI) + '°' : '?'));
+                  contesto.push(im);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          piante = []; contesto = [];
+          console.warn('[VERITAS occhi] i disegni non si sono fatti: ' + ((e && e.message) || e));
+        }
+      }
+      const perGenere = contesto.reduce((a, c) => {
+        a[c.genere || '?'] = (a[c.genere || '?'] || 0) + 1; return a; }, {});
+      console.log('[VERITAS occhi] documentazione per il narratore: ' + piante.length
+        + ' piante + ' + contesto.length + ' allegati ('
+        + Object.keys(perGenere).map((k) => perGenere[k] + ' ' + k).join(', ') + ')');
+
+      let esito = null;
+      if (piante.length && R && typeof R.pianoDi === 'function') {
+        const quote = piante.map((t) => t.quotaPiano);
+        const perPiano = piante.map(() => []);
+        zz.forEach((n, i) => {
+          const p = n.pos || n.position || null;
+          const y = p && typeof p[1] === 'number' ? p[1] : null;
+          perPiano[R.pianoDi({ centro: [0, y, 0] }, quote)].push({ n, i });
+        });
+        console.log('[VERITAS occhi] ' + piante.length + ' piante per livello, zone per piano: '
+          + perPiano.map((g, k) => (typeof quote[k] === 'number'
+              ? 'quota ' + quote[k].toFixed(2) : '?') + ' → ' + g.length).join(' · '));
+        const pezzi = [];
+        for (let k = 0; k < piante.length; k++) {
+          if (!perPiano[k].length) continue;
+          const t = piante[k];
+          const e = await guarda(Object.assign({}, base, {
+            zone: perPiano[k].map((x) => x.n),
+            piantaPronta: Object.assign({}, t.inquadratura,
+              { pixel: t.pixel, quotaPavimento: t.quotaPiano }),
+            contesto,
+          }));
+          // ⚠️ GLI INDICI TORNANO QUELLI VERI. Dentro il giro le zone sono
+          //    rinumerate da 0: senza questa riga il nome del primo piano
+          //    finirebbe sulla prima zona del piano terra — nomi plausibili e
+          //    tutti spostati, cioè il difetto peggiore di tutti.
+          if (e && Array.isArray(e.assegnate))
+            for (const a of e.assegnate)
+              if (perPiano[k][a.indice]) a.indice = perPiano[k][a.indice].i;
+          pezzi.push(e);
+        }
+        esito = unisciEsiti(pezzi, zz.length);
+      }
+      // La strada di prima resta SOLO quando le piante per livello non ci sono
+      // (nessun livello misurato): allora la fetta bassa e' il comportamento di
+      // ieri. Se le piante c'erano e la lettura e' fallita, si dice perche'.
+      if (!esito) esito = await guarda(base);
 
       // Si dichiara sempre: anche "non ho potuto guardare" e' un'informazione,
       // ed e' l'unico momento in cui chi guarda lo schermo puo' correggere.

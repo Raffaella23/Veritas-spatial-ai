@@ -730,9 +730,26 @@ function estraiJson(testo) {
  * finestra per chi arrivera' dopo — la regia della messa in scena non
  * deve dover mettere le mani qui dentro.
  */
-function annunciaVista(ctx, vista, quale, quante) {
+function annunciaVista(ctx, vista, quale, quante, origine) {
   if (!vista) return;
-  const info = { ...vista, quale, quante };
+  // ⚠️ L'ANNUNCIO PORTA ANCHE LA VISTA, NON SOLO IL RIASSUNTO — 21/09/2026.
+  //    Fin qui partiva solo `{vista, pixelPerMetro, cose}`: che cosa l'occhio
+  //    avesse visto, mai DOVE fosse andato a guardare. Cosi' la messa in scena
+  //    della pagina di attesa non poteva sapere se fosse una pianta, una
+  //    sezione o uno scorcio, e cadeva sempre sul ripiego: una lama verticale
+  //    che scorre lungo X, sempre uguale, qualunque disegno si stesse facendo.
+  //    Un'animazione credibile e falsa — e il cono di luce sulla telecamera
+  //    della fotografia, che il codice sa gia' disegnare, non si e' mai acceso
+  //    perche' `camera` non arrivava.
+  //    Qui non si calcola niente di nuovo: si fa viaggiare quello che la vista
+  //    gia' dichiara di se'.
+  const o = origine || {};
+  const info = { ...vista, quale, quante,
+                 etichetta: o.etichetta || vista.vista || null,
+                 genere: o.genere || null,
+                 taglio: o.taglio || null,
+                 camera: o.camera || null,
+                 regione: o.regione || null };
   try { if (typeof ctx.onVista === "function") ctx.onVista(info); } catch (e) {}
   try {
     if (typeof window !== "undefined" && typeof window.dispatchEvent === "function")
@@ -893,7 +910,7 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
     //
     // ⚠️ Non deve poter rompere il giro: se chi ascolta sbaglia, l'occhio
     //    continua a guardare.
-    annunciaVista(ctx, fuori.viste[fuori.viste.length - 1], i + 1, scorci.length);
+    annunciaVista(ctx, fuori.viste[fuori.viste.length - 1], i + 1, scorci.length, scorci[i]);
   }
 
   // ⚠️ I NOMI DAI RIQUADRI POSATI — 17/09/2026. Le cose viste in prospettiva e

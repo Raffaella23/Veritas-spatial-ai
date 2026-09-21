@@ -72,3 +72,7 @@ banco/vivo/fluidita_*.json
 banco/vivo/controllo_*.json
 banco/vivo/piante_*.txt
 banco/vivo/renderi/
+banco/vivo/narratore/
+banco/vivo/scena/
+banco/vivo/fisica.txt
+banco/vivo/tappe.txt
