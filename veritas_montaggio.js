@@ -1,5 +1,5 @@
 import "./veritas_manuale.js?v=2";
-import { abaco } from "./veritas_tavole.js?v=3";
+import { abaco } from "./veritas_tavole.js?v=4";
 import "./veritas_divide.js?v=2";
 import "./veritas_lessico.js?v=2";
 // ===========================================================================
@@ -65,12 +65,12 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=16"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=17"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=17";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=6";
+import { anteprima } from "./veritas_anteprima.js?v=18";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=7";
 // Dove sta cio' che l'occhio vede (17/09/2026): i riquadri in frazioni, e i
 // raggi dalla telecamera della foto fino al modello.
 import { inFrazioni, posaRiquadro, posaVarco } from "./veritas_posa.js?v=1";
@@ -632,7 +632,7 @@ window.__veritasComprendi = async function (opz = {}) {
       return { ok: false, perche: "non e' stato ancora misurato nessun volume" };
 
     const pianta = vista.piantaDelPavimento(THREE, rend, radice,
-      Object.assign({ tutto: true }, opz.pianta || {}));
+      Object.assign({ tutto: true, conLuce: true }, opz.pianta || {}));
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
 
     // ⚠️ GLI SCORCI. La pianta dice DOVE stanno le cose; gli scorci dicono

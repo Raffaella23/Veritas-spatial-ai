@@ -83,14 +83,21 @@ export function mondoAPixel(inq, x, z) {
   return [px, py];
 }
 
-/**
- * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
- * Logica pura, provabile in node.
- */
-export // La telecamera di una foto, com'era nell'istante dello scatto (17/09/2026).
+// La telecamera di una foto, com'era nell'istante dello scatto (17/09/2026).
 // Con questa, un riquadro disegnato dall'occhio si rimette nello spazio del
 // modello lanciando raggi dalla stessa telecamera: veritas_posa.js.
-function istantaneaDellaCamera(cam) {
+//
+// ⚠️ QUI C'ERA UN `export` ORFANO — trovato il 21/09/2026, e non era innocuo.
+//    La riga diceva `export // commento`, e sotto veniva questa funzione:
+//    JavaScript valido, ma `banco/reinlina.py` non lo riconosce e si RIFIUTA
+//    di rigenerare la copia incollata dentro index.html. Cioe' lo strumento
+//    che tiene allineati il modulo e il suo gemello era fermo, e le due copie
+//    potevano allontanarsi senza che nessuno se ne accorgesse: e' esattamente
+//    la trappola delle «due copie» che questo progetto ha gia' pagato.
+//    L'`export` apparteneva a `raddrizza`, la cui descrizione era rimasta qui
+//    sopra: questa funzione e' stata infilata in mezzo e se l'e' preso.
+//    Rimesso in ordine SENZA cambiare cosa viene esportato.
+export function istantaneaDellaCamera(cam) {
   if (!cam || !cam.projectionMatrix || !cam.matrixWorld) return null;
   return {
     ortografica: !!cam.isOrthographicCamera,
@@ -100,6 +107,11 @@ function istantaneaDellaCamera(cam) {
   };
 }
 
+/**
+ * Rimette le righe nell'ordine che si aspetta una tela: la prima riga in cima.
+ * Logica pura, provabile in node. (La sua descrizione era rimasta venti righe
+ * piu' su, staccata dalla funzione: vedi l'avviso sull'`export` orfano.)
+ */
 function raddrizza(pixel, larghezza, altezza) {
   const fuori = new Uint8Array(pixel.length);
   const riga = larghezza * 4;
@@ -191,6 +203,104 @@ function spegniLuci(THREE, radice) {
       const attuali = Array.isArray(o.material) ? o.material : [o.material];
       for (const a of attuali) { try { a.dispose(); } catch (e) {} }
       o.material = m;
+    }
+  };
+}
+
+/**
+ * IL SOLE, per far vedere all'occhio la FORMA e non solo il colore.
+ *
+ * ⚠️ PERCHE' ESISTE — misurato il 21/09/2026. Fino a qui ogni resa passava da
+ *    `spegniLuci`: materiali piatti, nessuna ombreggiatura. Conservava il
+ *    colore e buttava via il rilievo, e la conseguenza e' architettonica prima
+ *    che informatica: SENZA LUCE NON C'E' FORMA. Un muro grigio, un pavimento
+ *    grigio, una colonna grigia e un bancone grigio diventano lo stesso
+ *    identico rettangolo grigio. Misurato: da dentro gli ambienti, a 73-87
+ *    pixel al metro — dove una seduta e' larga quaranta pixel — l'occhio
+ *    trovava ZERO cose di dentro.
+ *
+ *    Raffaella, 21/09: «accendi la luce all'occhio e rimisura tutto, metti la
+ *    renderizzazione e diamo realismo: il sole genera ombre proprie e portate
+ *    sugli oggetti». Ombra PROPRIA (la faccia in ombra di un volume) e ombra
+ *    PORTATA (quella che il volume getta per terra) sono due informazioni
+ *    diverse: la prima dice com'e' fatto l'oggetto, la seconda dove appoggia e
+ *    quanto e' alto. In una pianta dall'alto l'ombra portata e' l'unica cosa
+ *    che restituisce l'altezza, che la proiezione ortografica cancella.
+ *
+ * ⚠️ IL CIELO NON E' UN ORPELLO. Con il solo sole, tutto cio' che non e'
+ *    colpito resta NERO, e dentro un edificio e' quasi tutto. La luce di cielo
+ *    (chiara da sopra, calda da terra) riempie l'ombra senza cancellarla: e' la
+ *    stessa ragione per cui un rendering d'architettura non si fa mai con una
+ *    lampada sola.
+ *
+ * ⚠️ SI RIMETTE TUTTO COM'ERA, sempre — stessa regola di `spegniLuci`. Qui si
+ *    tocca anche il RENDERER, che e' quello vero della pagina: lasciare le
+ *    ombre accese costringerebbe la scena dell'utente a ridisegnare ogni
+ *    materiale, e il conto lo pagherebbe la vista dal vivo.
+ *
+ * @returns {Function} la funzione per rimettere tutto com'era
+ */
+export function accendiIlSole(THREE, renderer, radice, scena, opzioni = {}) {
+  const ombrePrima = renderer.shadowMap ? renderer.shadowMap.enabled : false;
+  const tipoPrima = renderer.shadowMap ? renderer.shadowMap.type : null;
+  const ombre = opzioni.ombre !== false;
+  if (renderer.shadowMap && ombre) {
+    renderer.shadowMap.enabled = true;
+    if (THREE.PCFSoftShadowMap != null) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+
+  // Ogni pezzo deve dichiarare che fa ombra e che la riceve: in three non e'
+  // automatico, e un modello che non lo dichiara resta piatto anche col sole.
+  const comErano = [];
+  radice.traverse((o) => {
+    if (!o.isMesh) return;
+    comErano.push([o, o.castShadow, o.receiveShadow]);
+    o.castShadow = ombre; o.receiveShadow = ombre;
+  });
+
+  const scatola = new THREE.Box3().setFromObject(radice);
+  const centro = scatola.getCenter(new THREE.Vector3());
+  const misure = scatola.getSize(new THREE.Vector3());
+  const raggio = Math.max(0.5, Math.max(misure.x, misure.y, misure.z) * 0.72);
+
+  // L'altezza del sole decide la lunghezza delle ombre. A 52 gradi le ombre
+  // sono lunghe quanto l'oggetto e' alto: si leggono, e non annegano la pianta.
+  const azi = (opzioni.soleAzimuth != null ? opzioni.soleAzimuth : 135) * Math.PI / 180;
+  const alt = (opzioni.soleAltezza != null ? opzioni.soleAltezza : 52) * Math.PI / 180;
+  const sole = new THREE.DirectionalLight(0xfff2e0,
+    opzioni.soleForza != null ? opzioni.soleForza : 2.4);
+  sole.position.set(
+    centro.x + Math.cos(alt) * Math.cos(azi) * raggio * 2.2,
+    centro.y + Math.sin(alt) * raggio * 2.2,
+    centro.z + Math.cos(alt) * Math.sin(azi) * raggio * 2.2);
+  sole.target.position.copy(centro);
+  if (ombre) {
+    sole.castShadow = true;
+    const c = sole.shadow.camera;
+    c.left = -raggio; c.right = raggio; c.top = raggio; c.bottom = -raggio;
+    c.near = 0.5; c.far = raggio * 6;
+    c.updateProjectionMatrix();
+    const lato = opzioni.mappaOmbre || 2048;
+    sole.shadow.mapSize.set(lato, lato);
+    // senza questi due, un modello grande si riempie di righe scure finte
+    sole.shadow.bias = -0.0004;
+    sole.shadow.normalBias = Math.max(0.02, raggio * 0.002);
+  }
+
+  const cielo = new THREE.HemisphereLight(0xdde8f5, 0x8f8a84,
+    opzioni.cieloForza != null ? opzioni.cieloForza : 1.15);
+  cielo.position.set(centro.x, centro.y + raggio, centro.z);
+
+  scena.add(sole); scena.add(sole.target); scena.add(cielo);
+
+  return function rimettiLaLuce() {
+    try { scena.remove(sole); scena.remove(sole.target); scena.remove(cielo); } catch (e) {}
+    try { if (sole.shadow && sole.shadow.map) sole.shadow.map.dispose(); } catch (e) {}
+    try { sole.dispose && sole.dispose(); cielo.dispose && cielo.dispose(); } catch (e) {}
+    for (const [o, cs, rs] of comErano) { o.castShadow = cs; o.receiveShadow = rs; }
+    if (renderer.shadowMap) {
+      renderer.shadowMap.enabled = ombrePrima;
+      if (tipoPrima != null) renderer.shadowMap.type = tipoPrima;
     }
   };
 }
@@ -293,7 +403,22 @@ export function piantaDelPavimento(THREE, renderer, radice, opzioni = {}) {
 
   const scena = new THREE.Scene();
   scena.background = null;
-  const rimetti = spegniLuci(THREE, radice);
+  // ⚠️ `conLuce` — PROVA DEL 21/09. Senza luce ogni superficie diventa il suo
+  //    colore piatto: un muro grigio, un pavimento grigio e una colonna grigia
+  //    sono lo STESSO rettangolo grigio, e non c'e' forma da riconoscere.
+  //    Misurato: da dentro gli ambienti, a 73-87 pixel al metro, l'occhio
+  //    trovava ZERO cose di dentro. Qui si puo' chiedere la resa illuminata.
+  // Due modi di mostrare il mondo all'occhio: piatto (come fino al 20/09) o
+  // illuminato dal sole, con le ombre. Vedi `accendiIlSole`.
+  // ⚠️ QUI IL SOLE E' A RICHIESTA, non di regola, e la ragione non e' timidezza:
+  //    da questa stessa pianta qualcuno legge la SEGNALETICA A TERRA dal
+  //    colore dei pixel, e un'ombra portata sopra una striscia gialla la fa
+  //    diventare un'altra tinta. L'occhio la chiede illuminata
+  //    (`veritas_riconosce.js`, `veritas_occhi.js`, `veritas_montaggio.js`);
+  //    chi legge i colori non la chiede, e la riceve piatta come sempre.
+  const rimetti = opzioni.conLuce
+    ? accendiIlSole(THREE, renderer, radice, scena, opzioni)
+    : spegniLuci(THREE, radice);
   const genitore = radice.parent;
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
 
@@ -432,7 +557,20 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
 
   const scena = new THREE.Scene();
   scena.background = null;
-  const rimetti = spegniLuci(THREE, radice);
+  // ⚠️ `conLuce` — PROVA DEL 21/09. Senza luce ogni superficie diventa il suo
+  //    colore piatto: un muro grigio, un pavimento grigio e una colonna grigia
+  //    sono lo STESSO rettangolo grigio, e non c'e' forma da riconoscere.
+  //    Misurato: da dentro gli ambienti, a 73-87 pixel al metro, l'occhio
+  //    trovava ZERO cose di dentro. Qui si puo' chiedere la resa illuminata.
+  // Due modi di mostrare il mondo all'occhio: piatto (come fino al 20/09) o
+  // illuminato dal sole, con le ombre. Vedi `accendiIlSole`.
+  // ⚠️ IL SOLE E' LA REGOLA, il piatto l'eccezione (21/09/2026, Raffaella: «fai
+  //    in modo che l'occhio non abbia piu' difficolta' a vedere»). Chi ha
+  //    bisogno della resa piatta — per esempio chi legge i COLORI a terra, che
+  //    un'ombra falserebbe — lo chiede con `conLuce: false`.
+  const rimetti = opzioni.conLuce !== false
+    ? accendiIlSole(THREE, renderer, radice, scena, opzioni)
+    : spegniLuci(THREE, radice);
   const genitore = radice.parent;
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
 
@@ -998,7 +1136,20 @@ export function vistaDalCamminatore(THREE, renderer, radice, opzioni = {}) {
   // ---- la fotografia -------------------------------------------------------
   const scena = new THREE.Scene();
   scena.background = null;
-  const rimetti = spegniLuci(THREE, radice);
+  // ⚠️ `conLuce` — PROVA DEL 21/09. Senza luce ogni superficie diventa il suo
+  //    colore piatto: un muro grigio, un pavimento grigio e una colonna grigia
+  //    sono lo STESSO rettangolo grigio, e non c'e' forma da riconoscere.
+  //    Misurato: da dentro gli ambienti, a 73-87 pixel al metro, l'occhio
+  //    trovava ZERO cose di dentro. Qui si puo' chiedere la resa illuminata.
+  // Due modi di mostrare il mondo all'occhio: piatto (come fino al 20/09) o
+  // illuminato dal sole, con le ombre. Vedi `accendiIlSole`.
+  // ⚠️ IL SOLE E' LA REGOLA, il piatto l'eccezione (21/09/2026, Raffaella: «fai
+  //    in modo che l'occhio non abbia piu' difficolta' a vedere»). Chi ha
+  //    bisogno della resa piatta — per esempio chi legge i COLORI a terra, che
+  //    un'ombra falserebbe — lo chiede con `conLuce: false`.
+  const rimetti = opzioni.conLuce !== false
+    ? accendiIlSole(THREE, renderer, radice, scena, opzioni)
+    : spegniLuci(THREE, radice);
   const genitore = radice.parent;
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
   let fuori = null;
@@ -1251,6 +1402,13 @@ export function giroDentro(THREE, renderer, radice, ambienti, opzioni = {}) {
       posizione: d.occhio,
       direzione: [Math.cos(d.a), alza, Math.sin(d.a)],
       fovGradi, portata, altezzaOcchio,
+      // ⚠️ LA LUCE VA PASSATA A MANO. Questa funzione non inoltra `opzioni`
+      //    per intero — costruisce le sue — e il 21/09 il sole si fermava
+      //    qui: pianta e scorci lo prendevano, le viste da DENTRO no, che
+      //    sono proprio quelle dove senza luce non si vede niente.
+      conLuce: opzioni.conLuce, ombre: opzioni.ombre,
+      soleAzimuth: opzioni.soleAzimuth, soleAltezza: opzioni.soleAltezza,
+      soleForza: opzioni.soleForza, cieloForza: opzioni.cieloForza,
       etichetta: 'da dentro ' + d.nome + ', verso ' + Math.round(d.a * 180 / Math.PI) + '°'
         + (alza ? ', sguardo alzato di ' + Math.round(suGradi) + '°' : '')
         + (fovGradi >= 80 ? ', grandangolo ' + Math.round(fovGradi) + '°' : ''),
@@ -1380,6 +1538,11 @@ export function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
       distanza,                        // ← sette metri, non uno di più
       larghezza: opzioni.larghezza,
       altezza: opzioni.altezza,
+      // ⚠️ Anche qui le opzioni si ricostruiscono a mano: la luce va passata,
+      //    se no la passata resta piatta mentre tutto il resto ha il sole.
+      conLuce: opzioni.conLuce, ombre: opzioni.ombre,
+      soleAzimuth: opzioni.soleAzimuth, soleAltezza: opzioni.soleAltezza,
+      soleForza: opzioni.soleForza, cieloForza: opzioni.cieloForza,
       etichetta: 'passata ' + (i + 1) + ' di ' + passi + ', dal metro '
         + Math.round(centro - da - passo / 2) + ' al metro '
         + Math.round(centro - da + passo / 2) + ' in asse',
@@ -1389,7 +1552,7 @@ export function passataInOrdine(THREE, renderer, radice, opzioni = {}) {
   return fuori;
 }
 
-export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
+export default { inquadratura, pixelAMondo, mondoAPixel, areaPixel, raddrizza, accendiIlSole, piantaDelPavimento, densitaMesh, numeroScorci, scorciTreQuarti,
   distanzaPerInquadrare, grappoliDaInquadrare, scorciRavvicinati, FORME_ARREDO,
   ALTEZZA_SEZIONE, vistaDalCamminatore, giroDentro, passataInOrdine,
   riempiLaFinestra };

@@ -90,10 +90,26 @@ function scatta(THREE, renderer, radice, cam, larghezza, altezza) {
   // Luce propria: un disegno deve leggersi anche se la scena della pagina ha
   // le luci spente o di scena. Emisferica per la forma, direzionale per lo
   // spessore — senza ombra un prospetto e' una sagoma.
-  scena.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 2.4));
-  const sole = new THREE.DirectionalLight(0xffffff, 1.5);
-  sole.position.set(0.6, 1, 0.4);
-  scena.add(sole);
+  //
+  // ⚠️ 21/09/2026 — L'OMBRA MANCAVA DAVVERO. Il commento qui sopra la nominava
+  //    («senza ombra un prospetto e' una sagoma») ma nessuna luce aveva
+  //    `castShadow`: c'era il chiaroscuro delle facce, non l'ombra portata a
+  //    terra, che e' l'unica cosa che in una pianta dice quanto e' alto un
+  //    volume. Ora si riusa `accendiIlSole` di `veritas_vista.js` — UNA sola
+  //    implementazione del sole per tutta la piattaforma, perche' due soli
+  //    tarati diversi darebbero due letture diverse dello stesso edificio.
+  const V = (typeof window !== "undefined" && window.__veritasVista) || null;
+  let rimettiIlSole = null;
+  if (V && typeof V.accendiIlSole === "function") {
+    rimettiIlSole = V.accendiIlSole(THREE, renderer, radice, scena, opzioni);
+  } else {
+    // Rete: se il modulo della vista non c'e' (banco, prove isolate) si torna
+    // alle due luci di prima. Senza ombre, ma un disegno esce lo stesso.
+    scena.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 2.4));
+    const sole = new THREE.DirectionalLight(0xffffff, 1.5);
+    sole.position.set(0.6, 1, 0.4);
+    scena.add(sole);
+  }
 
   const genitore = radice.parent;
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
@@ -117,6 +133,11 @@ function scatta(THREE, renderer, radice, cam, larghezza, altezza) {
       else genitore.children.push(radice);
       radice.parent = genitore;
     }
+    // ⚠️ E IL SOLE SI SPEGNE SEMPRE, anche se la resa e' fallita: `accendiIlSole`
+    //    accende le ombre sul DISEGNATORE della pagina, non su una copia.
+    //    Lasciarle accese costringerebbe la vista dal vivo a ricompilare ogni
+    //    materiale — stessa regola per cui il modello si rimette al suo posto.
+    if (rimettiIlSole) { try { rimettiIlSole(); } catch (e) {} }
     bersaglio.dispose();
   }
   // ⚠️ SI RADDRIZZA QUI, ALLA FONTE, come negli scorci: `readRenderTargetPixels`

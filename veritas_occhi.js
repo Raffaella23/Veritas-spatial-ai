@@ -459,6 +459,7 @@ export async function guarda(ctx) {
   const pianta = vista.piantaDelPavimento(THREE, renderer, radice, {
     metriPerPixel: ctx.metriPerPixel || 0.05,
     latoMax: 2048,
+    conLuce: true,          // l'occhio vuole la forma, non solo il colore
     punti: ctx.punti || null,
   });
   if (!pianta) return { disponibile: false, perche: 'non si e potuta disegnare la pianta' };

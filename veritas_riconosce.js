@@ -1383,7 +1383,7 @@ if (typeof window !== "undefined") {
       return { ok: false, perche: "non ho ancora misurato nessun mucchio di oggetti" };
 
     const pianta = vista.piantaDelPavimento(THREE, rend, radice,
-      Object.assign({ tutto: true }, opz.pianta || {}));
+      Object.assign({ tutto: true, conLuce: true }, opz.pianta || {}));
     if (!pianta) return { ok: false, perche: "non sono riuscito a disegnare la pianta" };
     const tela = piantaInTela(pianta);
     if (!tela) return { ok: false, perche: "non sono riuscito a costruire l'immagine" };
