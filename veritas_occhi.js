@@ -270,6 +270,26 @@ export function validaRisposta(testo, zone) {
     const nome = String((v && (v.nome || v.funzione)) || '').trim();
     if (!nome) { esito.scartate.push({ n, perche: 'nessun nome' }); continue; }
 
+    // ⚠️ E IL NOME NON PUO' ESSERE LA CATEGORIA.
+    //
+    //    La regola 2 della domanda lo chiede gia' a parole — «non copiarlo
+    //    dalle chiavi» — e il 22/09/2026 il modello l'ha disattesa lo stesso:
+    //    sette zone su sette battezzate con la propria casella, «Zona di
+    //    Sosta», «Zona di Servizio», «Zona di Filtro», «Zona di Origine».
+    //    Non e' una lettura: e' l'elenco della domanda ricopiato, lo stesso
+    //    difetto dei «quattro parcheggi» del 31/08 e di «area ignota».
+    //
+    //    Una parola che il modello ha appena letto nella domanda non e' una
+    //    cosa che ha visto. Qui si butta la singola zona e si dice perche':
+    //    la categoria resta valida, il nome no.
+    const nudo = nome.toLowerCase()
+      .replace(/^(zona|area|spazio|ambiente|locale)\s+(di|del|della|dei|delle|d')?\s*/, '')
+      .replace(/[.\s]+$/, '').trim();
+    if (PER_CHIAVE.has(nudo)) {
+      esito.scartate.push({ n, perche: 'nome copiato dalla categoria («' + nome + '»)' });
+      continue;
+    }
+
     // Si valida SOLO la categoria, perche' quella la legge il simulatore e una
     // parola che non conosce si perde per strada. Se manca o e' sbagliata non
     // si butta la zona: si tiene il nome e si lascia il ruolo a chi ce l'ha
@@ -437,7 +457,30 @@ export function immagineConZone(doc, pianta, zone, mondoAPixel, opz = {}) {
  * un solo posto da accendere, un solo posto da configurare. Se non risponde,
  * non e' un errore dell'utente — si torna alle misure e lo si dice.
  */
+// ⚠️ UNA DOMANDA ALLA VOLTA. Misurato il 22/09/2026 con LM Studio acceso: su
+//    sedici chiamate, due sono partite NELLO STESSO SECONDO — una da 19
+//    immagini e una da 6 — e tutte e due sono tornate HTTP 400. Le altre
+//    quattordici, che erano in fila da sole, sono tornate 200.
+//
+//    LM Studio tiene UN modello in memoria e lo serve uno alla volta: due
+//    richieste multimodali insieme non sono il doppio del lavoro, sono un
+//    rifiuto. Qui non si cambia niente di quello che si chiede: si mette in
+//    fila. Chi chiama non se ne accorge, aspetta un po' di piu' e ha la
+//    risposta invece dell'errore.
+//
+//    Non e' un `inCorso` che scarta la seconda: scartarla vorrebbe dire
+//    perdere una lettura. E' una coda, e nessuna domanda si perde.
+let codaDelCervello = Promise.resolve();
+
 export async function chiedi(dataURL, domanda, cfg, opz = {}) {
+  const mia = codaDelCervello.then(() => chiediOra(dataURL, domanda, cfg, opz));
+  // la coda prosegue anche se questa domanda fallisce: un errore non blocca
+  // tutte le successive
+  codaDelCervello = mia.then(() => undefined, () => undefined);
+  return mia;
+}
+
+async function chiediOra(dataURL, domanda, cfg, opz = {}) {
   const url = (cfg && cfg.url) || 'http://localhost:1234/v1';
   const modello = (opz.modello || (cfg && cfg.modelloVista) || (cfg && cfg.model) || 'local-model');
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -478,7 +521,15 @@ export async function chiedi(dataURL, domanda, cfg, opz = {}) {
       }),
       signal: ctrl ? ctrl.signal : undefined,
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // ⚠️ IL MOTIVO, NON SOLO IL NUMERO. «HTTP 400» da solo non dice niente e
+    //    costa un giro intero per capirlo: il corpo della risposta di LM Studio
+    //    dice se il modello non e' caricato, se il contesto e' troppo lungo o
+    //    se il nome del modello non esiste. Si legge e si riporta.
+    if (!res.ok) {
+      let perche = '';
+      try { perche = (await res.text() || '').slice(0, 300).replace(/\s+/g, ' '); } catch (e) {}
+      throw new Error('HTTP ' + res.status + (perche ? ' — ' + perche : ''));
+    }
     const d = await res.json();
     return d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
   } finally { if (timer) clearTimeout(timer); }
@@ -609,11 +660,47 @@ export default {
 if (typeof window !== 'undefined') {
   let inCorso = false;
 
+  // ⚠️ SI GUARDA UNA VOLTA SOLA LO STESSO SPAZIO.
+  //
+  //    Misurato il 22/09/2026 con LM Studio acceso: in 17 minuti il giro e'
+  //    ripartito SEI volte sulla stessa identica documentazione — 2 piante e
+  //    18 allegati, 19 immagini per chiamata, cinque minuti a volta.
+  //
+  //    Non e' il cervello: `comprendi()` fa al massimo GIRI_MASSIMI = 2. E'
+  //    che `applyAutoAssignment` (index.html) rilancia l'occhio ogni volta che
+  //    riassegna le zone dalle misure, e in una sola passata si riassegna piu'
+  //    volte mentre la scena si assesta — lo dice il commento li' accanto:
+  //    «durante una passata applyAutoAssignment viene invocata tre volte».
+  //
+  //    Riguardare lo stesso disegno non e' «giro dopo giro fino a essere
+  //    sicuri» (Regola 0): quello vuol dire CONVERGERE su qualcosa che cambia.
+  //    Se lo spazio e' identico, la risposta a temperatura 0 e' identica, e
+  //    l'unica cosa che cambia e' il tempo perso.
+  //
+  //    L'impronta NON contiene i nomi, ed e' voluto: l'occhio i nomi li
+  //    cambia, e un'impronta che li guardasse si invaliderebbe da sola a ogni
+  //    giro — il giro infinito al posto del giro doppio.
+  let ultimaImpronta = null;
+  const improntaDi = (zz) => zz.map((n) => {
+    const p = n.pos || n.position || [0, 0, 0];
+    return [Math.round(p[0] * 2), Math.round(p[1] * 2), Math.round(p[2] * 2),
+            Math.round(n.area || 0)].join(',');
+  }).join('|');
+
   window.__veritasOcchiGuarda = async function (zone, opz = {}) {
     if (inCorso) return { disponibile: false, perche: 'sto gia guardando' };
     const zz = zone || (typeof window.__veritasGetNodes === 'function'
       ? window.__veritasGetNodes() : null);
     if (!zz || !zz.length) return { disponibile: false, perche: 'nessuna zona da riconoscere' };
+
+    const impronta = improntaDi(zz);
+    if (!opz.comunque && impronta === ultimaImpronta) {
+      console.log('[VERITAS occhi] le zone sono le stesse dell\'ultimo giro: non riguardo '
+        + 'lo stesso disegno (per forzare: __veritasOcchiGuarda(null, {comunque: true}))');
+      return window.__veritasOcchiEsito
+        || { disponibile: false, perche: 'gia guardato, niente e cambiato' };
+    }
+    ultimaImpronta = impronta;
 
     inCorso = true;
     try {

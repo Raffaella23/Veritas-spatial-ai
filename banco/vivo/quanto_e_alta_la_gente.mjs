@@ -57,6 +57,7 @@ if (DAL_WS) {
 
 const p = ctx.pages()[0] || await ctx.newPage();
 p.on("pageerror", (e) => scrivi(secondi() + " PAGEERROR " + e.message));
+p.on("console", (m) => { const t = m.text(); if (/scala|statura|figure ripetute/i.test(t)) scrivi("  [console] " + t); });
 
 await p.goto(BASE + "?cb=" + Date.now(), { waitUntil: "load", timeout: 90000 });
 scrivi(secondi() + " costruzione: " + await p.evaluate(() => window.__EIDETICA_COSTRUZIONE));
