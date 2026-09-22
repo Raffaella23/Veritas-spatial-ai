@@ -96,6 +96,37 @@ for (const k of ['raggio', 'altezza', 'gradino', 'pendenzaMax']) {
     CORPO.MISURE[k] === NAVMESH.PERSONA[k]);
 }
 
+// ⛔ E LA MISURA DELL'UOMO NON STA IN UN POSTO SOLO: STA IN SEI.
+//
+//    Il 22/09/2026 la statura era 2,00 m — l'altezza libera che la NORMA
+//    chiede a un passaggio, usata come corpo di chi cammina — e correggerla
+//    ha voluto dire toccare SEI dichiarazioni: `veritas_navmesh.js` (PERSONA),
+//    `veritas_corpo.js` (MISURE), `veritas_cose.js` (CORPO), e le tre copie
+//    ricopiate dentro `index.html`, che sono quelle che il programma esegue
+//    davvero. Sei verita' parallele: se ne correggi una, le altre cinque
+//    restano, e il difetto torna. È la risposta alla domanda di Raffaella
+//    «perché ogni volta la dobbiamo riaggiustare».
+//
+//    Questa prova le confronta tutte e sei. Se divergono, si ferma qui e non
+//    sulla pagina viva sei giorni dopo.
+{
+  const COSE = await import('./veritas_cose.js').then((m) => m.default || m);
+  check(`altezza: cose ${COSE.CORPO.altezza} = cammino ${NAVMESH.PERSONA.altezza}`,
+    COSE.CORPO.altezza === NAVMESH.PERSONA.altezza);
+
+  const fs = await import('node:fs');
+  const pagina = fs.readFileSync('index.html', 'utf8');
+  const incollate = [...pagina.matchAll(/^\s*altezza:\s*([0-9.]+),/gm)].map((m) => +m[1]);
+  check(`in index.html ci sono ancora ${incollate.length} copie incollate della statura`,
+    incollate.length >= 3, incollate.join(' · ') || 'nessuna');
+  check('e tutte dicono la stessa cosa dei moduli di radice',
+    incollate.length > 0 && incollate.every((v) => v === NAVMESH.PERSONA.altezza),
+    'in pagina ' + (incollate.join(' · ') || '—') + ', nei moduli ' + NAVMESH.PERSONA.altezza);
+  check('e nessuna e tornata ai 2,00 m dell altezza libera di norma',
+    incollate.every((v) => v !== 2.0) && NAVMESH.PERSONA.altezza !== 2.0,
+    incollate.join(' · '));
+}
+
 // =============================================================================
 console.log('\n— attraversano i muri —');
 // =============================================================================

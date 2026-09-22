@@ -13,8 +13,7 @@
 import { generateSoloNavMesh } from 'navcat/blocks';
 import * as nav from 'navcat';
 import {
-  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino,
-} from './veritas_navmesh.js';
+  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA } from './veritas_navmesh.js';
 
 let ko = 0;
 const check = (n, ok, d = '') => {
@@ -94,7 +93,18 @@ console.log('1. le misure sono quelle di una persona, non di questo modello');
 {
   check('raggio = mezza ellisse di Fruin (61 cm di spalle)', Math.abs(PERSONA.raggio - 0.305) < 0.01,
     PERSONA.raggio + ' m');
-  check('altezza libera 2 m', PERSONA.altezza === 2);
+  // ⛔ QUI C'ERA `PERSONA.altezza === 2`, e chiamava quel numero «altezza
+  //    libera». Era la prova che teneva fermo l'errore: 2,00 m e' l'altezza
+  //    libera che la NORMA chiede a un passaggio, non la statura di nessuno.
+  //    Con quel corpo la mappa cancellava 20 m di terminal con 1,75 m di cielo,
+  //    dove le 344 figure disegnate nel modello (mediana 1,63 m) passavano
+  //    tutte. Raffaella, 22/09/2026: «l'uomo medio al massimo sta fra un 1,70
+  //    e un 1,80. Se l'hai messo arbitrariamente a 2 metri, hai sbagliato».
+  check('la statura sta fra 1,70 e 1,80: e un uomo, non un requisito di norma',
+    PERSONA.altezza >= 1.70 && PERSONA.altezza <= 1.80, PERSONA.altezza + ' m');
+  check('e non e tornata a essere l altezza libera di norma',
+    PERSONA.altezza !== ALTEZZA_LIBERA_NORMA && ALTEZZA_LIBERA_NORMA === 2.00,
+    'statura ' + PERSONA.altezza + ' m, norma ' + ALTEZZA_LIBERA_NORMA + ' m');
   check('pendenza max sotto i 40°: una copertura non e un percorso', PERSONA.pendenzaMax <= 40,
     PERSONA.pendenzaMax + '°');
 

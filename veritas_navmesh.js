@@ -59,8 +59,27 @@
 //   raggio 0,30 m   ellisse corporea di Fruin, 61 x 46 cm (Pedestrian Planning
 //                   and Design, 1971): e' lo standard dei modelli di deflusso.
 //                   Mezza larghezza di spalle = 0,305 m.
-//   altezza 2,00 m  altezza libera minima di passaggio; sotto i 2 m si china.
-//                   E' anche il valore predefinito dell'agente di Unity.
+//   altezza 1,75 m  LA STATURA DI UNA PERSONA. Direttiva di Raffaella
+//                   (HANDOFF §0.2, ribadita il 22/09/2026): «l'uomo medio al
+//                   massimo sta fra un 1,70 e un 1,80». 1,75 e' il mezzo.
+//
+//                   ⛔ QUI C'ERA 2,00 m, ed era un errore di sostanza, non un
+//                   numero da ritoccare. 2,00 m e' l'ALTEZZA LIBERA MINIMA DI
+//                   PASSAGGIO: quello che la NORMA chiede a un edificio da
+//                   costruire. Usarla come corpo di chi cammina in un edificio
+//                   ESISTENTE vuol dire cancellare dal cammino ogni spazio che
+//                   la norma non rispetta — invece di dirlo.
+//
+//                   Misurato il 22/09 sul modello dell'aeroporto: 20 m di
+//                   terminal con 1,75 m di cielo sparivano dalla mappa, e
+//                   l'edificio si spezzava in nove pezzi. Le 344 figure
+//                   disegnate dentro quel modello sono alte 1,63 m di mediana:
+//                   ci passavano tutte. Non ci passava il fantasma da 2,00.
+//
+//                   L'altezza libera di norma non e' persa: sta in
+//                   ALTEZZA_LIBERA_NORMA qui sotto, e appartiene al confronto
+//                   normativo, che DICE «qui il passaggio e' 1,75, la norma
+//                   chiede 2,00» invece di cancellare il pavimento.
 //   gradino 0,40 m  due alzate a norma (DM 236/89: alzata max 17-18 cm). Serve
 //                   a salire le scale del modello senza saltare fra piani.
 //   pendenza 35°    una scala comune sta fra 30° e 35°; una rampa accessibile
@@ -69,10 +88,15 @@
 //
 export const PERSONA = Object.freeze({
   raggio: 0.30,
-  altezza: 2.00,
+  altezza: 1.75,
   gradino: 0.40,
   pendenzaMax: 35,
 });
+
+// L'altezza libera che la NORMA chiede a un passaggio. Non e' un corpo: e' un
+// requisito. Serve a chi verifica la conformita', e non deve MAI tornare a fare
+// da statura alla persona che cammina — vedi il blocco qui sopra.
+export const ALTEZZA_LIBERA_NORMA = 2.00;
 
 // Un'isola piu' piccola di questa non e' uno spazio in cui si cammina: e' il
 // piano di un chiosco, un monitor, la spalla di una figura umana modellata.

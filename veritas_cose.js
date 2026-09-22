@@ -96,8 +96,9 @@ export const CORPO = Object.freeze({
   // Ellisse corporea di Fruin (1971): 61 x 46 cm. La spalla e' la misura che
   // dice se un oggetto e' "piu' stretto di una persona".
   spalla: 0.61,
-  // Altezza libera minima di passaggio, gia' usata per la navmesh.
-  altezza: 2.0,
+  // La statura di una persona: 1,70-1,80, e 1,75 e' il mezzo (§0.2). Era 2,00,
+  // che e' l'altezza libera minima di NORMA e non il corpo di nessuno.
+  altezza: 1.75,
   // Quota di seduta: il piano di un sedile sta fra 40 e 48 cm da terra, e con
   // lo schienale l'oggetto arriva intorno agli 85 cm. E' una misura di
   // ergonomia, non una convenzione di questo progetto.

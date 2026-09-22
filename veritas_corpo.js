@@ -116,13 +116,16 @@
 // lo verifica confrontando i due moduli.
 //
 //   raggio  0,30 m   ellisse corporea di Fruin (61 x 46 cm, 1971)
-//   altezza 2,00 m   altezza libera minima di passaggio
+//   altezza 1,75 m   la STATURA di una persona (1,70-1,80, §0.2). Il 2,00 di
+//                    prima era l'altezza libera minima di norma, non un corpo:
+//                    faceva l'agente piu' alto dei passeggeri disegnati nel
+//                    modello. Vedi veritas_navmesh.js, blocco 1.
 //   gradino 0,40 m   due alzate a norma (DM 236/89: alzata max 17-18 cm)
 //   pendenza  35°    una scala comune sta fra 30° e 35°; sopra e' una
 //                    copertura, un'ala, un terrapieno
 export const MISURE = Object.freeze({
   raggio: 0.30,
-  altezza: 2.00,
+  altezza: 1.75,
   gradino: 0.40,
   pendenzaMax: 35,
 });

@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-21-m";
+window.__EIDETICA_COSTRUZIONE = "2026-09-22-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -23802,8 +23802,27 @@ if (typeof window !== 'undefined') {
 //   raggio 0,30 m   ellisse corporea di Fruin, 61 x 46 cm (Pedestrian Planning
 //                   and Design, 1971): e' lo standard dei modelli di deflusso.
 //                   Mezza larghezza di spalle = 0,305 m.
-//   altezza 2,00 m  altezza libera minima di passaggio; sotto i 2 m si china.
-//                   E' anche il valore predefinito dell'agente di Unity.
+//   altezza 1,75 m  LA STATURA DI UNA PERSONA. Direttiva di Raffaella
+//                   (HANDOFF §0.2, ribadita il 22/09/2026): «l'uomo medio al
+//                   massimo sta fra un 1,70 e un 1,80». 1,75 e' il mezzo.
+//
+//                   ⛔ QUI C'ERA 2,00 m, ed era un errore di sostanza, non un
+//                   numero da ritoccare. 2,00 m e' l'ALTEZZA LIBERA MINIMA DI
+//                   PASSAGGIO: quello che la NORMA chiede a un edificio da
+//                   costruire. Usarla come corpo di chi cammina in un edificio
+//                   ESISTENTE vuol dire cancellare dal cammino ogni spazio che
+//                   la norma non rispetta — invece di dirlo.
+//
+//                   Misurato il 22/09 sul modello dell'aeroporto: 20 m di
+//                   terminal con 1,75 m di cielo sparivano dalla mappa, e
+//                   l'edificio si spezzava in nove pezzi. Le 344 figure
+//                   disegnate dentro quel modello sono alte 1,63 m di mediana:
+//                   ci passavano tutte. Non ci passava il fantasma da 2,00.
+//
+//                   L'altezza libera di norma non e' persa: sta in
+//                   ALTEZZA_LIBERA_NORMA qui sotto, e appartiene al confronto
+//                   normativo, che DICE «qui il passaggio e' 1,75, la norma
+//                   chiede 2,00» invece di cancellare il pavimento.
 //   gradino 0,40 m  due alzate a norma (DM 236/89: alzata max 17-18 cm). Serve
 //                   a salire le scale del modello senza saltare fra piani.
 //   pendenza 35°    una scala comune sta fra 30° e 35°; una rampa accessibile
@@ -23812,10 +23831,15 @@ if (typeof window !== 'undefined') {
 //
 const PERSONA = Object.freeze({
   raggio: 0.30,
-  altezza: 2.00,
+  altezza: 1.75,
   gradino: 0.40,
   pendenzaMax: 35,
 });
+
+// L'altezza libera che la NORMA chiede a un passaggio. Non e' un corpo: e' un
+// requisito. Serve a chi verifica la conformita', e non deve MAI tornare a fare
+// da statura alla persona che cammina — vedi il blocco qui sopra.
+const ALTEZZA_LIBERA_NORMA = 2.00;
 
 // Un'isola piu' piccola di questa non e' uno spazio in cui si cammina: e' il
 // piano di un chiosco, un monitor, la spalla di una figura umana modellata.
@@ -26051,8 +26075,9 @@ const CORPO = Object.freeze({
   // Ellisse corporea di Fruin (1971): 61 x 46 cm. La spalla e' la misura che
   // dice se un oggetto e' "piu' stretto di una persona".
   spalla: 0.61,
-  // Altezza libera minima di passaggio, gia' usata per la navmesh.
-  altezza: 2.0,
+  // La statura di una persona: 1,70-1,80, e 1,75 e' il mezzo (§0.2). Era 2,00,
+  // che e' l'altezza libera minima di NORMA e non il corpo di nessuno.
+  altezza: 1.75,
   // Quota di seduta: il piano di un sedile sta fra 40 e 48 cm da terra, e con
   // lo schienale l'oggetto arriva intorno agli 85 cm. E' una misura di
   // ergonomia, non una convenzione di questo progetto.
@@ -29305,13 +29330,16 @@ window.__veritasBim = {
 // lo verifica confrontando i due moduli.
 //
 //   raggio  0,30 m   ellisse corporea di Fruin (61 x 46 cm, 1971)
-//   altezza 2,00 m   altezza libera minima di passaggio
+//   altezza 1,75 m   la STATURA di una persona (1,70-1,80, §0.2). Il 2,00 di
+//                    prima era l'altezza libera minima di norma, non un corpo:
+//                    faceva l'agente piu' alto dei passeggeri disegnati nel
+//                    modello. Vedi veritas_navmesh.js, blocco 1.
 //   gradino 0,40 m   due alzate a norma (DM 236/89: alzata max 17-18 cm)
 //   pendenza  35°    una scala comune sta fra 30° e 35°; sopra e' una
 //                    copertura, un'ala, un terrapieno
 const MISURE = Object.freeze({
   raggio: 0.30,
-  altezza: 2.00,
+  altezza: 1.75,
   gradino: 0.40,
   pendenzaMax: 35,
 });
@@ -29344,17 +29372,7 @@ const PELLE = 0.01;
 // Un passo lungo al piu' quanto il raggio del corpo non puo' attraversare
 // niente che il corpo non attraverserebbe comunque. Non e' una soglia
 // inventata: e' la stessa misura, usata come limite di integrazione.
-//
-// ⚠️ TROVATO 12/09/2026 — il tetto a 8 tradiva la sua stessa regola. Quando il
-//    corpo fisico resta indietro rispetto al piano (bloccato per qualche
-//    fotogramma da un altro agente o da un ostacolo) e poi "recupera" un
-//    tratto lungo in un colpo solo, `lunghezza` puo' superare 8 * raggio
-//    (2,4 m): il numero di sottopassi resta comunque 8, e ogni fetta torna a
-//    essere piu' larga del raggio — la condizione che la regola vieta. E'
-//    li' che un agente buca un muro sottile o una ringhiera di scala mobile.
-//    Alzato per coprire i recuperi reali; il costo resta comunque sotto
-//    TETTO_MS, che si ferma da solo se sfora.
-const SOTTOPASSI_MAX = 40;
+const SOTTOPASSI_MAX = 8;
 
 // Quanto si concede al filtro prima di arrendersi e restituire il piano.
 //
@@ -29412,73 +29430,71 @@ async function libreria() {
  *                   gia' produce per la navmesh. Non si estrae la geometria una
  *                   seconda volta: e' la stessa lettura, usata da due motori.
  */
-/**
- * Filtra i triangoli malformati prima che arrivino a Rapier.
- *
- * Una trimesh costruita da geometria reale non e' mai perfetta: vertici
- * duplicati che collassano un triangolo ad area zero, coordinate NaN o
- * infinite (capitano da normali degeneri o da un'esportazione difettosa),
- * triangoli con due vertici coincidenti. Rapier non li rifiuta in fase di
- * costruzione — il collisore si crea comunque, il conteggio triangoli torna
- * pulito, tutto sembra a posto — ma la prima query reale (un raycast, un
- * test di appartenenza) puo' incontrare quel triangolo e mandare in trap la
- * struttura di accelerazione interna (BVH) con un errore WASM generico
- * ("unreachable", "memory access out of bounds") che non dice nulla su dove
- * o perche'.
- *
- * MISURATO il 24/08/2026: il trap su questo modello (186.074 triangoli)
- * scattava sempre e solo alla prima interrogazione (`dentroPerParita` ->
- * `world.intersectionsWithRay`), mai durante la costruzione — coerente con
- * un piccolo numero di triangoli degeneri nascosti fra gli altri, non con un
- * problema di scala o di conteggio.
- *
- * @param {Float32Array} positions  [x0,y0,z0, x1,y1,z1, ...]
- * @param {Uint32Array}  indices    [i0,i1,i2, i3,i4,i5, ...] (terne di indici in positions)
- * @returns {{indices: Uint32Array, scartati: number, totale: number}}
- */
+
+// -----------------------------------------------------------------------------
+// 2b. SANIFICAZIONE — nessun triangolo malformato entra in Rapier
+// -----------------------------------------------------------------------------
+//
+// Aggiunta dopo un crash WASM ("unreachable") osservato su un modello reale
+// esportato (186.074 triangoli, 32 parti navmesh scollegate — tipico di un
+// export Sketchfab/CAD dove la semantica e' gia' persa, vedi veritas_bim.js).
+// Rapier va in panic su input degenere: coordinate non finite (NaN/Infinity),
+// indici fuori dai limiti dell'array posizioni, o triangoli ad area zero
+// (vertici duplicati). Nessuno di questi casi e' raro in un export vero.
+//
+// PURA E DIFENSIVA: su geometria gia' pulita non toglie nessun triangolo,
+// quindi non cambia il comportamento sui casi gia' testati (52 prove in
+// veritas_corpo.test.mjs). Filtra solo cio' che avrebbe fatto crashare tutto.
 function sanificaTriangoli(positions, indices) {
-  const totale = Math.floor(indices.length / 3);
-  const puliti = new Uint32Array(indices.length);
-  let scritti = 0, scartati = 0;
-  // Area minima accettata: sotto questa soglia il triangolo e' praticamente
-  // un segmento o un punto, non una superficie — la stessa soglia che userebbe
-  // chi cerca "triangoli ad area zero" a mano, non un numero arbitrario.
-  const AREA_MIN = 1e-10;
+  const nTri = Math.floor(indices.length / 3);
+  const buoni = [];
+  let scartatiNonFiniti = 0;
+  let scartatiFuoriLimite = 0;
+  let scartatiDegeneri = 0;
+  const nVert = positions.length / 3;
 
-  for (let t = 0; t < totale; t++) {
-    const i0 = indices[t * 3], i1 = indices[t * 3 + 1], i2 = indices[t * 3 + 2];
-    const ax = positions[i0 * 3], ay = positions[i0 * 3 + 1], az = positions[i0 * 3 + 2];
-    const bx = positions[i1 * 3], by = positions[i1 * 3 + 1], bz = positions[i1 * 3 + 2];
-    const cx = positions[i2 * 3], cy = positions[i2 * 3 + 1], cz = positions[i2 * 3 + 2];
+  for (let t = 0; t < nTri; t++) {
+    const ia = indices[t * 3], ib = indices[t * 3 + 1], ic = indices[t * 3 + 2];
 
-    if (!(Number.isFinite(ax) && Number.isFinite(ay) && Number.isFinite(az)
-      && Number.isFinite(bx) && Number.isFinite(by) && Number.isFinite(bz)
-      && Number.isFinite(cx) && Number.isFinite(cy) && Number.isFinite(cz))) {
-      scartati++;
+    if (ia >= nVert || ib >= nVert || ic >= nVert || ia < 0 || ib < 0 || ic < 0) {
+      scartatiFuoriLimite++;
       continue;
     }
 
-    // Area del triangolo = meta' della lunghezza del prodotto vettoriale dei
-    // due lati. Un'area vicina a zero significa vertici coincidenti o
-    // allineati: nessuna superficie reale, solo un problema in attesa di
-    // scoppiare alla prima query.
+    const ax = positions[ia * 3], ay = positions[ia * 3 + 1], az = positions[ia * 3 + 2];
+    const bx = positions[ib * 3], by = positions[ib * 3 + 1], bz = positions[ib * 3 + 2];
+    const cx = positions[ic * 3], cy = positions[ic * 3 + 1], cz = positions[ic * 3 + 2];
+
+    if (![ax, ay, az, bx, by, bz, cx, cy, cz].every(Number.isFinite)) {
+      scartatiNonFiniti++;
+      continue;
+    }
+
+    // Area doppia via prodotto vettoriale: sotto una soglia minuscola il
+    // triangolo e' degenere (vertici coincidenti o allineati).
     const ux = bx - ax, uy = by - ay, uz = bz - az;
     const vx = cx - ax, vy = cy - ay, vz = cz - az;
-    const nx = uy * vz - uz * vy;
-    const ny = uz * vx - ux * vz;
-    const nz = ux * vy - uy * vx;
-    const area2 = Math.hypot(nx, ny, nz);
-    if (area2 < AREA_MIN) {
-      scartati++;
+    const cxp = uy * vz - uz * vy, cyp = uz * vx - ux * vz, czp = ux * vy - uy * vx;
+    const areaDoppia = Math.sqrt(cxp * cxp + cyp * cyp + czp * czp);
+    if (areaDoppia < 1e-9) {
+      scartatiDegeneri++;
       continue;
     }
 
-    puliti[scritti++] = i0;
-    puliti[scritti++] = i1;
-    puliti[scritti++] = i2;
+    buoni.push(ia, ib, ic);
   }
 
-  return { indices: puliti.subarray(0, scritti), scartati, totale };
+  const scartatiTotali = scartatiNonFiniti + scartatiFuoriLimite + scartatiDegeneri;
+  if (scartatiTotali > 0 && typeof console !== 'undefined') {
+    console.warn(
+      '[VERITAS corpo] sanificazione: ' + scartatiTotali + '/' + nTri +
+      ' triangoli scartati (non finiti: ' + scartatiNonFiniti +
+      ', fuori limite: ' + scartatiFuoriLimite +
+      ', degeneri: ' + scartatiDegeneri + ') prima di costruire il collisore.'
+    );
+  }
+
+  return { positions, indices: Uint32Array.from(buoni) };
 }
 
 function mondoDaGeometria(RAPIER, geometria, opz = {}) {
@@ -29506,11 +29522,9 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   //    appoggiato a un solaio produce facce coincidenti, ed e' la regola, non
   //    l'eccezione. Su un modello a caso — che e' il caso che ci interessa —
   //    e' un difetto silenzioso, del genere peggiore.
-  const pulito = sanificaTriangoli(geometria.positions, geometria.indices);
-  if (pulito.scartati > 0) {
-    console.warn('[VERITAS corpo] sanificazione: ' + pulito.scartati + '/' + pulito.totale + ' triangoli scartati (degeneri o non finiti)');
-  }
-  const desc = RAPIER.ColliderDesc.trimesh(geometria.positions, pulito.indices);
+  const geoSicura = sanificaTriangoli(geometria.positions, geometria.indices);
+  if (!geoSicura.indices.length) return null;
+  const desc = RAPIER.ColliderDesc.trimesh(geoSicura.positions, geoSicura.indices);
   const collisoreEdificio = world.createCollider(desc, corpoEdificio);
 
   // Un giro a vuoto: il controller interroga le strutture di collisione, che
@@ -29551,7 +29565,7 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
     RAPIER, world, controller, misure: m,
     pelle: opz.pelle || PELLE,
     collisoreEdificio,
-    triangoli: pulito.indices.length / 3,
+    triangoli: geometria.indices.length / 3,
     ingombro: geometria.ingombro || null,
     ms: Math.round(ora() - t0),
   };
@@ -29687,32 +29701,27 @@ function dentroUnSolido(scena, corpo, margine) {
 // Rapier va in panico quando riceve un numero NON FINITO — un NaN o un
 // Infinity in un'origine, in una direzione o in una lunghezza. E qui i modi
 // per produrne uno ci sono tutti:
-//   - `lungo` nasce da Math.hypot sull'ingombro: se l'ingombro non e' stato
+//   - `lungo` nasce da `Math.hypot` sull'ingombro: se l'ingombro non e' stato
 //     misurato (min +Infinity, max -Infinity, che e' come nasce una scatola
 //     vuota) viene Infinity, e Infinity come distanza massima di un raggio fa
 //     saltare il motore;
-//   - `punto` arriva da una catena di somme (piede + altezza/2 + gradino) e
-//     basta che una misura manchi perche' diventi NaN.
+//   - `punto` arriva da una catena di somme (`piede[1] + altezza/2 + gradino`)
+//     e basta che una misura sia mancante perche' diventi NaN.
 //
 // ⚠️ QUESTA GUARDIA NON RIPARA LA CAUSA: la rende visibile. Prima il
 //    programma moriva senza dire quale numero fosse sbagliato; adesso lo
 //    stampa una volta sola e va avanti rispondendo «non lo so» invece di
-//    schiantarsi. Un difetto dichiarato vale piu' di un crash muto, ed e' la
-//    stessa regola gia' scritta altrove in questo blocco.
-//
-// ⚠️ E VA MESSA QUI DENTRO, non in veritas_corpo.js. Quel file e' una COPIA
-//    che non viene caricata da nessuno: il codice che gira e' incollato in
-//    questo blocco. Ci sono cascato il 06/09 e ho corretto il file sbagliato.
-let __giaDettoNonFinito = false;
+//    schiantarsi. Un difetto dichiarato vale piu' di un crash muto — ed e' la
+//    stessa regola gia' scritta altrove in questo file.
+let __giaDetto = false;
 function numeriSani(dove, valori) {
-  for (const nome in valori) {
-    const v = valori[nome];
+  for (const [nome, v] of Object.entries(valori)) {
     if (typeof v === "number" && Number.isFinite(v)) continue;
-    if (!__giaDettoNonFinito) {
-      __giaDettoNonFinito = true;
+    if (!__giaDetto) {
+      __giaDetto = true;
       console.error("[VERITAS corpo][GUARDIA] numero non finito verso il motore fisico"
         + " — in " + dove + ", '" + nome + "' vale " + v
-        + ". Tutti i valori di quella chiamata:", valori);
+        + ". Ecco tutti i valori di quella chiamata:", valori);
       console.error("   E' questo che faceva esplodere Rapier con «unreachable»."
         + " La chiamata viene saltata: si risponde «non lo so» invece di morire.");
     }
@@ -29903,46 +29912,40 @@ function filtraFrames(scena, frames, opz = {}) {
   const m = scena.misure;
   const t0 = ora();
   const tettoMs = opz.tettoMs != null ? opz.tettoMs : TETTO_MS;
+  // Quanto puo' recuperare chi e' rimasto indietro, in frazione del passo
+  // pianificato. Mezzo passo in piu' e' abbastanza per rientrare dietro un
+  // pilastro e non abbastanza per saltare un muro.
   const recupero = opz.recupero != null ? opz.recupero : 1.5;
   const dt = opz.dt || dedottoDt(frames);
 
-  const corpi = new Map();
-  // ⚠️ IL MONDO NON SI SVUOTA MAI DA SOLO — trovato l'11/09/2026. Ogni corsa
-  //    aggiunge un corpo per agente con `aggiungiCorpo` e non lo toglie MAI
-  //    dal mondo (l'unico removeRigidBody/.free() nel file e' quello
-  //    dell'edificio statico, in rifaiMondo). A ogni Play il mondo tiene
-  //    anche i corpi delle corse precedenti, finche' Rapier non si confonde
-  //    da solo sui suoi handle interni — «recursive use of an object
-  //    detected... unsafe aliasing», gia' misurato il 10/09 e curato solo nel
-  //    sintomo (rifare il mondo), non nella causa. Si tolgono qui i corpi
-  //    creati da QUESTA corsa, prima di ogni uscita dalla funzione.
+  const corpi = new Map();     // id agente -> corpo
+  // ⚠️ IL MONDO NON SI SVUOTA MAI DA SOLO — trovato l'11/09/2026, seguito
+  //    diretto della toppa del 10/09 ("se il mondo si inceppa si rifa").
+  //    Quella toppa curava il SINTOMO (world.step() smette di prestarsi dopo
+  //    "qualche passata") ma non la causa: ogni chiamata a `filtraFrames`
+  //    aggiunge un corpo per ogni agente con `aggiungiCorpo` e non lo toglie
+  //    MAI dal mondo — ne' qui alla fine, ne' altrove nel file (l'unico
+  //    `removeRigidBody`/`.free()` che esiste e' quello dell'edificio statico,
+  //    in `rifaiMondo`). A ogni Play/ricalcolo il mondo tiene tutti i corpi
+  //    delle corse precedenti, oltre a quelli nuovi: e' un mondo che cresce
+  //    senza fine finche' Rapier non si confonde da solo sui suoi handle
+  //    interni — «recursive use of an object detected... unsafe aliasing».
+  //    Prima di ogni uscita da questa funzione si tolgono tutti i corpi
+  //    creati QUI: il mondo torna con solo l'edificio, pronto per la corsa
+  //    dopo. `removeRigidBody` toglie anche il collisore agganciato.
   const pulisciCorpi = () => {
     for (const c of corpi.values()) {
       try { scena.world.removeRigidBody(c.rb); } catch (e) {}
     }
   };
-  const impossibili = new Set();
-  const pianoPrec = new Map();
+  const impossibili = new Set();  // agenti che il piano mette dentro un solido
+  const pianoPrec = new Map(); // id agente -> ultima posizione PIANIFICATA
   let mosse = 0, dentro = 0, controllate = 0, caduti = 0, natiDentro = 0, scostamenti = [];
   const quotaMinima = scena.ingombro
     ? scena.ingombro.min[1] - Math.max(10, m.altezza * 5)
     : -1e4;
 
   const nuovi = new Array(frames.length);
-
-  // Diagnostica: quale chiamata a Rapier ha appena tentato di eseguire,
-  // per che agente, a che fotogramma — cosi' se scoppia un "unreachable"
-  // il log dice ESATTAMENTE dove, invece del generico messaggio che arriva
-  // fino a filtraTraiettoria.
-  function logTrapEQuietaLancia(fase, f, id, extra, e) {
-    console.error('[VERITAS corpo][DIAGNOSTICA] trap nel motore fisico',
-      '- fase:', fase,
-      '- fotogramma:', f, '/', frames.length,
-      '- agente:', id,
-      extra ? ('- ' + extra) : '',
-      '- errore:', (e && e.message) || e);
-    throw e;
-  }
 
   for (let f = 0; f < frames.length; f++) {
     const fr = frames[f];
@@ -29960,34 +29963,39 @@ function filtraFrames(scena, frames, opz = {}) {
       if (impossibili.has(id)) { fuori[a] = ag; continue; }
       let corpo = corpi.get(id);
       if (!corpo) {
+        // Nasce dove il piano lo voleva, e prima di camminare si LASCIA
+        // CADERE: e' cosi' che una tappa a mezz'aria (la quota media di un
+        // grappolo che mescola pavimento, pedane e arredi) si appoggia da
+        // sola al pavimento vero, senza nessun raycast in piu'.
+        //
+        // ⚠️ Si nasce un gradino PIU' IN ALTO di dove il piano diceva. Una
+        //    tappa cade quasi sempre esattamente sulla quota del pavimento, e
+        //    un corpo creato li' nasce gia' in contatto: il controller si
+        //    trova a dover risolvere una compenetrazione invece di un
+        //    appoggio, e lo fa sprofondando. Misurato: il piede finiva a
+        //    -3,8 cm e restava li' per tutto il tragitto. Partendo piu' in
+        //    alto la caduta e' un appoggio normale, che e' il caso per cui il
+        //    controller e' fatto. L'alzata e' la misura gia' dichiarata.
         const voluto = [p[0], (p[1] || 0) + m.gradino, p[2]];
-        let dove;
-        try {
-          dove = nascitaLibera(scena, voluto);
-        } catch (e) {
-          logTrapEQuietaLancia('ricerca punto libero (nascitaLibera/dentroUnSolido)', f, id,
-            'punto voluto: ' + JSON.stringify(voluto), e);
-        }
+        const dove = nascitaLibera(scena, voluto);
         if (!dove) {
+          // Il piano lo mette dentro un solido e attorno non c'e' un posto
+          // dove starebbe una persona. Non lo si simula: un corpo dentro un
+          // muro non ne esce, costa venti volte tanto e non produce niente di
+          // vero. Si conserva la posizione voluta e si DICHIARA — e' una cosa
+          // da far sapere, non da nascondere in un conteggio.
           impossibili.add(id);
           fuori[a] = ag;
           continue;
         }
         if (dove[0] !== voluto[0] || dove[1] !== voluto[1] || dove[2] !== voluto[2]) natiDentro++;
-
-        try {
-          corpo = aggiungiCorpo(scena, dove);
-          corpi.set(id, corpo);
+        corpo = aggiungiCorpo(scena, dove);
+        corpi.set(id, corpo);
+        scena.world.step();
+        for (let k = 0; k < 12 && !corpo.aTerra; k++) {
+          passo(scena, corpo, { x: 0, z: 0 }, dt / 4);
           scena.world.step();
-          for (let k = 0; k < 12 && !corpo.aTerra; k++) {
-            passo(scena, corpo, { x: 0, z: 0 }, dt / 4);
-            scena.world.step();
-          }
-        } catch (e) {
-          logTrapEQuietaLancia('nascita corpo (aggiungiCorpo/world.step/caduta iniziale)', f, id,
-            'posizione nascita: ' + JSON.stringify(dove), e);
         }
-
         pianoPrec.set(id, [p[0], p[1], p[2]]);
         fuori[a] = { ...ag, pos: [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z] };
         continue;
@@ -29997,6 +30005,7 @@ function filtraFrames(scena, frames, opz = {}) {
       const passoPianificato = Math.hypot(p[0] - prec[0], p[2] - prec[2]);
       pianoPrec.set(id, [p[0], p[1], p[2]]);
 
+      // La direzione: da dove il corpo E', verso dove il piano lo VUOLE.
       let dx = p[0] - corpo.pos.x;
       let dz = p[2] - corpo.pos.z;
       const dist = Math.hypot(dx, dz);
@@ -30006,43 +30015,34 @@ function filtraFrames(scena, frames, opz = {}) {
       const lunghezza = Math.hypot(dx, dz);
       const n = Math.max(1, Math.min(SOTTOPASSI_MAX, Math.ceil(lunghezza / m.raggio)));
       const dtSub = dt / n;
-
-      try {
-        for (let s = 0; s < n; s++) {
-          passo(scena, corpo, { x: dx / n, z: dz / n }, dtSub);
-          scena.world.step();
-        }
-      } catch (e) {
-        logTrapEQuietaLancia('camminata (passo/world.step)', f, id,
-          'da: ' + JSON.stringify([corpo.pos.x, corpo.pos.y, corpo.pos.z]) +
-          ' verso: ' + JSON.stringify(p) +
-          ' delta: ' + JSON.stringify([dx, dz]) + ' sottopassi: ' + n, e);
+      for (let s = 0; s < n; s++) {
+        passo(scena, corpo, { x: dx / n, z: dz / n }, dtSub);
+        scena.world.step();
       }
       mosse++;
 
       if (corpo.pos.y < quotaMinima) {
-        try {
-          caduti++;
-          corpo.pos = { x: corpo.pos.x, y: (prec[1] || 0) + m.altezza / 2, z: corpo.pos.z };
-          corpo.vy = 0;
-          corpo.rb.setTranslation(corpo.pos, true);
-          scena.world.step();
-        } catch (e) {
-          logTrapEQuietaLancia('recupero caduta (setTranslation/world.step)', f, id,
-            'quotaMinima: ' + quotaMinima + ' posizione: ' + JSON.stringify(corpo.pos), e);
-        }
+        // Sotto il modello non c'e' niente: il piano lo mandava dove non c'e'
+        // pavimento. Si dichiara e si lascia dov'era, invece di farlo cadere
+        // all'infinito.
+        caduti++;
+        corpo.pos = { x: corpo.pos.x, y: (prec[1] || 0) + m.altezza / 2, z: corpo.pos.z };
+        corpo.vy = 0;
+        corpo.rb.setTranslation(corpo.pos, true);
+        scena.world.step();
       }
 
       const piede = [corpo.pos.x, corpo.pos.y - m.altezza / 2, corpo.pos.z];
       scostamenti.push(Math.hypot(piede[0] - p[0], piede[2] - p[2]));
+      // ⚠️ Il collaudo si CAMPIONA, non gira a ogni fotogramma: due
+      //    interrogazioni per agente per fotogramma sono decine di migliaia
+      //    di interrogazioni che non servono a muovere nessuno. Un
+      //    fotogramma su `PASSO_COLLAUDO` da' la stessa frazione — quello che
+      //    interessa e' la percentuale, non il conteggio assoluto — e il
+      //    denominatore viene dichiarato insieme.
       if (f % PASSO_COLLAUDO === 0) {
         controllate++;
-        try {
-          if (dentroUnSolido(scena, corpo)) dentro++;
-        } catch (e) {
-          logTrapEQuietaLancia('collaudo (dentroUnSolido)', f, id,
-            'posizione: ' + JSON.stringify(corpo.pos), e);
-        }
+        if (dentroUnSolido(scena, corpo)) dentro++;
       }
       fuori[a] = { ...ag, pos: piede };
     }
@@ -30050,6 +30050,9 @@ function filtraFrames(scena, frames, opz = {}) {
     nuovi[f] = { ...fr, agents: fuori };
 
     if (ora() - t0 > tettoMs) {
+      // Onesta': si dice quanto si e' fatto e si restituisce il piano intatto.
+      // Un risultato mezzo filtrato sarebbe peggio di nessun filtro, perche'
+      // avrebbe l'aria di essere stato verificato.
       pulisciCorpi();
       return {
         ok: false,
@@ -30072,9 +30075,18 @@ function filtraFrames(scena, frames, opz = {}) {
     fotogrammi: frames.length,
     mosse,
     dentroUnSolido: dentro,
+    // Il denominatore del collaudo: e' campionato, e va detto insieme al
+    // numeratore, altrimenti "zero dentro un solido" non vuol dire niente.
     posizioniControllate: controllate,
     caduti,
+    // Quanti corpi il piano faceva NASCERE dentro un solido. E' il numero che
+    // spiega il costo (un corpo compenetrato costa venti volte tanto) ed e'
+    // anche un giudizio sul piano, non sul motore.
     natiDentro,
+    // Agenti che il piano metteva dentro un solido senza un posto libero
+    // attorno: non simulati, e detti. Se questo numero e' alto non e' il
+    // motore fisico a essere in difficolta', e' il percorso a essere
+    // impossibile su questo edificio.
     impossibili: impossibili.size,
     scostamentoMediano: +mediano.toFixed(3),
     scostamentoMassimo: +massimo.toFixed(3),
