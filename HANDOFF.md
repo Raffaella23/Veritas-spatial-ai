@@ -887,6 +887,30 @@ false. Il costo è stato il suo scoraggiamento, ed è il piu' alto della giornat
 
 ---
 
+### 6.16 — ⛔ Sette zone distribuite su venti posti misurati
+
+Raffaella, 22/09/2026, cerchiando in rosso un blocco di sedute in mezzo al
+terminal, con i flussi che ci passano sopra: *«in quella zona non ho mai visto
+una zona»*.
+
+**Misurato:** su questo modello il programma trova **20 posti con arredi
+misurati** e distribuisce **7 zone**. Tredici posti veri restano senza.
+
+**Causa:** il numero delle zone non lo decide quello che è stato misurato, lo
+decide il conteggio degli **ambienti riconosciuti dalla geometria**
+(`veritas_percorso.tappeConsigliate`): fino a 12 ambienti dà 5 zone, sopra dà
+`max(7, ambienti × 0,48)`. Qui gli ambienti sono una tredicina, quindi 7 — e i
+20 posti non entrano mai nel conto.
+
+⚠️ **Non è che l'occhio non ha visto quelle sedute:** è che non aveva più zone
+da dare. Il blocco cerchiato è uno dei tredici.
+
+**Da decidere con Raffaella:** se il numero di zone debba nascere dai **posti
+misurati** invece che dagli ambienti geometrici. Sono due conteggi diversi di
+due cose diverse, e oggi comanda quello che non guarda gli arredi.
+
+---
+
 ## 7. TEST E VERIFICHE
 
 | Test | Data | Tipo | Risultato |
