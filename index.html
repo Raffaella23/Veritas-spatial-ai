@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-22-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5127,8 +5127,16 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-22-d";
     // cio' che diventa percorso.
     const P = window.__veritasPercorso;
     if (P && Array.isArray(zones) && zones.length > 8) {
-      const rid = P.riduciAPercorso(zones, window.__veritasAutoFlusso || zones,
-                                    P.tappeConsigliate(zones.length));
+      // ⚠️ E I POSTI MISURATI, non solo gli ambienti (§6.16). Un mucchio di
+      //    arredi e' un posto dove la gente fa qualcosa, e merita una zona: se
+      //    ce ne sono piu' degli ambienti riconosciuti dalla geometria,
+      //    comandano loro. Se `veritas_cose` non ha ancora letto la scena il
+      //    conto e' zero e vale la regola di prima, senza sorprese.
+      const postiMisurati = ((window.__veritasCoseTrovate || {}).posti || []).length;
+      const quante = P.tappeConsigliate(zones.length, postiMisurati);
+      console.log("[VERITAS percorso] " + zones.length + " ambienti, " + postiMisurati
+        + " posti misurati -> " + quante + " tappe");
+      const rid = P.riduciAPercorso(zones, window.__veritasAutoFlusso || zones, quante);
       if (rid.tappe.length >= 2) {
         console.log('[VERITAS percorso]', rid.motivo);
         zones = rid.tappe;
@@ -15282,10 +15290,24 @@ window.__veritasVista = { inquadratura, pixelAMondo, mondoAPixel, areaPixel, rad
 // si attraversano, non ordinate per dimensione. Un percorso che salta avanti e
 // indietro non e' un percorso.
 
-/** Quante tappe ha senso avere. Sotto 2 non e' un percorso, sopra ~8 non e'
- *  piu' una sequenza leggibile ne' per l'utente ne' per il motore. */
+/** Quante tappe ha senso avere.
+ *
+ *  ⚠️ IL TETTO ERA 8, SEMPRE, PER QUALUNQUE EDIFICIO. Raffaella, 05/09:
+ *     «se ci sono delle regole stupide le togliamo... se impediscono la
+ *     lettura dell'oggetto, buttale».
+ *     La ragione scritta qui prima — «sopra ~8 non e' piu' una sequenza
+ *     leggibile» — e' giusta per una palazzina e falsa per un terminal. Un
+ *     aeroporto ne riconosce 31: con il tetto a 8 ne cadevano 23, e fra
+ *     quelle il fronte strada, i taxi e la fila ai varchi. Un numero costante
+ *     che non guarda l'oggetto e' esattamente una regola che impedisce di
+ *     leggerlo.
+ *     Ora il tetto assoluto e' largo (24) e a decidere davvero e'
+ *     `tappeConsigliate`, che scala con quanto e' grande lo spazio. 24 non e'
+ *     un numero magico: e' «tanto da non stringere mai un edificio vero,
+ *     poco da accorgersi se un giorno il riconoscimento impazzisse e ne
+ *     tirasse fuori duecento». */
 const TAPPE_MIN = 2;
-const TAPPE_MAX = 8;
+const TAPPE_MAX = 24;
 
 function areaDi(z) {
   if (!z) return 0;
@@ -15373,17 +15395,47 @@ function riduciAPercorso(zone, flusso, maxTappe = 5) {
  * guarda quanti ambienti sono stati riconosciuti, e si resta prudenti - meglio
  * poche tappe leggibili che molte che nessuno controlla.
  */
-function tappeConsigliate(nAmbienti) {
-  if (!nAmbienti || nAmbienti < 2) return TAPPE_MIN;
-  if (nAmbienti <= 5) return nAmbienti;
-  if (nAmbienti <= 12) return 5;
-  return 7;
+function tappeConsigliate(nAmbienti, nPostiMisurati) {
+  // ⚠️ I POSTI MISURATI CONTANO QUANTO GLI AMBIENTI, E SU QUESTO CONTAVANO ZERO.
+  //
+  //    Raffaella, 22/09/2026, cerchiando in rosso un blocco di sedute in mezzo
+  //    al terminal con i flussi che ci passavano sopra: «in quella zona non ho
+  //    mai visto una zona». Misurato: 20 posti con arredi misurati, 7 zone
+  //    distribuite, tredici posti veri senza niente.
+  //
+  //    La ragione stava tutta qui: il numero delle zone nasceva dal conteggio
+  //    degli AMBIENTI riconosciuti dalla geometria — pareti, soglie,
+  //    restringimenti — che non sa niente di cosa c'e' dentro. Un atrio vuoto
+  //    di 900 m2 e un atrio con dentro quattro banchi, venti sedute e una fila
+  //    di casse contano uno tutti e due.
+  //
+  //    Un posto misurato e' un mucchio di arredi ripetuti: li' dentro la gente
+  //    fa qualcosa, e merita una zona. Quindi le tappe non scendono mai sotto
+  //    il numero dei posti che si sono potuti misurare — dentro il tetto di 24,
+  //    che resta.
+  //
+  //    ⚠️ Si prende il PIU' GRANDE dei due conti, non la somma: sono due modi
+  //       di contare le stesse stanze, non due insiemi da sommare.
+  const daPosti = (typeof nPostiMisurati === "number" && nPostiMisurati > 0)
+    ? Math.min(TAPPE_MAX, Math.round(nPostiMisurati)) : 0;
+  const daAmbienti = daAmbientiSoli(nAmbienti);
+  return Math.max(daAmbienti, Math.min(TAPPE_MAX, daPosti));
 }
 
+/** Il conto di prima, dai soli ambienti geometrici. */
+function daAmbientiSoli(nAmbienti) {
+  if (!nAmbienti || nAmbienti < 2) return TAPPE_MIN;
+  if (nAmbienti <= 5) return nAmbienti;          // pochi: si tengono tutti
+  if (nAmbienti <= 12) return 5;                 // una casa, un piano d'ufficio
+  // ⚠️ QUI PRIMA C'ERA `return 7`, e valeva sia per 13 ambienti che per 300.
+  //    Adesso cresce con l'edificio: circa un ambiente su due, che su un
+  //    terminal da 31 fa 15 tappe invece di 7. Resta una SELEZIONE — non si
+  //    cammina fra trentuno posti — ma smette di essere lo stesso numero per
+  //    una villetta e per Fiumicino.
+  return Math.max(7, Math.min(TAPPE_MAX, Math.round(nAmbienti * 0.48)));
+}
 
 window.__veritasPercorso = { riduciAPercorso, tappeConsigliate, TAPPE_MIN, TAPPE_MAX };
-console.log('[VERITAS percorso] pronto — da ambienti misurati a tappe');
-
 </script>
 <script type="module">
 // veritas_sequenza.js — l'ordine delle operazioni all'apertura di un modello.

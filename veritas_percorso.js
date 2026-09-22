@@ -130,7 +130,35 @@ export function riduciAPercorso(zone, flusso, maxTappe = 5) {
  * guarda quanti ambienti sono stati riconosciuti, e si resta prudenti - meglio
  * poche tappe leggibili che molte che nessuno controlla.
  */
-export function tappeConsigliate(nAmbienti) {
+export function tappeConsigliate(nAmbienti, nPostiMisurati) {
+  // ⚠️ I POSTI MISURATI CONTANO QUANTO GLI AMBIENTI, E SU QUESTO CONTAVANO ZERO.
+  //
+  //    Raffaella, 22/09/2026, cerchiando in rosso un blocco di sedute in mezzo
+  //    al terminal con i flussi che ci passavano sopra: «in quella zona non ho
+  //    mai visto una zona». Misurato: 20 posti con arredi misurati, 7 zone
+  //    distribuite, tredici posti veri senza niente.
+  //
+  //    La ragione stava tutta qui: il numero delle zone nasceva dal conteggio
+  //    degli AMBIENTI riconosciuti dalla geometria — pareti, soglie,
+  //    restringimenti — che non sa niente di cosa c'e' dentro. Un atrio vuoto
+  //    di 900 m2 e un atrio con dentro quattro banchi, venti sedute e una fila
+  //    di casse contano uno tutti e due.
+  //
+  //    Un posto misurato e' un mucchio di arredi ripetuti: li' dentro la gente
+  //    fa qualcosa, e merita una zona. Quindi le tappe non scendono mai sotto
+  //    il numero dei posti che si sono potuti misurare — dentro il tetto di 24,
+  //    che resta.
+  //
+  //    ⚠️ Si prende il PIU' GRANDE dei due conti, non la somma: sono due modi
+  //       di contare le stesse stanze, non due insiemi da sommare.
+  const daPosti = (typeof nPostiMisurati === "number" && nPostiMisurati > 0)
+    ? Math.min(TAPPE_MAX, Math.round(nPostiMisurati)) : 0;
+  const daAmbienti = daAmbientiSoli(nAmbienti);
+  return Math.max(daAmbienti, Math.min(TAPPE_MAX, daPosti));
+}
+
+/** Il conto di prima, dai soli ambienti geometrici. */
+function daAmbientiSoli(nAmbienti) {
   if (!nAmbienti || nAmbienti < 2) return TAPPE_MIN;
   if (nAmbienti <= 5) return nAmbienti;          // pochi: si tengono tutti
   if (nAmbienti <= 12) return 5;                 // una casa, un piano d'ufficio

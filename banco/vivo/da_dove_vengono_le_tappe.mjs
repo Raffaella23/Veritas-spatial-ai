@@ -397,6 +397,54 @@ if (a.fuoriDalCammino.length) {
     scrivi("       x " + q.x + " z " + q.z + " \u00b7 " + q.oggetti + " oggetti \u00b7 " + q.area + " m2 \u00b7 " + q.forma);
 }
 
+// --- 3-bis: DA DOVE SI ENTRA? il salto dal baricentro al punto calpestabile
+// Raffaella, 22/09: «per quale motivo mette una zona dal lato opposto al
+// tunnel di accesso dell'aereo?». Il sospetto e' che la tappa non vada DOVE SI
+// ENTRA, ma sul primo punto calpestabile piu' vicino al baricentro
+// dell'ingombro — e il baricentro di un aereo sta dentro l'aereo, quindi il
+// punto piu' vicino cade da una parte o dall'altra per puro caso geometrico.
+const e = await p.evaluate(() => {
+  const CO = window.__veritasCose, CP = window.__veritasControprova, nm = window.__veritasNavmesh;
+  const tutti = (window.__veritasCoseTrovate && window.__veritasCoseTrovate.posti) || [];
+  const righe = [];
+  for (const q of CO.posiAppoggiabili(tutti, { eFigura: CP ? CP.eUnaFigura : undefined })) {
+    let r = null;
+    try { r = nm.sulCamminoCorrente(q.centro, [6, 6, 6]); } catch (err) {}
+    if (!r || !r.ok) continue;
+    const d = (q.ingombro && q.ingombro.dim) || [0, 0, 0];
+    const dx = r.punto[0] - q.centro[0], dz = r.punto[2] - q.centro[2];
+    const salto = Math.hypot(dx, dz);
+    // il baricentro sta DENTRO l'ingombro? allora il punto calpestabile e'
+    // per forza su un bordo, e quale bordo non lo decide nessuno
+    const dentro = Math.abs(dx) <= d[0] / 2 + 0.1 && Math.abs(dz) <= d[2] / 2 + 0.1;
+    righe.push({
+      oggetti: q.oggetti, forma: q.formaPrevalente,
+      ingombro: [+d[0].toFixed(1), +d[2].toFixed(1)],
+      centro: [+q.centro[0].toFixed(1), +q.centro[2].toFixed(1)],
+      appoggio: [+r.punto[0].toFixed(1), +r.punto[2].toFixed(1)],
+      salto: +salto.toFixed(1),
+      verso: (Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? "est" : "ovest") : (dz > 0 ? "sud" : "nord")),
+      sulBordo: dentro,
+    });
+  }
+  return { righe: righe.sort((a, b) => b.salto - a.salto) };
+}).catch((err) => ({ errore: String((err && err.message) || err) }));
+
+scrivi("");
+scrivi("  3-bis. DAL BARICENTRO AL PUNTO CALPESTABILE: quanto salta, e da che parte");
+if (e.errore) scrivi("     ✖ " + e.errore);
+else {
+  const grossi = e.righe.filter((r) => r.salto > 3);
+  scrivi("     " + grossi.length + " posti su " + e.righe.length
+    + " hanno il punto calpestabile a piu' di 3 m dal proprio baricentro");
+  for (const r of e.righe.slice(0, 10))
+    scrivi("      ingombro " + String(r.ingombro[0]).padStart(5) + "×" + String(r.ingombro[1]).padEnd(5)
+      + " m · " + String(r.oggetti).padStart(3) + " oggetti · " + (r.forma || "?").padEnd(10)
+      + " · baricentro " + JSON.stringify(r.centro) + " → appoggio " + JSON.stringify(r.appoggio)
+      + " · salto " + r.salto + " m verso " + r.verso
+      + (r.sulBordo ? "   ⚠ il baricentro sta DENTRO l'ingombro: il lato lo sceglie il caso" : ""));
+}
+
 // --- setaccio 4: i gruppi che si raggiungono a piedi ----------------------
 scrivi("");
 scrivi(secondi() + " setaccio 4: percorsi a piedi fra i " + a.sulCammino.length + " posti rimasti\u2026");
