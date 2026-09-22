@@ -675,10 +675,10 @@ zone** (§6.14).
 
 ---
 
-### 6.14 — ⛔ PRIORITÀ: le tappe coprono un quarto dell'edificio
+### 6.14 — ⛔ PRIORITÀ: le tappe coprono un quarto dell'edificio, e la causa è il metro
 
-Misurato il 21/09 notte (`banco/vivo/dove_stanno_le_tappe.mjs`), chiedendo alla
-mappa di cammino una tappa per volta invece di leggere un log:
+**Il sintomo, misurato il 21/09 notte** (`banco/vivo/dove_stanno_le_tappe.mjs`),
+chiedendo alla mappa di cammino una tappa per volta invece di leggere un log:
 
 - **7 su 7 stanno sul calpestabile**, scostamento **0,00 m**;
 - **21 coppie su 21** si raggiungono a piedi;
@@ -691,10 +691,83 @@ mappa di cammino una tappa per volta invece di leggere un log:
 È la frase di Raffaella del 18/08, ancora aperta: *«le tappe stanno tutte in un
 posto dove si arriva davvero a piedi, ma non in maniera da avere senso»*.
 
-**E spiega i nomi del §6.13:** quella striscia sta dalla parte degli aerei e del
-piazzale, non dentro il terminal. Il narratore, guardando bene, ha risposto
-bene — «pista d'atterraggio», «porta di imbarco». **I nomi non erano sbagliati:
-erano sbagliati i posti a cui li abbiamo chiesti.**
+---
+
+**La filiera, misurata il 22/09** (`banco/vivo/da_dove_vengono_le_tappe.mjs`,
+che apre setaccio per setaccio quello che sta fra gli arredi del modello e le
+tappe posate):
+
+| setaccio | restano | dove stanno |
+|---|---|---|
+| 1. posti misurati nel modello | **20** | su 92 m dei 106 — la materia prima c'è |
+| 2. tolte figure umane e appesi | **20** | nessuno perso |
+| 3. sul calpestabile | **20** | nessuno perso |
+| 4. gruppi che si raggiungono a piedi | **9 gruppi** | 28 coppie su 190 |
+| il programma ne tiene **UNO** | 3 posti | 549 oggetti, **24 m** |
+
+I primi tre setacci non perdono nessuno. **Si perde tutto nel quarto**, e il
+quarto non è un difetto di chi posa le tappe: è la mappa di cammino che gli
+arriva già in pezzi. La mappa copre **1.865 m² su 6.254** di impronta, legge
+186.074 triangoli da 2.416 mesh **senza saltarne nessuno**, e riconosce 3
+livelli (0,50 · 2,71 · 4,63) uniti da 4 rampe dichiarate.
+
+Dove si spezza, tirando un filo a piombo ogni 2 m su tutta l'impronta:
+
+| banda | pavimento disegnato → camminabile |
+|---|---|
+| x −85 → −45 | 76–100% |
+| **x −45 → −35** | **40%** |
+| **x −35 → −25** | **17%** |
+| x −25 → 21 | 88–100% |
+
+Nella banda di 20 m in mezzo al terminal il pavimento **c'è**, alla stessa quota
+di tutto il resto (0,50 m), ma su 98 sonde **97 hanno 1,75 m di cielo sopra**.
+
+---
+
+⛔ **LA CAUSA VERA, e non è la geometria: è il metro** (Raffaella, 22/09,
+direttiva §0.2 già data mesi fa)
+
+> «L'uomo, la figura della gente, è il metro. Se ti capita di passare con una
+> persona a due metri sotto un'altezza interpiano di 1,75, abbiamo sbagliato la
+> base. Questo è un falso problema.»
+
+Misurato subito dopo (`banco/vivo/quanto_e_alta_la_gente.mjs`):
+
+| | |
+|---|---|
+| figure umane disegnate nel modello | **344 persone, statura mediana 1,63 m** (da 1,45 a 2,01) |
+| tutto il verticale snello, senza finestra | 448 pezzi, mediana 1,63 m · decili 1,20 / 1,52 / **1,63** / 1,72 / 1,79 |
+| persona con cui la mappa di cammino decide | **2,00 m** (`PERSONA.altezza`, `veritas_navmesh.js`) |
+| **differenza** | **+0,37 m: la mappa cammina con qualcuno più alto di tutti i passeggeri del modello** |
+| scala applicata alla radice del modello | 5,272× · `__veritasPassengerScale` 0,82 |
+
+**Sotto quel soffitto di 1,75 m la gente del modello passa. Il fantasma da 2,00
+no.** I nove pezzi, la striscia di 24 m e il nome «pista d'atterraggio» vengono
+tutti da lì.
+
+⚠️ **Un numero da non confondere:** rimettere la scala perfetta NON basta. Perché
+le figure risultino alte 1,70 m il modello va scalato ×1,045, e quella banda
+diventa 1,83 m — **ancora sotto i 2,00**. Il numero da correggere è quindi
+`PERSONA.altezza`, che oggi è **deciso a priori** e non ricavato dalla gente del
+modello. Il §0.2 dice che il metro è la figura: la statura della persona con cui
+si cammina si **misura sul modello**, non si sceglie.
+
+⚠️ **E la lacuna a monte:** `veritas_scala.js` decide il fattore da unità
+dichiarate, altezza di piano, altezza totale e larghezza dei varchi. **Non
+guarda le figure umane.** L'unico oggetto di cui si conosce già la misura vera
+non entra nella decisione della scala.
+
+**Cosa NON è il difetto** (tre strade che avevo proposto il 22/09 e che il §0.2
+rende inutili, scritte per non ripercorrerle): spargere le tappe sui nove pezzi
+dichiarando che fra pezzo e pezzo non si cammina; scegliere il pezzo per varietà
+di arredi invece che per numero di oggetti; abbassare la persona a 1,85 m come
+numero tarato a mano. Rimesso il metro giusto, l'edificio torna un pezzo solo e
+le tappe si spargono da sole.
+
+**Criterio di riuscita:** con la statura presa dalle figure del modello, la
+banda x −45 → −25 torna camminabile, i gruppi scendono da 9 verso 1, e le tappe
+escono dalla striscia di 24 m senza che si tocchi il posatore di tappe.
 
 ---
 
