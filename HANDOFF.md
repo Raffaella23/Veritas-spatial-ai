@@ -31,6 +31,57 @@ compito da spuntare: è la regola con cui si giudica qualunque schermata nuova.
 
 ---
 
+### 0.2 — LA FIGURA UMANA È IL METRO (acclarata da mesi, ribadita il 22/09/2026)
+
+> «L'uomo, la figura della gente, è il metro. Se ti capita di passare con una
+> persona a due metri sotto un'altezza interpiano di 1,75, abbiamo sbagliato la
+> base: è sbagliato **a scalare il modello**. Infatti risultano leggermente più
+> alti dei passeggeri che stanno nel modello. Questo è un falso problema.»
+
+Un modello arriva senza unità affidabili. Le bande di `veritas_scala.js` —
+unità dichiarate, altezza di piano, altezza totale, larghezza dei varchi — danno
+un **intervallo**, non una misura. Le figure umane disegnate dentro il modello
+sono l'unico oggetto di cui si conosce già la statura vera: **sono il campione**.
+
+⚠️ **Regola operativa.** Ogni volta che un ingombro verticale fa dire «non ci
+passa una persona» in modo assurdo per un edificio vero — interpiano sotto i
+2,2 m, porte sotto 1,9 m — **il sospetto è la scala, non la geometria**. Si
+confronta l'altezza dell'agente con quella delle figure presenti nel modello
+PRIMA di indagare altro.
+
+⚠️ **Dove va scolpita:** nelle fasi iniziali del riconoscimento del modello, da
+cui esce il fattore di scala. Non a valle. Oggi `veritas_scala.js` **non guarda
+le figure**: è la lacuna da chiudere.
+
+⚠️ Le figure restano comunque fuori dal decidere DOVE vanno le tappe: lì sono la
+controprova (`veritas_controprova.js`), e giudice e parte insieme non valgono.
+
+---
+
+### 0.3 — IL DUBBIO SI CHIEDE SUBITO, NON SI INDAGA (22/09/2026)
+
+> «Prima di imbarcarti in odissee di token inutili, quando ti viene un dubbio
+> chiariscimelo in linguaggio semplice e io ti do la dritta, in maniera da non
+> sprecare tempo. Scrivitelo in fronte, scrivitelo dove non puoi non vederlo.»
+
+Il 22/09 ho speso mezza sessione a misurare perché la mappa di cammino tagliava
+l'edificio in nove pezzi, ho costruito quattro sonde e ho preparato un menù di
+opzioni. La risposta era il §0.2, data mesi prima: **falso problema**.
+
+⚠️ **Regola operativa, e vale PRIMA di aprire il banco, non dopo:**
+1. appena una misura non torna, la domanda si fa **subito**, in due righe, in
+   italiano semplice: «ho trovato X, non mi torna perché Y — come la leggi?»;
+2. **non si costruisce una sonda** per rispondersi da soli a un dubbio che
+   Raffaella chiarisce in una riga. Il banco viene DOPO la sua direzione;
+3. una misura strana è quasi sempre il sintomo di qualcosa di **già deciso**:
+   prima si cerca nel HANDOFF, poi si chiede, poi si misura;
+4. i menù a scelta multipla la stancano: **una raccomandazione secca** con il
+   numero dietro, e una sola domanda in fondo.
+
+Il costo di un'indagine sbagliata non è il mio tempo: sono i suoi gettoni.
+
+---
+
 ## 1. STATO ATTUALE
 
 | | |
