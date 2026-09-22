@@ -128,11 +128,10 @@ Cosa vuol dire, operativamente:
 | **Aggiornato** | 22/09/2026 sera (la statura di chi cammina, l'occhio che guarda solo dove c'è qualcosa, e la scoperta che la pagina muore mentre l'occhio lavora) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `056f333` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
-| **Commit non pubblicato** | `1c4faef` — fix PARZIALE del §6.16, costruzione `2026-09-22-e`: corretto ma **inerte**, vedi §6.16 |
+| **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
+| **Nota** | `1c4faef` è il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-09-22-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-22-d` |
-| **Costruzione nel file (non pubblicata)** | `2026-09-22-e` |
+| **Costruzione pubblicata e servita** | `2026-09-22-e` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-22-e` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -1061,8 +1060,8 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-22-d` - commit `056f333` su `main` |
-| **Non pubblicato** | `1c4faef`, costruzione `2026-09-22-e`: fix parziale del 6.16, **inerte** (vedi 6.16) |
+| **Costruzione pubblicata** | `2026-09-22-e` - commit `1c4faef` su `main` |
+| **Nota** | `1c4faef` e il fix parziale del 6.16: corretto ma **inerte** su questo modello (vedi 6.16) |
 | **Giornata** | quattro fix pubblicati, tre difetti nuovi trovati misurando |
 
 **Quello che e' stato corretto, in ordine:**
