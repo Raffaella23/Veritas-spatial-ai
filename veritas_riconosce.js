@@ -887,6 +887,183 @@ export function abbina(posti, rilevazioni, opz = {}) {
  *   @param {string}   opz.dominio
  *   @param {Array}    opz.parole        parole in piu', chieste dall'utente
  */
+/**
+ * I RITAGLI DOVE C'E' QUALCOSA. Non si guarda piu' tutta la pianta.
+ *
+ * Raffaella, 22/09/2026: *«l'occhio dovrebbe essere cosi' intelligente da
+ * scartare l'aria e passare alle porzioni significative»*.
+ *
+ * ⚠️ PERCHE' SI PUO' FARE, e non e' una scorciatoia. Le porzioni significative
+ *    non vanno indovinate: sono gia' misurate. `veritas_cose.posti()` dice
+ *    dove stanno i mucchi di arredi, con il loro ingombro in metri. Guardare
+ *    li' non e' guardare di meno — e' guardare esattamente dove c'e' qualcosa
+ *    che merita un nome.
+ *
+ * ⚠️ E PERCHE' SERVE. Misurato il 22/09 sul terminal: 227 rilevazioni, di cui
+ *    **44 buttate perche' cadevano sul vuoto**, e 316 secondi di sola
+ *    scansione. La pianta e' larga 106 m e i mucchi ne occupano una frazione:
+ *    tutto il resto e' pavimento nudo fotografato per niente. In piu' un
+ *    ritaglio stretto fa vedere la seduta GRANDE invece che di dieci pixel,
+ *    che e' la ragione per cui un rilevatore la riconosce o no.
+ *
+ * ⚠️ IL MARGINE NON E' UN NUMERO A CASO: e' il giro d'aria attorno a un
+ *    arredo, cioe' lo spazio che serve a capire a cosa serve. Un banco senza
+ *    il suo davanti non si distingue da uno scaffale.
+ *
+ * ⚠️ E I RITAGLI CHE SI TOCCANO SI FONDONO: due mucchi vicini in un ritaglio
+ *    solo si leggono nel loro rapporto — file di sedute davanti a un banco —
+ *    mentre in due ritagli separati diventano due cose che non si parlano.
+ *
+ * Se non c'e' niente da ritagliare torna `null`, e chi chiama guarda la pianta
+ * intera come prima: un modello senza arredi misurati non deve smettere di
+ * essere guardato.
+ *
+ * @returns {null|Array<{tela, inquadratura, quanti}>}
+ */
+export function ritagliSuiPosti(tela, inq, posti, opz = {}) {
+  const doc = opz.doc || (typeof document !== "undefined" ? document : null);
+  if (!doc || !tela || !inq || !posti || !posti.length) return null;
+  const m = inq.metriPerPixel;
+  if (!(m > 0) || !(tela.width > 0) || !(tela.height > 0)) return null;
+
+  const margine = opz.margineM != null ? opz.margineM : 2.5;
+  // Sotto questo lato il rilevatore non ha abbastanza pixel per decidere: un
+  // ritaglio piu' piccolo si allarga, non si assottiglia.
+  const minLato = opz.minLatoPx != null ? opz.minLatoPx : 256;
+  const W = tela.width, H = tela.height;
+
+  let rett = [];
+  for (const p of posti) {
+    const c = p && p.centro;
+    if (!c) continue;
+    const d = (p.ingombro && p.ingombro.dim) || [0, 0, 0];
+    const lx = Math.max(0, d[0]) / 2 + margine, lz = Math.max(0, d[2]) / 2 + margine;
+    let x0 = (c[0] - lx - inq.origine[0]) / m, x1 = (c[0] + lx - inq.origine[0]) / m;
+    let y0 = (c[2] - lz - inq.origine[1]) / m, y1 = (c[2] + lz - inq.origine[1]) / m;
+    if (x1 < x0) { const t = x0; x0 = x1; x1 = t; }
+    if (y1 < y0) { const t = y0; y0 = y1; y1 = t; }
+    // allargare fino al lato minimo, restando dentro la tela
+    const cresci = (a, b, limite) => {
+      const manca = minLato - (b - a);
+      if (manca > 0) { a -= manca / 2; b += manca / 2; }
+      if (a < 0) { b -= a; a = 0; }
+      if (b > limite) { a -= (b - limite); b = limite; }
+      return [Math.max(0, Math.round(a)), Math.min(limite, Math.round(b))];
+    };
+    const [ax, bx] = cresci(x0, x1, W);
+    const [ay, by] = cresci(y0, y1, H);
+    if (bx - ax < 8 || by - ay < 8) continue;
+    rett.push({ x0: ax, y0: ay, x1: bx, y1: by, quanti: 1 });
+  }
+  if (!rett.length) return null;
+
+  // Fondere quelli che si toccano, finche' non cambia piu' niente.
+  let cambiato = true;
+  while (cambiato) {
+    cambiato = false;
+    for (let i = 0; i < rett.length && !cambiato; i++)
+      for (let k = i + 1; k < rett.length; k++) {
+        const a = rett[i], b = rett[k];
+        if (a.x1 < b.x0 || b.x1 < a.x0 || a.y1 < b.y0 || b.y1 < a.y0) continue;
+        a.x0 = Math.min(a.x0, b.x0); a.y0 = Math.min(a.y0, b.y0);
+        a.x1 = Math.max(a.x1, b.x1); a.y1 = Math.max(a.y1, b.y1);
+        a.quanti += b.quanti;
+        rett.splice(k, 1);
+        cambiato = true;
+        break;
+      }
+  }
+
+  // Se i ritagli coprono quasi tutta la pianta non c'e' niente da guadagnare:
+  // si guarda la pianta intera, che almeno e' un'immagine sola.
+  const areaTela = W * H;
+  const areaRit = rett.reduce((s, r) => s + (r.x1 - r.x0) * (r.y1 - r.y0), 0);
+  if (areaRit >= areaTela * (opz.sogliaResa != null ? opz.sogliaResa : 0.75)) return null;
+
+  const fuori = [];
+  for (const r of rett) {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    const c = doc.createElement("canvas");
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    if (!g) continue;
+    g.drawImage(tela, r.x0, r.y0, w, h, 0, 0, w, h);
+    fuori.push({
+      tela: c,
+      quanti: r.quanti,
+      // ⚠️ L'INQUADRATURA DEL RITAGLIO, ed e' la riga da cui dipende tutto:
+      //    `scatolaInMondo` legge `origine` e `metriPerPixel`, e se l'origine
+      //    restasse quella della pianta intera OGNI rilevazione finirebbe
+      //    spostata del taglio. Nomi plausibili sul posto sbagliato — il
+      //    difetto peggiore di tutti, gia' pagato una volta con le piante per
+      //    livello.
+      inquadratura: Object.assign({}, inq, {
+        larghezza: w, altezza: h,
+        origine: [inq.origine[0] + r.x0 * m, inq.origine[1] + r.y0 * m],
+      }),
+    });
+  }
+  return fuori.length ? fuori : null;
+}
+
+/**
+ * I RITAGLI SU UNA TAVOLA SOLA — come si impagina un foglio di dettagli.
+ *
+ * ⚠️ PERCHE' ESISTE. Misurato il 22/09/2026: ritagliare la pianta sui mucchi
+ *    porta i pixel guardati dal 100% al 19% e i mucchi nominati da 6 a 9 su
+ *    20 — ma il giro passa da 316 a 394 secondi. Il tempo del rilevatore NON
+ *    lo fa la superficie: lo fa il numero di CHIAMATE per il numero di PAROLE
+ *    (177 a chiamata). Tre ritagli sono tre vocabolari invece di uno.
+ *
+ *    Quindi i ritagli si affiancano su un'unica immagine e si chiede una volta
+ *    sola: i pixel utili restano quelli, l'aria resta fuori, e le chiamate
+ *    tornano a essere una per pianta.
+ *
+ * ⚠️ OGNI TASSELLO PORTA LA SUA INQUADRATURA, e un riquadro si attribuisce al
+ *    tassello in cui cade il suo CENTRO. Un riquadro a cavallo di due tasselli
+ *    non e' un oggetto: e' il rilevatore che ha unito due cose lontane
+ *    nel mondo e vicine sul foglio. Si butta, e si dice quanti.
+ *
+ * @returns {null|{tela, tasselli:Array<{x,y,w,h,inquadratura}>}}
+ */
+export function tavolaDiRitagli(ritagli, opz = {}) {
+  const doc = opz.doc || (typeof document !== "undefined" ? document : null);
+  if (!doc || !ritagli || ritagli.length < 2) return null;
+  const gronda = opz.grondaPx != null ? opz.grondaPx : 8;   // il bianco fra un tassello e l'altro
+  const latoMax = opz.latoMaxPx != null ? opz.latoMaxPx : 2048;
+
+  // Impaginazione a scaffali: si ordina per altezza e si riempie riga per riga.
+  const pezzi = ritagli.map((r, i) => ({ i, w: r.tela.width, h: r.tela.height, r }))
+    .sort((a, b) => b.h - a.h);
+  const largo = Math.min(latoMax, Math.max(...pezzi.map((p) => p.w)) + gronda * 2,
+    Math.max(512, Math.ceil(Math.sqrt(pezzi.reduce((s, p) => s + p.w * p.h, 0)) * 1.4)));
+  const posti_ = [];
+  let x = gronda, y = gronda, altezzaRiga = 0;
+  for (const p of pezzi) {
+    if (x + p.w + gronda > largo && x > gronda) { x = gronda; y += altezzaRiga + gronda; altezzaRiga = 0; }
+    posti_.push({ p, x, y });
+    x += p.w + gronda;
+    if (p.h > altezzaRiga) altezzaRiga = p.h;
+  }
+  const alto = y + altezzaRiga + gronda;
+  if (!(largo > 0) || !(alto > 0) || largo * alto > latoMax * latoMax * 2) return null;
+
+  const tela = doc.createElement("canvas");
+  tela.width = largo; tela.height = alto;
+  const g = tela.getContext("2d");
+  if (!g) return null;
+  // Il fondo e' quello della pianta, non bianco: un bordo netto inventa spigoli
+  // che il rilevatore legge come muri.
+  g.fillStyle = opz.fondo || "#eceff1";
+  g.fillRect(0, 0, largo, alto);
+  const tasselli = [];
+  for (const q of posti_) {
+    g.drawImage(q.p.r.tela, q.x, q.y);
+    tasselli.push({ x: q.x, y: q.y, w: q.p.w, h: q.p.h, inquadratura: q.p.r.inquadratura });
+  }
+  return { tela, tasselli };
+}
+
 export async function riconosci(posti, opz = {}) {
   if (!posti || !posti.length) {
     return { ok: false, perche: "non ci sono mucchi misurati da nominare" };
@@ -908,25 +1085,75 @@ export async function riconosci(posti, opz = {}) {
     : vocabolarioPer(opz.dominio, opz.parole);
   const parole = voci.map((v) => v.chiedi);
 
-  let grezze;
-  try {
-    grezze = await opz.rileva(opz.pianta, parole);
-  } catch (e) {
-    return { ok: false, perche: "l'occhio non ha risposto: " + (e && e.message ? e.message : e) };
-  }
-  if (!Array.isArray(grezze)) {
-    return { ok: false, perche: "l'occhio ha risposto in un modo che non so leggere" };
-  }
+  // ⚠️ SI GUARDA SOLO DOVE C'E' QUALCOSA. I ritagli nascono dai mucchi gia'
+  //    misurati: se non se ne puo' fare nessuno si guarda la pianta intera,
+  //    esattamente come prima.
+  const ritagli = opz.soloDoveCePosti === false
+    ? null : ritagliSuiPosti(opz.pianta, opz.inquadratura, posti, opz);
+  // I ritagli su una tavola sola: una chiamata, non N. Se l'impaginazione non
+  // riesce si guardano uno per uno, che e' il comportamento precedente.
+  const tavola = ritagli ? tavolaDiRitagli(ritagli, opz) : null;
+  const viste = tavola
+    ? [{ tela: tavola.tela, tasselli: tavola.tasselli, quanti: posti.length }]
+    : (ritagli || [{ tela: opz.pianta, inquadratura: opz.inquadratura, quanti: posti.length }]);
 
   const perParola = new Map(voci.map((v) => [v.chiedi, v]));
   const rilevazioni = [];
-  for (const g of grezze) {
-    if (!g || typeof g.score !== "number" || !g.box) continue;
-    const voce = perParola.get(g.label);
-    if (!voce) continue;                       // il modello ha inventato un'etichetta
-    const mondo = scatolaInMondo(opz.inquadratura, g.box);
-    if (!mondo) continue;
-    rilevazioni.push({ score: g.score, voce, mondo });
+  let guardate = 0, fallite = 0, ultimoErrore = null, fuoriTassello = 0;
+  for (const v of viste) {
+    let grezze;
+    try {
+      grezze = await opz.rileva(v.tela, parole);
+    } catch (e) {
+      // ⚠️ Un ritaglio muto non ferma gli altri, ma si conta e si dice: un
+      //    silenzio parziale spacciato per lettura completa e' il difetto che
+      //    questo progetto ha gia' pagato piu' volte.
+      fallite++; ultimoErrore = (e && e.message) || String(e);
+      continue;
+    }
+    if (!Array.isArray(grezze)) { fallite++; ultimoErrore = "risposta illeggibile"; continue; }
+    guardate++;
+    for (const g of grezze) {
+      if (!g || typeof g.score !== "number" || !g.box) continue;
+      const voce = perParola.get(g.label);
+      if (!voce) continue;                       // il modello ha inventato un'etichetta
+      let inq = v.inquadratura, box = g.box;
+      if (v.tasselli) {
+        // Il riquadro appartiene al tassello in cui cade il suo CENTRO.
+        let b = box;
+        if (Math.max(b.xmin, b.ymin, b.xmax, b.ymax) <= 1.001 && v.tela.width > 2)
+          b = { xmin: b.xmin * v.tela.width, xmax: b.xmax * v.tela.width,
+                ymin: b.ymin * v.tela.height, ymax: b.ymax * v.tela.height };
+        const cx = (b.xmin + b.xmax) / 2, cy = (b.ymin + b.ymax) / 2;
+        const t = v.tasselli.find((q) => cx >= q.x && cx <= q.x + q.w && cy >= q.y && cy <= q.y + q.h);
+        if (!t) { fuoriTassello++; continue; }
+        // a cavallo di due tasselli non e' un oggetto: e' il foglio letto come
+        // se fosse il mondo
+        if (b.xmin < t.x - 1 || b.xmax > t.x + t.w + 1
+            || b.ymin < t.y - 1 || b.ymax > t.y + t.h + 1) { fuoriTassello++; continue; }
+        inq = t.inquadratura;
+        box = { xmin: b.xmin - t.x, xmax: b.xmax - t.x, ymin: b.ymin - t.y, ymax: b.ymax - t.y };
+      }
+      const mondo = scatolaInMondo(inq, box);
+      if (!mondo) continue;
+      rilevazioni.push({ score: g.score, voce, mondo });
+    }
+  }
+  if (!guardate) {
+    return { ok: false, perche: "l'occhio non ha risposto" + (ultimoErrore ? ": " + ultimoErrore : "") };
+  }
+  if (ritagli) {
+    try {
+      const px = ritagli.reduce((s, v) => s + v.tela.width * v.tela.height, 0);
+      const tot = opz.pianta.width * opz.pianta.height;
+      console.log("[VERITAS occhio] guardato solo dove c'e' qualcosa: " + ritagli.length
+        + " ritagli sui " + posti.length + " mucchi misurati, "
+        + Math.round(100 * px / Math.max(1, tot)) + "% dei pixel della pianta"
+        + (tavola ? ", impaginati su UNA tavola " + tavola.tela.width + "×" + tavola.tela.height
+            + " (1 chiamata invece di " + ritagli.length + ")" : ", uno per uno")
+        + (fuoriTassello ? " · " + fuoriTassello + " riquadri a cavallo fra due tasselli, buttati" : "")
+        + (fallite ? " (" + fallite + " ritagli muti)" : ""));
+    } catch (e) {}
   }
 
   const esito = abbina(posti, rilevazioni, opz);
@@ -1725,7 +1952,7 @@ const ESPORTATE = {
   VOCABOLARIO, ADE20K_150, AGGIUNTE, POSTURA_DI, ARIA_APERTA_DI, CALPESTIO_DI, PASSO_DI,
   SOVRAPPOSIZIONE_MINIMA, INGRANDIMENTO_MAX, FIDUCIA_MINIMA, MODELLO, LIBRERIA,
   piantaInTela,
-  vocabolarioPer, scatolaInMondo, abbina, riconosci, pianoDi,
+  vocabolarioPer, scatolaInMondo, abbina, riconosci, ritagliSuiPosti, tavolaDiRitagli, pianoDi,
   occhioLocale, stato, racconta,
 };
 export default ESPORTATE;

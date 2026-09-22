@@ -55,7 +55,7 @@
 //
 // ===========================================================================
 
-import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio, abbina, sovrapposizione } from "./veritas_riconosce.js?v=8";
+import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio, abbina, sovrapposizione } from "./veritas_riconosce.js?v=10";
 
 // ---------------------------------------------------------------------------
 // 1. Le soglie. Dichiarate qui, una volta, e non sparse nel codice.

@@ -70,7 +70,7 @@ import { comprendi, puoAgire, racconta,
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
 import { anteprima } from "./veritas_anteprima.js?v=19";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=8";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=10";
 // Dove sta cio' che l'occhio vede (17/09/2026): i riquadri in frazioni, e i
 // raggi dalla telecamera della foto fino al modello.
 import { inFrazioni, posaRiquadro, posaVarco } from "./veritas_posa.js?v=1";
