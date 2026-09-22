@@ -125,12 +125,14 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 21/09/2026 notte (all'occhio che racconta arriva tutta la documentazione; due mie letture sbagliate corrette) |
+| **Aggiornato** | 22/09/2026 sera (la statura di chi cammina, l'occhio che guarda solo dove c'è qualcosa, e la scoperta che la pagina muore mentre l'occhio lavora) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `7ba9a28` — *tutta la documentazione al narratore* (prima: `5577a5e` una pianta per livello, `4e08685` l'abaco era morto, `1d5c25b` il sole all'occhio) |
+| **Ultimo commit di codice pubblicato** | `056f333` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
+| **Commit non pubblicato** | `1c4faef` — fix PARZIALE del §6.16, costruzione `2026-09-22-e`: corretto ma **inerte**, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione dichiarata nel file** | `2026-09-21-m` — link per Raffaella: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-21-m` |
+| **Costruzione pubblicata e servita** | `2026-09-22-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-22-d` |
+| **Costruzione nel file (non pubblicata)** | `2026-09-22-e` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -887,27 +889,110 @@ false. Il costo è stato il suo scoraggiamento, ed è il piu' alto della giornat
 
 ---
 
-### 6.16 — ⛔ Sette zone distribuite su venti posti misurati
+### 6.16 — ⛔ Sette zone distribuite su venti posti misurati — fix META' FATTO
 
 Raffaella, 22/09/2026, cerchiando in rosso un blocco di sedute in mezzo al
 terminal, con i flussi che ci passano sopra: *«in quella zona non ho mai visto
 una zona»*.
 
-**Misurato:** su questo modello il programma trova **20 posti con arredi
-misurati** e distribuisce **7 zone**. Tredici posti veri restano senza.
+**Misurato:** 20 posti con arredi misurati, 7 zone distribuite, tredici posti
+veri senza niente.
 
-**Causa:** il numero delle zone non lo decide quello che è stato misurato, lo
-decide il conteggio degli **ambienti riconosciuti dalla geometria**
-(`veritas_percorso.tappeConsigliate`): fino a 12 ambienti dà 5 zone, sopra dà
-`max(7, ambienti × 0,48)`. Qui gli ambienti sono una tredicina, quindi 7 — e i
-20 posti non entrano mai nel conto.
+**Causa:** il numero delle zone nasceva dal conteggio degli **ambienti
+riconosciuti dalla geometria** (`veritas_percorso.tappeConsigliate`), che non sa
+niente di cosa c'è dentro. Un atrio vuoto di 900 m² e un atrio con quattro
+banchi, venti sedute e una fila di casse contano uno tutti e due.
 
-⚠️ **Non è che l'occhio non ha visto quelle sedute:** è che non aveva più zone
-da dare. Il blocco cerchiato è uno dei tredici.
+✅ **Meta' fatta** (`1c4faef`, non pubblicata): `tappeConsigliate` prende un
+secondo conto, i posti misurati, e tiene il **più grande dei due**. Con 13
+ambienti e 20 posti dà 20 zone invece di 7; tetto TAPPE_MAX = 24 invariato;
+senza posti misurati si comporta esattamente come prima.
 
-**Da decidere con Raffaella:** se il numero di zone debba nascere dai **posti
-misurati** invece che dagli ambienti geometrici. Sono due conteggi diversi di
-due cose diverse, e oggi comanda quello che non guarda gli arredi.
+⛔ **META' MANCANTE, ed è la ragione per cui il fix oggi NON FA NIENTE.**
+Misurato al banco (`banco/vivo/regge_venti_tappe.mjs`), console della pagina:
+
+```
+[VERITAS percorso] 21 ambienti, 0 posti misurati -> 10 tappe
+```
+
+Quando `applyAutoAssignment` decide quante zone fare, **i posti misurati sono
+ancora zero**: `veritas_cose` legge la scena dopo. Dieci secondi più tardi sono
+20, ma la decisione è già presa e nessuno la rifà.
+
+**Cosa serve:** rifare il conto quando gli arredi arrivano. `veritas_cose.js`
+già chiama `window.__veritasZoneSulCammino()` appena finisce di leggere la
+scena; li' accanto serve un ponte che rilanci l'assegnazione **una volta sola**
+e **solo se** i posti misurati chiedono più zone di quelle che ci sono.
+`applyAutoAssignment` è interna a `index.html` e non è esposta: il ponte va
+aggiunto li', vicino a `window.__veritasAssegnazioneAutorevole`.
+
+⚠️ **Prima di farlo, leggere il §6.17:** aggiungere una riassegnazione a una
+pagina che già muore peggiora il guasto più grave, non il meno grave.
+
+---
+
+### 6.17 — ⛔⛔ LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto più grave
+
+Misurato il 22/09/2026 sera, `banco/vivo/regge_venti_tappe.mjs`: si chiede alla
+pagina una cosa banale ogni 10 secondi e si cronometra la risposta.
+
+**Sulla versione PUBBLICATA `2026-09-22-d`** — quella che si darebbe a un
+cliente:
+
+```
+  8s … 79s   ✔ risponde in 15-360 ms        otto risposte buone
+      148s   ✖ ferma: 58.700 ms per rispondere
+      307s   ✖ ferma: 149.243 ms per rispondere
+      307s   PAGEERROR: unreachable
+```
+
+Nel workspace la stessa cosa arriva fino in fondo: **`Target crashed`**, la
+scheda muore. Un banco lanciato prima è rimasto appeso **36 minuti** senza che
+il suo tetto di 3 minuti scattasse — perché il filo della pagina era fermo e
+nemmeno il cronometro girava.
+
+⚠️ **NON È STATO INTRODOTTO OGGI:** succede identico sulla costruzione
+pubblicata, che non contiene il fix parziale del §6.16. È parente del §6.8.
+
+**Indizio sulla causa, da verificare e non da riferire come accertata:**
+`unreachable` è la trappola di WebAssembly (`unreachable` eseguita). L'unico
+WebAssembly in pagina è il motore dell'occhio — ONNX/transformers, che gira
+`wasm/q8` — quindi la trappola viene da lì. Da misurare: memoria del
+lavoratore, quante immagini tiene in vita insieme, se rilascia fra un ritaglio e
+l'altro.
+
+⛔ **È a monte di tutto il resto.** Nomi, zone, tempi, l'occhio che si avvicina:
+tutto gira sopra questa pagina. Un cliente non aspetta 149 secondi, chiude.
+
+---
+
+### 6.18 — ⛔ La zona finisce dal lato sbagliato: nessuno guarda da dove si entra
+
+Raffaella, 22/09/2026, con la foto di un aereo col finger attaccato a destra e
+la zona posata a sinistra: *«per quale motivo mette una zona dal lato opposto al
+tunnel di accesso dell'aereo?»*
+
+**Misurato** (`banco/vivo/da_dove_vengono_le_tappe.mjs`, sezione 3-bis):
+
+```
+ingombro 7,8 × 42,7 m · 4 oggetti · volume
+baricentro [-79.8, -4.3] → appoggio [-75.2, -4.4] · salto 4,6 m verso est
+```
+
+Quel posto lungo 42,7 m è un aereo. La tappa finisce sul **primo punto
+calpestabile più vicino al suo baricentro** (`sulCamminoCorrente(centro,
+[6,6,6])`). Per un oggetto lungo 42 metri il baricentro sta **dentro** l'oggetto,
+e «il più vicino» si decide per centimetri: cade dal lato che capita.
+
+**Il finger, la porta, il varco non entrano nel conto.** Per il programma quel
+volume è un ingombro con un centro, e basta.
+
+**Direzione del fix** (è la decisione di Raffaella già scritta — *«il lato
+dell'accesso»*): la tappa va posata sul punto calpestabile più vicino a un
+**accesso** di quel posto — un varco visto dall'occhio, una porta, un finger —
+e solo in mancanza di accessi si ricade sul punto più vicino al baricentro.
+L'occhio i finger li vede già («a jet bridge 66%», visto a schermo il 22/09), e
+la mappa di cammino ha i varchi.
 
 ---
 
@@ -964,55 +1049,117 @@ due cose diverse, e oggi comanda quello che non guarda gli arredi.
 
 ---
 
+| Filiera delle tappe, setaccio per setaccio | 22/09 | reale, banco del workspace (`da_dove_vengono_le_tappe.mjs`) | 20 posti misurati su 92 m dei 106; i primi tre setacci non ne perdono nessuno; al quarto 9 gruppi, se ne tiene **uno**: 3 posti in 24 m |
+| Statura: figure del modello contro persona della mappa | 22/09 | reale, banco (`quanto_e_alta_la_gente.mjs`) | 344 figure, mediana **1,63 m**; persona della mappa **2,00 m**; il righello umano gia esistente scala 5,272x per portare 97 persone in piedi a 1,70 m |
+| Statura 1,75: banda x -45 -> -25 del terminal | 22/09 | reale, banco, prima e dopo | camminabile dal **40% e 17%** al **100%**; mappa da 1.865 a 2.280 m2; tappe da 24 a **43 m**, da 3 a **7 su 7** su cose misurate, 21 coppie su 21 ancora raggiungibili |
+| Tutte le tavole al cervello, LM Studio acceso | 22/09 | reale, banco (`tutte_le_tavole_al_cervello.mjs`), qwen2.5-vl-7b | 20 tavole disegnate (2 piante, 6 prospetti, 3 sezioni, 9 prospettive), **20 su 20** diventano immagine, **19 spedite per chiamata, HTTP 200**; 386 cose posate nel mondo; comprensione: capito |
+| Giri del narratore, prima e dopo il fix dell'impronta | 22/09 | reale, banco | **6 -> 3** giri; chiamate al cervello 16 -> 13; rifiutate (HTTP 400) 2 -> 1; nomi dalle caselle ricopiate a **7 zone su 7 con nomi veri** |
+| Occhio: pianta intera / ritagli separati / ritagli su una tavola | 22/09 | reale, banco, tre passate | giro **316 s / 394 s / 231 s**; pixel guardati 100% / 19% / 19%; rilevazioni sul vuoto **44 / 58 / 6**; mucchi nominati 6 / **9** / 6 su 20 |
+| **La pagina regge? versione PUBBLICATA `-d`** | 22/09 sera | reale, banco (`regge_venti_tappe.mjs`) | **NO**: 8 risposte buone (15-360 ms), poi **58,7 s** per rispondere, poi **149 s**, poi `PAGEERROR: unreachable`. Nel workspace: **Target crashed** |
+
 ## 8. ULTIMO INTERVENTO
 
 | | |
 |---|---|
-| **Costruzione** | `2026-09-21-m` — commit `7ba9a28` su `main` |
-| **Problema** | il modello che RACCONTA riceveva una fetta a 45 cm del modello schiacciato: un foglio quasi bianco con due zone appoggiate sulle ali degli aerei (§6.13) |
-| **File modificati** | `veritas_occhi.js` (la fetta tolta; un giro per livello; `chiedi()` manda più immagini; `tavolaInImmagine()` nuova; `unisciEsiti()`) · `index.html` (copia reinlinata + costruzione) · `veritas_comprensione.js` (l'annuncio porta la vista) · `veritas_tavole.js` (ogni tavola dichiara il piano che taglia) · `veritas_apertura.js` (la lama segue quel taglio, nei due sensi; il referto dice quale disegno è in corso) · cascata dei `?v=` · 4 banchi nuovi |
-| **Risultato** | **7 zone su 7 nominate** (erano 0: l'immagine era illeggibile), 2 piante + 18 allegati, tutti a fiducia media |
-| **Limite residuo** | ① due nomi su sette sono il nome dell'EDIFICIO, due sono doppioni. ② La lama e il cono di luce **non sono ancora stati guardati dal vivo**: il codice è pubblicato, la prova visiva no. ③ §6.14: le tappe coprono 24 m su 106. ④ §6.15: due mie letture sbagliate, corrette |
-| **Prossimo passo unico** | **§6.14** — far coprire alle tappe tutto l'edificio, e farle poggiare su cose misurate invece che su un righello. È il passo da cui dipendono i nomi: finché le zone stanno sul piazzale, l'occhio risponderà «pista», e avrà ragione |
+| **Costruzione pubblicata** | `2026-09-22-d` - commit `056f333` su `main` |
+| **Non pubblicato** | `1c4faef`, costruzione `2026-09-22-e`: fix parziale del 6.16, **inerte** (vedi 6.16) |
+| **Giornata** | quattro fix pubblicati, tre difetti nuovi trovati misurando |
+
+**Quello che e' stato corretto, in ordine:**
+
+1. **La statura di chi cammina: 2,00 -> 1,75 m** (`90f59c6`, costruzione `-a`).
+   Il 2,00 non era la statura di nessuno: era l'**altezza libera minima di
+   passaggio**, cioe' quello che la norma chiede a un edificio da costruire,
+   usata come corpo di chi cammina in un edificio esistente. Il numero stava in
+   **sei dichiarazioni** (`veritas_navmesh` PERSONA, `veritas_corpo` MISURE,
+   `veritas_cose` CORPO e le tre copie ricopiate in `index.html`): e' la ragione
+   per cui il difetto tornava a ogni giro. Ora `veritas_corpo.test.mjs` le
+   confronta tutte e sei e si ferma se divergono. `ALTEZZA_LIBERA_NORMA = 2,00`
+   resta per il confronto normativo. **Risultato: tappe da 24 a 43 m, da 3 a 7
+   su 7 su cose misurate** (6.14).
+2. **Un giro solo, domande in fila, nomi che non sono categorie** (`c178d16`,
+   costruzione `-b`). L'occhio tiene un'impronta delle zone (posizioni e aree,
+   **mai i nomi**) e non riguarda lo stesso disegno; le domande al cervello
+   vanno in coda perche' LM Studio tiene un modello solo; `validaRisposta` butta
+   i nomi che sono la categoria ricopiata.
+3. **L'occhio guarda solo dove c'e' qualcosa** (`056f333`, costruzione `-d`).
+   `ritagliSuiPosti` ritaglia la pianta sui mucchi misurati con 2,5 m di giro
+   d'aria e fonde quelli che si toccano; `tavolaDiRitagli` li impagina su
+   un'unica immagine, perche' il tempo del rilevatore non lo fa la superficie ma
+   le **chiamate per le parole** (177 a chiamata). **231 s invece di 316, 19%
+   dei pixel, rilevazioni sul vuoto da 44 a 6.**
+4. **Il HANDOFF**: 0.2, 0.3, 0.4 - tre direttive di Raffaella scritte dove non
+   si possono non vedere.
+
+**Quello che e' stato TROVATO e non corretto:**
+
+- **6.17 - la pagina muore mentre l'occhio lavora.** E' il guasto piu' grave e
+  non e' di oggi: succede identico sulla costruzione pubblicata.
+- **6.18 - la zona finisce dal lato sbagliato** di un aereo lungo 42 m, perche'
+  nessuno guarda da dove si entra.
+- **6.16 - il fix e' meta'**: quando si decide quante zone fare, i posti
+  misurati sono ancora zero.
+
+**Tre cose che avevo riferito male e che ho corretto misurando** (la regola del
+6.15 applicata a me stesso, tre volte in un giorno):
+
+1. "Il canale dell'occhio sulla mappa di cammino e' vuoto: 0 cose posate" -
+   **falso**: avevo letto i depositi *prima* che il giro del cervello finisse.
+   Sono 386.
+2. "`veritas_comprensione.js` non e' in pagina" - **falso**: e' importato da
+   `veritas_montaggio.js` (`type="module"`, `?v=19`).
+3. "Con 20 tappe la pagina non regge" - **falso**: le tappe erano 10-11, e la
+   pagina non si e' seduta per le tappe, e' crepata (6.17).
+
+E una quarta, sulla scala: **il "righello umano" esisteva gia'** (`index.html`
+~5619) e funziona - trova 97 persone in piedi alte 0,322 e scala x5,272 per
+portarle a 1,70 m. Ne avevo scritto un doppione in `veritas_scala.js`: buttato,
+mai pubblicato.
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**I quattro fix chiesti da Raffaella il 18/09, uno alla volta, ognuno col suo commit** («comincia fix e commit uno alla volta: mi raccomando»):
+**6.17 - LA PAGINA CHE MUORE, e viene prima di tutto il resto.**
 
-1. ✅ **Lingua** — interfaccia (`eb2b966`) e conversazione (`9e4648e`), costruzione -g.
-2. ✅ **Pagina che non rallenta mentre l'occhio guarda** — l'occhio in un Web Worker
-   (`fdb5eaa`), costruzione -h. Sono emersi §6.8 (la pagina si blocca da sola alla
-   prima visita) e la conferma che OWLv2 vede quasi solo il lato aerei.
-3. **Soglie di norma**: una tabella delle 19 soglie con la fonte, da far validare a
-   Raffaella; se lo vuole, distinguere i corridoi dagli spazi fra le sedute.
-4. **Nomi giusti agli ambienti** dall'occhio: prova nel Chrome di Raffaella con LM
-   Studio acceso, e un modello con interni veri.
+Deciso con Raffaella il 22/09 sera. Ragione: nomi, zone, tempi e l'occhio che
+si avvicina girano tutti **sopra** questa pagina, e un cliente non aspetta 149
+secondi.
 
-⚠️ **Il §8 del 21/09 sera aggiunge il passo che viene prima del 3 e del 4:**
-**rifare la passata in ordine**, che a 117,9 px/m inquadra 6,5 m alla volta e
-fotografa quasi sempre aria. E le 44 rilevazioni «sul vuoto» del §6.12, che sono
-il §6.1 visto dall'altro lato: la mappa non ha un posto dove mettere quello che
-l'occhio dice.
+**Da dove partire, con quello che si sa gia':**
+1. Rifare la misura di `regge_venti_tappe.mjs` con `SENZA_OCCHIO` (la manopola
+   c'e' gia' in `prova_fluidita.mjs`, 6.8): se senza occhio la pagina regge, la
+   causa e' confermata e non piu' un indizio.
+2. Guardare quanta memoria tiene il lavoratore dell'occhio e se rilascia fra un
+   ritaglio e l'altro. I ritagli sono nuovi di oggi: vanno misurati anche loro,
+   anche se il guasto e' precedente.
+3. `unreachable` da WebAssembly quasi sempre e' memoria finita. Il tetto va
+   messo, non sperato.
 
-Altri punti aperti: vedere l'occhio segnare muri e porte (la pagina di attesa li
-disegna); splat inquadrato male sotto il velo; `veritas_corpo_collegato` (§6.7);
-`veritas_occhi.js` guarda ancora la fetta bassa a 45 cm invece delle piante per
-livello — non si pubblica senza prova, e quella prova vuole LM Studio acceso.
-
-Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
-`sonda_stati.mjs`, `crea_splat.mjs`, `inventario_lingua.mjs` + `analizza_lingua.mjs`.
-⚠️ Lo scratchpad è temporaneo: se non c'è più, si rifà da `banco/finti/supabase_finto.js`.
+**Poi, nell'ordine deciso con Raffaella:**
+- **6.16** la meta' mancante (rifare il conto quando gli arredi arrivano);
+- **6.18** il lato dell'accesso;
+- **l'occhio che gira e si avvicina** a quello che sta capendo, con il nome che
+  compare li': chiesto da Raffaella il 22/09, ed e' il 0.1 applicato alla
+  zonizzazione. Non e' decorazione: oggi il cliente guarda una schermata ferma
+  per cinque minuti e non sa se sta lavorando.
 
 - **Regole di impianto decise da Raffaella (17/09), eseguite:**
-  1. **Nel dubbio vince l'occhio** — la mappa applica l'occhio dopo la geometria; un
-     varco visto apre anche un muro pieno (la domanda aperta del 17/09 era decisa da
-     questa regola: si esegue, non si richiede).
-  2. **Finché l'occhio non ha parlato**, zone che si accendono e report laterali:
-     fatto (`d1082de`, `e6196f4`).
+  1. **Nel dubbio vince l'occhio** - fatto, e verificato riga per riga il 22/09
+     (0.4): `veritasMappaCammino` applica `marcaDallOcchio()` dopo la geometria.
+  2. **Finche' l'occhio non ha parlato**, zone che si accendono e report
+     laterali: fatto (`d1082de`, `e6196f4`).
 - **Condizioni per fermarsi.** Se l'occhio non risponde, ci si ferma e lo si
   dichiara: **non si sostituisce l'occhio con un'euristica**.
+
+**I banchi del workspace** (`banco/vivo/`, si riusano):
+`da_dove_vengono_le_tappe.mjs` (la filiera setaccio per setaccio),
+`quanto_e_alta_la_gente.mjs` (le stature a confronto),
+`tutte_le_tavole_al_cervello.mjs` (tavola per tavola fino al cervello, **serve
+LM Studio acceso**), `regge_venti_tappe.mjs` (la pagina risponde ancora?),
+`dove_stanno_le_tappe.mjs`, `prova_attesa.mjs`, `sonda_stati.mjs`.
+Servono `npm install playwright` nel workspace e, per LM Studio da una pagina
+https, `--allow-running-insecure-content`.
 
 ---
 
@@ -1020,6 +1167,12 @@ Il banco del workspace si riusa: `scratchpad/banco_vivo/prova_attesa.mjs`,
 
 | Data | Decisione |
 |---|---|
+| 22/09 | **La figura umana e' il metro** (§0.2): la gente disegnata nel modello da' la scala e la statura, non uno standard |
+| 22/09 | **Il dubbio si chiede subito** (§0.3): non si costruisce una sonda per rispondersi da soli a cio' che Raffaella chiarisce in una riga |
+| 22/09 | **L'occhio e' il re, il cervello e' il suddito** (§0.4): e' una verita', non una domanda. Non si ridiscute |
+| 22/09 | La misura dell'uomo non sta in sei posti: una guardia li confronta tutti (`veritas_corpo.test.mjs`) |
+| 22/09 | L'occhio guarda **solo dove c'e' qualcosa di misurato**, impaginato su una tavola sola |
+| 22/09 sera | Prima di tutto il resto si cura la pagina che muore (§6.17) |
 | 24/08 | Un solo documento di stato: questo. Gli altri sono in `git log`, non si ricreano |
 | 25-28/08 | **Regola 0-bis**: nessun vocabolario di tipologia nel codice; i nomi nascono dal riconoscimento |
 | 26/08 | **Regola 0**: occhio e cervello accesi insieme, stesse immagini, giro dopo giro fino a essere sicuri; se incerto, chiede |
