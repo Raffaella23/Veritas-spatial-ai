@@ -82,6 +82,45 @@ Il costo di un'indagine sbagliata non è il mio tempo: sono i suoi gettoni.
 
 ---
 
+### 0.4 — L'OCCHIO È IL RE, IL CERVELLO È IL SUDDITO. NON È UNA DOMANDA
+
+> Raffaella, 22/09/2026: «Io ho stabilito da tempo che il re è l'occhio e il
+> suddito è il cervello. Elimina tutto quello che può portare di nuovo a questo
+> problema. Non ce lo dobbiamo più porre come problema. **È una verità. Punto.**»
+
+**Non si ridiscute, non si rimette ai voti, non si trasforma in opzione.** Chi
+trova un pezzo di programma dove il cervello decide al posto dell'occhio non
+apre una domanda: lo corregge.
+
+Cosa vuol dire, operativamente:
+
+1. **Vede l'occhio, valida il cervello.** Il cervello non comanda sull'occhio:
+   casomai il contrario — va a validare quello che l'occhio ha visto. (Deciso il
+   04/09/2026, dopo che l'avevo collegato al rovescio.)
+2. **Nel dubbio vince l'occhio.** La mappa di cammino applica l'occhio **dopo**
+   la geometria, mai prima: un varco visto apre anche un muro pieno. La
+   geometria è un parere secondario, non un veto.
+3. **Muro e varco si riconoscono guardando**, anche su uno splat. Non si chiede
+   mai un IFC né una mesh che si chiami «muro».
+4. **Se l'occhio non risponde ci si ferma e lo si dichiara.** Non si sostituisce
+   l'occhio con un'euristica, con una tabella o con un vocabolario di tipologie
+   (Regola 0-bis).
+
+⚠️ **Stato del canale, verificato il 22/09/2026 riga per riga — il codice
+   rispetta già questa verità:** `veritas_comprensione.js` posa quello che
+   l'occhio vede in `window.__veritasVistoNelMondo`; `veritasMappaCammino`
+   (`index.html` ~1953) lo rilegge a ogni ricostruzione della mappa e applica
+   `marcaDallOcchio()` **dopo** la geometria, con la regola citata nel
+   commento. `veritas_comprensione.js` **è in pagina**, importato da
+   `veritas_montaggio.js` (`type="module"`, `?v=19`).
+
+   Quindi **il §6.1 non è più «l'occhio non ha voce»: la voce ce l'ha, e non
+   arriva niente da dire.** Il difetto è a monte, nel posare nel mondo quello
+   che l'occhio vede — §6.12, le 44 rilevazioni «sul vuoto». Chi riapre il §6.1
+   parta da lì e non dal permesso, che è già dato.
+
+---
+
 ## 1. STATO ATTUALE
 
 | | |
@@ -281,7 +320,21 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
 
 ## 6. PROBLEMI APERTI
 
-### 6.1 — ⛔ PRIORITÀ: l'occhio non ha voce sulla mappa di cammino
+### 6.1 — ⛔ PRIORITÀ: l'occhio ha voce sul cammino, ma non gli arriva niente da dire
+
+⚠️ **TITOLO CORRETTO IL 22/09/2026.** Diceva «l'occhio non ha voce sulla mappa
+di cammino», e non è più vero: fa riaprire la domanda sbagliata — il permesso —
+quando il permesso c'è già (§0.4, **verità, non domanda**). Verificato riga per
+riga: `veritasMappaCammino` legge `window.__veritasVistoNelMondo` a ogni
+ricostruzione e applica `marcaDallOcchio()` **dopo** la geometria;
+`veritas_comprensione.js`, che riempie quella variabile, è in pagina, importato
+da `veritas_montaggio.js`. **Il canale è aperto e nessuno lo contraddice.**
+
+⛔ **Il difetto è a monte: nel canale non arriva niente di posabile.** L'occhio
+vede, ma quello che vede non si posa nel mondo con una posizione che la mappa
+possa usare — §6.12, le 44 rilevazioni «sul vuoto». Chi riprende questo punto
+parte da lì: **non dal permesso, e non dalla precedenza, che sono decisi.**
+
 
 - **Descrizione.** La mappa che decide dove si cammina e dove c'è un muro si
   costruisce da **due sole fonti, entrambe geometria pura**: i buchi nel
@@ -333,7 +386,8 @@ Legenda: **R** richiesta · **P** progettata · **C** presente nel codice · **V
   Non è il file giusto per misurare il riconoscimento delle pareti.
 - **Prossima verifica.** Non serve un altro file: serve aprire il canale
   occhio → mappa. Vedi §9.
-- **Autorizzazione mancante.** Sì: nessuna riga va scritta prima del via.
+- **Autorizzazione.** La REGOLA è decisa e non si richiede (§0.4). Resta da
+  chiedere, come sempre, il via a scrivere le righe di codice (§4.5).
 
 ### 6.2 — Correzione «dentro un muro»: scritta, misurata, non pubblicata
 
@@ -768,6 +822,42 @@ le tappe si spargono da sole.
 **Criterio di riuscita:** con la statura presa dalle figure del modello, la
 banda x −45 → −25 torna camminabile, i gruppi scendono da 9 verso 1, e le tappe
 escono dalla striscia di 24 m senza che si tocchi il posatore di tappe.
+
+---
+
+✅ **CORRETTO E PUBBLICATO il 22/09/2026** — commit `90f59c6`, costruzione
+`2026-09-22-a`. La statura di chi cammina è **1,75 m** («l'uomo medio al massimo
+sta fra un 1,70 e un 1,80», Raffaella). Il posatore di tappe **non è stato
+toccato**.
+
+| misura, stesso modello | `-m` | `-a` |
+|---|---|---|
+| banda x −45 → −35 camminabile | 40% | **100%** |
+| banda x −35 → −25 camminabile | 17% | **100%** |
+| mappa di cammino | 1.865 m² | **2.280 m²** |
+| isole calpestabili | 30 | 29 |
+| gruppi di posti raggiungibili a piedi | 9 | 8 |
+| posti nel gruppo maggiore | 3 in 24 m | **10 in 43 m** |
+| tappe su cose misurate | 3 su 7 | **7 su 7** |
+| tappe infilate lungo un righello | 4 | **0** |
+| striscia coperta dalle tappe | 24 m | **43 m** su 106 |
+| coppie di tappe raggiungibili a piedi | 21 su 21 | 21 su 21 |
+| livelli occupati dalle tappe | solo 0,5 | **0,5 e 2,7** |
+
+Il numero stava in **sei** dichiarazioni (`veritas_navmesh.js` PERSONA,
+`veritas_corpo.js` MISURE, `veritas_cose.js` CORPO e le tre copie ricopiate in
+`index.html`): è la ragione per cui il difetto tornava a ogni giro.
+`veritas_corpo.test.mjs` ora le confronta tutte e sei e si ferma se divergono.
+`ALTEZZA_LIBERA_NORMA = 2,00` resta in `veritas_navmesh.js` per il confronto
+normativo, che DEVE dire «qui il passaggio è 1,75, la norma chiede 2,00» invece
+di cancellare il pavimento.
+
+⛔ **QUEL CHE RESTA APERTO:** 43 m su 106, non tutto l'edificio. Gli altri sette
+gruppi tengono 10 posti misurati fra x −75 e x 13 e restano fuori. E la lacuna
+di §0.2 è intatta: **`veritas_scala.js` non guarda ancora le figure umane** —
+la scala si decide da unità dichiarate, altezza di piano, altezza totale e
+larghezza dei varchi. Su questo modello le figure risultano alte 1,63 m invece
+di 1,70-1,80: il fattore è corto del 4,5%, e nessuno se ne accorge.
 
 ---
 
