@@ -125,7 +125,7 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 22/09/2026 sera (la statura di chi cammina, l'occhio che guarda solo dove c'è qualcosa, e la scoperta che la pagina muore mentre l'occhio lavora) |
+| **Aggiornato** | 23/09/2026 sera (il Worker vuoto, senza libreria, non parte lo stesso con la scena carica: non è transformers.js/OWLv2, resta da capire se è il Worker o il filo principale già saturo) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
@@ -1153,6 +1153,43 @@ li': l'AVVIO del Worker, non l'apertura della libreria dentro di esso.
    dinamica (`await import(m.libreria)`) dentro il Worker vero.
 3. La correzione dell'isolamento dei fili (sopra) e' pronta e verificata, ma
    va proposta e discussa a parte: non risolve questo blocco.
+
+---
+
+**✅ PUNTO 1 ESEGUITO (23/09 sera, sessione successiva). RISULTATO: ANCHE IL
+WORKER VUOTO NON PARTE.**
+
+Test nuovo, `banco/vivo/worker_vuoto_con_scena.mjs` (non nel repository
+ufficiale, solo nel workspace): stessa apertura di pagina e stesso
+caricamento del modello aeroporto degli altri banchi del §6.17, poi — a scena
+assestata (`window.__veritasModelRoot` presente, 8 s di margine) — si crea un
+Worker **senza nessun file, senza rete, senza libreria**: il codice del
+Worker e' due righe passate come Blob URL (`console.log` + `postMessage`),
+con un tetto di 30 s misurato DENTRO la pagina.
+
+**Esito: silenzio totale.** Non e' arrivato ne' il messaggio del Worker, ne'
+un errore, ne' il timeout di 30 s dentro la pagina stessa — segno che non era
+il Worker da solo a non rispondere, ma **il filo principale della pagina non
+girava piu' abbastanza da far scattare un timer**. Fermato a mano dopo
+7-8 minuti, sullo stesso schema del blocco gia' descritto nel §9 il 22/09.
+
+**Cosa dice, e cosa NON dice ancora.** Conferma la direzione del punto 1:
+**non e' transformers.js/OWLv2** — un Worker che non tocca nessuna libreria
+si blocca allo stesso modo. Ma il test, com'e' scritto oggi, non distingue
+fra due letture diverse:
+- il blocco e' specifico alla creazione di un Worker sotto carico (troppi
+  thread/processi per la scena 3D + fisica, come ipotizzato);
+- oppure il filo principale e' gia' saturo PRIMA ancora di arrivare alla riga
+  `new Worker(...)` — nel qual caso qualunque lavoro nuovo, Worker o no,
+  troverebbe lo stesso muro, ed e' piu' vicino al §6.8 (la pagina che si
+  blocca da sola all'avvio) che a un limite specifico dei Worker.
+
+**Passo tecnico che manca, non un dubbio da chiedere:** un segno stampato
+dalla pagina SUBITO PRIMA della riga `new Worker(...)` (come nel test del
+punto precedente, che aveva gia' isolato "arriva fino a `new Worker()`, poi
+silenzio da dentro"). Senza quel segno non si sa se oggi il blocco e' ancora
+piu' a monte di quanto misurato ieri, o nello stesso punto. Prossimo passo
+tecnico, prima di qualunque altra ipotesi.
 
 **Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
 pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
