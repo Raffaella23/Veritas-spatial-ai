@@ -1067,14 +1067,30 @@ il blocco gia' descritto nel §9 il 22/09 ("un banco lanciato prima e' rimasto
 appeso 36 minuti... perche' il filo della pagina era fermo e nemmeno il
 cronometro girava"). Fermato a mano dopo 10-12 minuti.
 
-**Non e' chiaro se e' un vero blocco o uno scarico di rete lento non ancora
-distinto.** Il profilo di Chrome usato non aveva i pesi del modello (155 MB)
-gia' in cache — ogni prova li riscarica da capo dal CDN di Hugging Face — e
-quel download potrebbe spiegare diversi minuti da solo, mescolato con la
-creazione della sessione ONNX (anch'essa lunga e sincrona). **Prossimo passo,
-prima di continuare**: rifare la stessa prova osservando le richieste di rete
-in corso (`page.on("request"/"response")`), per separare "sta ancora
-scaricando" da "e' davvero ferma".
+**Rifatto guardando la rete (23/09, `banco/vivo/occhio_con_rete.mjs`): E' UN
+VERO BLOCCO, non uno scarico lento.** All'accensione la pagina fa il suo
+traffico normale (font, `three.js`, `rapier`, e un tentativo verso LM Studio
+in locale che fallisce subito e non c'entra — nessuna sorpresa, non era
+acceso). Poi, appena parte l'accensione dell'occhio: **zero richieste di rete
+nuove per oltre 90 secondi filati**, fermato a mano. Nessun byte verso
+Hugging Face, nessun errore, nessuna risposta — silenzio totale. Non e' un
+download che va piano: **non parte proprio nessuna richiesta**, quindi la
+pagina si blocca PRIMA di chiedere alla rete i pesi del modello.
+
+Questo restringe il sospetto: non e' il download di 155 MB, e' qualcosa che
+succede prima — l'importazione della libreria transformers.js dentro il
+Worker, o la creazione della sessione ONNX (compilazione del motore WASM),
+entrambe sincrone e pesanti, con la scena 3D gia' in memoria. Coerente con la
+diagnosi del 04/09: **e' la combinazione scena+occhio a bloccare**, non il
+download ne' — per ora — un limite di memoria del sistema (la macchina aveva
+margine abbondante quando e' successo).
+
+**Prossimo passo:** isolare se si blocca dentro il Worker prima di arrivare a
+`pipeline(...)`, o dentro `pipeline(...)` stesso (compilazione ONNX). Il modo
+piu' diretto: un `console.log` di battito dentro
+`veritas_occhio_lavoratore.js`, subito prima e subito dopo ogni riga di
+`accendi()` — se anche quello smette di scrivere, il blocco e' nell'importazione
+o nella compilazione WASM, non nella rete ne' nella lettura del risultato.
 
 **Test A, B, C, D non ancora eseguiti fino in fondo**: due volte su due la
 pagina non ha superato l'accensione dell'occhio (prima e' caduta con poca
