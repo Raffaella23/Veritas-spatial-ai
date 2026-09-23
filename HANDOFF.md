@@ -969,26 +969,46 @@ E' parente del 6.8.
 - per inferenza: `new RawImage(new Uint8ClampedArray(m.dati), w, h, 4)` e poi
   `rileva(immagine, parole, {threshold})`.
 
-**NON E' UNA PERDITA: E' UN TETTO.** I numeri:
+**⛔ CORRETTO IL 23/09: IL "TETTO DI 255,5 MB" NON ESISTE.** La diagnosi del
+22/09 notte poggiava su due errori, verificati sui file:
 
-| | |
-|---|---|
-| pesi q8 residenti nell'heap WASM | **155 MB** (`onnx/model_quantized.onnx`) |
-| tetto di memoria del motore, gia' misurato il 04/09 | **255,5 MB** (`267935216`) |
-| **spazio che resta per tutto il resto** | **~100 MB** |
+1. **Le versioni erano sbagliate.** La 4.2.0 sta solo nel `package.json` del
+   workspace, e con la 4.x OWL non si apre nemmeno (avviso in `index.html`).
+   L'occhio carica **transformers.js 3.8.1** (`index.html:91`,
+   `veritas_riconosce.js:1227`), che dipende da **onnxruntime-web
+   1.22.0-dev.20250409-89f8206ba4** (`npm view @huggingface/transformers@3.8.1
+   dependencies`). E' comunque una build **dev**. L'ultima stabile oggi e'
+   la **1.30.0**.
+2. **`267935216` non e' una misura di memoria.** E' un **numero nudo**, cioe'
+   l'indirizzo di un'eccezione C++ che ORT Web lancia cosi' com'e', perche'
+   e' compilato senza il supporto alle eccezioni di Emscripten. Fonti: [ORT
+   #13408](https://github.com/microsoft/onnxruntime/issues/13408), [Emscripten,
+   C++ exceptions](https://emscripten.org/docs/porting/exceptions.html). Lo
+   conferma il fatto che lo stesso identico numero esce anche su
+   `webgpu/q4f16` (`veritas_fili.js:21`): un tetto non darebbe lo stesso valore
+   su due strade diverse. Dividerlo per 1.048.576 non ha significato.
+3. **Il tetto vero del motore e' 4 GB.** Letto dentro i binari di ORT 1.22.0-dev
+   (`ort-wasm-simd-threaded.wasm` e `.jsep.wasm`): memoria importata condivisa,
+   iniziale **16 MB**, massima **4096 MB**. `env.wasm` non ha manopole di
+   memoria: le sue opzioni sono `numThreads`, `simd`, `trace`, `initTimeout`,
+   `wasmPaths`, `wasmBinary`, `proxy` (`onnxruntime-common/dist/esm/env.d.ts`).
 
-OWLv2 lavora a 960x960: `pixel_values` da solo e' 960x960x3x4 = **11 MB**; i
-patch embedding (3.600 patch x 768) altri **11 MB**; gli intermedi
-dell'attenzione sono un multiplo di questi. Con **8 fili** ogni filo ha la sua
-area di lavoro, e il picco si moltiplica.
+**Quindi non sappiamo ancora COSA finisce.** Ipotesi aperte, tutte da misurare
+col banco del punto 0, nessuna provata:
+- la memoria del motore cresce fino ai 4 GB (perdita o frammentazione);
+- muore il processo della scheda (`Target crashed`) prima dei 4 GB, perche'
+  pesa la pagina intera: scena 3D + motore + 8 fili;
+- un'eccezione C++ reale (il numero nudo) con dietro un'altra causa.
 
-La forma del guasto conferma: **otto risposte buone, poi il collasso**. Una
-perdita cresce dalla prima chiamata; un tetto regge finche' non lo tocchi, poi
-frammenta e aborta — ed e' esattamente cio' che `unreachable` e': l'abort del
-runtime WebAssembly.
+Restano validi i conti sulla grandezza del lavoro: OWLv2 a 960x960,
+`pixel_values` = **11 MB**, patch embedding (3.600 x 768) altri **11 MB**, gli
+intermedi dell'attenzione sono un multiplo di questi, e con **8 fili** il
+picco si moltiplica. E resta valida la forma del guasto: **otto risposte buone,
+poi il collasso**.
 
-**Versioni installate:** transformers.js **4.2.0**, onnxruntime-web
-**1.26.0-dev.20260416-b7804b056c** — una build **dev**, non una release.
+**Ma le 177 parole contano poco sul tempo**, misurato il 04/09
+(`veritas_fili.js`): 4 parole 202,8 s, 16 parole 201,3 s. Il tempo va a
+guardare l'immagine. Il test B dirà se vale anche per la memoria.
 
 **Le 177 parole NON si possono calcolare una volta sola.** Verificato sul Hub:
 `Xenova/owlv2-base-patch16-ensemble` ha **un grafo unico** (`onnx/model.onnx`
@@ -1012,12 +1032,12 @@ con 1 parola sola; **C** 177 parole ricreando il Worker ogni 5 immagini; **D**
 Lettura: A cresce -> cumulativo; B regge e A no -> contano le query; C risolve ->
 memoria non recuperata nel Worker; D cambia tutto -> pressione da risoluzione.
 
-**1 - Alzare il tetto di memoria del motore.**
-`veritas_occhio_lavoratore.js`, `accendi()`. Configurare esplicitamente la
-memoria massima WASM invece del default. Perche': 155 MB di pesi dentro 255,5 MB
-non lasciano margine. Rischio basso **ma da verificare prima**: non e'
-accertato che ORT Web 1.26 esponga quella manopola attraverso `env` di
-transformers.js. Va confermato sulla documentazione, non scritto a fiducia.
+**1 - ~~Alzare il tetto di memoria del motore.~~ CANCELLATO il 23/09.** Il
+tetto e' gia' 4 GB e `env` non ha una manopola per cambiarlo (vedi sopra).
+Al suo posto, **solo se il banco lo indica**, c'e' da provare la stabile
+**onnxruntime-web 1.30.0** al posto della dev 1.22. Non si fa a fiducia: la
+dev 1.22 e' quella che apre OWL (Cast(13), avviso in `index.html`), e con
+un'altra versione l'occhio potrebbe non aprirsi piu'.
 
 **2 - Ridurre i fili da 8 a 2-4.**
 Stesso file, stessa funzione, la riga `numThreads`. Ogni filo ha la propria area
@@ -1197,9 +1217,11 @@ Deciso con Raffaella il 22/09 sera. Ragione: nomi, zone, tempi e l'occhio che
 si avvicina girano tutti **sopra** questa pagina, e un cliente non aspetta 149
 secondi.
 
-**Da dove partire: la diagnosi sul codice e' gia' scritta nel 6.17**, con i
-numeri (155 MB di pesi dentro 255,5 MB di tetto), le versioni installate, i tre
-interventi in ordine e il banco strumentato che va fatto PRIMA di toccarli.
+**Da dove partire: il 6.17, CORRETTO il 23/09.** Il "tetto di 255,5 MB" non
+esiste: era un numero d'errore. Il motore arriva a 4 GB e le versioni vere sono
+transformers.js 3.8.1 e ORT 1.22.0-dev. **La causa non e' ancora nota.** Il
+banco strumentato (punto 0) e' l'unica strada, e va fatto PRIMA di toccare
+qualunque intervento.
 
 1. Rifare la misura di `regge_venti_tappe.mjs` con `SENZA_OCCHIO` (la manopola
    c'e' gia' in `prova_fluidita.mjs`, 6.8): se senza occhio la pagina regge, la
@@ -1207,8 +1229,10 @@ interventi in ordine e il banco strumentato che va fatto PRIMA di toccarli.
 2. Guardare quanta memoria tiene il lavoratore dell'occhio e se rilascia fra un
    ritaglio e l'altro. I ritagli sono nuovi di oggi: vanno misurati anche loro,
    anche se il guasto e' precedente.
-3. `unreachable` da WebAssembly quasi sempre e' memoria finita. Il tetto va
-   messo, non sperato.
+3. Nel banco, leggere la memoria del motore direttamente dal lavoratore (la
+   grandezza del buffer di memoria WASM, dopo ogni sguardo) e la memoria
+   della scheda. Solo cosi' si capisce quale delle tre ipotesi del 6.17 e'
+   quella vera.
 
 **Poi, nell'ordine deciso con Raffaella:**
 - **6.16** la meta' mancante (rifare il conto quando gli arredi arrivano);
