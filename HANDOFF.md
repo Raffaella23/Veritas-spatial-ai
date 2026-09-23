@@ -1191,6 +1191,42 @@ silenzio da dentro"). Senza quel segno non si sa se oggi il blocco e' ancora
 piu' a monte di quanto misurato ieri, o nello stesso punto. Prossimo passo
 tecnico, prima di qualunque altra ipotesi.
 
+---
+
+**✅ FATTO SUBITO DOPO, stessa sera. RISULTATO: IL BLOCCO E' PRIMA ANCORA DI
+`new Worker()`.**
+
+Aggiunto il segno mancante: un `console.log` **appena prima** e uno **appena
+dopo** la riga che crea il Worker vuoto, dentro lo stesso `worker_vuoto_con_scena.mjs`.
+Rifatto lo stesso identico giro (scena caricata, 8 s di margine, poi si entra
+nel blocco che crea il Worker).
+
+**Nessuno dei due segni e' arrivato.** Non "prima di new Worker()", non
+"Worker creato, in attesa" — silenzio identico a prima, fermato a mano dopo
+oltre 3 minuti. La riga di codice che stampa il primo segno e' la PRIMA
+istruzione dentro la funzione passata a `page.evaluate`: se anche quella non
+si vede, **il blocco non e' nella creazione del Worker — e' PRIMA, nel filo
+principale della pagina che non trova nemmeno un istante per eseguire una
+riga di JavaScript nuova**, Worker o no.
+
+⛔ **Cambia il sospetto principale.** Non e' piu' "il Worker non trova posto
+sotto carico" (ipotesi 1 del punto precedente): e' piu' vicino al §6.8 — la
+pagina che si blocca da sola, per lavoro proprio (probabilmente il passo
+continuo della fisica Rapier + il disegno della scena, che insieme non
+lasciano mai libero il filo principale) — ma qui il blocco e' molto piu'
+lungo e non e' mai il "primo caricamento" del §6.8 (quello era su profilo
+nuovo, non ripetuto).
+
+**Prossimo passo tecnico, il piu' semplice possibile:** lo stesso identico
+giro (scena caricata, stesso modello, stesso margine di 8 s), ma senza
+NESSUN Worker — solo `await page.evaluate(() => 1 + 1)`. Se anche una somma
+banale non torna, il guasto non ha niente a che fare con l'occhio ne' coi
+Worker: e' che il filo principale della pagina, con questa scena, smette di
+rispondere a QUALUNQUE richiesta esterna (script, evaluate, persino i
+timer). Se invece la somma torna subito, il blocco e' specifico a
+`new Worker(...)` e il sospetto torna li'. **Non ancora eseguito — tetto
+gettoni di sessione raggiunto stasera (23/09), va fatto alla ripresa.**
+
 **Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
 pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
 fermata con memoria abbondante, e ora localizzata all'avvio del Worker).
