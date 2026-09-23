@@ -1115,19 +1115,49 @@ di quanto pensato: **si ferma PRIMA del primo battito**, cioe' prima ancora di
 `await import(m.libreria)` dentro `accendi()`. Quindi il messaggio `"accendi"`
 non arriva mai al Worker, o il Worker non arriva mai a eseguirlo.
 
-**Ristretto ulteriormente, per la prossima sessione:** il sospetto si sposta
-su `occhioNelLavoratore()` in `veritas_riconosce.js` — la creazione del
-`new Worker(...)` stesso, o il caricamento del file
-`veritas_occhio_lavoratore.js?v=1` da parte del browser (che nel banco passa
-dall'intercettazione delle richieste). Prossimo passo piu' diretto: un
-`console.log` sulla PAGINA subito dopo `new Worker(...)` e un altro dentro il
-Worker in cima al file (prima di `self.onmessage = ...`), fuori da qualunque
-funzione — se anche quello non arriva, il Worker non si sta nemmeno avviando.
+**IL PUNTO ESATTO, trovato (23/09, ultimo giro della sessione).** Messo un
+segno sulla PAGINA appena prima e appena dopo `new Worker(...)`, e uno in
+cima al file del Worker (prima riga eseguita, fuori da qualunque funzione).
+Risultato, ripetuto tre volte:
 
-**Test A, B, C, D non ancora eseguiti fino in fondo**: due volte su due la
-pagina non ha superato l'accensione dell'occhio (prima e' caduta con poca
-memoria, poi si e' fermata con memoria abbondante). Rifare i quattro test non
-ha senso finche' questo primo scalino non si supera.
+```
+pagina: prima di new Worker()          <- arriva
+pagina: Worker creato, in attesa...    <- arriva
+(nessun segno da dentro il Worker)     <- NON arriva mai
+```
+
+**Il Worker si crea senza errori, ma il suo file non esegue mai nemmeno la
+prima riga.** Aggiunta anche una spia sulla richiesta di rete verso
+`veritas_occhio_lavoratore.js?v=1`: **non ne arriva nessuna**, nemmeno un
+tentativo fallito. Questo secondo punto pero' e' da prendere con cautela — non
+e' certo che le richieste di un Web Worker passino dagli stessi controlli di
+rete usati per la pagina in questo banco (limite noto di Playwright con
+alcune versioni di Chromium); puo' darsi che la richiesta parta e il banco
+semplicemente non la veda, non che non parta.
+
+**Cosa e' certo:** con la scena 3D gia' in memoria, la stessa identica riga di
+codice che crea il Worker (`occhioNelLavoratore()` in `veritas_riconosce.js`)
+smette di portare a termine il suo lavoro — mentre **senza scena** (misurato
+prima in `occhio_da_solo.mjs`, piu' volte) la stessa riga apre il Worker in
+circa 11 secondi senza problemi. Conferma ancora una volta che e' la
+combinazione scena+occhio, ma ora si sa che il punto di rottura e' proprio
+li': l'AVVIO del Worker, non l'apertura della libreria dentro di esso.
+
+**Prossima sessione, in ordine:**
+1. Capire se e' un limite di Chromium sotto carico (troppi thread/processi gia'
+   attivi per la scena 3D + fisica, e il nuovo Worker non trova posto) o
+   qualcos'altro. Test mirato: creare un Worker vuoto, senza aprire nessuna
+   libreria, con la scena carica — se ANCHE QUELLO non parte, il problema non
+   e' transformers.js/OWLv2 per niente, e' il Worker in se'.
+2. Se il Worker vuoto parte regolarmente, il sospetto torna sull'importazione
+   dinamica (`await import(m.libreria)`) dentro il Worker vero.
+3. La correzione dell'isolamento dei fili (sopra) e' pronta e verificata, ma
+   va proposta e discussa a parte: non risolve questo blocco.
+
+**Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
+pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
+fermata con memoria abbondante, e ora localizzata all'avvio del Worker).
+Rifare i quattro test non ha senso finche' questo primo scalino non si supera.
 
 **1 - ~~Alzare il tetto di memoria del motore.~~ CANCELLATO il 23/09.** Il
 tetto e' gia' 4 GB e `env` non ha una manopola per cambiarlo (vedi sopra).
