@@ -1056,15 +1056,30 @@ il tempo totale, sicuro.
   Conferma la diagnosi del 04/09 (scena + occhio insieme superano quello che
   la macchina puo' reggere), ma il fatto che cada COSI' presto — non dopo un
   po' — e' nuovo e non ancora spiegato.
-- **la macchina di prova aveva poca memoria libera durante le prove: fra 1 e 5
-  GB su 16 totali**, per via di altri programmi aperti (non i test). Non si
-  puo' escludere che sia la macchina, in quel momento, a non avere spazio —
-  non necessariamente il codice. **Serve rifare la stessa prova con piu'
-  memoria libera prima di trarre conclusioni sul motore.**
+- **la macchina di prova aveva poca memoria libera durante le prime prove: fra
+  1 e 5 GB su 16 totali**, per via di altri programmi aperti (non i test).
 
-**Test A, B, C, D non ancora eseguiti fino in fondo**: la pagina cade
-all'accensione, prima di arrivare al primo giro. Rifare non ha senso finche'
-questo primo scalino non si supera.
+**Rifatto con la macchina libera (8 GB liberi all'avvio, mai sceso sotto i
+4,3 GB durante la prova): NON e' caduta piu'. Si e' FERMATA — un guasto
+diverso.** Il lavoratore ha tenuto occupati stabilmente ~3 GB per oltre 10
+minuti, senza rispondere e senza scrivere niente (nemmeno l'errore): esattamente
+il blocco gia' descritto nel §9 il 22/09 ("un banco lanciato prima e' rimasto
+appeso 36 minuti... perche' il filo della pagina era fermo e nemmeno il
+cronometro girava"). Fermato a mano dopo 10-12 minuti.
+
+**Non e' chiaro se e' un vero blocco o uno scarico di rete lento non ancora
+distinto.** Il profilo di Chrome usato non aveva i pesi del modello (155 MB)
+gia' in cache — ogni prova li riscarica da capo dal CDN di Hugging Face — e
+quel download potrebbe spiegare diversi minuti da solo, mescolato con la
+creazione della sessione ONNX (anch'essa lunga e sincrona). **Prossimo passo,
+prima di continuare**: rifare la stessa prova osservando le richieste di rete
+in corso (`page.on("request"/"response")`), per separare "sta ancora
+scaricando" da "e' davvero ferma".
+
+**Test A, B, C, D non ancora eseguiti fino in fondo**: due volte su due la
+pagina non ha superato l'accensione dell'occhio (prima e' caduta con poca
+memoria, poi si e' fermata con memoria abbondante). Rifare i quattro test non
+ha senso finche' questo primo scalino non si supera.
 
 **1 - ~~Alzare il tetto di memoria del motore.~~ CANCELLATO il 23/09.** Il
 tetto e' gia' 4 GB e `env` non ha una manopola per cambiarlo (vedi sopra).
