@@ -1108,16 +1108,21 @@ scena carica: provato anche con la correzione, si e' bloccato lo stesso.
 Quindi l'isolamento mancante non e' la causa del blocco — resta un difetto
 vero e a se', da proporre come correzione separata quando si torna sui fili.
 
-**Il battito riga per riga (appena installato, `battito()` dentro `accendi()`
-+ gestione in `veritas_riconosce.js`) non ha ancora dato un punto preciso**:
-nell'ultima prova non e' arrivato NESSUN battito, nemmeno il primo (prima
-dell'importazione della libreria) — sospetto che la correzione dei fili
-abbia introdotto un ricaricamento della pagina che va in conflitto col banco
-(che seleziona il file del modello e preme i pulsanti mentre la pagina si
-sta ancora ricaricando). **Da ripetere isolando le due cose**: prima il
-battito SENZA la correzione dei fili (per non mescolare due modifiche),
-poi, se serve, la correzione dei fili in un banco che aspetta la fine del
-ricaricamento prima di scegliere il file.
+**Il battito riga per riga, rifatto DA SOLO (senza la correzione dei fili, per
+non mescolare due modifiche): stesso risultato, zero battiti.** Non e' stato
+il ricaricamento a confondere la prima prova — il blocco e' anche piu' a monte
+di quanto pensato: **si ferma PRIMA del primo battito**, cioe' prima ancora di
+`await import(m.libreria)` dentro `accendi()`. Quindi il messaggio `"accendi"`
+non arriva mai al Worker, o il Worker non arriva mai a eseguirlo.
+
+**Ristretto ulteriormente, per la prossima sessione:** il sospetto si sposta
+su `occhioNelLavoratore()` in `veritas_riconosce.js` — la creazione del
+`new Worker(...)` stesso, o il caricamento del file
+`veritas_occhio_lavoratore.js?v=1` da parte del browser (che nel banco passa
+dall'intercettazione delle richieste). Prossimo passo piu' diretto: un
+`console.log` sulla PAGINA subito dopo `new Worker(...)` e un altro dentro il
+Worker in cima al file (prima di `self.onmessage = ...`), fuori da qualunque
+funzione — se anche quello non arriva, il Worker non si sta nemmeno avviando.
 
 **Test A, B, C, D non ancora eseguiti fino in fondo**: due volte su due la
 pagina non ha superato l'accensione dell'occhio (prima e' caduta con poca
