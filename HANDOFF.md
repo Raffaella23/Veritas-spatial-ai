@@ -1024,13 +1024,47 @@ MENO VOLTE**, ed e' quello che fa gia' `tavolaDiRitagli` (3 chiamate -> 1).
 
 **0. Prima di toccare qualunque cosa: il banco strumentato.** Senza vedere la
 memoria salire immagine per immagine, i tre interventi qui sotto sono tre
-scommesse. Servono, per ogni inferenza: numero, durata di preprocess, inferenza
-e postprocess, heap JS disponibile, memoria del motore se leggibile. E i test di
-isolamento: **A** stessa immagine 10 volte con 177 parole; **B** stessa immagine
-con 1 parola sola; **C** 177 parole ricreando il Worker ogni 5 immagini; **D**
-177 parole con immagini a 512 / 768 / 1024 px.
+scommesse. Servono, per ogni inferenza: numero, durata, heap JS disponibile,
+memoria del motore se leggibile. E i test di isolamento: **A** stessa immagine
+10 volte con 177 parole; **B** stessa immagine con 1 parola sola; **C** 177
+parole ricreando il Worker ogni 5 immagini; **D** 177 parole con immagini a
+512 / 768 / 1024 px.
 Lettura: A cresce -> cumulativo; B regge e A no -> contano le query; C risolve ->
 memoria non recuperata nel Worker; D cambia tutto -> pressione da risoluzione.
+
+**Fatto il 23/09/2026, nel workspace (non pubblicato):**
+`banco/vivo/banco_strumentato.mjs` (i quattro test) e
+`banco/vivo/occhio_da_solo.mjs` (accende l'occhio senza scena 3D, per isolare
+se il collasso viene dal modello da solo o dalla combinazione con la scena).
+Il lavoratore (`veritas_occhio_lavoratore.js`) misura, per ogni sguardo, il
+tempo totale e la memoria JS prima/dopo, appesi all'elenco delle rilevazioni.
+
+**⛔ Il primo tentativo di dividere il tempo in preprocess/inferenza/
+rifinitura ERA ROTTO E FALSAVA TUTTO.** Avvolgeva `tokenizer`/`processor`/
+`model` della pipeline per cronometrarli separatamente, ma in transformers.js
+non sono funzioni normali (`.bind` non esiste su di loro): l'errore faceva
+cadere la pagina PRIMA di qualunque sguardo. Ogni "Target crashed" misurato con
+quella versione era il banco che si rompeva, non OWLv2. **Tolto**: resta solo
+il tempo totale, sicuro.
+
+**Prima misura utile, con la versione corretta:**
+- **l'occhio da solo, senza scena 3D, si accende in ~11 s senza cadere**
+  (`occhio_da_solo.mjs`, provato piu' volte);
+- **con la scena 3D caricata (il modello aeroporto), la pagina cade
+  all'accensione dell'occhio, prima ancora del primo sguardo** — non dopo
+  otto risposte come sulla pubblicata: qui in questo workspace cade subito.
+  Conferma la diagnosi del 04/09 (scena + occhio insieme superano quello che
+  la macchina puo' reggere), ma il fatto che cada COSI' presto — non dopo un
+  po' — e' nuovo e non ancora spiegato.
+- **la macchina di prova aveva poca memoria libera durante le prove: fra 1 e 5
+  GB su 16 totali**, per via di altri programmi aperti (non i test). Non si
+  puo' escludere che sia la macchina, in quel momento, a non avere spazio —
+  non necessariamente il codice. **Serve rifare la stessa prova con piu'
+  memoria libera prima di trarre conclusioni sul motore.**
+
+**Test A, B, C, D non ancora eseguiti fino in fondo**: la pagina cade
+all'accensione, prima di arrivare al primo giro. Rifare non ha senso finche'
+questo primo scalino non si supera.
 
 **1 - ~~Alzare il tetto di memoria del motore.~~ CANCELLATO il 23/09.** Il
 tetto e' gia' 4 GB e `env` non ha una manopola per cambiarlo (vedi sopra).
