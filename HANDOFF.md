@@ -930,37 +930,109 @@ pagina che già muore peggiora il guasto più grave, non il meno grave.
 
 ---
 
-### 6.17 — ⛔⛔ LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto più grave
+### 6.17 — LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto piu' grave
 
 Misurato il 22/09/2026 sera, `banco/vivo/regge_venti_tappe.mjs`: si chiede alla
 pagina una cosa banale ogni 10 secondi e si cronometra la risposta.
 
-**Sulla versione PUBBLICATA `2026-09-22-d`** — quella che si darebbe a un
-cliente:
+**Sulla versione PUBBLICATA** — quella che si darebbe a un cliente:
 
 ```
-  8s … 79s   ✔ risponde in 15-360 ms        otto risposte buone
-      148s   ✖ ferma: 58.700 ms per rispondere
-      307s   ✖ ferma: 149.243 ms per rispondere
-      307s   PAGEERROR: unreachable
+  8s ... 79s   OK  risponde in 15-360 ms        otto risposte buone
+      148s     NO  ferma: 58.700 ms per rispondere
+      307s     NO  ferma: 149.243 ms per rispondere
+      307s     PAGEERROR: unreachable
 ```
 
 Nel workspace la stessa cosa arriva fino in fondo: **`Target crashed`**, la
-scheda muore. Un banco lanciato prima è rimasto appeso **36 minuti** senza che
-il suo tetto di 3 minuti scattasse — perché il filo della pagina era fermo e
+scheda muore. Un banco lanciato prima e' rimasto appeso **36 minuti** senza che
+il suo tetto di 3 minuti scattasse — perche' il filo della pagina era fermo e
 nemmeno il cronometro girava.
 
-⚠️ **NON È STATO INTRODOTTO OGGI:** succede identico sulla costruzione
-pubblicata, che non contiene il fix parziale del §6.16. È parente del §6.8.
+**NON E' STATO INTRODOTTO OGGI:** succede identico sulla costruzione pubblicata.
+E' parente del 6.8.
 
-**Indizio sulla causa, da verificare e non da riferire come accertata:**
-`unreachable` è la trappola di WebAssembly (`unreachable` eseguita). L'unico
-WebAssembly in pagina è il motore dell'occhio — ONNX/transformers, che gira
-`wasm/q8` — quindi la trappola viene da lì. Da misurare: memoria del
-lavoratore, quante immagini tiene in vita insieme, se rilascia fra un ritaglio e
-l'altro.
+---
 
-⛔ **È a monte di tutto il resto.** Nomi, zone, tempi, l'occhio che si avvicina:
+#### La diagnosi, letta sul codice il 22/09 notte
+
+**Com'e' fatto oggi** (`veritas_occhio_lavoratore.js`):
+
+- un Worker solo, con una coda interna (`inFila`): le inferenze sono **gia' una
+  alla volta**;
+- `pipeline("zero-shot-object-detection", "Xenova/owlv2-base-patch16-ensemble",
+  {device: "wasm", dtype: "q8"})`;
+- la **sessione vive per tutta la vita del Worker** — giusto cosi', non si
+  rilascia per immagine;
+- `env.backends.onnx.wasm.proxy = false` — corretto dentro un Worker;
+- `numThreads` fino a **8** se la pagina e' `crossOriginIsolated`;
+- per inferenza: `new RawImage(new Uint8ClampedArray(m.dati), w, h, 4)` e poi
+  `rileva(immagine, parole, {threshold})`.
+
+**NON E' UNA PERDITA: E' UN TETTO.** I numeri:
+
+| | |
+|---|---|
+| pesi q8 residenti nell'heap WASM | **155 MB** (`onnx/model_quantized.onnx`) |
+| tetto di memoria del motore, gia' misurato il 04/09 | **255,5 MB** (`267935216`) |
+| **spazio che resta per tutto il resto** | **~100 MB** |
+
+OWLv2 lavora a 960x960: `pixel_values` da solo e' 960x960x3x4 = **11 MB**; i
+patch embedding (3.600 patch x 768) altri **11 MB**; gli intermedi
+dell'attenzione sono un multiplo di questi. Con **8 fili** ogni filo ha la sua
+area di lavoro, e il picco si moltiplica.
+
+La forma del guasto conferma: **otto risposte buone, poi il collasso**. Una
+perdita cresce dalla prima chiamata; un tetto regge finche' non lo tocchi, poi
+frammenta e aborta — ed e' esattamente cio' che `unreachable` e': l'abort del
+runtime WebAssembly.
+
+**Versioni installate:** transformers.js **4.2.0**, onnxruntime-web
+**1.26.0-dev.20260416-b7804b056c** — una build **dev**, non una release.
+
+**Le 177 parole NON si possono calcolare una volta sola.** Verificato sul Hub:
+`Xenova/owlv2-base-patch16-ensemble` ha **un grafo unico** (`onnx/model.onnx`
+614 MB, piu' le versioni compresse: `model_quantized` 155 MB, `model_fp16` 308,
+`model_q4f16` 128). Non c'e' nessun export separato del text encoder, quindi
+testo e immagine entrano nello stesso passaggio. Cacharli richiederebbe di
+riesportare il modello. **L'unica leva su quell'asse e' chiamare il rilevatore
+MENO VOLTE**, ed e' quello che fa gia' `tavolaDiRitagli` (3 chiamate -> 1).
+
+---
+
+#### I tre interventi, in ordine
+
+**0. Prima di toccare qualunque cosa: il banco strumentato.** Senza vedere la
+memoria salire immagine per immagine, i tre interventi qui sotto sono tre
+scommesse. Servono, per ogni inferenza: numero, durata di preprocess, inferenza
+e postprocess, heap JS disponibile, memoria del motore se leggibile. E i test di
+isolamento: **A** stessa immagine 10 volte con 177 parole; **B** stessa immagine
+con 1 parola sola; **C** 177 parole ricreando il Worker ogni 5 immagini; **D**
+177 parole con immagini a 512 / 768 / 1024 px.
+Lettura: A cresce -> cumulativo; B regge e A no -> contano le query; C risolve ->
+memoria non recuperata nel Worker; D cambia tutto -> pressione da risoluzione.
+
+**1 - Alzare il tetto di memoria del motore.**
+`veritas_occhio_lavoratore.js`, `accendi()`. Configurare esplicitamente la
+memoria massima WASM invece del default. Perche': 155 MB di pesi dentro 255,5 MB
+non lasciano margine. Rischio basso **ma da verificare prima**: non e'
+accertato che ORT Web 1.26 esponga quella manopola attraverso `env` di
+transformers.js. Va confermato sulla documentazione, non scritto a fiducia.
+
+**2 - Ridurre i fili da 8 a 2-4.**
+Stesso file, stessa funzione, la riga `numThreads`. Ogni filo ha la propria area
+di lavoro e il picco scala con i fili. **La misura che giustifica gli 8 e' del
+04/09 ed era su 16 parole, non 177**: il bilancio puo' essersi rovesciato.
+Rischio: inferenza piu' lenta, misurabile in un colpo e reversibile in un
+carattere.
+
+**3 - Non copiare il buffer dell'immagine.**
+Stesso file, `guarda()`: `new Uint8ClampedArray(m.dati)` duplica un buffer che
+la pagina ha **gia' trasferito** (`postMessage(..., [p.dati])`). Usarlo
+direttamente. Una copia in meno e una referenza in meno viva per inferenza.
+E' l'unico dei tre che non puo' peggiorare niente.
+
+**E' a monte di tutto il resto.** Nomi, zone, tempi, l'occhio che si avvicina:
 tutto gira sopra questa pagina. Un cliente non aspetta 149 secondi, chiude.
 
 ---
@@ -1125,7 +1197,10 @@ Deciso con Raffaella il 22/09 sera. Ragione: nomi, zone, tempi e l'occhio che
 si avvicina girano tutti **sopra** questa pagina, e un cliente non aspetta 149
 secondi.
 
-**Da dove partire, con quello che si sa gia':**
+**Da dove partire: la diagnosi sul codice e' gia' scritta nel 6.17**, con i
+numeri (155 MB di pesi dentro 255,5 MB di tetto), le versioni installate, i tre
+interventi in ordine e il banco strumentato che va fatto PRIMA di toccarli.
+
 1. Rifare la misura di `regge_venti_tappe.mjs` con `SENZA_OCCHIO` (la manopola
    c'e' gia' in `prova_fluidita.mjs`, 6.8): se senza occhio la pagina regge, la
    causa e' confermata e non piu' un indizio.
