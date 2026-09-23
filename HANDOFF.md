@@ -1092,6 +1092,33 @@ piu' diretto: un `console.log` di battito dentro
 `accendi()` — se anche quello smette di scrivere, il blocco e' nell'importazione
 o nella compilazione WASM, non nella rete ne' nella lettura del risultato.
 
+**⚖ TROVATO E CORRETTO, IN PARALLELO (23/09): `veritas_fili.js` non isolava
+MAI la pagina — un difetto vero, indipendente dal blocco.** Il controllo per
+decidere se ricaricare la pagina guardava `!navigator.serviceWorker.controller`,
+ma il lavoratore di servizio chiama `clients.claim()` al suo `activate` e
+prende in mano la pagina SUBITO, senza bisogno di un ricaricamento: il
+controllo vedeva "controller gia' presente" e non ricaricava mai, quindi le
+intestazioni che isolano la pagina non arrivavano MAI. C'era anche un secondo
+difetto, di tempismo: il controllo arrivava prima che il lavoratore fosse
+"active". **Verificato su`veritas_fili.js` corretto (solo nel workspace, non
+pubblicato): con la correzione la pagina si ricarica una volta, poi dice
+"pagina gia' isolata: 12 processori disponibili" — confermato tre volte.**
+Questo pero' NON e' bastato a far passare l'occhio oltre l'accensione con la
+scena carica: provato anche con la correzione, si e' bloccato lo stesso.
+Quindi l'isolamento mancante non e' la causa del blocco — resta un difetto
+vero e a se', da proporre come correzione separata quando si torna sui fili.
+
+**Il battito riga per riga (appena installato, `battito()` dentro `accendi()`
++ gestione in `veritas_riconosce.js`) non ha ancora dato un punto preciso**:
+nell'ultima prova non e' arrivato NESSUN battito, nemmeno il primo (prima
+dell'importazione della libreria) — sospetto che la correzione dei fili
+abbia introdotto un ricaricamento della pagina che va in conflitto col banco
+(che seleziona il file del modello e preme i pulsanti mentre la pagina si
+sta ancora ricaricando). **Da ripetere isolando le due cose**: prima il
+battito SENZA la correzione dei fili (per non mescolare due modifiche),
+poi, se serve, la correzione dei fili in un banco che aspetta la fine del
+ricaricamento prima di scegliere il file.
+
 **Test A, B, C, D non ancora eseguiti fino in fondo**: due volte su due la
 pagina non ha superato l'accensione dell'occhio (prima e' caduta con poca
 memoria, poi si e' fermata con memoria abbondante). Rifare i quattro test non
