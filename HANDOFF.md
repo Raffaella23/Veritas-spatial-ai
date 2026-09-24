@@ -125,13 +125,13 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 24/09/2026 — §6.17 RISOLTO nel workspace (costruzione `2026-09-24-b`, non pubblicata): la pagina moriva per un ciclo infinito in `dijkstra` (grafo delle zone mai rifatto), non per l'occhio. Corretti anche due blocchi lunghi (`resolveOverlaps`, filtro fisico). Giro di comprensione ora finito in 187 s; sulla pubblicata non finisce mai. Attende il via per pubblicare |
+| **Aggiornato** | 24/09/2026 — §6.17 RISOLTO E PUBBLICATO: la pagina moriva per un ciclo infinito in `dijkstra`, non per l'occhio. Poi: pagina mai ferma piu' di 16 s, motore fisico stabile, isolamento alla prima visita |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
-| **Nota** | `1c4faef` è il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
+| **Ultimo commit di codice pubblicato** | `60bc3d3` — *pagina fluida e motore fisico stabile* (prima: `d6d677c` il ciclo infinito di `dijkstra`, `1c4faef` l'occhio guarda solo dove c'e' qualcosa) |
+| **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-09-22-e` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-22-e` |
+| **Costruzione pubblicata e servita** | `2026-09-24-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-24-d` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -925,18 +925,21 @@ e **solo se** i posti misurati chiedono più zone di quelle che ci sono.
 `applyAutoAssignment` è interna a `index.html` e non è esposta: il ponte va
 aggiunto li', vicino a `window.__veritasAssegnazioneAutorevole`.
 
-⚠️ **Prima di farlo, leggere il §6.17:** aggiungere una riassegnazione a una
-pagina che già muore peggiora il guasto più grave, non il meno grave.
+✅ Il freno che c'era qui («prima il §6.17: la pagina muore») e' tolto: il
+§6.17 e' risolto dal 24/09. Pero' ogni riassegnazione rigenera la traiettoria
+(`applyNodesToScene` → `generateTrajectory`): va misurato quanto pesa farla
+due volte.
 
 ---
 
 ### 6.17 — LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto piu' grave
 
-## ✅ 24/09/2026 — CAUSA TROVATA E CORRETTA (nel workspace, costruzione `2026-09-24-b`, NON ancora pubblicata)
+## ✅ 24/09/2026 — RISOLTO E PUBBLICATO (costruzione `2026-09-24-d`, commit `60bc3d3`)
 
-⚠️ **Tutto quello che segue in questa sezione (Worker, memoria, ORT, "tetto di
-   Chromium", strada 1/strada 2) era una pista sbagliata.** L'occhio non era mai
-   il colpevole: era la vittima. Si legge solo come storia.
+⚠️ **La diagnosi dei giorni 22-24/09 (Worker, memoria, ORT, "tetto di Chromium",
+   strada 1/strada 2) era una pista sbagliata ed e' stata cancellata da qui:
+   l'occhio non era il colpevole, era la vittima.** Chi la cerca la trova in
+   `git log` (commit da `c098472` a `5034abf`), non va ripresa.
 
 **Come si e' trovato.** Le prove di ieri misuravano con `page.evaluate`, che
 DevTools fa entrare per interruzione anche dentro un compito che non finisce:
@@ -977,468 +980,50 @@ punto.
 | occhio a scena carica | non riceve niente | 366 cose posate, 20 volumi; sguardo vero risposto in 25 s |
 | 41 test del progetto | — | esito identico a `main` (le 2 rosse di `corpo_collegato` sono le vecchie del §6.7) |
 
+**Seconda parte, stesso giorno (`60bc3d3`, costruzione `2026-09-24-d`):**
+
+4. **`realFloorYNear` interrogava tutte le 2.416 mesh per ogni punto di
+   percorso** (126 s su 148 di profilo). Ora il raggio verticale chiede solo
+   alle mesh la cui impronta in pianta contiene il punto: stessi colpi.
+5. **Il mondo fisico si rifaceva a ogni ripetizione del segnale «modello
+   caricato»** (due volte nello stesso secondo all'apertura), e un mondo
+   restava abbandonato: lo smontava piu' tardi lo spazzino della memoria
+   (`FinalizationRegistry`: rawislandmanager, rawnarrowphase,
+   rawphysicspipeline, rawrigidbodyset), e da li' «unreachable», «memory
+   access out of bounds» e il mondo vivo che non rispondeva. VERIFICATO con una
+   spia sulle `FinalizationRegistry` e lo spazzino forzato ogni 10 s. Ora si
+   rifa' solo se cambia il modello (radice o ingombro) o se il mondo non
+   risponde, e nessun mondo resta senza padrone.
+6. **`veritas_fili.js`**: la pagina ora si isola gia' alla prima visita (12
+   processori invece di 1). Era il difetto trovato il 23/09.
+7. Tolte dal codice le spiegazioni false «267935216 = 255,5 MB»;
+   `banco/reinlina.py` rifiuta `veritas_corpo.js` (copia morta).
+
+**Misura finale, stesso banco, spazzino forzato ogni 10 s:**
+
+| | `24-b` | `24-d` |
+|---|---|---|
+| pagina ferma al massimo | 43-103 s | **11-16 s** (tre giri) |
+| errori del motore fisico | 2 giri su 2 (mondo perso) | **0 in 3 giri** |
+| mondi fisici costruiti per un modello | 2 (piu' i rifacimenti) | **1** |
+| giro di comprensione | 187-322 s | **138-150 s** |
+| corpo fisico | — | **28 corpi, 21.947 passi, 7 posizioni dentro un solido su 5.475** |
+| 41 test | — | esito identico a `main` |
+
 **Resta aperto, dichiarato:**
-- **43 s di pagina ferma una volta per ogni traiettoria generata**:
-  `generateTrajectory` e' tutta sincrona, il peso e' `realFloorYNear` (un raggio
-  dall'alto attraverso le 2.416 mesh per ogni punto di percorso). Finisce, non
-  uccide; e' il prossimo passo per la fluidita'.
-- **`RuntimeError: unreachable` dal motore fisico** (rapier3d-compat 0.20.0),
-  visto una volta per giro. La pila non ha nessun chiamante JavaScript: e'
-  compatibile con un oggetto Rapier rilasciato in ritardo dallo spazzino della
-  memoria (ipotesi, NON verificata). Non ha fermato il giro. Probabile origine
-  dei "mondi che smettono di rispondere" gia' annotati nel blocco del corpo.
+- **Il filtro fisico lavora 43 s su un tetto di 45 s** (`TETTO_MS`). Ora non
+  ferma la pagina, ma su una macchina piu' lenta supererebbe il tetto e il
+  corpo non si applicherebbe. Lo scostamento mediano fra piano e passo vero e'
+  **7,95 m**: i corpi restano indietro, probabilmente perche' il piano
+  attraversa muri (§6.1/6.2). Da guardare.
+- Mentre il giro ricalcola le traiettorie, il filtro ricomincia ogni volta e
+  arriva in fondo solo quando il giro si calma (~2,5 min dopo la fine):
+  fino ad allora gli agenti seguono il piano senza corpo.
+- Il blocco residuo di 11-16 s e' il disegno delle viste (`render`, giro
+  dell'apertura), non piu' calcolo.
 - Il cervello (LM Studio) non era acceso nel banco: "non ho potuto capire:
   Failed to fetch" e' atteso, non un guasto.
-- `veritas_corpo.js` (copia morta) NON e' stato toccato: se qualcuno lo
-  reinlina con `banco/reinlina.py`, il punto 3 si perde.
-
-**Pubblicazione: attende il via di Raffaella.** Il codice sta nel workspace,
-`index.html` + `banco/corpo.mjs` (un `await`), sopra `5034abf`.
-
----
-
-Misurato il 22/09/2026 sera, `banco/vivo/regge_venti_tappe.mjs`: si chiede alla
-pagina una cosa banale ogni 10 secondi e si cronometra la risposta.
-
-**Sulla versione PUBBLICATA** — quella che si darebbe a un cliente:
-
-```
-  8s ... 79s   OK  risponde in 15-360 ms        otto risposte buone
-      148s     NO  ferma: 58.700 ms per rispondere
-      307s     NO  ferma: 149.243 ms per rispondere
-      307s     PAGEERROR: unreachable
-```
-
-Nel workspace la stessa cosa arriva fino in fondo: **`Target crashed`**, la
-scheda muore. Un banco lanciato prima e' rimasto appeso **36 minuti** senza che
-il suo tetto di 3 minuti scattasse — perche' il filo della pagina era fermo e
-nemmeno il cronometro girava.
-
-**NON E' STATO INTRODOTTO OGGI:** succede identico sulla costruzione pubblicata.
-E' parente del 6.8.
-
----
-
-#### La diagnosi, letta sul codice il 22/09 notte
-
-**Com'e' fatto oggi** (`veritas_occhio_lavoratore.js`):
-
-- un Worker solo, con una coda interna (`inFila`): le inferenze sono **gia' una
-  alla volta**;
-- `pipeline("zero-shot-object-detection", "Xenova/owlv2-base-patch16-ensemble",
-  {device: "wasm", dtype: "q8"})`;
-- la **sessione vive per tutta la vita del Worker** — giusto cosi', non si
-  rilascia per immagine;
-- `env.backends.onnx.wasm.proxy = false` — corretto dentro un Worker;
-- `numThreads` fino a **8** se la pagina e' `crossOriginIsolated`;
-- per inferenza: `new RawImage(new Uint8ClampedArray(m.dati), w, h, 4)` e poi
-  `rileva(immagine, parole, {threshold})`.
-
-**⛔ CORRETTO IL 23/09: IL "TETTO DI 255,5 MB" NON ESISTE.** La diagnosi del
-22/09 notte poggiava su due errori, verificati sui file:
-
-1. **Le versioni erano sbagliate.** La 4.2.0 sta solo nel `package.json` del
-   workspace, e con la 4.x OWL non si apre nemmeno (avviso in `index.html`).
-   L'occhio carica **transformers.js 3.8.1** (`index.html:91`,
-   `veritas_riconosce.js:1227`), che dipende da **onnxruntime-web
-   1.22.0-dev.20250409-89f8206ba4** (`npm view @huggingface/transformers@3.8.1
-   dependencies`). E' comunque una build **dev**. L'ultima stabile oggi e'
-   la **1.30.0**.
-2. **`267935216` non e' una misura di memoria.** E' un **numero nudo**, cioe'
-   l'indirizzo di un'eccezione C++ che ORT Web lancia cosi' com'e', perche'
-   e' compilato senza il supporto alle eccezioni di Emscripten. Fonti: [ORT
-   #13408](https://github.com/microsoft/onnxruntime/issues/13408), [Emscripten,
-   C++ exceptions](https://emscripten.org/docs/porting/exceptions.html). Lo
-   conferma il fatto che lo stesso identico numero esce anche su
-   `webgpu/q4f16` (`veritas_fili.js:21`): un tetto non darebbe lo stesso valore
-   su due strade diverse. Dividerlo per 1.048.576 non ha significato.
-3. **Il tetto vero del motore e' 4 GB.** Letto dentro i binari di ORT 1.22.0-dev
-   (`ort-wasm-simd-threaded.wasm` e `.jsep.wasm`): memoria importata condivisa,
-   iniziale **16 MB**, massima **4096 MB**. `env.wasm` non ha manopole di
-   memoria: le sue opzioni sono `numThreads`, `simd`, `trace`, `initTimeout`,
-   `wasmPaths`, `wasmBinary`, `proxy` (`onnxruntime-common/dist/esm/env.d.ts`).
-
-**Quindi non sappiamo ancora COSA finisce.** Ipotesi aperte, tutte da misurare
-col banco del punto 0, nessuna provata:
-- la memoria del motore cresce fino ai 4 GB (perdita o frammentazione);
-- muore il processo della scheda (`Target crashed`) prima dei 4 GB, perche'
-  pesa la pagina intera: scena 3D + motore + 8 fili;
-- un'eccezione C++ reale (il numero nudo) con dietro un'altra causa.
-
-Restano validi i conti sulla grandezza del lavoro: OWLv2 a 960x960,
-`pixel_values` = **11 MB**, patch embedding (3.600 x 768) altri **11 MB**, gli
-intermedi dell'attenzione sono un multiplo di questi, e con **8 fili** il
-picco si moltiplica. E resta valida la forma del guasto: **otto risposte buone,
-poi il collasso**.
-
-**Ma le 177 parole contano poco sul tempo**, misurato il 04/09
-(`veritas_fili.js`): 4 parole 202,8 s, 16 parole 201,3 s. Il tempo va a
-guardare l'immagine. Il test B dirà se vale anche per la memoria.
-
-**Le 177 parole NON si possono calcolare una volta sola.** Verificato sul Hub:
-`Xenova/owlv2-base-patch16-ensemble` ha **un grafo unico** (`onnx/model.onnx`
-614 MB, piu' le versioni compresse: `model_quantized` 155 MB, `model_fp16` 308,
-`model_q4f16` 128). Non c'e' nessun export separato del text encoder, quindi
-testo e immagine entrano nello stesso passaggio. Cacharli richiederebbe di
-riesportare il modello. **L'unica leva su quell'asse e' chiamare il rilevatore
-MENO VOLTE**, ed e' quello che fa gia' `tavolaDiRitagli` (3 chiamate -> 1).
-
----
-
-#### I tre interventi, in ordine
-
-**0. Prima di toccare qualunque cosa: il banco strumentato.** Senza vedere la
-memoria salire immagine per immagine, i tre interventi qui sotto sono tre
-scommesse. Servono, per ogni inferenza: numero, durata, heap JS disponibile,
-memoria del motore se leggibile. E i test di isolamento: **A** stessa immagine
-10 volte con 177 parole; **B** stessa immagine con 1 parola sola; **C** 177
-parole ricreando il Worker ogni 5 immagini; **D** 177 parole con immagini a
-512 / 768 / 1024 px.
-Lettura: A cresce -> cumulativo; B regge e A no -> contano le query; C risolve ->
-memoria non recuperata nel Worker; D cambia tutto -> pressione da risoluzione.
-
-**Fatto il 23/09/2026, nel workspace (non pubblicato):**
-`banco/vivo/banco_strumentato.mjs` (i quattro test) e
-`banco/vivo/occhio_da_solo.mjs` (accende l'occhio senza scena 3D, per isolare
-se il collasso viene dal modello da solo o dalla combinazione con la scena).
-Il lavoratore (`veritas_occhio_lavoratore.js`) misura, per ogni sguardo, il
-tempo totale e la memoria JS prima/dopo, appesi all'elenco delle rilevazioni.
-
-**⛔ Il primo tentativo di dividere il tempo in preprocess/inferenza/
-rifinitura ERA ROTTO E FALSAVA TUTTO.** Avvolgeva `tokenizer`/`processor`/
-`model` della pipeline per cronometrarli separatamente, ma in transformers.js
-non sono funzioni normali (`.bind` non esiste su di loro): l'errore faceva
-cadere la pagina PRIMA di qualunque sguardo. Ogni "Target crashed" misurato con
-quella versione era il banco che si rompeva, non OWLv2. **Tolto**: resta solo
-il tempo totale, sicuro.
-
-**Prima misura utile, con la versione corretta:**
-- **l'occhio da solo, senza scena 3D, si accende in ~11 s senza cadere**
-  (`occhio_da_solo.mjs`, provato piu' volte);
-- **con la scena 3D caricata (il modello aeroporto), la pagina cade
-  all'accensione dell'occhio, prima ancora del primo sguardo** — non dopo
-  otto risposte come sulla pubblicata: qui in questo workspace cade subito.
-  Conferma la diagnosi del 04/09 (scena + occhio insieme superano quello che
-  la macchina puo' reggere), ma il fatto che cada COSI' presto — non dopo un
-  po' — e' nuovo e non ancora spiegato.
-- **la macchina di prova aveva poca memoria libera durante le prime prove: fra
-  1 e 5 GB su 16 totali**, per via di altri programmi aperti (non i test).
-
-**Rifatto con la macchina libera (8 GB liberi all'avvio, mai sceso sotto i
-4,3 GB durante la prova): NON e' caduta piu'. Si e' FERMATA — un guasto
-diverso.** Il lavoratore ha tenuto occupati stabilmente ~3 GB per oltre 10
-minuti, senza rispondere e senza scrivere niente (nemmeno l'errore): esattamente
-il blocco gia' descritto nel §9 il 22/09 ("un banco lanciato prima e' rimasto
-appeso 36 minuti... perche' il filo della pagina era fermo e nemmeno il
-cronometro girava"). Fermato a mano dopo 10-12 minuti.
-
-**Rifatto guardando la rete (23/09, `banco/vivo/occhio_con_rete.mjs`): E' UN
-VERO BLOCCO, non uno scarico lento.** All'accensione la pagina fa il suo
-traffico normale (font, `three.js`, `rapier`, e un tentativo verso LM Studio
-in locale che fallisce subito e non c'entra — nessuna sorpresa, non era
-acceso). Poi, appena parte l'accensione dell'occhio: **zero richieste di rete
-nuove per oltre 90 secondi filati**, fermato a mano. Nessun byte verso
-Hugging Face, nessun errore, nessuna risposta — silenzio totale. Non e' un
-download che va piano: **non parte proprio nessuna richiesta**, quindi la
-pagina si blocca PRIMA di chiedere alla rete i pesi del modello.
-
-Questo restringe il sospetto: non e' il download di 155 MB, e' qualcosa che
-succede prima — l'importazione della libreria transformers.js dentro il
-Worker, o la creazione della sessione ONNX (compilazione del motore WASM),
-entrambe sincrone e pesanti, con la scena 3D gia' in memoria. Coerente con la
-diagnosi del 04/09: **e' la combinazione scena+occhio a bloccare**, non il
-download ne' — per ora — un limite di memoria del sistema (la macchina aveva
-margine abbondante quando e' successo).
-
-**Prossimo passo:** isolare se si blocca dentro il Worker prima di arrivare a
-`pipeline(...)`, o dentro `pipeline(...)` stesso (compilazione ONNX). Il modo
-piu' diretto: un `console.log` di battito dentro
-`veritas_occhio_lavoratore.js`, subito prima e subito dopo ogni riga di
-`accendi()` — se anche quello smette di scrivere, il blocco e' nell'importazione
-o nella compilazione WASM, non nella rete ne' nella lettura del risultato.
-
-**⚖ TROVATO E CORRETTO, IN PARALLELO (23/09): `veritas_fili.js` non isolava
-MAI la pagina — un difetto vero, indipendente dal blocco.** Il controllo per
-decidere se ricaricare la pagina guardava `!navigator.serviceWorker.controller`,
-ma il lavoratore di servizio chiama `clients.claim()` al suo `activate` e
-prende in mano la pagina SUBITO, senza bisogno di un ricaricamento: il
-controllo vedeva "controller gia' presente" e non ricaricava mai, quindi le
-intestazioni che isolano la pagina non arrivavano MAI. C'era anche un secondo
-difetto, di tempismo: il controllo arrivava prima che il lavoratore fosse
-"active". **Verificato su`veritas_fili.js` corretto (solo nel workspace, non
-pubblicato): con la correzione la pagina si ricarica una volta, poi dice
-"pagina gia' isolata: 12 processori disponibili" — confermato tre volte.**
-Questo pero' NON e' bastato a far passare l'occhio oltre l'accensione con la
-scena carica: provato anche con la correzione, si e' bloccato lo stesso.
-Quindi l'isolamento mancante non e' la causa del blocco — resta un difetto
-vero e a se', da proporre come correzione separata quando si torna sui fili.
-
-**Il battito riga per riga, rifatto DA SOLO (senza la correzione dei fili, per
-non mescolare due modifiche): stesso risultato, zero battiti.** Non e' stato
-il ricaricamento a confondere la prima prova — il blocco e' anche piu' a monte
-di quanto pensato: **si ferma PRIMA del primo battito**, cioe' prima ancora di
-`await import(m.libreria)` dentro `accendi()`. Quindi il messaggio `"accendi"`
-non arriva mai al Worker, o il Worker non arriva mai a eseguirlo.
-
-**IL PUNTO ESATTO, trovato (23/09, ultimo giro della sessione).** Messo un
-segno sulla PAGINA appena prima e appena dopo `new Worker(...)`, e uno in
-cima al file del Worker (prima riga eseguita, fuori da qualunque funzione).
-Risultato, ripetuto tre volte:
-
-```
-pagina: prima di new Worker()          <- arriva
-pagina: Worker creato, in attesa...    <- arriva
-(nessun segno da dentro il Worker)     <- NON arriva mai
-```
-
-**Il Worker si crea senza errori, ma il suo file non esegue mai nemmeno la
-prima riga.** Aggiunta anche una spia sulla richiesta di rete verso
-`veritas_occhio_lavoratore.js?v=1`: **non ne arriva nessuna**, nemmeno un
-tentativo fallito. Questo secondo punto pero' e' da prendere con cautela — non
-e' certo che le richieste di un Web Worker passino dagli stessi controlli di
-rete usati per la pagina in questo banco (limite noto di Playwright con
-alcune versioni di Chromium); puo' darsi che la richiesta parta e il banco
-semplicemente non la veda, non che non parta.
-
-**Cosa e' certo:** con la scena 3D gia' in memoria, la stessa identica riga di
-codice che crea il Worker (`occhioNelLavoratore()` in `veritas_riconosce.js`)
-smette di portare a termine il suo lavoro — mentre **senza scena** (misurato
-prima in `occhio_da_solo.mjs`, piu' volte) la stessa riga apre il Worker in
-circa 11 secondi senza problemi. Conferma ancora una volta che e' la
-combinazione scena+occhio, ma ora si sa che il punto di rottura e' proprio
-li': l'AVVIO del Worker, non l'apertura della libreria dentro di esso.
-
-**Prossima sessione, in ordine:**
-1. Capire se e' un limite di Chromium sotto carico (troppi thread/processi gia'
-   attivi per la scena 3D + fisica, e il nuovo Worker non trova posto) o
-   qualcos'altro. Test mirato: creare un Worker vuoto, senza aprire nessuna
-   libreria, con la scena carica — se ANCHE QUELLO non parte, il problema non
-   e' transformers.js/OWLv2 per niente, e' il Worker in se'.
-2. Se il Worker vuoto parte regolarmente, il sospetto torna sull'importazione
-   dinamica (`await import(m.libreria)`) dentro il Worker vero.
-3. La correzione dell'isolamento dei fili (sopra) e' pronta e verificata, ma
-   va proposta e discussa a parte: non risolve questo blocco.
-
----
-
-**✅ PUNTO 1 ESEGUITO (23/09 sera, sessione successiva). RISULTATO: ANCHE IL
-WORKER VUOTO NON PARTE.**
-
-Test nuovo, `banco/vivo/worker_vuoto_con_scena.mjs` (non nel repository
-ufficiale, solo nel workspace): stessa apertura di pagina e stesso
-caricamento del modello aeroporto degli altri banchi del §6.17, poi — a scena
-assestata (`window.__veritasModelRoot` presente, 8 s di margine) — si crea un
-Worker **senza nessun file, senza rete, senza libreria**: il codice del
-Worker e' due righe passate come Blob URL (`console.log` + `postMessage`),
-con un tetto di 30 s misurato DENTRO la pagina.
-
-**Esito: silenzio totale.** Non e' arrivato ne' il messaggio del Worker, ne'
-un errore, ne' il timeout di 30 s dentro la pagina stessa — segno che non era
-il Worker da solo a non rispondere, ma **il filo principale della pagina non
-girava piu' abbastanza da far scattare un timer**. Fermato a mano dopo
-7-8 minuti, sullo stesso schema del blocco gia' descritto nel §9 il 22/09.
-
-**Cosa dice, e cosa NON dice ancora.** Conferma la direzione del punto 1:
-**non e' transformers.js/OWLv2** — un Worker che non tocca nessuna libreria
-si blocca allo stesso modo. Ma il test, com'e' scritto oggi, non distingue
-fra due letture diverse:
-- il blocco e' specifico alla creazione di un Worker sotto carico (troppi
-  thread/processi per la scena 3D + fisica, come ipotizzato);
-- oppure il filo principale e' gia' saturo PRIMA ancora di arrivare alla riga
-  `new Worker(...)` — nel qual caso qualunque lavoro nuovo, Worker o no,
-  troverebbe lo stesso muro, ed e' piu' vicino al §6.8 (la pagina che si
-  blocca da sola all'avvio) che a un limite specifico dei Worker.
-
-**Passo tecnico che manca, non un dubbio da chiedere:** un segno stampato
-dalla pagina SUBITO PRIMA della riga `new Worker(...)` (come nel test del
-punto precedente, che aveva gia' isolato "arriva fino a `new Worker()`, poi
-silenzio da dentro"). Senza quel segno non si sa se oggi il blocco e' ancora
-piu' a monte di quanto misurato ieri, o nello stesso punto. Prossimo passo
-tecnico, prima di qualunque altra ipotesi.
-
----
-
-**✅ FATTO SUBITO DOPO, stessa sera. RISULTATO: IL BLOCCO E' PRIMA ANCORA DI
-`new Worker()`.**
-
-Aggiunto il segno mancante: un `console.log` **appena prima** e uno **appena
-dopo** la riga che crea il Worker vuoto, dentro lo stesso `worker_vuoto_con_scena.mjs`.
-Rifatto lo stesso identico giro (scena caricata, 8 s di margine, poi si entra
-nel blocco che crea il Worker).
-
-**Nessuno dei due segni e' arrivato.** Non "prima di new Worker()", non
-"Worker creato, in attesa" — silenzio identico a prima, fermato a mano dopo
-oltre 3 minuti. La riga di codice che stampa il primo segno e' la PRIMA
-istruzione dentro la funzione passata a `page.evaluate`: se anche quella non
-si vede, **il blocco non e' nella creazione del Worker — e' PRIMA, nel filo
-principale della pagina che non trova nemmeno un istante per eseguire una
-riga di JavaScript nuova**, Worker o no.
-
-⛔ **Cambia il sospetto principale.** Non e' piu' "il Worker non trova posto
-sotto carico" (ipotesi 1 del punto precedente): e' piu' vicino al §6.8 — la
-pagina che si blocca da sola, per lavoro proprio (probabilmente il passo
-continuo della fisica Rapier + il disegno della scena, che insieme non
-lasciano mai libero il filo principale) — ma qui il blocco e' molto piu'
-lungo e non e' mai il "primo caricamento" del §6.8 (quello era su profilo
-nuovo, non ripetuto).
-
-**Prossimo passo tecnico, il piu' semplice possibile:** lo stesso identico
-giro (scena caricata, stesso modello, stesso margine di 8 s), ma senza
-NESSUN Worker — solo `await page.evaluate(() => 1 + 1)`. Se anche una somma
-banale non torna, il guasto non ha niente a che fare con l'occhio ne' coi
-Worker: e' che il filo principale della pagina, con questa scena, smette di
-rispondere a QUALUNQUE richiesta esterna (script, evaluate, persino i
-timer). Se invece la somma torna subito, il blocco e' specifico a
-`new Worker(...)` e il sospetto torna li'. **Non ancora eseguito — tetto
-gettoni di sessione raggiunto stasera (23/09), va fatto alla ripresa.**
-
----
-
-## ✅ 24/09/2026 — PUNTO 1 CHIUSO. IL COLPEVOLE E' IL WORKER, NON IL FILO PRINCIPALE.
-
-⚠️ **Il "cambio di sospetto" scritto sopra ieri sera era una falsa pista,**
-dovuta a un difetto del banco di misura, non della pagina: il tetto di ieri
-era un timer messo DENTRO la pagina, e un timer li' dentro non scatta se il
-filo e' occupato — quindi "nessun segno arrivato" poteva voler dire tanto
-"il filo e' bloccato" quanto "il timer stesso non ha mai potuto scattare per
-dirlo". **Misura inconcludente, non conclusione.** Corretto il banco: il
-tetto ora sta nel processo Node (`Promise.race`), che e' un programma
-separato dal browser e il suo orologio non si ferma mai.
-
-**Tre misure, stessa scena, stesso modello, cronometrate da fuori:**
-
-| prova | tempo di risposta |
-|---|---|
-| `1+1`, **senza** scena | 2 ms |
-| `1+1`, **con** scena carica | 4.852 ms (~5 s) |
-| `new Worker(...)` vuoto, **con** scena carica | **mai** — scaduto il tetto di 40.000 ms |
-
-**Letture, una per una:**
-- **Il filo principale NON e' bloccato.** Un `1+1` chiesto dall'esterno
-  arriva sempre, anche con la scena accesa — solo circa 2.400 volte piu'
-  lento del solito (5 s invece di 2 ms), segno che il filo e' MOLTO occupato
-  (rendering + fisica), non fermo.
-- **La riga `new Worker(...)` si esegue.** I due segni ("prima di new
-  Worker", "Worker creato, in attesa") sono arrivati entrambi stavolta,
-  qualche secondo dopo l'inizio della prova — coerente con lo stesso ritardo
-  visto nel `1+1`.
-- **Il Worker pero' non risponde MAI.** Ne' un messaggio, ne' un errore, in
-  40 secondi pieni. La chiamata che lo crea torna subito (come dice sempre
-  la specifica JavaScript: `new Worker()` non aspetta che il Worker sia
-  pronto), ma il lavoro che Chromium deve fare DOPO — far nascere davvero il
-  filo del Worker ed eseguire il suo file — non arriva mai a compimento.
-
-**CONCLUSIONE, la stessa del punto 1 originale, ora provata invece che
-sospettata: e' un limite di Chromium sotto carico — troppi thread/processi
-gia' impegnati dalla scena 3D + la fisica — e il Worker nuovo non trova
-posto per nascere davvero. NON e' transformers.js/OWLv2 (§6.17, causa
-esclusa il 23/09): un Worker senza nessuna libreria fa lo stesso identico
-guasto. NON e' il filo principale bloccato in assoluto: quello risponde
-ancora, solo piu' lento.**
-
-**Cosa serve adesso — non piu' diagnosi, ma una correzione da discutere:**
-il problema non e' COSA fa il Worker dell'occhio, e' IL MOMENTO in cui nasce
-— dopo che la scena pesante e' gia' accesa e sta consumando la macchina. Due
-strade possibili, nessuna delle due scritta o provata, da proporre e
-scegliere insieme:
-1. **Far nascere il Worker dell'occhio PRIMA**, appena la pagina si apre,
-   mentre la macchina e' ancora leggera — tenerlo pronto e fermo, e
-   svegliarlo solo quando serve invece di crearlo a scena gia' accesa.
-2. **Alleggerire la macchina per un istante mentre il Worker nasce** — un
-   modo per far spazio (es. fermare un momento il disegno o il passo della
-   fisica) apposta per quel momento di nascita, poi tornare come prima.
-
-Nessuna delle due si scrive senza il tuo via: sono entrambe modifiche
-all'ordine in cui le cose accadono, non un dettaglio da 1 parola come i fix
-gia' proposti sopra.
-
----
-
-## ⛔ 24/09/2026 — LA "STRADA 1" GIA' ESISTE, E DA SOLA NON BASTA. Corretto un
-   consiglio dato a Raffaella prima di verificarlo sul codice vero.
-
-**Prima di scrivere la strada 1 da zero, trovato che esiste gia'.**
-`veritas_riconosce.js` (~riga 1910-1959) ha una funzione, `accendiQuandoEFerma`,
-scritta il **04/09/2026** per questo stesso identico sintomo: sveglia l'occhio
-8 secondi dopo che la pagina ha finito di caricarsi, apposta A PAGINA VUOTA,
-prima che arrivi un modello. Il commento di allora misurava la stessa cosa
-misurata ora: *"pagina vuota → si apre in 3,6-7,9 s; dopo il modello → non si
-apre, errore un numero nudo"*. E' la strada 1, gia' scritta e pubblicata da
-tre settimane — solo che nessuno l'aveva verificata nella diagnosi di
-questi giorni, perche' i banchi del §6.17 chiamano `occhioLocale()` a mano,
-DOPO il modello, bypassando quel meccanismo.
-
-**Verificato ora se funziona davvero** (`banco/vivo/sveglia_presto_poi_scena.mjs`,
-non pubblicato): pagina aperta, **15 secondi senza toccare niente**, poi il
-modello. Risultato:
-
-| momento | stato dell'occhio |
-|---|---|
-| dopo 15 s a pagina ferma | ancora "in carico" (sta scaricando i pesi, centinaia di MB, non e' finito) |
-| a scena carica, un po' piu' tardi | **"pronto" (wasm/q8) — l'accensione anticipata e' riuscita davvero** |
-
-**Ma "pronto" non basta.** Chiesto all'occhio gia' acceso di guardare
-davvero un'immagine (una prova minima: un quadratino bianco, una parola
-sola) **con la scena gia' carica — nessuna risposta in 3 minuti pieni**
-(180.000 ms, tetto esterno, misura certa). Rifatto due volte: primo giro 40 s
-di tetto, poi 180 s riusando lo stesso profilo (quindi con i pesi gia' in
-cache, per escludere che fosse ancora lo scaricamento) — stesso risultato.
-
-⛔ **QUESTO SMENTISCE (IN PARTE) LA RACCOMANDAZIONE DATA A RAFFAELLA PRIMA DI
-QUESTA PROVA.** Avevo consigliato la strada 1 come soluzione, ragionando che
-il problema fosse solo il MOMENTO in cui il Worker nasce. E' vero che nascere
-presto RIESCE (confermato sopra). **Ma il prodotto non ha bisogno solo che
-l'occhio nasca: ha bisogno che GUARDI, e guarda dopo, quando la scena e'
-gia' pesante** (`window.__veritasGuarda` parte dopo che gli ambienti sono
-stati misurati — a scena completa, non prima). Un occhio nato presto ma muto
-quando serve davvero non risolve il problema del cliente che aspetta.
-
-**Il sospetto si sposta, di nuovo, con una misura sotto:** non e' (solo) la
-NASCITA del Worker a trovare posto difficile sotto carico — e' l'INTERO
-lavoro che il Worker fa, dalla nascita fino a ogni singolo sguardo, a essere
-sistematicamente affamato di tempo macchina finche' la scena 3D e la fisica
-girano. Coerente con come i browser trattano di solito i fili: quello
-principale (e chi gli parla da fuori, come i nostri `1+1`) ha una corsia
-preferenziale per restare reattivo; un Worker di sottofondo no — sotto lo
-stesso carico, il filo principale rispondeva in ~5 s, il Worker non ha
-risposto in 180 s netti.
-
-**Cosa serve ora, prima di scrivere qualunque correzione:** la strada 1 resta
-valida come UNA parte (nascere presto e' comunque meglio di nascere tardi),
-ma non basta da sola. Va aggiunta la strada 2 — o una sua versione mirata:
-non solo un istante alla nascita, ma **alleggerire la macchina per tutta la
-durata di ogni sguardo vero**, non solo alla nascita del Worker. Da discutere
-con Raffaella prima di scrivere: quanto alleggerire, per quanto tempo, e se
-il costo (la scena che rallenta o si ferma mentre l'occhio guarda) sia
-accettabile per il prodotto.
-
-**Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
-pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
-fermata con memoria abbondante, e ora localizzata all'avvio del Worker).
-Rifare i quattro test non ha senso finche' questo primo scalino non si supera.
-
-**1 - ~~Alzare il tetto di memoria del motore.~~ CANCELLATO il 23/09.** Il
-tetto e' gia' 4 GB e `env` non ha una manopola per cambiarlo (vedi sopra).
-Al suo posto, **solo se il banco lo indica**, c'e' da provare la stabile
-**onnxruntime-web 1.30.0** al posto della dev 1.22. Non si fa a fiducia: la
-dev 1.22 e' quella che apre OWL (Cast(13), avviso in `index.html`), e con
-un'altra versione l'occhio potrebbe non aprirsi piu'.
-
-**2 - Ridurre i fili da 8 a 2-4.**
-Stesso file, stessa funzione, la riga `numThreads`. Ogni filo ha la propria area
-di lavoro e il picco scala con i fili. **La misura che giustifica gli 8 e' del
-04/09 ed era su 16 parole, non 177**: il bilancio puo' essersi rovesciato.
-Rischio: inferenza piu' lenta, misurabile in un colpo e reversibile in un
-carattere.
-
-**3 - Non copiare il buffer dell'immagine.**
-Stesso file, `guarda()`: `new Uint8ClampedArray(m.dati)` duplica un buffer che
-la pagina ha **gia' trasferito** (`postMessage(..., [p.dati])`). Usarlo
-direttamente. Una copia in meno e una referenza in meno viva per inferenza.
-E' l'unico dei tre che non puo' peggiorare niente.
-
-**E' a monte di tutto il resto.** Nomi, zone, tempi, l'occhio che si avvicina:
-tutto gira sopra questa pagina. Un cliente non aspetta 149 secondi, chiude.
+- `veritas_corpo.js` e' una copia morta e ormai diversa dal codice vivo.
 
 ---
 
@@ -1537,93 +1122,28 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-22-e` - commit `1c4faef` su `main` |
-| **Nota** | `1c4faef` e il fix parziale del 6.16: corretto ma **inerte** su questo modello (vedi 6.16) |
-| **Giornata** | quattro fix pubblicati, tre difetti nuovi trovati misurando |
+| **Costruzione pubblicata** | `2026-09-24-d` - commit `60bc3d3` su `main` (prima, stesso giorno: `d6d677c`, costruzione `-b`) |
+| **Giornata** | 24/09: §6.17 chiuso — causa trovata, sette correzioni, tutte misurate prima e dopo |
 
-**Quello che e' stato corretto, in ordine:**
+Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
+un ciclo infinito in `dijkstra`; l'occhio era la vittima, non il colpevole.
 
-1. **La statura di chi cammina: 2,00 -> 1,75 m** (`90f59c6`, costruzione `-a`).
-   Il 2,00 non era la statura di nessuno: era l'**altezza libera minima di
-   passaggio**, cioe' quello che la norma chiede a un edificio da costruire,
-   usata come corpo di chi cammina in un edificio esistente. Il numero stava in
-   **sei dichiarazioni** (`veritas_navmesh` PERSONA, `veritas_corpo` MISURE,
-   `veritas_cose` CORPO e le tre copie ricopiate in `index.html`): e' la ragione
-   per cui il difetto tornava a ogni giro. Ora `veritas_corpo.test.mjs` le
-   confronta tutte e sei e si ferma se divergono. `ALTEZZA_LIBERA_NORMA = 2,00`
-   resta per il confronto normativo. **Risultato: tappe da 24 a 43 m, da 3 a 7
-   su 7 su cose misurate** (6.14).
-2. **Un giro solo, domande in fila, nomi che non sono categorie** (`c178d16`,
-   costruzione `-b`). L'occhio tiene un'impronta delle zone (posizioni e aree,
-   **mai i nomi**) e non riguarda lo stesso disegno; le domande al cervello
-   vanno in coda perche' LM Studio tiene un modello solo; `validaRisposta` butta
-   i nomi che sono la categoria ricopiata.
-3. **L'occhio guarda solo dove c'e' qualcosa** (`056f333`, costruzione `-d`).
-   `ritagliSuiPosti` ritaglia la pianta sui mucchi misurati con 2,5 m di giro
-   d'aria e fonde quelli che si toccano; `tavolaDiRitagli` li impagina su
-   un'unica immagine, perche' il tempo del rilevatore non lo fa la superficie ma
-   le **chiamate per le parole** (177 a chiamata). **231 s invece di 316, 19%
-   dei pixel, rilevazioni sul vuoto da 44 a 6.**
-4. **Il HANDOFF**: 0.2, 0.3, 0.4 - tre direttive di Raffaella scritte dove non
-   si possono non vedere.
-
-**Quello che e' stato TROVATO e non corretto:**
-
-- **6.17 - la pagina muore mentre l'occhio lavora.** E' il guasto piu' grave e
-  non e' di oggi: succede identico sulla costruzione pubblicata.
-- **6.18 - la zona finisce dal lato sbagliato** di un aereo lungo 42 m, perche'
-  nessuno guarda da dove si entra.
-- **6.16 - il fix e' meta'**: quando si decide quante zone fare, i posti
-  misurati sono ancora zero.
-
-**Tre cose che avevo riferito male e che ho corretto misurando** (la regola del
-6.15 applicata a me stesso, tre volte in un giorno):
-
-1. "Il canale dell'occhio sulla mappa di cammino e' vuoto: 0 cose posate" -
-   **falso**: avevo letto i depositi *prima* che il giro del cervello finisse.
-   Sono 386.
-2. "`veritas_comprensione.js` non e' in pagina" - **falso**: e' importato da
-   `veritas_montaggio.js` (`type="module"`, `?v=19`).
-3. "Con 20 tappe la pagina non regge" - **falso**: le tappe erano 10-11, e la
-   pagina non si e' seduta per le tappe, e' crepata (6.17).
-
-E una quarta, sulla scala: **il "righello umano" esisteva gia'** (`index.html`
-~5619) e funziona - trova 97 persone in piedi alte 0,322 e scala x5,272 per
-portarle a 1,70 m. Ne avevo scritto un doppione in `veritas_scala.js`: buttato,
-mai pubblicato.
+**Il metodo che l'ha trovato, da riusare** (`banco/vivo/` nel workspace):
+`chi_tiene_il_filo.mjs` (battito della pagina + `Debugger.pause`: chi tiene il
+filo principale) e `giro_completo.mjs` (il giro intero cronometrato da fuori
+la pagina, con `PROFILA=1` il profilo del processore, `FINALIZZATORI=1` la spia
+sulle pulizie di memoria, `GC=1` lo spazzino forzato). ⚠️ Un `page.evaluate`
+che risponde NON prova che la pagina sia viva: DevTools entra per
+interruzione. Conta il battito dei timer della pagina.
 
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
-**6.17 - LA PAGINA CHE MUORE, e viene prima di tutto il resto.**
-
-✅ **24/09: causa trovata e corretta nel workspace** (vedi il riquadro in cima
-al §6.17). Il prossimo passo e' pubblicare `2026-09-24-b` quando Raffaella da'
-il via, e verificarla dal vivo. Poi: i 43 s di `generateTrajectory`, e l'ordine
-qui sotto (6.16, 6.18, l'occhio che si avvicina). I punti 1-3 che seguono sono
-superati.
-
-Deciso con Raffaella il 22/09 sera. Ragione: nomi, zone, tempi e l'occhio che
-si avvicina girano tutti **sopra** questa pagina, e un cliente non aspetta 149
-secondi.
-
-**Da dove partire: il 6.17, CORRETTO il 23/09.** Il "tetto di 255,5 MB" non
-esiste: era un numero d'errore. Il motore arriva a 4 GB e le versioni vere sono
-transformers.js 3.8.1 e ORT 1.22.0-dev. **La causa non e' ancora nota.** Il
-banco strumentato (punto 0) e' l'unica strada, e va fatto PRIMA di toccare
-qualunque intervento.
-
-1. Rifare la misura di `regge_venti_tappe.mjs` con `SENZA_OCCHIO` (la manopola
-   c'e' gia' in `prova_fluidita.mjs`, 6.8): se senza occhio la pagina regge, la
-   causa e' confermata e non piu' un indizio.
-2. Guardare quanta memoria tiene il lavoratore dell'occhio e se rilascia fra un
-   ritaglio e l'altro. I ritagli sono nuovi di oggi: vanno misurati anche loro,
-   anche se il guasto e' precedente.
-3. Nel banco, leggere la memoria del motore direttamente dal lavoratore (la
-   grandezza del buffer di memoria WASM, dopo ogni sguardo) e la memoria
-   della scheda. Solo cosi' si capisce quale delle tre ipotesi del 6.17 e'
-   quella vera.
+**6.17 - LA PAGINA CHE MUORE: RISOLTO E PUBBLICATO** (`2026-09-24-d`,
+`60bc3d3`; causa e misure in cima al §6.17). Resta da verificare dal vivo nel
+Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
+fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
 **Poi, nell'ordine deciso con Raffaella:**
 - **6.16** la meta' mancante (rifare il conto quando gli arredi arrivano);
@@ -1689,7 +1209,7 @@ https, `--allow-running-insecure-content`.
 | 21/09 | **IL SOLE E' LA REGOLA, il piatto l'eccezione.** Le viste tridimensionali dell'occhio si rendono illuminate, con ombre proprie e portate. La PIANTA resta piatta se non le si chiede il sole: da quella stessa pianta si legge la segnaletica a terra dal COLORE dei pixel, e un'ombra sopra una striscia gialla la fa diventare un'altra tinta |
 | 21/09 | **Un solo sole per tutta la piattaforma** (`accendiIlSole` in `veritas_vista.js`, riusato da `veritas_tavole.js`). Due soli tarati diversi darebbero due letture diverse dello stesso edificio |
 | 21/09 | **La costruzione si alza PRIMA di misurare nel banco.** Il 21/09 due giri col sole hanno dato immagini identiche al byte: il banco serviva la versione pubblicata e non il workspace, e siccome la costruzione era `-h` in tutti e due i casi il controllo non poteva accorgersene |
-| 20/09 | **Dentro il lavoratore il proxy di ONNX si SPEGNE.** Era stato acceso il 04/09 perché l'occhio non trovava i 255,5 MB del motore con la scena 3D caricata: la stanza separata adesso è il lavoratore stesso, e tenerlo acceso aprirebbe un lavoratore dentro il lavoratore e una seconda copia del motore in WebAssembly |
+| 20/09 | **Dentro il lavoratore il proxy di ONNX si SPEGNE.** Il proxy porta il motore fuori dal filo della pagina, e il lavoratore e' gia' fuori: tenerlo acceso aprirebbe un lavoratore dentro il lavoratore e una seconda copia del motore in WebAssembly. (La vecchia ragione, «i 255,5 MB», era falsa: vedi §6.17) |
 | 20/09 | **Si misura il BLOCCO, non l'occupazione del filo.** Col lavoratore la pagina torna a disegnare e ogni fotogramma è lavoro: a contare il filo occupato, il rimedio risulta peggiore del male. Conta il blocco più lungo e i fotogrammi che escono |
 | 20/09 | **Accesso SAM concesso (20/09). Si parte da `facebook/sam3`, non da `sam3.1`**: `sam3` è confezionato per la libreria che già usiamo (`AutoModel`, pronto per un server) e ha la versione ONNX per il browser; `sam3.1` è un checkpoint nudo, una seconda strada di codice per una precisione che non sappiamo ancora misurare. Passare a 3.1 sarà cambiare i pesi, non l'impianto |
 | 20/09 | **SAM non sostituisce OWLv2, lo completa**: uno trova e nomina (rettangoli), l'altro ritaglia il contorno (sagome). Per il §6.1 servono le sagome — una porta è un vuoto in un muro, non un rettangolo. La faccia di SAM che trova per nome gira solo su server con scheda video; quella che ritaglia gira nel browser, e `Sam3Tracker` è già dentro transformers.js 3.8.1 |
