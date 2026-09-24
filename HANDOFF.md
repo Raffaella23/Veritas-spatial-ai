@@ -125,13 +125,13 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 24/09/2026 — §6.17 RISOLTO E PUBBLICATO: la pagina moriva per un ciclo infinito in `dijkstra`, non per l'occhio. Poi: pagina mai ferma piu' di 16 s, motore fisico stabile, isolamento alla prima visita |
+| **Aggiornato** | 24/09/2026 notte — §6.14 I SUPERPOTERI DELL'OCCHIO, passi 1-2-3 PUBBLICATI (`2026-09-24-h`): le frecce a terra si calpestano, tre aperture camminabili, gruppi di posti 7 → 2. Prossimo: sezioni e prospetti a pezzi (§9) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `60bc3d3` — *pagina fluida e motore fisico stabile* (prima: `d6d677c` il ciclo infinito di `dijkstra`, `1c4faef` l'occhio guarda solo dove c'e' qualcosa) |
+| **Ultimo commit di codice pubblicato** | `228e1af` — *i superpoteri dell'occhio: le frecce a terra si calpestano* (prima: `c7a8b83` cucitura lungo la parete, `60bc3d3` pagina fluida) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-09-24-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-24-d` |
+| **Costruzione pubblicata e servita** | `2026-09-24-h` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-24-h` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -945,6 +945,59 @@ non deve fare da ostacolo.**
 - **Criterio:** le tre aperture camminabili, gruppi di posti 7 -> 1-2 al
   piano terra, nessuna panca attraversata.
 
+✅ **FATTO E PUBBLICATO il 24/09 notte** — commit `228e1af`, costruzione
+`2026-09-24-h`. Misurato sul terminal con `banco/vivo/pezzi_della_mappa.mjs`,
+che ora rilegge la mappa DOPO che l'occhio ha parlato (prima la leggeva
+all'avvio, e nessun effetto dell'occhio poteva comparire):
+
+| | prima (`-g`) | dopo (`-h`) |
+|---|---|---|
+| frecce nominate dall'occhio | **0** su 36 | riquadri «a terra» 74; **19 frecce** tolte dalla mappa |
+| apertura z −12 / z 8 / z 11,2 | chiuse | **si cammina** tutte e tre |
+| cuciture rifiutate («muro in mezzo») | 3 | **0** |
+| centro + est | 560 + 455 m², separati | **1.283 m², un pezzo solo** |
+| gruppi di posti a piedi | 7 | **2** |
+| cose tolte che non sono frecce | — | **zero** (nessuna panca, tavolo, seduta, monitor) |
+
+1. **La parola** (`veritas_riconosce.js`): `"a directional floor arrow"` fra le
+   AGGIUNTE dichiarate, `PASSO_DI` = **"a terra"** (terzo valore dopo ferma e
+   varco). Da sola: 7 riquadri, nessuno sulle aperture.
+2. **L'occhio vede le cose piccole** (`pezziDellaVista` in `veritas_riconosce.js`,
+   chiamata da `veritas_comprensione.js`). Il rilevatore rimpicciolisce ogni
+   immagine a 960 x 960: la pianta intera diventa 11 cm per pixel. Ogni PIANO si
+   guarda a pezzi da **36 m** — non scelto: 60 celle di 16 px x 0,60 m (il
+   corpo di Fruin, il metro del §0.2) — sovrapposti di un quarto, **solo sulle
+   isole della mappa di cammino di quel piano**, una volta sola al primo
+   sguardo. ⚠️ **Il prezzo**: uno sguardo costa **~11 s con 1 parola o con 9**
+   (`banco/vivo/quanto_costa_uno_sguardo.mjs`); il primo giro dell'occhio si
+   allunga di **~4-5 minuti** su questo modello.
+3. **La conseguenza arriva alla mappa** (`geometriaDaModello`, in `index.html`
+   e nella copia `veritas_navmesh.js`, identiche). Una cosa esce dalla
+   geometria solo se sono vere TUTTE: l'occhio l'ha chiamata «a terra»; sta
+   **tutta dentro** il riquadro visto; il riquadro ha il lato corto ≤ 4 m (la
+   misura con cui `marcaDallOcchio` crede a un varco); e' una **lastra**
+   (spessore ≤ ¼ del lato corto); si giudica la **cosa intera** (il nodo i cui
+   figli sono i suoi pezzi per materiale), mai un pezzo. La mappa si rifa' UNA
+   volta in `veritas_comando.riascolta`, poi `__veritasZoneSulCammino`.
+   Nuovo evento `veritas:nelMondo`: le cose posate arrivano a FINE sguardo, e
+   senza l'evento la mappa non si rifaceva mai con le frecce.
+   Prove: `veritas_navmesh.test.mjs` §11 (lastra esce, panca resta, tavolo
+   giudicato intero, pavimento mai, riquadro grande come la sala non creduto).
+   Tutte le altre prove: esito identico a `main`.
+
+⛔ **Quattro giri sbagliati prima di questo, scritti per non rifarli:**
+(1) bastava il CENTRO dentro il riquadro → 419 pezzi tolti, **i pavimenti di
+centro ed est spariti**, «gruppi 1» finto; (2) lato lungo ≤ 4 m → le file di
+frecce davanti alle aperture (riquadri 2 x 13 m) scartate; (3) «piu' bassa che
+larga» → **40 sedute in fila** e banconi tolti; (4) giudicando il pezzo → tolto
+il piano di un tavolo alto 1 m, la mappa passava fra le gambe (Cube059).
+⚠️ L'occhio chiama «freccia» anche file di sedute, con il 12-25% di fiducia:
+sono le condizioni sulla lastra e sulla cosa intera a tenerle fuori, non la
+sua sicurezza.
+⚠️ **Trappola del banco**: `veritas_navmesh.js` NON e' caricato dalla pagina
+(nessun `src`, nessun `import`): gira la copia dentro `index.html`; il file
+serve alle prove. Si toccano sempre tutte e due.
+
 ---
 
 ### 6.15 — ⚠️ DUE LETTURE SBAGLIATE DEL 21/09, scritte per non rifarle
@@ -1267,8 +1320,8 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-24-g` su `main` (cucitura lungo tutta la parete); `-f` righello 1,80; `-e` `39c77c7` §6.16 |
-| **Giornata** | 24/09 sera: §6.16 pubblicato — ponte + riappoggio dopo l'occhio; a fine giro 10 posti su 20 coperti (erano 8). Mattina: §6.17 chiuso |
+| **Costruzione pubblicata** | `2026-09-24-h` su `main`, commit `228e1af` (superpoteri dell'occhio); `-g` cucitura lungo la parete; `-f` righello 1,80 |
+| **Giornata** | 24/09 notte: §6.14 passi 1-2-3 — frecce «a terra», occhio a pezzi da 36 m, mappa rifatta dopo l'occhio. Tre aperture camminabili, gruppi 7 → 2, tolte solo frecce. Misure nel §6.14 |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
 un ciclo infinito in `dijkstra`; l'occhio era la vittima, non il colpevole.
@@ -1295,10 +1348,24 @@ Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
 fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
 **Poi, nell'ordine deciso con Raffaella:**
-- **6.14 — PROSSIMA SESSIONE: i superpoteri dell'occhio**, il PIANO in tre
-  passi scritto in fondo al §6.14 (la conseguenza «a terra», l'occhio che vede
-  le cose piccole in pianta, la mappa rifatta quando l'occhio ha parlato). Le
-  aperture della parete sono chiuse dalle frecce fucsia: e' misurato.
+- **6.14 — FATTO E PUBBLICATO** (`2026-09-24-h`, misure nel §6.14).
+- ⛔ **PROSSIMO: SEZIONI E PROSPETTI A PEZZI** — Raffaella, 24/09 notte, con
+  quattro schermate del pannello «what I see»: *«cosa può capire mai il povero
+  occhio!!!! sono quasi tutti così gli scorci... la sezione longitudinale deve
+  essere suddivisa in pezzi grandi come una sequenza, magari con un nome che
+  indichi che è parte di un'immagine più grande»*. La causa, letta nel codice:
+  l'abaco spezza un fronte solo oltre **6:1** (`rapporto_massimo_di_una_tavola`,
+  `veritas_manuale.js`), ma l'occhio guarda un QUADRATO 960 x 960: un terminal
+  di 106 m resta un foglio unico e diventa una striscia quasi vuota.
+  La cura e' la stessa della pianta: pezzi QUADRATI, in fila, con il nome
+  «SEZIONE longitudinale — pezzo 3 di 8, dal metro 36 al 54» (le etichette
+  «segmento i di n» esistono gia'). ⚠️ Il conto da mettere davanti a Raffaella
+  prima di scrivere: ogni pezzo ~11 s, e oggi all'occhio arrivano solo 13 viste
+  (`VISTE_PER_GIRO`, `GIRI_MASSIMI`): con i pezzi o si alza il tetto (minuti)
+  o le sezioni si mangiano le viste da dentro. Sonda pronta:
+  `banco/vivo/cosa_arriva_all_occhio.mjs` (quanto del quadrato e' disegno).
+  E il manuale dice gia' `inquadratura_su: "il costruito"` (validato), mai
+  implementato: si inquadra ancora l'ingombro con gli aerei.
 - **6.18** il lato dell'accesso;
 - **l'occhio che gira e si avvicina** a quello che sta capendo, con il nome che
   compare li': chiesto da Raffaella il 22/09, ed e' il 0.1 applicato alla
@@ -1318,7 +1385,10 @@ fisico vicino al suo tetto, lo scostamento di 7,95 m).
 `quanto_e_alta_la_gente.mjs` (le stature a confronto),
 `tutte_le_tavole_al_cervello.mjs` (tavola per tavola fino al cervello, **serve
 LM Studio acceso**), `regge_venti_tappe.mjs` (la pagina risponde ancora?),
-`dove_stanno_le_tappe.mjs`, `prova_attesa.mjs`, `sonda_stati.mjs`.
+`dove_stanno_le_tappe.mjs`, `prova_attesa.mjs`, `sonda_stati.mjs`;
+dal 24/09 notte `pezzi_della_mappa.mjs` (prima e DOPO l'occhio, aperture,
+cose tolte), `frecce_e_occhio.mjs`, `quanto_costa_uno_sguardo.mjs`,
+`come_sono_fatte_le_cose.mjs`, `cosa_arriva_all_occhio.mjs`.
 Servono `npm install playwright` nel workspace e, per LM Studio da una pagina
 https, `--allow-running-insecure-content`.
 
@@ -1328,6 +1398,10 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 24/09 notte | **La freccia a terra si calpesta perche' l'occhio la vede** (PASSO_DI "a terra"), non per una regola geometrica. La geometria dice solo QUALE cosa del riquadro e' la lastra |
+| 24/09 notte | L'occhio guarda i piani **a pezzi da 36 m** (60 celle x 0,60 m, il metro del §0.2), solo dove si cammina, una volta sola |
+| 24/09 notte | Si giudica **la cosa intera**, mai il suo pezzo per materiale |
+| 24/09 notte | Sezioni e prospetti vanno all'occhio **a pezzi quadrati in fila, con il nome della sequenza** (Raffaella). Da fare: §9 |
 | 22/09 | **La figura umana e' il metro** (§0.2): la gente disegnata nel modello da' la scala e la statura, non uno standard |
 | 22/09 | **Il dubbio si chiede subito** (§0.3): non si costruisce una sonda per rispondersi da soli a cio' che Raffaella chiarisce in una riga |
 | 22/09 | **L'occhio e' il re, il cervello e' il suddito** (§0.4): e' una verita', non una domanda. Non si ridiscute |
