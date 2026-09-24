@@ -125,7 +125,7 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 24/09/2026 (la strada 1 — svegliare l'occhio presto — esiste già dal 04/09 e nascere presto le riesce davvero, ma non basta: una volta nato, l'occhio non risponde a uno sguardo vero mentre la scena è carica, nemmeno in 3 minuti. Il difetto non è solo "quando nasce", è "quanto tempo macchina ottiene per lavorare mentre la scena gira". Serve anche la strada 2, mirata sulla durata dello sguardo, non solo sulla nascita — da discutere con Raffaella prima di scrivere) |
+| **Aggiornato** | 24/09/2026 — §6.17 RISOLTO nel workspace (costruzione `2026-09-24-b`, non pubblicata): la pagina moriva per un ciclo infinito in `dijkstra` (grafo delle zone mai rifatto), non per l'occhio. Corretti anche due blocchi lunghi (`resolveOverlaps`, filtro fisico). Giro di comprensione ora finito in 187 s; sulla pubblicata non finisce mai. Attende il via per pubblicare |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
@@ -932,6 +932,71 @@ pagina che già muore peggiora il guasto più grave, non il meno grave.
 
 ### 6.17 — LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto piu' grave
 
+## ✅ 24/09/2026 — CAUSA TROVATA E CORRETTA (nel workspace, costruzione `2026-09-24-b`, NON ancora pubblicata)
+
+⚠️ **Tutto quello che segue in questa sezione (Worker, memoria, ORT, "tetto di
+   Chromium", strada 1/strada 2) era una pista sbagliata.** L'occhio non era mai
+   il colpevole: era la vittima. Si legge solo come storia.
+
+**Come si e' trovato.** Le prove di ieri misuravano con `page.evaluate`, che
+DevTools fa entrare per interruzione anche dentro un compito che non finisce:
+per questo "1+1 rispondeva" mentre la pagina era morta. Il segno vero era un
+altro: i timer della pagina non scattavano. Banco `banco/vivo/chi_tiene_il_filo.mjs`
+(workspace): un battito ogni secondo nella pagina + `Debugger.pause` ogni 5 s
+per leggere CHI tiene il filo. Sulla pubblicata, 16 campioni su 20 nello stesso
+punto.
+
+**Le tre cause, tutte in `index.html`, nessuna nell'occhio:**
+
+1. **Ciclo infinito in `dijkstra`** (la vera assassina). Il grafo delle zone
+   (`lastZoneGraph`) si costruiva UNA volta e non si rifaceva mai quando le zone
+   cambiano (`lastZones` si riassegna in tre punti). Con piu' zone di prima,
+   `dijkstra` riceveva un indice fuori dal grafo: `dist[end]` valeva
+   `undefined` (non `Infinity`), il controllo non scattava, e
+   `for (c = end; c !== -1; c = prev[c])` girava per sempre con `c = undefined`,
+   gonfiando un array senza fine → pagina sorda, memoria che cresce, poi
+   `Target crashed`. E' "otto risposte buone, poi il collasso". **Corretto:** il
+   grafo si rifa' quando cambiano zone o punti; `dijkstra` rifiuta indici fuori
+   dal grafo e non puo' piu' ciclare.
+2. **`resolveOverlaps` scorreva TUTTA la nuvola dei punti calpestabili** per
+   ogni corpo a ogni fotogramma. **Corretto:** usa l'indice a celle che gia'
+   esisteva (`indiceNuvola`), stesse soglie (1,2 m e 3 m), stessa spinta.
+3. **Il filtro fisico (`filtraFrames`) calcolava la simulazione intera in un
+   colpo solo**: misurati fino a 132 s di pagina sorda, e ripartiva a ogni
+   ricalcolo. **Corretto:** restituisce la parola alla pagina ogni 30 ms
+   (`RESPIRO_MS`); il tetto di 45 s conta solo il lavoro; una corsa alla volta,
+   e un ricalcolo piu' recente ferma quello vecchio; se il mondo fisico viene
+   rifatto nel frattempo non lo tocca piu'. Il risultato calcolato e' lo stesso.
+
+**Misura prima/dopo, stesso modello, stesso banco (`banco/vivo/giro_completo.mjs`):**
+
+| | pubblicata `22-e` | corretta `24-b` |
+|---|---|---|
+| pagina | ferma 457 s senza ripartire, 18/18 campioni in `dijkstra` | risponde sempre; blocco piu' lungo 43 s |
+| giro di comprensione | non finisce | **finito in 187 s** |
+| occhio a scena carica | non riceve niente | 366 cose posate, 20 volumi; sguardo vero risposto in 25 s |
+| 41 test del progetto | — | esito identico a `main` (le 2 rosse di `corpo_collegato` sono le vecchie del §6.7) |
+
+**Resta aperto, dichiarato:**
+- **43 s di pagina ferma una volta per ogni traiettoria generata**:
+  `generateTrajectory` e' tutta sincrona, il peso e' `realFloorYNear` (un raggio
+  dall'alto attraverso le 2.416 mesh per ogni punto di percorso). Finisce, non
+  uccide; e' il prossimo passo per la fluidita'.
+- **`RuntimeError: unreachable` dal motore fisico** (rapier3d-compat 0.20.0),
+  visto una volta per giro. La pila non ha nessun chiamante JavaScript: e'
+  compatibile con un oggetto Rapier rilasciato in ritardo dallo spazzino della
+  memoria (ipotesi, NON verificata). Non ha fermato il giro. Probabile origine
+  dei "mondi che smettono di rispondere" gia' annotati nel blocco del corpo.
+- Il cervello (LM Studio) non era acceso nel banco: "non ho potuto capire:
+  Failed to fetch" e' atteso, non un guasto.
+- `veritas_corpo.js` (copia morta) NON e' stato toccato: se qualcuno lo
+  reinlina con `banco/reinlina.py`, il punto 3 si perde.
+
+**Pubblicazione: attende il via di Raffaella.** Il codice sta nel workspace,
+`index.html` + `banco/corpo.mjs` (un `await`), sopra `5034abf`.
+
+---
+
 Misurato il 22/09/2026 sera, `banco/vivo/regge_venti_tappe.mjs`: si chiede alla
 pagina una cosa banale ogni 10 secondi e si cronometra la risposta.
 
@@ -1532,6 +1597,12 @@ mai pubblicato.
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
 **6.17 - LA PAGINA CHE MUORE, e viene prima di tutto il resto.**
+
+✅ **24/09: causa trovata e corretta nel workspace** (vedi il riquadro in cima
+al §6.17). Il prossimo passo e' pubblicare `2026-09-24-b` quando Raffaella da'
+il via, e verificarla dal vivo. Poi: i 43 s di `generateTrajectory`, e l'ordine
+qui sotto (6.16, 6.18, l'occhio che si avvicina). I punti 1-3 che seguono sono
+superati.
 
 Deciso con Raffaella il 22/09 sera. Ragione: nomi, zone, tempi e l'occhio che
 si avvicina girano tutti **sopra** questa pagina, e un cliente non aspetta 149
