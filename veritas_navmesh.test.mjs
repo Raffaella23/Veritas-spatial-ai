@@ -13,7 +13,7 @@
 import { generateSoloNavMesh } from 'navcat/blocks';
 import * as nav from 'navcat';
 import {
-  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA } from './veritas_navmesh.js';
+  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA, collegamentiOrizzontali } from './veritas_navmesh.js';
 
 let ko = 0;
 const check = (n, ok, d = '') => {
@@ -332,6 +332,32 @@ console.log('\n9. quanto costa');
   for (let i = 0; i < 50; i++) percorso(nav, r.navMesh, [3, 0, 3], [117, 0, 77]);
   const msP = (Date.now() - t1) / 50;
   check('e un percorso costa meno di 5 ms', msP < 5, msP.toFixed(2) + ' ms');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n10. una parete fra due piastre: piena resta chiusa, con un\'apertura si passa');
+{
+  // Il terminal del 24/09: due piastre di pavimento con una fessura sotto una
+  // parete vera. Il punto PIU' VICINO fra le piastre sta dove la parete e'
+  // piena (il pezzetto sporgente a z 0-2); l'apertura sta a z 10-12. Prima si
+  // provava solo il punto piu' vicino, e l'apertura non veniva mai guardata.
+  const due = (conApertura) => {
+    const s = scena().piano(0, 0, 20, 14, 0).piano(20.6, 0, 40.6, 14, 0).piano(20.45, 0, 20.6, 2, 0);
+    if (conApertura) s.muro(20.3, 0, 20.3, 10, 3).muro(20.3, 12, 20.3, 14, 3);
+    else s.muro(20.3, 0, 20.3, 14, 3);
+    const geo = s.geometria();
+    const r = costruisci(blocks, geo);
+    const c = collegamentiOrizzontali(nav, r.navMesh, isole(r.navMesh), geo);
+    const ps = percorso(nav, r.navMesh, [5, 0, 7], [35, 0, 7]);
+    return { c, passa: !!(ps && !ps.parziale) };
+  };
+  const piena = due(false), aperta = due(true);
+  check('parete piena: nessun ponte, non si passa', !piena.c.aggiunti.length && !piena.passa,
+    piena.c.aggiunti.length + ' ponti · ' + (piena.c.scartati[0] || {}).perche);
+  check('parete con apertura di 2 m: si passa dall\'apertura', aperta.c.aggiunti.length > 0 && aperta.passa,
+    aperta.c.aggiunti.length + ' ponti a z ' + aperta.c.aggiunti.map((x) => x.da[2].toFixed(1)).join(', '));
+  check('e il ponte sta nell\'apertura, non sulla parete',
+    aperta.c.aggiunti.length > 0 && aperta.c.aggiunti.every((x) => x.da[2] > 9.5 && x.da[2] < 12.5));
 }
 
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));

@@ -964,18 +964,48 @@ function muroInMezzo(geo, da, a, opz = {}) {
 
 /** La fessura piu' stretta fra due isole: i due punti che si guardano. */
 function fessuraFra(x, y, luce) {
-  let mi = Infinity, da = null, a = null;
+  const tutte = fessureFra(x, y, luce, 0);
+  return tutte.length ? tutte[0] : null;
+}
+
+/**
+ * TUTTE le fessure fra due isole, lungo il bordo, dalla piu' stretta.
+ *
+ * ⚠️ UNA PARETE CON LE APERTURE — 24/09/2026. Fra la hall centrale e la zona
+ *    est del terminal c'e' una parete vera con delle aperture (Raffaella: «una
+ *    parete vera con delle aperture, dopo partono a destra le indicazioni in
+ *    fucsia»). Si guardava UN punto solo, il piu' vicino: cadeva sulla parete,
+ *    `muroInMezzo` diceva di si', e le aperture accanto non venivano provate.
+ *    Misurato: tre cuciture rifiutate, mezzo edificio irraggiungibile.
+ *    Qui si prendono i punti lungo tutto il bordo che si affaccia, distanti
+ *    almeno `passo` metri l'uno dall'altro: la regola «un muro non si
+ *    scavalca» resta identica, cambia solo che la si chiede in ogni punto.
+ */
+function fessureFra(x, y, luce, passo = 1) {
+  const cand = [];
   for (const q of x.bordo) {
     if (q[0] < y.ingombro.min[0] - luce || q[0] > y.ingombro.max[0] + luce) continue;
     if (q[2] < y.ingombro.min[2] - luce || q[2] > y.ingombro.max[2] + luce) continue;
+    let mi = Infinity, a = null;
     for (const w of y.bordo) {
       const dx = q[0] - w[0], dz = q[2] - w[2];
       const d2 = dx * dx + dz * dz;
-      if (d2 < mi) { mi = d2; da = q; a = w; }
+      if (d2 < mi) { mi = d2; a = w; }
     }
+    if (a && Math.sqrt(mi) <= luce) cand.push({ da: q, a, luce: Math.sqrt(mi) });
   }
-  return da ? { da, a, luce: Math.sqrt(mi) } : null;
+  cand.sort((u, v) => u.luce - v.luce);
+  const scelte = [];
+  for (const c of cand) {
+    if (passo > 0 && scelte.some((s) => Math.hypot(s.da[0] - c.da[0], s.da[2] - c.da[2]) < passo)) continue;
+    scelte.push(c);
+  }
+  return scelte;
 }
+
+// Quante fessure si provano fra due isole, e quanti ponti al piu' si posano.
+const FESSURE_DA_PROVARE = 40;
+const APERTURE_PER_COPPIA = 6;
 
 /**
  * IL PAVIMENTO NON E' MAI UNO SOLO, E NESSUN MODELLO LO DISEGNA CONTINUO.
@@ -1042,45 +1072,60 @@ export function collegamentiOrizzontali(nav, navMesh, gruppi, geo, opz = {}) {
       const dz = Math.max(0, x.ingombro.min[2] - y.ingombro.max[2], y.ingombro.min[2] - x.ingombro.max[2]);
       if (Math.hypot(dx, dz) > luce) continue;
 
-      const f = fessuraFra(x, y, luce);
-      if (!f || f.luce > luce) continue;
+      // Lungo tutto il bordo, non in un punto solo: una parete ha le sue
+      // aperture, e ognuna e' un passaggio (vedi `fessureFra`). Al piu'
+      // APERTURE_PER_COPPIA ponti fra due isole, distanti almeno 2 m.
+      const fessure = fessureFra(x, y, luce, 1).slice(0, FESSURE_DA_PROVARE);
+      if (!fessure.length) continue;
+      let presi = [], primoNo = null;
+      for (const f of fessure) {
+        if (presi.length >= APERTURE_PER_COPPIA) break;
+        if (presi.some((q) => Math.hypot(q[0] - f.da[0], q[2] - f.da[2]) < 2)) continue;
 
-      if (muroInMezzo(geo, f.da, f.a, opz)) {
-        scarta("c'e' un muro in mezzo: separate davvero", f.luce);
-        continue;
-      }
-
-      const qb = sulCammino(nav, navMesh, f.da, tolleranza);
-      const qa = sulCammino(nav, navMesh, f.a, tolleranza);
-      if (!qb.ok || !qa.ok) { scarta('un capo non tocca nessuna superficie camminabile', f.luce); continue; }
-
-      let id = null;
-      try {
-        const r = nav.addOffMeshConnection(navMesh, {
-          start: qb.punto, end: qa.punto, radius: raggioAggancio,
-          direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
-          flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
-          area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
-        });
-        id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
-      } catch (e) {
-        scarta('navcat ha rifiutato il collegamento (' + ((e && e.message) || e) + ')', f.luce);
-        continue;
-      }
-      if (id == null || !nav.isOffMeshConnectionConnected(navMesh, id)) {
-        if (id != null && typeof nav.removeOffMeshConnection === 'function') {
-          try { nav.removeOffMeshConnection(navMesh, id); } catch (e2) {}
+        if (muroInMezzo(geo, f.da, f.a, opz)) {
+          primoNo = primoNo || { perche: "c'e' un muro in mezzo: separate davvero", luce: f.luce };
+          continue;
         }
-        scarta('dichiarato ma non agganciato alla navmesh', f.luce);
-        continue;
+
+        const qb = sulCammino(nav, navMesh, f.da, tolleranza);
+        const qa = sulCammino(nav, navMesh, f.a, tolleranza);
+        if (!qb.ok || !qa.ok) {
+          primoNo = primoNo || { perche: 'un capo non tocca nessuna superficie camminabile', luce: f.luce };
+          continue;
+        }
+
+        let id = null;
+        try {
+          const r = nav.addOffMeshConnection(navMesh, {
+            start: qb.punto, end: qa.punto, radius: raggioAggancio,
+            direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
+            flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
+            area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
+          });
+          id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
+        } catch (e) {
+          primoNo = primoNo || { perche: 'navcat ha rifiutato il collegamento (' + ((e && e.message) || e) + ')', luce: f.luce };
+          continue;
+        }
+        if (id == null || !nav.isOffMeshConnectionConnected(navMesh, id)) {
+          if (id != null && typeof nav.removeOffMeshConnection === 'function') {
+            try { nav.removeOffMeshConnection(navMesh, id); } catch (e2) {}
+          }
+          primoNo = primoNo || { perche: 'dichiarato ma non agganciato alla navmesh', luce: f.luce };
+          continue;
+        }
+        esito.ids.push(id);
+        esito.aggiunti.push({
+          id, da: qb.punto, a: qa.punto,
+          luce: Math.round(f.luce * 100) / 100,
+          aree: [Math.round(x.area), Math.round(y.area)],
+          quota: Math.round(((x.quotaMedia + y.quotaMedia) / 2) * 100) / 100,
+        });
+        presi.push(f.da);
       }
-      esito.ids.push(id);
-      esito.aggiunti.push({
-        id, da: qb.punto, a: qa.punto,
-        luce: Math.round(f.luce * 100) / 100,
-        aree: [Math.round(x.area), Math.round(y.area)],
-        quota: Math.round(((x.quotaMedia + y.quotaMedia) / 2) * 100) / 100,
-      });
+      // Nessuna apertura trovata: si dice perche', col motivo del punto piu'
+      // stretto, come prima. Un muro vero resta un muro.
+      if (!presi.length && primoNo) scarta(primoNo.perche, primoNo.luce);
     }
   }
   return esito;

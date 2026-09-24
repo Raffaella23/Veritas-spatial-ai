@@ -910,7 +910,7 @@ camminabile**. Perche':
 2. All'apertura di z ≈ −12 c'e' qualcosa sopra la testa a 1,74 m dal
    pavimento (quota 2,33): la persona di 1,75 non ci passa per un centimetro.
 
-✅ **Scritta nel workspace, NON pubblicata** (costruzione `-g`): la cucitura
+✅ **PUBBLICATA il 24/09 sera** (costruzione `2026-09-24-g`): la cucitura
 prova TUTTO il bordo e non un punto solo (`fessureFra`, `veritas_navmesh.js` e
 la copia in `index.html`, identiche), con prova nuova in
 `veritas_navmesh.test.mjs` §10 (parete piena chiusa, parete con apertura
@@ -1267,7 +1267,7 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-24-f` su `main` (righello 1,80); prima `-e` `39c77c7` (§6.16) |
+| **Costruzione pubblicata** | `2026-09-24-g` su `main` (cucitura lungo tutta la parete); `-f` righello 1,80; `-e` `39c77c7` §6.16 |
 | **Giornata** | 24/09 sera: §6.16 pubblicato — ponte + riappoggio dopo l'occhio; a fine giro 10 posti su 20 coperti (erano 8). Mattina: §6.17 chiuso |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
@@ -1295,8 +1295,10 @@ Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
 fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
 **Poi, nell'ordine deciso con Raffaella:**
-- **6.14** la mappa di cammino in pezzi: righello 1,80 fatto (`-f`), le aree
-  restano 7 — trovare cosa le separa (taglio a piombo dove si interrompe);
+- **6.14 — PROSSIMA SESSIONE: i superpoteri dell'occhio**, il PIANO in tre
+  passi scritto in fondo al §6.14 (la conseguenza «a terra», l'occhio che vede
+  le cose piccole in pianta, la mappa rifatta quando l'occhio ha parlato). Le
+  aperture della parete sono chiuse dalle frecce fucsia: e' misurato.
 - **6.18** il lato dell'accesso;
 - **l'occhio che gira e si avvicina** a quello che sta capendo, con il nome che
   compare li': chiesto da Raffaella il 22/09, ed e' il 0.1 applicato alla
