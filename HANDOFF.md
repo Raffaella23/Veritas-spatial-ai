@@ -893,7 +893,30 @@ x ≈ −6, le tre cuciture sono rifiutate da `muroInMezzo`** («c'e' un muro in
 mezzo», luce 1,05 m); li' stanno due mucchi verticali isolati (gruppi 4 e 5).
 L'occhio, a fine giro, posa 3 varchi (porte a x ≈ −35, tornelli a x ≈ +11) e
 **nessuno su quella linea**: per il §0.4 non si apre con un'euristica.
-⛔ In attesa di Raffaella: che cosa c'e' nel modello a x ≈ −6.
+Raffaella: «una parete vera con delle aperture, dopo partono a destra le
+indicazioni in fucsia».
+
+🔎 **LE APERTURE, misurate** (`banco/vivo/aperture_nella_parete.mjs`,
+`colonne_nelle_aperture.mjs`: raggi al petto e colonne verticali ogni 50 cm).
+La parete e' `Cube002`, x ≈ −7,4, continua da z −10 a z +7. Aperture a
+z ≈ −12, 7,5–8,5 e 10,5–12: al petto sono libere, **ma il pavimento li' non e'
+camminabile**. Perche':
+1. **Le frecce fucsia non sono dipinte a terra**: sono lastre spesse 13 cm
+   (`arrow006/027/033…`) che galleggiano a **46 cm** dal pavimento, proprio
+   dentro le aperture. Per la mappa sono panche: troppo alte da salire
+   (gradino 0,40), troppo basse per passarci sotto. ⚠️ Una regola geometrica
+   non le distingue da una seduta (lastra sottile a 45 cm): serve l'occhio
+   (segnaletica), che oggi dice «Signage: --».
+2. All'apertura di z ≈ −12 c'e' qualcosa sopra la testa a 1,74 m dal
+   pavimento (quota 2,33): la persona di 1,75 non ci passa per un centimetro.
+
+✅ **Scritta nel workspace, NON pubblicata** (costruzione `-g`): la cucitura
+prova TUTTO il bordo e non un punto solo (`fessureFra`, `veritas_navmesh.js` e
+la copia in `index.html`, identiche), con prova nuova in
+`veritas_navmesh.test.mjs` §10 (parete piena chiusa, parete con apertura
+attraversata: il codice vecchio fallisce 2 prove, il nuovo le passa). Sul
+terminal: cuciture 2 → 7, ma gruppi sempre 7, per le frecce del punto 1.
+⛔ In attesa di Raffaella: le frecce come si trattano.
 
 ---
 
