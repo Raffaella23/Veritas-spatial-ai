@@ -930,6 +930,28 @@ aggiunto li', vicino a `window.__veritasAssegnazioneAutorevole`.
 (`applyNodesToScene` → `generateTrajectory`): va misurato quanto pesa farla
 due volte.
 
+**PIANO, letto sul codice il 24/09 (nessuna riga ancora scritta):**
+- ⚠️ **Trappola:** `applyAutoAssignment(zones)` riduce gli ambienti a tappe
+  (`riduciAPercorso`, ~riga 5207 di `index.html`) e poi salva in `lastZones`
+  la lista GIA' RIDOTTA. Rilanciarla su `lastZones` (come fanno le chiamate a
+  ~6045/6064) non puo' far crescere niente: 10 restano 10. Bisogna tenere da
+  parte la lista degli ambienti PRIMA della riduzione (dopo `dividiZoneGrandi`).
+- **Dove:** in cima a `window.__veritasZoneSulCammino` (`index.html` ~4505),
+  che il lettore degli arredi chiama gia' appena ha finito (`veritas_cose`,
+  tre copie: ~25305, ~27467, `veritas_cose.js:1281`) — cosi' non si tocca
+  nessuna delle tre copie. Se `tappeConsigliate(ambienti, postiOra)` > tappe
+  decise, e non e' gia' stato fatto per questo modello: permesso autorevole
+  (`__veritasAssegnazioneAutorevole = true`) e `applyAutoAssignment` sulla
+  lista originale; poi il resto di `__veritasZoneSulCammino` appoggia le tappe
+  sui posti come oggi.
+- **Una volta sola per modello**, e prima che l'occhio abbia dato i nomi (il
+  lettore degli arredi arriva a ~10-15 s, i nomi a ~150 s): se arrivasse dopo,
+  i nomi andrebbero persi.
+- **Misura:** `banco/vivo/conta_tappe.mjs` (scritto il 24/09, NON ancora
+  provato): tappe, posti misurati, posti con una tappa entro 4 m, larghezza
+  della striscia coperta, a meta' e a fine giro. Criterio: posti con tappa da
+  ~7 a ~20 su 20, senza toccare il posatore di tappe e senza perdere i nomi.
+
 ---
 
 ### 6.17 — LA PAGINA MUORE MENTRE L'OCCHIO LAVORA — il guasto piu' grave
