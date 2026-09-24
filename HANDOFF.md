@@ -125,7 +125,7 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 23/09/2026 sera (il Worker vuoto, senza libreria, non parte lo stesso con la scena carica: non è transformers.js/OWLv2, resta da capire se è il Worker o il filo principale già saturo) |
+| **Aggiornato** | 24/09/2026 (§6.17 punto 1 CHIUSO: è un limite di Chromium sotto carico — il Worker dell'occhio non trova posto per nascere mentre la scena 3D + la fisica sono già accese. Non è transformers.js/OWLv2, non è il filo principale bloccato in assoluto. Restano due strade di correzione da scegliere con Raffaella, non ancora scritte) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
@@ -1226,6 +1226,66 @@ rispondere a QUALUNQUE richiesta esterna (script, evaluate, persino i
 timer). Se invece la somma torna subito, il blocco e' specifico a
 `new Worker(...)` e il sospetto torna li'. **Non ancora eseguito — tetto
 gettoni di sessione raggiunto stasera (23/09), va fatto alla ripresa.**
+
+---
+
+## ✅ 24/09/2026 — PUNTO 1 CHIUSO. IL COLPEVOLE E' IL WORKER, NON IL FILO PRINCIPALE.
+
+⚠️ **Il "cambio di sospetto" scritto sopra ieri sera era una falsa pista,**
+dovuta a un difetto del banco di misura, non della pagina: il tetto di ieri
+era un timer messo DENTRO la pagina, e un timer li' dentro non scatta se il
+filo e' occupato — quindi "nessun segno arrivato" poteva voler dire tanto
+"il filo e' bloccato" quanto "il timer stesso non ha mai potuto scattare per
+dirlo". **Misura inconcludente, non conclusione.** Corretto il banco: il
+tetto ora sta nel processo Node (`Promise.race`), che e' un programma
+separato dal browser e il suo orologio non si ferma mai.
+
+**Tre misure, stessa scena, stesso modello, cronometrate da fuori:**
+
+| prova | tempo di risposta |
+|---|---|
+| `1+1`, **senza** scena | 2 ms |
+| `1+1`, **con** scena carica | 4.852 ms (~5 s) |
+| `new Worker(...)` vuoto, **con** scena carica | **mai** — scaduto il tetto di 40.000 ms |
+
+**Letture, una per una:**
+- **Il filo principale NON e' bloccato.** Un `1+1` chiesto dall'esterno
+  arriva sempre, anche con la scena accesa — solo circa 2.400 volte piu'
+  lento del solito (5 s invece di 2 ms), segno che il filo e' MOLTO occupato
+  (rendering + fisica), non fermo.
+- **La riga `new Worker(...)` si esegue.** I due segni ("prima di new
+  Worker", "Worker creato, in attesa") sono arrivati entrambi stavolta,
+  qualche secondo dopo l'inizio della prova — coerente con lo stesso ritardo
+  visto nel `1+1`.
+- **Il Worker pero' non risponde MAI.** Ne' un messaggio, ne' un errore, in
+  40 secondi pieni. La chiamata che lo crea torna subito (come dice sempre
+  la specifica JavaScript: `new Worker()` non aspetta che il Worker sia
+  pronto), ma il lavoro che Chromium deve fare DOPO — far nascere davvero il
+  filo del Worker ed eseguire il suo file — non arriva mai a compimento.
+
+**CONCLUSIONE, la stessa del punto 1 originale, ora provata invece che
+sospettata: e' un limite di Chromium sotto carico — troppi thread/processi
+gia' impegnati dalla scena 3D + la fisica — e il Worker nuovo non trova
+posto per nascere davvero. NON e' transformers.js/OWLv2 (§6.17, causa
+esclusa il 23/09): un Worker senza nessuna libreria fa lo stesso identico
+guasto. NON e' il filo principale bloccato in assoluto: quello risponde
+ancora, solo piu' lento.**
+
+**Cosa serve adesso — non piu' diagnosi, ma una correzione da discutere:**
+il problema non e' COSA fa il Worker dell'occhio, e' IL MOMENTO in cui nasce
+— dopo che la scena pesante e' gia' accesa e sta consumando la macchina. Due
+strade possibili, nessuna delle due scritta o provata, da proporre e
+scegliere insieme:
+1. **Far nascere il Worker dell'occhio PRIMA**, appena la pagina si apre,
+   mentre la macchina e' ancora leggera — tenerlo pronto e fermo, e
+   svegliarlo solo quando serve invece di crearlo a scena gia' accesa.
+2. **Alleggerire la macchina per un istante mentre il Worker nasce** — un
+   modo per far spazio (es. fermare un momento il disegno o il passo della
+   fisica) apposta per quel momento di nascita, poi tornare come prima.
+
+Nessuna delle due si scrive senza il tuo via: sono entrambe modifiche
+all'ordine in cui le cose accadono, non un dettaglio da 1 parola come i fix
+gia' proposti sopra.
 
 **Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
 pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
