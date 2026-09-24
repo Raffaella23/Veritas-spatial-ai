@@ -55,7 +55,7 @@
 //
 // ===========================================================================
 
-import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio, abbina, sovrapposizione } from "./veritas_riconosce.js?v=10";
+import { riconosci, vocabolarioPer, vociDaParole, racconta as raccontaOcchio, abbina, sovrapposizione } from "./veritas_riconosce.js?v=11";
 
 // ---------------------------------------------------------------------------
 // 1. Le soglie. Dichiarate qui, una volta, e non sparse nel codice.
@@ -757,6 +757,26 @@ function annunciaVista(ctx, vista, quale, quante, origine) {
   } catch (e) {}
 }
 
+/**
+ * Dove si cammina su un piano: i rettangoli delle isole della mappa di cammino
+ * la cui quota sta entro un metro da quella del piano. `null` se la mappa non
+ * c'e' ancora — allora chi taglia a pezzi guarda tutta la vista.
+ */
+function areeDoveSiCammina(quota) {
+  if (typeof window === "undefined" || typeof quota !== "number") return null;
+  const nm = window.__veritasNavmesh;
+  const s = nm && typeof nm.stato === "function" ? nm.stato() : null;
+  const isole = (s && s.isole) || [];
+  const aree = [];
+  isole.forEach((i, k) => {
+    if (!i || !(i.area >= 3) || !i.ingombro) return;
+    if (Math.abs((+i.quotaMedia || 0) - quota) > 1.0) return;
+    aree.push({ chiave: k, min: [i.ingombro.min[0], i.ingombro.min[2]],
+                max: [i.ingombro.max[0], i.ingombro.max[2]] });
+  });
+  return aree.length ? aree : null;
+}
+
 export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
 
   // `regioni`: le testimonianze dei primi piani, ognuna legata al RETTANGOLO
@@ -769,13 +789,38 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
                   posa: { viste: 0, riquadri: 0, posati: 0, senzaColpo: 0, tempoEsaurito: 0 } };
   if (typeof ctx.rileva !== "function") return fuori;
 
+  // ⚠️ I PEZZI (§6.14, 24/09/2026 — l'occhio che vede le cose piccole). Ogni
+  //    piano si guarda a pezzi UNA volta, al primo sguardo libero (non quando
+  //    il cervello chiede parole mirate: sarebbe il costo per ogni giro), e
+  //    solo sulle isole della mappa di cammino di quel piano. Si preferisce la
+  //    pianta per livello dell'abaco — tagliata a 1,10, la convenzione del
+  //    disegno — alla pianta dall'alto, dove i solai di sopra coprono.
+  const tutteLeViste = (ctx.scorci || []).filter(Boolean);
+  const conTerra = tutteLeViste.filter((v) => v.inquadratura);
+  const pianiGiaAPezzi = new Set();
+  const aPezzi = (quota) => {
+    if (soloQueste || ctx.pezzi === false) return null;
+    const aree = areeDoveSiCammina(quota);
+    const chiave = aree ? aree.map((a) => a.chiave).join(",") : "tutto@" + quota;
+    if (pianiGiaAPezzi.has(chiave)) return null;
+    pianiGiaAPezzi.add(chiave);
+    return { pezzi: true, aree };
+  };
+  const conPezzi = (etichetta) => (pz, trovate) => annunciaVista(ctx, {
+    vista: etichetta + " — pezzo " + pz.indice + " di " + pz.di,
+    cose: trovate.map((t) => ({ cosa: t.voce.nome, fiducia: +t.score.toFixed(2) })),
+  }, pz.indice, pz.di, { etichetta: etichetta + " — pezzo " + pz.indice + " di " + pz.di,
+                         genere: "pianta", tela: pz.tela, inquadratura: pz.inquadratura });
+  const pianteDiPiano = conTerra.filter((v) => typeof v.quotaPiano === "number");
+
   // (a) la pianta: e' l'unica che da' posizioni, e passa dalla strada di sempre
   if (ctx.pianta && ctx.inquadratura) {
     try {
-      const e = await riconosci(ctx.posti, {
+      const e = await riconosci(ctx.posti, Object.assign({
         rileva: ctx.rileva, pianta: ctx.pianta, inquadratura: ctx.inquadratura,
         dominio: ctx.dominio, parole: parole || [], soloParole: !!soloQueste,
-      });
+      }, pianteDiPiano.length ? {} : Object.assign({ onPezzo: conPezzi("pianta del pavimento") },
+        aPezzi(ctx.pianta.quotaPavimento))));
       if (e && e.ok) {
         fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: "pianta del pavimento", esito: e });
@@ -802,14 +847,13 @@ export async function occhioSuTutteLeViste(ctx, immagini, parole, soloQueste) {
   //    ce l'ha da' testimonianza e basta. Prospetti e sezioni non ce l'hanno —
   //    e infatti da una proiezione verticale un punto a terra non si ricava.
   //    Nessuna tipologia, nessun nome di edificio: regola 0-bis intatta.
-  const tutteLeViste = (ctx.scorci || []).filter(Boolean);
-  const conTerra = tutteLeViste.filter((v) => v.inquadratura);
   for (const v of conTerra) {
     try {
-      const e = await riconosci(ctx.posti, {
+      const e = await riconosci(ctx.posti, Object.assign({
         rileva: ctx.rileva, pianta: v, inquadratura: v.inquadratura,
         dominio: ctx.dominio, parole: parole || [], soloParole: !!soloQueste,
-      });
+      }, typeof v.quotaPiano === "number"
+        ? Object.assign({ onPezzo: conPezzi(v.etichetta || "pianta") }, aPezzi(v.quotaPiano)) : {}));
       if (e && e.ok) {
         if (!fuori.esitoPianta) fuori.esitoPianta = e;
         fuori.esitiPianta.push({ vista: v.etichetta || "pianta", esito: e });
@@ -1298,6 +1342,12 @@ export async function comprendiGuardando(ctx) {
         // 17/09/2026: cio' che l'occhio ha visto, posato nel mondo. Lo legge
         // la mappa di cammino (muri e varchi visti) — vince l'occhio.
         window.__veritasVistoNelMondo = (visto && visto.nelMondo) || [];
+        // §6.14, 24/09: lo si ANNUNCIA. Le viste si annunciano mentre l'occhio
+        // guarda, ma le cose posate nel mondo arrivano solo qui, alla fine:
+        // senza questo evento `veritas_comando` rifaceva la mappa prima che le
+        // frecce «a terra» esistessero, e dopo non la rifaceva piu'.
+        window.dispatchEvent(new CustomEvent("veritas:nelMondo",
+          { detail: { quante: window.__veritasVistoNelMondo.length } }));
       } catch (e) {}
       if (visto && visto.posa) {
         const P = visto.posa, nm = visto.nelMondo || [];

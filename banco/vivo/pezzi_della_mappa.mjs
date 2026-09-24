@@ -114,11 +114,76 @@ const d = await p.evaluate(() => {
 });
 // L'occhio: si aspetta la fine del suo giro (tetto 5 minuti) e si prendono le
 // cose che ha posato nel mondo come «varco» e «ferma».
-const fineOcchio = Date.now() + 300000;
+const fineOcchio = Date.now() + 600000;
 while (Date.now() < fineOcchio) {
   if (await p.evaluate(() => !!window.__veritasComprensione).catch(() => false)) break;
   await p.waitForTimeout(5000);
 }
+// ⚠️ LA MAPPA SI RILEGGE DOPO L'OCCHIO (§6.14, 24/09). Quella qui sopra e'
+//    la mappa dell'avvio, fatta PRIMA che l'occhio parli: le frecce viste «a
+//    terra» possono cambiarla solo quando `veritas_comando.riascolta` la
+//    rifa'. Si aspetta quella ricostruzione (tetto 3 minuti) e si rimisura.
+const fineRifatta = Date.now() + 180000;
+let rifatta = false;
+while (Date.now() < fineRifatta) {
+  const g = await p.evaluate(() => (window.__veritasComando && window.__veritasComando.stato().mappaConMondo) || 0).catch(() => 0);
+  if (g > 0) { rifatta = true; break; }
+  await p.waitForTimeout(5000);
+}
+await p.waitForTimeout(30000);
+const prima = { iso: d.iso.length, cuciOk: d.cuciOk.length, cuciNo: d.cuciNo.length, gruppi: d.gruppi };
+Object.assign(d, await p.evaluate(() => {
+  const nm = window.__veritasNavmesh, s = nm.stato();
+  const iso = (s.isole || []).filter((i) => i.area >= 3).map((i) => ({
+    area: Math.round(i.area), quota: +(+i.quotaMedia).toFixed(2),
+    bordo: (i.bordo || []).map((q) => [+q[0].toFixed(2), +q[2].toFixed(2)]),
+    min: [i.ingombro.min[0], i.ingombro.min[2]], max: [i.ingombro.max[0], i.ingombro.max[2]] }));
+  const k = s.cuciture || {};
+  const posti = ((window.__veritasCoseTrovate || {}).posti || []).map((q) => {
+    let r = null; try { r = nm.sulCamminoCorrente(q.centro, [6, 6, 6]); } catch (e) {}
+    return { c: [q.centro[0], q.centro[2]], a: r && r.ok ? r.punto : null, forma: q.formaPrevalente, n: q.oggetti };
+  });
+  const conA = posti.filter((q) => q.a);
+  const g = nm.gruppiCollegati(conA.map((q) => q.a)) || { gruppo: [] };
+  conA.forEach((q, i) => { q.g = g.gruppo[i]; });
+  const aTerra = (window.__veritasVistoNelMondo || []).filter((o) => o && o.passo === "a terra" && o.mondo)
+    .map((o) => ({ min: [o.mondo.min[0], o.mondo.min[2]], max: [o.mondo.max[0], o.mondo.max[2]], q: o.quotaPiano, s: o.score }));
+  return { iso, cuciOk: (k.aggiunti || []).map((x) => ({ da: x.da, a: x.a, luce: x.luce })),
+           cuciNo: (k.scartati || []).map((x) => ({ perche: x.perche, luce: x.luce, fra: x.fra })),
+           posti, gruppi: g.quanti, segnaletica: (s.geometria && s.geometria.segnaletica) || 0, tolte: (s.geometria && s.geometria.tolte) || [], aTerra };
+}));
+scrivi(secondi() + " PRIMA dell'occhio: isole " + prima.iso + ", cuciture " + prima.cuciOk + " fatte / "
+  + prima.cuciNo + " rifiutate, gruppi di posti " + prima.gruppi);
+scrivi(secondi() + " l'occhio ha riascoltato: " + (rifatta ? "si'" : "NO, entro il tetto") + " · riquadri «a terra» "
+  + d.aTerra.length + " · lastre tolte dalla geometria " + d.segnaletica);
+for (const a of d.aTerra) scrivi("   a terra x " + a.min[0].toFixed(1) + "→" + a.max[0].toFixed(1)
+  + " z " + a.min[1].toFixed(1) + "→" + a.max[1].toFixed(1) + " quota " + a.q + " fiducia " + a.s);
+scrivi("   lastre tolte (nomi, solo per controllo): " + d.tolte.join(", "));
+// IL CRITERIO DEL §6.14, controllato sulla mappa e non dedotto dai numeri:
+// (a) le tre aperture di Cube002 (x ≈ -7,4) sono calpestabili?
+// (b) ogni cosa tolta che NON e' una freccia resta non calpestabile? (i nomi
+//     servono solo a questa sonda per ritrovarle, non al programma)
+const crit = await p.evaluate(() => {
+  const nm = window.__veritasNavmesh, T = window.THREE, R = window.__veritasModelRoot;
+  const su = (x, y, z, tol) => { try { const r = nm.sulCamminoCorrente([x, y, z], tol); return !!(r && r.ok); } catch (e) { return false; } };
+  const aperture = [-12, 8, 11.2].map((z) => ({ z, passa: su(-7.4, 0.66, z, [0.6, 1.0, 0.6]) }));
+  const tolte = ((nm.stato().geometria || {}).tolte || []).map((s) => s.split(" ")[0]).filter((n) => !/^arrow/i.test(n));
+  const cose = tolte.map((n) => {
+    const o = R.getObjectByName(n); if (!o) return { n, calpestata: null };
+    // la cosa intera a cui appartiene la lastra (stesso nome prima di _k)
+    const radiceNome = n.replace(/_\d+$/, "");
+    const b = new T.Box3();
+    R.traverse((q) => { if (q.isMesh && q.name.replace(/_\d+$/, "") === radiceNome) b.expandByObject(q); });
+    const c = b.getCenter(new T.Vector3());
+    return { n, dim: [b.max.x - b.min.x, b.max.z - b.min.z, b.max.y - b.min.y].map((v) => +v.toFixed(2)),
+             calpestata: su(c.x, b.min.y, c.z, [0.15, 0.6, 0.15]) };
+  });
+  return { aperture, cose };
+});
+for (const a of crit.aperture) scrivi("   apertura a z " + a.z + ": " + (a.passa ? "SI' si cammina" : "NO, chiusa"));
+for (const c of crit.cose) scrivi("   tolta " + c.n + " (oggetto intero " + (c.dim || []).join(" x ") + " m): "
+  + (c.calpestata === null ? "?" : c.calpestata ? "⚠ CALPESTATA" : "resta ostacolo"));
+scrivi("DOPO l'occhio:");
 d.occhio = await p.evaluate(() => (window.__veritasVistoNelMondo || [])
   .filter((o) => o && (o.passo === "varco" || o.passo === "ferma") && o.mondo)
   .map((o) => ({ passo: o.passo, da: o.da, nome: o.nome || o.etichetta || o.parola || null,

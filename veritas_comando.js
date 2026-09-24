@@ -35,14 +35,16 @@ const RESPIRO = 9000;
 // E non si rifà due volte per la stessa cosa: sotto questo distanza si aspetta.
 const MINIMO_FRA_DUE = 25000;
 
-const S = { ultimo: 0, attesa: null, quante: 0, giri: 0 };
+const S = { ultimo: 0, attesa: null, quante: 0, giri: 0, mappaConMondo: 0 };
 
 /** Quanto ha consegnato l'occhio, in tutto. */
 function quantoHaDetto() {
   if (typeof window === 'undefined') return 0;
   const pianta = ((window.__veritasVisto || {}).viste) || [];
   const regioni = window.__veritasVisteRegione || [];
-  return pianta.length + regioni.length;
+  // e cio' che ha posato nel mondo (§6.14): e' quello che cambia la mappa
+  const nelMondo = window.__veritasVistoNelMondo || [];
+  return pianta.length + regioni.length + nelMondo.length;
 }
 
 function foto() {
@@ -66,7 +68,7 @@ function foto() {
  *    questa passata ha l'autorita' per riscrivere le assegnazioni. Lasciarlo
  *    acceso vorrebbe dire che ogni passata successiva si crede autorevole.
  */
-export function riascolta(perche) {
+export async function riascolta(perche) {
   if (typeof window === 'undefined') return null;
   if (typeof window.__veritasRianalizzaModello !== 'function') {
     console.warn('[VERITAS comando] l’occhio ha parlato ma non so rifare l’analisi:'
@@ -85,6 +87,33 @@ export function riascolta(perche) {
     return null;
   } finally {
     window.__veritasAssegnazioneAutorevole = false;
+  }
+  // ⚠️ LA MAPPA DI CAMMINO SI RICOSTRUISCE UNA VOLTA (§6.14, 24/09/2026,
+  //    superpoteri dell'occhio). `geometriaDaModello` esclude le lastre di
+  //    segnaletica ("a terra", PASSO_DI) solo se `window.__veritasVistoNelMondo`
+  //    le contiene GIA' — e all'avvio della pagina l'occhio non ha ancora
+  //    parlato: la prima navmesh le tratta come ostacoli. Qui, ORA che la
+  //    testimonianza c'e', si rifa' la navmesh una volta sola — non ad ogni
+  //    vista, RESPIRO se ne occupa gia' — cosi' le frecce escono dal
+  //    calpestabile. Prima delle tappe: `__veritasZoneSulCammino` deve
+  //    riappoggiare sulla mappa nuova, non su quella vecchia.
+  if (window.__veritasNavmesh && typeof window.__veritasNavmesh.costruisciDaScena === 'function'
+      && window.THREE && window.__veritasModelRoot) {
+    try {
+      const nelMondo = (window.__veritasVistoNelMondo || []).length;
+      const r = await window.__veritasNavmesh.costruisciDaScena(window.THREE, window.__veritasModelRoot);
+      window.__veritasNavmeshEsito = r;
+      S.mappaConMondo = nelMondo;
+      if (r && r.ok) {
+        console.log('[VERITAS comando] navmesh rifatta dopo l’occhio: ' + r.poligoni + ' poligoni, '
+          + Math.round(r.area) + ' m² · segnaletica esclusa dalla geometria: '
+          + ((r.geometria && r.geometria.segnaletica) || 0));
+      } else {
+        console.warn('[VERITAS comando] navmesh non rifatta: ' + ((r && r.perche) || 'motivo sconosciuto'));
+      }
+    } catch (e) {
+      console.warn('[VERITAS comando] navmesh non rifatta: ' + ((e && e.message) || e));
+    }
   }
   // ⚠️ LE TAPPE NUOVE VANNO RIAPPOGGIATE (§6.16, 24/09/2026). La rianalisi
   //    rifa' le tappe sui baricentri degli ambienti; a meta' giro le aveva
@@ -122,7 +151,14 @@ if (typeof window !== 'undefined') {
     //    testimonianza gia' ascoltata e' lavoro sprecato che sposta i numeri
     //    sotto i piedi di chi sta guardando.
     if (quante <= S.quante) return;
-    if (ora - S.ultimo < MINIMO_FRA_DUE) return;
+    // Troppo presto: si rimanda, non si butta. Buttarlo perdeva proprio
+    // l'ultima consegna — quella delle cose posate nel mondo (§6.14).
+    if (ora - S.ultimo < MINIMO_FRA_DUE) {
+      if (S.attesa) clearTimeout(S.attesa);
+      S.attesa = setTimeout(() => { S.attesa = null; try { forse(); } catch (e) {} },
+        MINIMO_FRA_DUE - (ora - S.ultimo) + 50);
+      return;
+    }
     S.quante = quante; S.ultimo = ora;
     riascolta('ha consegnato ' + quante + ' cose viste');
   };
@@ -135,6 +171,7 @@ if (typeof window !== 'undefined') {
     // apposta per la messa in scena): qui serve a sapere che ha parlato.
     window.addEventListener('veritas:vista', fraPoco);
     window.addEventListener('veritas:modello', fraPoco);
+    window.addEventListener('veritas:nelMondo', fraPoco);
   } catch (e) {}
   window.__veritasComando = { riascolta, quantoHaDetto, stato: () => ({ ...S }) };
   console.log('[VERITAS comando] pronto — l’occhio comanda:'

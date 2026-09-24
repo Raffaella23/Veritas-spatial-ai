@@ -413,12 +413,19 @@ const CALPESTIO_DI = Object.freeze({
 // guardando»*. Muro e varco sono conclusioni da indizi visti, non nomi di mesh.
 //
 // E' la quarta sorella di POSTURA_DI, ARIA_APERTA_DI e CALPESTIO_DI: una
-// parola, una conseguenza. Due valori soli:
+// parola, una conseguenza. Tre valori:
 //   · "ferma" — un elemento che separa: dove l'occhio lo vede, di li' non si
 //     passa, anche se la geometria non ci ha visto niente;
 //   · "varco" — un'apertura in una separazione: dove l'occhio lo vede, di li'
 //     si passa, anche se la geometria ci vede un muro pieno (la porta
 //     modellata chiusa).
+//   · "a terra" — segnaletica orizzontale (§6.14, 24/09/2026, superpoteri
+//     dell'occhio, direttiva 17): dove l'occhio vede una freccia o un'altra
+//     marcatura dipinta/posata sul pavimento, la cosa si calpesta, anche se
+//     la geometria ci vede una lastra sopraelevata. Non e' un'eccezione: e'
+//     la stessa regola di "varco" applicata a un ostacolo finto invece che a
+//     un muro pieno. Deciso da Raffaella: niente scorciatoia geometrica
+//     ("senza appoggio = si calpesta") — si va fino in fondo con l'occhio.
 //
 // 📌 LA FONTE: Uniclass 2015, tabella EF (Elements/functions), letta il
 //    17/09/2026 da github.com/buildig/uniclass-2015 -> Uniclass2015_EF.csv:
@@ -429,6 +436,8 @@ const CALPESTIO_DI = Object.freeze({
 //      EF_25_55  Barriers                 -> "ferma" (recinzioni, parapetti)
 //    Le scale e le rampe (EF_35) NON stanno qui: collegano piani, e quel
 //    collegamento lo dichiara gia' la navmesh (collegamentiVerticali).
+//    "a terra" non e' nella tabella EF: e' segnaletica (EF_95_20 Information
+//    and signage systems), non un elemento di parete o di barriera.
 //
 // ⚠️ QUI NON SI SCRIVE NESSUN TIPO DI EDIFICIO (Regola 0-bis). Le chiavi sono
 //    OGGETTI che l'occhio sa nominare; la conseguenza viene dalla tabella.
@@ -441,6 +450,7 @@ const PASSO_DI = Object.freeze({
   door: "varco",                 // EF_25_30, la porta
   "screen door": "varco",        // EF_25_30, la porta a vetri
   "a turnstile": "varco",        // aggiunta dichiarata: si passa, uno alla volta
+  "a directional floor arrow": "a terra", // aggiunta dichiarata: segnaletica, non ostacolo
 });
 
 // Il nome che legge l'utente. Dove manca si mostra il termine originale: e'
@@ -588,6 +598,16 @@ export const AGGIUNTE = Object.freeze([
   // ⚠️ E' un VEICOLO, non un tipo di edificio. La differenza e' tutta qui.
   { chiedi: "a train", postura: null, nome: "treno", funzione: null,
     domini: "*", perche: "ADE20K-150 non ha nessun mezzo su rotaia, e un binario e' il caso da manuale di «dove passano i mezzi»" },
+
+  // --- segnaletica: dice dove si cammina, non lo impedisce -----------------
+  // §6.14, 24/09/2026 — i superpoteri dell'occhio (direttiva 17). Una freccia
+  // o una marcatura dipinta/posata sul pavimento non e' ADE20K (non e' un
+  // oggetto architettonico), e senza questa parola l'occhio non la nomina
+  // mai: sopra ognuna vedeva solo il riquadro enorme della zona intera
+  // ("pontile d'imbarco", "pista", "building"). La conseguenza sta in
+  // PASSO_DI: "a terra".
+  { chiedi: "a directional floor arrow", postura: null, nome: "frecce di segnaletica a terra", funzione: null,
+    domini: "*", perche: "segnaletica orizzontale, non un oggetto architettonico: senza questa parola l'occhio non nomina mai una freccia a terra" },
 ]);
 
 /**
@@ -1064,6 +1084,86 @@ export function tavolaDiRitagli(ritagli, opz = {}) {
   return { tela, tasselli };
 }
 
+// ---------------------------------------------------------------------------
+// 3-bis. I PEZZI DELLA VISTA — l'occhio che vede le cose piccole (§6.14)
+// ---------------------------------------------------------------------------
+//
+// Raffaella, 24/09/2026: «l'occhio non e' ancora configurato». Misurato: 36
+// frecce a terra nel modello, ZERO nominate. Il rilevatore rimpicciolisce
+// OGNI immagine a 960 x 960 prima di guardarla: la pianta intera (106 m) o il
+// foglio dei ritagli diventano 11 cm per pixel, e una freccia di un metro e
+// mezzo e' una lineetta. Non e' la parola che manca: e' la distanza.
+//
+// ⚠️ IL LATO DEL PEZZO NON E' SCELTO: SI RICAVA DAL METRO (§0.2). OWLv2 guarda
+//    a celle di 16 pixel su 960, cioe' 60 celle per lato. Perche' un corpo
+//    (0,60 m, l'ellisse di Fruin — la stessa di PERSONA in veritas_navmesh)
+//    riempia almeno una cella, il pezzo non puo' superare 60 x 0,60 = 36 m.
+//    Piu' grande, la gente e le cose della sua misura diventano sotto-cella.
+// ⚠️ SI SOVRAPPONGONO DI UN QUARTO, e ogni pezzo tiene solo cio' che ha il
+//    CENTRO nel suo nocciolo (la parte non sovrapposta): cosi' una cosa che
+//    cade sul taglio si vede intera in un pezzo, e non si conta due volte.
+// ⚠️ COSTA: misurato il 24/09 nella pagina vera, uno sguardo = ~11 s, con una
+//    parola o con nove (`banco/vivo/quanto_costa_uno_sguardo.mjs`). Quindi si
+//    taglia SOLO DOVE SI CAMMINA (`aree`: le isole della mappa di cammino di
+//    quel piano) — le conseguenze sul passo contano li', e il piazzale degli
+//    aerei non si guarda a pezzi. Senza aree si guarda tutta la vista.
+export const RILEVATORE_LATO_PX = 960;
+export const RILEVATORE_CELLA_PX = 16;
+export const CORPO_M = 0.60;
+export const LATO_PEZZO_M = (RILEVATORE_LATO_PX / RILEVATORE_CELLA_PX) * CORPO_M;   // 36 m
+
+/**
+ * @param tela  la vista (canvas) con la sua `inq` (origine, metriPerPixel)
+ * @param aree  [{min:[x,z], max:[x,z]}] dove guardare, in metri; null = tutta
+ * @returns {Array<{tela, inquadratura, nocciolo:{x0,x1,y0,y1}, indice, di}>}
+ */
+export function pezziDellaVista(tela, inq, aree, opz = {}) {
+  const doc = opz.doc || (typeof document !== "undefined" ? document : null);
+  if (!doc || !tela || !inq) return [];
+  // la pianta arriva grezza (pixel RGBA) dal disegnatore: si fa tela qui
+  if (!(tela.width > 0) && tela.pixel) tela = piantaInTela(tela, doc);
+  const m = inq.metriPerPixel;
+  if (!tela || !(m > 0) || !(tela.width > 0) || !(tela.height > 0)) return [];
+  const lato = opz.latoPezzoM || LATO_PEZZO_M;
+  const passo = lato * 0.75;
+  const bordo = (lato - passo) / 2;
+  const W = tela.width * m, H = tela.height * m;           // la vista, in metri
+  // Una griglia sola, agganciata all'origine della vista: celle da `passo`.
+  const nx = Math.max(1, Math.ceil(W / passo)), nz = Math.max(1, Math.ceil(H / passo));
+  const dentro = (x0, z0, x1, z1) => !aree || !aree.length || aree.some((a) =>
+    a.max[0] >= x0 && a.min[0] <= x1 && a.max[1] >= z0 && a.min[1] <= z1);
+  const celle = [];
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const cx0 = inq.origine[0] + i * passo, cz0 = inq.origine[1] + j * passo;
+      if (dentro(cx0, cz0, cx0 + passo, cz0 + passo)) celle.push([i, j]);
+    }
+  const fuori = [];
+  for (const [i, j] of celle) {
+    // nocciolo e pezzo in pixel della vista
+    const n0x = i * passo / m, n1x = Math.min(tela.width, (i + 1) * passo / m);
+    const n0y = j * passo / m, n1y = Math.min(tela.height, (j + 1) * passo / m);
+    const x0 = Math.max(0, Math.round(n0x - bordo / m)), x1 = Math.min(tela.width, Math.round(n1x + bordo / m));
+    const y0 = Math.max(0, Math.round(n0y - bordo / m)), y1 = Math.min(tela.height, Math.round(n1y + bordo / m));
+    const w = x1 - x0, h = y1 - y0;
+    if (w < 8 || h < 8) continue;
+    const c = doc.createElement("canvas");
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    if (!g) continue;
+    g.drawImage(tela, x0, y0, w, h, 0, 0, w, h);
+    fuori.push({
+      tela: c,
+      inquadratura: Object.assign({}, inq, { larghezza: w, altezza: h,
+        origine: [inq.origine[0] + x0 * m, inq.origine[1] + y0 * m] }),
+      // il nocciolo in pixel DEL PEZZO
+      nocciolo: { x0: n0x - x0, x1: n1x - x0, y0: n0y - y0, y1: n1y - y0 },
+    });
+  }
+  fuori.forEach((p, k) => { p.indice = k + 1; p.di = fuori.length; });
+  return fuori;
+}
+
 export async function riconosci(posti, opz = {}) {
   if (!posti || !posti.length) {
     return { ok: false, perche: "non ci sono mucchi misurati da nominare" };
@@ -1138,6 +1238,43 @@ export async function riconosci(posti, opz = {}) {
       if (!mondo) continue;
       rilevazioni.push({ score: g.score, voce, mondo });
     }
+  }
+
+  // (bis) I PEZZI: la stessa vista tagliata dove si cammina, un pezzo per
+  //       sguardo (vedi `pezziDellaVista`). Solo quando chi chiama lo chiede:
+  //       costa ~11 s a pezzo, e si fa una volta, non a ogni giro.
+  let pezziGuardati = 0, pezziDi = 0;
+  if (opz.pezzi) {
+    const pezzi = pezziDellaVista(opz.pianta, opz.inquadratura, opz.aree, opz);
+    pezziDi = pezzi.length;
+    for (const pz of pezzi) {
+      let grezze;
+      try { grezze = await opz.rileva(pz.tela, parole); }
+      catch (e) { fallite++; ultimoErrore = (e && e.message) || String(e); continue; }
+      if (!Array.isArray(grezze)) { fallite++; continue; }
+      guardate++; pezziGuardati++;
+      const trovate = [];
+      for (const g of grezze) {
+        if (!g || typeof g.score !== "number" || !g.box) continue;
+        const voce = perParola.get(g.label);
+        if (!voce) continue;
+        let b = g.box;
+        if (Math.max(b.xmin, b.ymin, b.xmax, b.ymax) <= 1.001 && pz.tela.width > 2)
+          b = { xmin: b.xmin * pz.tela.width, xmax: b.xmax * pz.tela.width,
+                ymin: b.ymin * pz.tela.height, ymax: b.ymax * pz.tela.height };
+        const cx = (b.xmin + b.xmax) / 2, cy = (b.ymin + b.ymax) / 2, n = pz.nocciolo;
+        if (cx < n.x0 || cx >= n.x1 || cy < n.y0 || cy >= n.y1) continue;   // e' del pezzo accanto
+        const mondo = scatolaInMondo(pz.inquadratura, b);
+        if (!mondo) continue;
+        rilevazioni.push({ score: g.score, voce, mondo });
+        trovate.push({ label: g.label, score: g.score, box: b, voce });
+      }
+      try { if (typeof opz.onPezzo === "function") opz.onPezzo(pz, trovate); } catch (e) {}
+    }
+    try {
+      console.log("[VERITAS occhio] guardata a pezzi da " + LATO_PEZZO_M.toFixed(0) + " m: "
+        + pezziGuardati + " pezzi su " + pezziDi + (opz.aree ? " (solo dove si cammina)" : ""));
+    } catch (e) {}
   }
   if (!guardate) {
     return { ok: false, perche: "l'occhio non ha risposto" + (ultimoErrore ? ": " + ultimoErrore : "") };

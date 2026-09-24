@@ -13,7 +13,8 @@
 import { generateSoloNavMesh } from 'navcat/blocks';
 import * as nav from 'navcat';
 import {
-  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA, collegamentiOrizzontali } from './veritas_navmesh.js';
+  PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA, collegamentiOrizzontali,
+  geometriaDaModello, eSegnaleticaATerra } from './veritas_navmesh.js';
 
 let ko = 0;
 const check = (n, ok, d = '') => {
@@ -358,6 +359,65 @@ console.log('\n10. una parete fra due piastre: piena resta chiusa, con un\'apert
     aperta.c.aggiunti.length + ' ponti a z ' + aperta.c.aggiunti.map((x) => x.da[2].toFixed(1)).join(', '));
   check('e il ponte sta nell\'apertura, non sulla parete',
     aperta.c.aggiunti.length > 0 && aperta.c.aggiunti.every((x) => x.da[2] > 9.5 && x.da[2] < 12.5));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n11. «a terra»: la lastra vista come segnaletica si calpesta, la panca no');
+{
+  // Il terminal del 24/09 sera (§6.14): le frecce fucsia sono lastre da 13 cm
+  // sollevate dal pavimento, proprio dentro le aperture della parete. Qui: due
+  // stanze, un'apertura di 2 m, e nell'apertura una lastra (o una panca).
+  // Decide l'OCCHIO (un riquadro «a terra» in `vistoNelMondo`); la geometria
+  // dice soltanto QUALE cosa del riquadro e' la lastra.
+  const T = await import('three');
+  const scatola = (radice, x0, y0, z0, x1, y1, z1, nome) => {
+    const m = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0));
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    m.name = nome; radice.add(m); return m;
+  };
+  const stanze = (cosa) => {
+    const r = new T.Group();
+    scatola(r, 0, -0.1, 0, 20, 0, 6, 'pavimento');
+    scatola(r, 9.9, 0, 0, 10.1, 3, 2, 'parete');
+    scatola(r, 9.9, 0, 4, 10.1, 3, 6, 'parete');
+    if (cosa === 'lastra') scatola(r, 9, 0.46, 2.2, 11, 0.59, 3.8, 'freccia');
+    if (cosa === 'panca') scatola(r, 9, 0, 2.2, 11, 0.45, 3.8, 'panca');
+    if (cosa === 'tavolo') {
+      // una cosa in pezzi, come la divide un modello: il piano e le gambe
+      const t = new T.Group(); t.name = 'tavolo'; r.add(t);
+      scatola(t, 9, 0.97, 2.2, 11, 1.0, 3.8, 'tavolo_piano');
+      for (const [x, z] of [[9, 2.2], [10.9, 2.2], [9, 3.7], [10.9, 3.7]])
+        scatola(t, x, 0, z, x + 0.1, 0.97, z + 0.1, 'tavolo_gamba');
+    }
+    r.updateMatrixWorld(true);
+    return r;
+  };
+  const occhio = (x0, z0, x1, z1) => [{ passo: 'a terra', quotaPiano: 0,
+    mondo: { min: [x0, 0, z0], max: [x1, 0, z1] } }];
+  const prova = (cosa, visto) => {
+    const geo = geometriaDaModello(T, stanze(cosa), { vistoNelMondo: visto || [] });
+    const r = costruisci(blocks, geo);
+    const ps = r && r.navMesh ? percorso(nav, r.navMesh, [3, 0, 3], [17, 0, 3]) : null;
+    return { passa: !!(ps && !ps.parziale), tolte: geo.segnaletica };
+  };
+  const cieco = prova('lastra', []);
+  check('senza l occhio la lastra nell apertura chiude il passaggio', !cieco.passa && cieco.tolte === 0);
+  const visto = prova('lastra', occhio(8.8, 2, 11.2, 4));
+  check('l occhio la chiama «a terra»: la lastra esce e si passa', visto.passa && visto.tolte === 1,
+    visto.tolte + ' lastre tolte');
+  const panca = prova('panca', occhio(8.8, 2, 11.2, 4));
+  check('una panca nello stesso riquadro resta: non e una lastra', !panca.passa && panca.tolte === 0,
+    panca.tolte + ' tolte');
+  check('il pavimento non esce mai: e piu grande del riquadro', visto.passa);
+  const tavolo = prova('tavolo', occhio(8.8, 2, 11.2, 4));
+  check('un tavolo si giudica intero: il piano sottile non esce, sotto non si passa',
+    !tavolo.passa && tavolo.tolte === 0, tavolo.tolte + ' pezzi tolti');
+  const largo = prova('lastra', occhio(-5, -5, 30, 25));
+  check('un riquadro «a terra» grande come la sala non e credibile: la lastra resta',
+    !largo.passa && largo.tolte === 0);
+  const e = eSegnaleticaATerra;
+  check('eSegnaleticaATerra: una freccia 2 x 1,6 x 0,13 e una lastra',
+    e(new T.Box3(new T.Vector3(9, 0.46, 2.2), new T.Vector3(11, 0.59, 3.8)), occhio(8.8, 2, 11.2, 4)));
 }
 
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));

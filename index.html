@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-24-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-24-h";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -24133,17 +24133,87 @@ function parametri(ingombro, persona = PERSONA, opz = {}) {
  * @param THREE   il three del modello (iniettato, come in veritas_vista.js)
  * @param radice  THREE.Object3D del modello caricato
  */
+// «A TERRA» — §6.14, superpoteri dell'occhio (24/09/2026, direttiva 17). Una
+// lastra sottile che l'occhio ha visto come segnaletica orizzontale (PASSO_DI
+// = "a terra", `veritas_riconosce.js`) non e' un ostacolo: e' un disegno sul
+// pavimento, e si esclude PRIMA di entrare nel buffer — la navmesh non deve
+// mai sapere che esisteva.
+//
+// ⚠️ Due controlli insieme, non uno solo:
+//    1. l'occhio ha detto "a terra" proprio li' — non basta che la mesh stia
+//       in una zona qualunque, deve cadere dentro il riquadro visto (XZ, con
+//       0,5 m di tolleranza) e poggiare sul suo piano: dal pavimento di
+//       quel piano (`quotaPiano`) fino a 1,60 m sopra;
+//    2. la mesh e' SOTTILE: sotto 1,60 m — lo stesso tetto gia' deciso in
+//       `piantaDelPavimento` (veritas_vista.js) per "vicino al pavimento",
+//       non un numero nuovo.
+//    Senza il secondo controllo un riquadro impreciso escluderebbe una panca
+//    vera: la panca resta un ostacolo se l'occhio non l'ha chiamata
+//    segnaletica (non si tocca — veritas_navmesh.test.mjs lo prova).
+// ⛔ MISURATO IL 24/09 SERA, e il primo giro era sbagliato: bastava che il
+//    CENTRO della lastra cadesse nel riquadro. L'occhio ha posato 74 riquadri
+//    «a terra», alcuni di 35 x 29 m, e se ne sono andate 419 lastre — compresi
+//    i PAVIMENTI del centro e dell'est: gruppi 7 -> 1 perche' la mappa era
+//    sparita. Quindi altre due condizioni, tutte e due gia' del programma:
+//    3. la lastra sta TUTTA dentro il riquadro visto (0,5 m di tolleranza):
+//       il pavimento non ci sta mai, la freccia si';
+//    4. il riquadro e' credibile dall'alto: il lato CORTO non supera 4 m, la
+//       stessa misura con cui `marcaDallOcchio` crede a un varco visto in
+//       pianta. Una fila di frecce e' una corsia (misurato: 2 x 13 m davanti
+//       alle aperture); un'area di mezzo terminal chiamata «freccia» no.
+//    5. LASTRA vuol dire sottile rispetto a quanto e' larga: lo spessore non
+//       supera un quarto del suo lato corto in pianta. La freccia (13 cm su
+//       un metro) lo e'; una seduta (40 cm su 41), un bancone (1 m su 1,09) e
+//       un monitor in piedi no. Misurato al terzo giro: senza questa regola
+//       uscivano 40 sedute in fila al piano di sopra, dentro riquadri che
+//       l'occhio chiamava «freccia» con il 12-25% di fiducia.
+//    6. SI GIUDICA LA COSA INTERA, non il suo pezzo. Un modello divide una
+//       cosa in pezzi per materiale (Cube059 -> Cube059_0/_1/_2): giudicando
+//       il pezzo, usciva il PIANO di un tavolo alto 1 m e restavano le gambe,
+//       e la mappa ci passava sotto (misurato al quinto giro). La cosa e' il
+//       nodo i cui figli sono tutti pezzi; si misura intera e si toglie
+//       intera, o resta intera. Nessun nome, solo la struttura del modello.
+const LATO_MASSIMO_ATERRA_M = 4;
+const SOGLIA_SOTTILE_ATERRA_M = 1.60;
+function areeATerraDalMondo(opz) {
+  const viste = opz.vistoNelMondo
+    || (typeof window !== "undefined" && window.__veritasVistoNelMondo) || [];
+  return viste.filter((o) => o && o.passo === "a terra" && o.mondo
+    && Math.min(o.mondo.max[0] - o.mondo.min[0], o.mondo.max[2] - o.mondo.min[2]) <= LATO_MASSIMO_ATERRA_M);
+}
+function eSegnaleticaATerra(box, aree) {
+  if (!aree.length || box.isEmpty()) return false;
+  const alta = box.max.y - box.min.y;
+  if (alta > SOGLIA_SOTTILE_ATERRA_M) return false;
+  if (alta > Math.min(box.max.x - box.min.x, box.max.z - box.min.z) / 4) return false;   // non e' una lastra
+  return aree.some((o) => {
+    // la pianta non ha quota nel riquadro (y = 0): la quota e' quella del piano
+    const q = typeof o.quotaPiano === "number" ? o.quotaPiano : o.mondo.min[1];
+    return box.min.x >= o.mondo.min[0] - 0.5 && box.max.x <= o.mondo.max[0] + 0.5
+      && box.min.z >= o.mondo.min[2] - 0.5 && box.max.z <= o.mondo.max[2] + 0.5
+      && box.min.y >= q - 0.5 && box.min.y <= q + SOGLIA_SOTTILE_ATERRA_M;
+  });
+}
+
+function cosaIntera(o, radice) {
+  const p = o.parent;
+  return (p && p !== radice && p.children.length && p.children.every((c) => c.isMesh)) ? p : o;
+}
+
 function geometriaDaModello(THREE, radice, opz = {}) {
   if (!THREE || !radice) return null;
   radice.updateMatrixWorld(true);
 
   const pos = [];
   const idx = [];
-  let mesh = 0, saltate = 0;
+  let mesh = 0, saltate = 0, segnaletica = 0;
+  const tolte = [];
   const tettoTriangoli = opz.tettoTriangoli || 1.2e6;
   const tettoIstanze = opz.tettoIstanze || 4096;
   const M = new THREE.Matrix4();
   const v = new THREE.Vector3();
+  const aree = areeATerraDalMondo(opz);
+  const giudicate = new Map();   // cosa intera -> e' segnaletica a terra?
 
   function aggiungi(geom, matrice) {
     const attr = geom && geom.attributes && geom.attributes.position;
@@ -24169,6 +24239,18 @@ function geometriaDaModello(THREE, radice, opz = {}) {
     // Roba nostra: marker delle zone, agenti, aiuti visivi. Non e' architettura.
     if (o.userData && (o.userData.__veritasHelper || o.userData.__veritasAgent)) return;
     if (idx.length / 3 > tettoTriangoli) { saltate++; return; }
+
+    if (aree.length) {
+      const cosa = cosaIntera(o, radice);
+      if (!giudicate.has(cosa)) giudicate.set(cosa, eSegnaleticaATerra(new THREE.Box3().setFromObject(cosa), aree));
+      const box = new THREE.Box3().setFromObject(o);
+      if (giudicate.get(cosa)) {
+        segnaletica++;
+        if (tolte.length < 150) tolte.push((o.name || "?") + " " + [box.max.x - box.min.x,   // solo per chi controlla
+          box.max.z - box.min.z, box.max.y - box.min.y, box.min.y].map((v) => v.toFixed(2)).join("/"));
+        return;
+      }
+    }
 
     if (o.isInstancedMesh && o.count > 0) {
       const n = Math.min(o.count, tettoIstanze);
@@ -24196,7 +24278,7 @@ function geometriaDaModello(THREE, radice, opz = {}) {
     positions: new Float32Array(pos),
     indices: new Uint32Array(idx),
     triangoli: idx.length / 3,
-    mesh, saltate,
+    mesh, saltate, segnaletica, tolte,
     ingombro: { min, max },
   };
 }
@@ -25079,7 +25161,7 @@ async function costruisciDaScena(THREE, radice, opz = {}) {
     return { ok: false, perche: (r && r.diagnosi) || 'nessuna superficie camminabile', esito: r };
   }
   ULTIMA = r;
-  r.geometria = { triangoli: geo.triangoli, mesh: geo.mesh, ingombro: geo.ingombro };
+  r.geometria = { triangoli: geo.triangoli, mesh: geo.mesh, ingombro: geo.ingombro, segnaletica: geo.segnaletica || 0, tolte: geo.tolte || [] };
   r.isole = isole(r.navMesh);
 
   // I livelli e le rampe che li uniscono (§6-bis). Senza questo passo i piani
@@ -30959,13 +31041,13 @@ if (typeof window !== 'undefined') {
 <script type="module" src="./veritas_accessi.js?v=11"></script>
 <script type="module" src="./veritas_cinema.js?v=48"></script>
 <script type="module" src="./veritas_catena.js?v=2"></script>
-<script type="module" src="./veritas_comando.js?v=2"></script>
+<script type="module" src="./veritas_comando.js?v=3"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo
      apposta: cosi' non sposta nessun blocco che sta sopra. -->
-<script type="module" src="./veritas_montaggio.js?v=38"></script>
-<script type="module" src="./veritas_passo.js?v=5"></script>
+<script type="module" src="./veritas_montaggio.js?v=39"></script>
+<script type="module" src="./veritas_passo.js?v=6"></script>
 <script type="module" src="./veritas_apertura.js?v=11"></script>
 </body>
 </html>
