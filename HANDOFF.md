@@ -916,7 +916,34 @@ la copia in `index.html`, identiche), con prova nuova in
 `veritas_navmesh.test.mjs` §10 (parete piena chiusa, parete con apertura
 attraversata: il codice vecchio fallisce 2 prove, il nuovo le passa). Sul
 terminal: cuciture 2 → 7, ma gruppi sempre 7, per le frecce del punto 1.
-⛔ In attesa di Raffaella: le frecce come si trattano.
+🔎 **L'occhio e le frecce, misurato** (`banco/vivo/frecce_e_occhio.mjs`): 36 frecce
+nel modello (33 lastre da 13 cm a 46 cm dal pavimento); sopra ognuna l'occhio
+posa solo riquadri enormi («pontile d'imbarco», «pista», «building») — la
+freccia come oggetto non la vede, e «freccia» non e' nel vocabolario.
+
+⛔ **DECISO da Raffaella (24/09 sera): niente regola geometrica («senza
+appoggio = si calpesta»). Si va fino in fondo con l'occhio — i SUPERPOTERI,
+cioe' la direttiva 17 («la parola vista tira la conseguenza»,
+`veritas_comando.js`, `veritas_accessi.js` ~511). La freccia e' segnaletica:
+non deve fare da ostacolo.**
+
+**PIANO (nessuna riga ancora scritta):**
+1. **La conseguenza che manca.** `PASSO_DI` (`veritas_riconosce.js` ~436)
+   conosce «ferma» e «varco»; serve il terzo valore, **«a terra»**: dove
+   l'occhio vede segnaletica orizzontale, la cosa si calpesta. La parola entra
+   come «aggiunta dichiarata», come gia' «a turnstile».
+2. **L'occhio deve vedere le cose piccole in pianta.** Oggi posa riquadri che
+   coprono mezzo edificio: e' il difetto vero («l'occhio non e' ancora
+   configurato», Raffaella). Si misura prima su questa pianta quante delle 36
+   frecce trova.
+3. **La conseguenza arriva alla mappa.** Le lastre sottili dentro un riquadro
+   «a terra» escono dalla geometria di `geometriaDaModello`, e la mappa di
+   cammino si ricostruisce UNA volta quando l'occhio ha parlato
+   (`veritas_comando.riascolta`), poi `__veritasZoneSulCammino` riappoggia.
+- **Non si tocca:** il posatore delle tappe, la scala, le panche (una panca non
+  vista come segnaletica resta ostacolo — prova in `veritas_navmesh.test.mjs`).
+- **Criterio:** le tre aperture camminabili, gruppi di posti 7 -> 1-2 al
+  piano terra, nessuna panca attraversata.
 
 ---
 
