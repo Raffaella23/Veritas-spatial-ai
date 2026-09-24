@@ -860,6 +860,31 @@ la scala si decide da unità dichiarate, altezza di piano, altezza totale e
 larghezza dei varchi. Su questo modello le figure risultano alte 1,63 m invece
 di 1,70-1,80: il fattore è corto del 4,5%, e nessuno se ne accorge.
 
+✅ **24/09 sera — IL RIGHELLO E' 1,80** (Raffaella: «metti come righello
+l'altezza media 1,80 di un uomo e scala i modelli (non avremo sempre la stessa
+scala!)»). Pubblicato in `2026-09-24-f`. ⚠️ La frase qui sopra era imprecisa:
+il righello umano **esiste dal 06/09** (`scalaDalleFigureUmane`,
+`__veritasRighelloUmano` in `index.html` ~5600), non in `veritas_scala.js`. Si
+e' cambiato solo `ALTEZZA_UOMO` 1,70 -> 1,80. Fattore sul terminal: 5,272 ->
+**5,583×** (97 figure a 0,322 m).
+
+| fine giro, aeroporto di prova | 1,70 (`-e`) | 1,80 (`-f`) |
+|---|---|---|
+| tappe | 21 | 10 |
+| posti misurati | 20 | 18 |
+| posti coperti entro 4 m | 10 | 8 |
+| striscia coperta | 44 m | 27 m |
+| aree scollegate | 9 | 7 |
+
+⛔ **La scala NON e' la causa dei pezzi**: con la statura giusta le aree
+restano 7. Fra un'area e l'altra manca qualcos'altro — da trovare con un taglio
+a piombo sulla mappa di cammino dove si interrompe (prossimo passo).
+⚠️ **Lacuna 0-bis:** il righello riconosce le persone dal NOME delle mesh
+(`NOMI_IN_PIEDI`: standing, person...). Su un modello con nomi diversi non
+trova nessuno e la scala torna alla deduzione. Va sostituito con il
+riconoscimento per forma (`veritas_cose` + `veritas_controprova.eUnaFigura`),
+che pero' usa una finestra di statura in metri: circolare prima della scala.
+
 ---
 
 ### 6.15 — ⚠️ DUE LETTURE SBAGLIATE DEL 21/09, scritte per non rifarle
@@ -1182,7 +1207,7 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-24-e` su `main` (prima: `-d`, `60bc3d3`) |
+| **Costruzione pubblicata** | `2026-09-24-f` su `main` (righello 1,80); prima `-e` `39c77c7` (§6.16) |
 | **Giornata** | 24/09 sera: §6.16 pubblicato — ponte + riappoggio dopo l'occhio; a fine giro 10 posti su 20 coperti (erano 8). Mattina: §6.17 chiuso |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
@@ -1210,8 +1235,8 @@ Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
 fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
 **Poi, nell'ordine deciso con Raffaella:**
-- **6.14** la mappa di cammino in pezzi (la scala dalle figure, §0.2): e' il
-  collo di bottiglia misurato nel §6.16 — 10 posti su 20 non si raggiungono;
+- **6.14** la mappa di cammino in pezzi: righello 1,80 fatto (`-f`), le aree
+  restano 7 — trovare cosa le separa (taglio a piombo dove si interrompe);
 - **6.18** il lato dell'accesso;
 - **l'occhio che gira e si avvicina** a quello che sta capendo, con il nome che
   compare li': chiesto da Raffaella il 22/09, ed e' il 0.1 applicato alla

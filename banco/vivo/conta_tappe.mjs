@@ -46,7 +46,7 @@ if (DAL_WS) {
 }
 const p = ctx.pages()[0] || await ctx.newPage();
 p.on("console", (m) => { const t = m.text();
-  if (/\[VERITAS (percorso|cose|zone|occhi|montaggio\] (giro|[0-9]+ tappe|le [0-9]+ tappe))/.test(t)) console.log(ora() + "  " + t.slice(0, 230)); });
+  if (/\[VERITAS (percorso|cose|zone|occhi|scala|montaggio\] (giro|[0-9]+ tappe|le [0-9]+ tappe))/.test(t)) console.log(ora() + "  " + t.slice(0, 230)); });
 p.on("pageerror", (e) => console.log(ora() + "  PAGEERROR " + String(e).slice(0, 200)));
 
 await p.goto(BASE + "?cb=" + Date.now(), { waitUntil: "load", timeout: 120000 });

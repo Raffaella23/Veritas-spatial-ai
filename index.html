@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-24-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-24-f";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -5602,7 +5602,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-e";
   // ⚠️ E SERVONO ALMENO DIECI. Una figura sola puo' essere una statua, un
   //    manichino, un bambino. Dieci con i quartili stretti sono una misura.
   const NOMI_IN_PIEDI = /standing|caminando|walking|security[-_ ]?guard|espaldas|pedestrian|person|people/i;
-  const ALTEZZA_UOMO = 1.70;
+  // ⚠️ IL RIGHELLO E' 1,80 — Raffaella, 24/09/2026: «metti come righello
+  //    l'altezza media 1,80 di un uomo e scala i modelli (non avremo sempre la
+  //    stessa scala!)». Con 1,70 le figure del terminal, misurate per forma da
+  //    `veritas_cose`, risultavano 1,63 m: il modello restava corto (§6.14).
+  //    Il fattore esce dalle figure di OGNI modello; qui c'e' solo il metro.
+  const ALTEZZA_UOMO = 1.80;
 
   function scalaDalleFigureUmane(root) {
     if (!root || !window.THREE) return null;
