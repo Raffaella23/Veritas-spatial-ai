@@ -885,6 +885,16 @@ trova nessuno e la scala torna alla deduzione. Va sostituito con il
 riconoscimento per forma (`veritas_cose` + `veritas_controprova.eUnaFigura`),
 che pero' usa una finestra di statura in metri: circolare prima della scala.
 
+🔎 **DOVE SI SPEZZA — misurato il 24/09 sera** (`banco/vivo/pezzi_della_mappa.mjs`,
+che disegna i pezzi in pianta). Il piano terra sono tre piastre: ovest 946 m²
+(x −82→−46, quota 0,46), centro 560 m² (x −45→−8, quota 0,67), est 455 m²
+(x −5→22, quota 0,63). Ovest-centro e' cucita. **Fra centro ed est, lungo
+x ≈ −6, le tre cuciture sono rifiutate da `muroInMezzo`** («c'e' un muro in
+mezzo», luce 1,05 m); li' stanno due mucchi verticali isolati (gruppi 4 e 5).
+L'occhio, a fine giro, posa 3 varchi (porte a x ≈ −35, tornelli a x ≈ +11) e
+**nessuno su quella linea**: per il §0.4 non si apre con un'euristica.
+⛔ In attesa di Raffaella: che cosa c'e' nel modello a x ≈ −6.
+
 ---
 
 ### 6.15 — ⚠️ DUE LETTURE SBAGLIATE DEL 21/09, scritte per non rifarle
