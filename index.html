@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-24-b";
+window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -75,7 +75,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-b";
 <!-- I FILI: rende la pagina cross-origin isolated, cosi' il motore di visione
      puo' usare piu' di un processore. Misurato il 04/09: 3,2 volte piu' veloce
      (uno sguardo da 201 s a 63 s). Si spegne aprendo la pagina con ?nocoi. -->
-<script src="veritas_fili.js"></script>
+<script src="veritas_fili.js?v=2026-09-24"></script>
 <script type="importmap">
 {
   "imports": {
@@ -2864,6 +2864,49 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-b";
     }
     window.__veritasScegliPavimento = scegliPavimento;
 
+    // ⛔ 24/09/2026 — §6.17. Il raggio verticale si chiedeva a TUTTE le 2.416
+    //    mesh del modello, e three-mesh-bvh per ognuna inverte la matrice e
+    //    trasforma il raggio anche se la mesh sta cento metri piu' in la':
+    //    misurato 126 s su 148 di profilo, pagina ferma fino a 103 s. Un raggio
+    //    verticale in (x, z) puo' colpire solo le mesh la cui impronta in
+    //    pianta contiene (x, z): si chiede solo a quelle, e i colpi sono gli
+    //    stessi. L'indice si rifa' se cambia il modello o la sua scala.
+    let impronte = null;
+    function meshSotto(root, x, z, raggio) {
+      const T = window.THREE;
+      const firma = root.matrixWorld.elements.join(",");
+      if (!impronte || impronte.root !== root || impronte.firma !== firma) {
+        const CELLA = 5, h = new Map(), grandi = [], b = new T.Box3();
+        let ordine = 0;
+        root.traverse((o) => {
+          if (!o.isMesh) return;
+          let bb = null;
+          if (o.boundingBox !== undefined) {
+            if (o.boundingBox === null && o.computeBoundingBox) o.computeBoundingBox();
+            bb = o.boundingBox;
+          } else if (o.geometry) {
+            if (o.geometry.boundingBox === null) o.geometry.computeBoundingBox();
+            bb = o.geometry.boundingBox;
+          }
+          if (!bb || bb.isEmpty()) return;
+          b.copy(bb).applyMatrix4(o.matrixWorld);
+          const v = { o, ordine: ordine++, x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z };
+          const cx0 = Math.floor(v.x0 / CELLA), cx1 = Math.floor(v.x1 / CELLA);
+          const cz0 = Math.floor(v.z0 / CELLA), cz1 = Math.floor(v.z1 / CELLA);
+          if (!((cx1 - cx0 + 1) * (cz1 - cz0 + 1) <= 400)) { grandi.push(v); return; }
+          for (let i = cx0; i <= cx1; i++) for (let k = cz0; k <= cz1; k++) {
+            const key = i + "," + k, arr = h.get(key);
+            if (arr) arr.push(v); else h.set(key, [v]);
+          }
+        });
+        impronte = { root, firma, h, grandi, CELLA };
+      }
+      const cella = impronte.h.get(Math.floor(x / impronte.CELLA) + "," + Math.floor(z / impronte.CELLA)) || [];
+      return cella.concat(impronte.grandi)
+        .filter((v) => x >= v.x0 && x <= v.x1 && z >= v.z0 && z <= v.z1 && v.o.layers.test(raggio.layers))
+        .sort((a, c) => a.ordine - c.ordine).map((v) => v.o);
+    }
+
     function realFloorYNear(x, z, maxRadius, yRif) {
       try {
         if (!__trueGroundRaycaster) {
@@ -2906,7 +2949,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-b";
           const down = new window.THREE.Vector3(0,-1,0);
           __trueGroundRaycaster.set(origin, down);
           __trueGroundRaycaster.firstHitOnly = false;
-          const hits = __trueGroundRaycaster.intersectObject(root, true);
+          const hits = __trueGroundRaycaster.intersectObjects(meshSotto(root, x, z, __trueGroundRaycaster), false);
           const y = scegliPavimento(hits, yRif, window.THREE);
           if (y != null) return y;
         }
@@ -29676,8 +29719,22 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   // Gravita' a zero nel mondo: il controller cinematico la applica per conto
   // suo, e nessun corpo qui e' dinamico. Metterla nel mondo non farebbe nulla
   // e confonderebbe chi legge.
-  const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
+  // Prima si controlla la geometria, poi si chiede il mondo: un mondo creato e
+  // poi lasciato cadere su un `return null` resterebbe senza padrone (vedi
+  // `preparaDaScena`, 24/09).
+  const geoSicura = sanificaTriangoli(geometria.positions, geometria.indices);
+  if (!geoSicura.indices.length) return null;
 
+  const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
+  try {
+    return costruisciNelMondo(RAPIER, world, geometria, geoSicura, opz, m, t0);
+  } catch (e) {
+    try { world.free(); } catch (e2) {}
+    throw e;
+  }
+}
+
+function costruisciNelMondo(RAPIER, world, geometria, geoSicura, opz, m, t0) {
   const corpoEdificio = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   // ⚠️ NESSUN `TriMeshFlags.FIX_INTERNAL_EDGES`, e non e' una dimenticanza.
   //
@@ -29693,8 +29750,6 @@ function mondoDaGeometria(RAPIER, geometria, opz = {}) {
   //    appoggiato a un solaio produce facce coincidenti, ed e' la regola, non
   //    l'eccezione. Su un modello a caso — che e' il caso che ci interessa —
   //    e' un difetto silenzioso, del genere peggiore.
-  const geoSicura = sanificaTriangoli(geometria.positions, geometria.indices);
-  if (!geoSicura.indices.length) return null;
   const desc = RAPIER.ColliderDesc.trimesh(geoSicura.positions, geoSicura.indices);
   const collisoreEdificio = world.createCollider(desc, corpoEdificio);
 
@@ -30340,6 +30395,7 @@ function buttaMondo(scena) {
  *  esploderanno tutte, e allora e' la scena a essere morta — non il punto a
  *  essere sbagliato. */
 function mondoRisponde(scena) {
+  GUASTO_MONDO = null;
   if (!scena || !scena.world || !scena.RAPIER) return false;
   try {
     const i = scena.ingombro;
@@ -30349,8 +30405,11 @@ function mondoRisponde(scena) {
     scena.world.intersectionsWithRay(new scena.RAPIER.Ray(c, { x: 0, y: 1, z: 0 }), 1, false,
                                      function () { return false; });
     return true;
-  } catch (e) { return false; }
+  } catch (e) { GUASTO_MONDO = (e && e.message) || String(e); return false; }
 }
+// L'errore vero dell'ultima domanda di prova fallita: si scrive quello, non
+// una causa supposta.
+let GUASTO_MONDO = null;
 
 /** Rifa' il mondo fisico dallo stesso modello. Torna `true` solo se quello
  *  nuovo risponde davvero: dire «rifatto» senza averlo provato sarebbe la
@@ -30372,13 +30431,28 @@ async function rifaiMondo(opz) {
  * qualcuno ha tolto un blocco — si dice e si smette, invece di riscrivere qui
  * una seconda estrazione che poi divergerebbe.
  */
+// Di che modello e' fatto il mondo in SCENA: la radice e il suo ingombro nel
+// mondo (cambia se il modello viene riscalato dopo il caricamento).
+let FIRMA_SCENA = null, PREPARAZIONE_PER = null;
+const idRadici = new WeakMap();
+let prossimaRadice = 1;
+function firmaModello(THREE, radice) {
+  if (!THREE || !radice) return null;
+  if (!idRadici.has(radice)) idRadici.set(radice, prossimaRadice++);
+  const b = new THREE.Box3().setFromObject(radice);
+  const q = (v) => Math.round(v * 1000);
+  return idRadici.get(radice) + '|' + [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z].map(q).join(',');
+}
+
 async function preparaDaScena(THREE, radice, opz = {}) {
   // Il mondo precedente si restituisce alla libreria PRIMA di chiederne un
   // altro. Vedi il blocco «IL MONDO FISICO MUORE SOTTO LE MANI»: e' la ragione
   // per cui il corpo non veniva mai applicato.
   buttaMondo(SCENA);
   SCENA = null;
+  FIRMA_SCENA = null;
   if (!THREE || !radice) return { ok: false, perche: 'manca three o il modello' };
+  const firma = firmaModello(THREE, radice);
   // Da cosa e' fatto: serve per rifarlo se muore mentre aspetta di servire.
   RADICE_ULTIMA = radice;
   OPZ_ULTIME = opz;
@@ -30393,6 +30467,15 @@ async function preparaDaScena(THREE, radice, opz = {}) {
   try { RAPIER = await libreria(); }
   catch (e) { return { ok: false, perche: 'rapier non si e caricata (' + ((e && e.message) || e) + ')' }; }
 
+  // ⛔ 24/09/2026 — §6.17. Mentre si aspettava la libreria, un'altra
+  //    preparazione puo' aver gia' messo il suo mondo in SCENA (visto: due
+  //    «mondo fisico» nello stesso secondo). Sovrascriverlo lo abbandonava
+  //    senza restituirlo, e piu' tardi lo smontava lo spazzino della memoria
+  //    pezzo per pezzo (rawislandmanager, rawnarrowphase, rawphysicspipeline,
+  //    rawrigidbodyset): misurato, e' da li' che venivano «unreachable» e
+  //    «memory access out of bounds», e poi il mondo vivo che non rispondeva.
+  buttaMondo(SCENA);
+  SCENA = null;
   try {
     SCENA = mondoDaGeometria(RAPIER, geo, opz);
   } catch (e) {
@@ -30400,6 +30483,7 @@ async function preparaDaScena(THREE, radice, opz = {}) {
     return { ok: false, perche: 'collisore non costruito (' + ((e && e.message) || e) + ')' };
   }
   if (!SCENA) return { ok: false, perche: 'collisore non costruito' };
+  FIRMA_SCENA = firma;
   return { ok: true, triangoli: SCENA.triangoli, ms: SCENA.ms, misure: SCENA.misure };
 }
 
@@ -30453,8 +30537,8 @@ async function filtraTraiettoriaUnaVolta(traiettoria, opz, mia) {
   //    difetto che e' costato le settimane in cui la gente scivolava.
   if (!mondoRisponde(SCENA)) {
     try {
-      console.warn('[VERITAS corpo] il mondo fisico non risponde piu (la memoria '
-        + 'della libreria e cresciuta sotto di lui): lo rifaccio e riprovo.');
+      console.warn('[VERITAS corpo] il mondo fisico non risponde piu ('
+        + (GUASTO_MONDO || 'nessun errore letto: manca il mondo') + '): lo rifaccio e riprovo.');
     } catch (e) {}
     const rifatto = await rifaiMondo(opz);
     if (!rifatto) {
@@ -30581,7 +30665,18 @@ if (typeof window !== 'undefined') {
     }
     // Dopo la navmesh, che la geometria la estrae per prima e la tiene calda.
     setTimeout(function () {
+      // ⛔ 24/09/2026 — §6.17. Il segnale arriva piu' volte per lo STESSO
+      //    modello (due nello stesso secondo all'apertura, poi ancora): ogni
+      //    volta si rifaceva il mondo da 186.074 triangoli e si ricalcolava la
+      //    traiettoria intera. Lavoro buttato, e il rifare continuo e' il
+      //    momento in cui il motore si rompeva. Si rifa' solo se il modello e'
+      //    cambiato (altra radice, altra scala) o se il mondo non risponde.
+      const firma = firmaModello(THREE, root);
+      if (firma === PREPARAZIONE_PER) return;
+      if (SCENA && firma === FIRMA_SCENA && mondoRisponde(SCENA)) return;
+      PREPARAZIONE_PER = firma;
       preparaDaScena(THREE, root).then(function (r) {
+        if (PREPARAZIONE_PER === firma) PREPARAZIONE_PER = null;
         window.__veritasCorpoEsito = r;
         if (!r.ok) { console.warn('[VERITAS corpo] mondo fisico non costruito:', r.perche); return; }
         console.log('[VERITAS corpo] mondo fisico: ' + r.triangoli.toLocaleString('it-IT')
@@ -30607,6 +30702,9 @@ if (typeof window !== 'undefined') {
           try { window.__veritasRicalcolaTraiettoria(); }
           catch (e) { console.error('[VERITAS corpo] ricalcolo della traiettoria fallito:', e); }
         }
+      }, function (e) {
+        if (PREPARAZIONE_PER === firma) PREPARAZIONE_PER = null;
+        console.warn('[VERITAS corpo] mondo fisico non costruito:', (e && e.message) || e);
       });
     }, 50);
     return out;

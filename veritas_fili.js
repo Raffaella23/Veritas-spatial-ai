@@ -114,16 +114,35 @@ if (typeof window === "undefined") {
 
     navigator.serviceWorker.register(sorgente).then(
       (reg) => {
-        // ⚠️ La PRIMA navigazione non passa dal service worker: e' arrivata
-        //    prima che esistesse. Serve un ricaricamento, e uno solo — il
-        //    segno in `sessionStorage` impedisce l'anello infinito se per
-        //    qualche motivo l'isolamento non arriva.
-        if (reg.active && !navigator.serviceWorker.controller) {
-          if (!sessionStorage.getItem("veritasFiliRicaricato")) {
-            sessionStorage.setItem("veritasFiliRicaricato", "1");
-            console.log("[VERITAS fili] acceso: ricarico una volta per isolare la pagina");
-            location.reload();
-          }
+        // ⚠️ CORRETTO IL 23/09/2026 — due difetti, non uno.
+        //
+        //    1. IL CONTROLLO GUARDAVA LA COSA SBAGLIATA. Il lavoratore chiama
+        //       `clients.claim()` al suo `activate`: prende in mano la pagina
+        //       SUBITO, senza ricaricare. Il vecchio controllo vedeva
+        //       "controller gia' presente" e saltava il ricaricamento — ma
+        //       senza ricaricare il DOCUMENTO PRINCIPALE non passa mai dalle
+        //       mani del lavoratore, quindi le intestazioni non arrivano MAI:
+        //       serve guardare se la pagina e' GIA' isolata, non chi la
+        //       controlla.
+        //
+        //    2. IL CONTROLLO ARRIVAVA TROPPO PRESTO. Appena dopo
+        //       `register()` il lavoratore e' spesso ancora "installing", non
+        //       "active": `reg.active` era `null` e il ricaricamento non
+        //       partiva mai, anche col controllo giusto — misurato il 23/09
+        //       due volte, identico su una pagina di prova e su quella vera.
+        //       Si aspetta lo `statechange` a "activated" prima di decidere.
+        const decidi = () => {
+          if (window.crossOriginIsolated) return;               // gia' a posto
+          if (sessionStorage.getItem("veritasFiliRicaricato")) return; // gia' tentato
+          if (!reg.active) return;                               // non ancora pronto
+          sessionStorage.setItem("veritasFiliRicaricato", "1");
+          console.log("[VERITAS fili] acceso: ricarico una volta per isolare la pagina");
+          location.reload();
+        };
+        if (reg.active) decidi();
+        else {
+          const w = reg.installing || reg.waiting;
+          if (w) w.addEventListener("statechange", () => { if (w.state === "activated") decidi(); });
         }
       },
       (err) => console.log("[VERITAS fili] non si e' acceso: " +

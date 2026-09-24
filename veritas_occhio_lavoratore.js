@@ -25,13 +25,11 @@
 //    HANDOFF): la pagina si fermava a tratti, e si fermava anche il velo.
 //    Il motore era gia' di la'; a bloccare era il contorno.
 //
-// ⚠️ QUI IL PROXY SI SPEGNE, e non e' una svista. La ragione per cui era stato
-//    acceso il 04/09 — l'occhio non trovava i 255,5 MB del motore ONNX con la
-//    scena 3D gia' caricata — vale identica per questo lavoratore: anche lui ha
-//    la sua memoria, separata da quella della pagina. Tenere il proxy ACCESO
-//    qui dentro vorrebbe dire aprire un secondo lavoratore dentro il primo, e
-//    una seconda copia del motore in WebAssembly: la stanza si otterrebbe due
-//    volte e si pagherebbe due volte.
+// ⚠️ QUI IL PROXY SI SPEGNE, e non e' una svista. Il proxy serve a portare il
+//    motore ONNX fuori dal filo della pagina, e questo lavoratore e' gia' fuori.
+//    Tenerlo ACCESO qui dentro vorrebbe dire aprire un secondo lavoratore dentro
+//    il primo, e una seconda copia del motore in WebAssembly: la stanza si
+//    otterrebbe due volte e si pagherebbe due volte.
 //
 // ⚠️ LA LIBRERIA ARRIVA PER INDIRIZZO, non per nome. Le mappe di importazione
 //    (`<script type="importmap">`) NON valgono dentro un lavoratore: un
@@ -136,8 +134,9 @@ async function guarda(m) {
   }
 }
 
-// Un errore di ONNX sa essere un numero nudo (267935216 = 255,5 MB, il tetto
-// di memoria del motore). Va detto com'e': un "[object Object]" al suo posto
+// Un errore di ONNX sa essere un numero nudo (es. 267935216): e' l'indirizzo di
+// un'eccezione C++ che il motore lancia cosi' com'e', NON una misura di memoria
+// (verificato il 23/09). Va detto com'e': un "[object Object]" al suo posto
 // costerebbe mezza giornata di diagnosi.
 function messaggio(e) {
   if (e == null) return "motivo non detto";

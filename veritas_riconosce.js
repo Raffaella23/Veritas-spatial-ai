@@ -1430,17 +1430,14 @@ async function accendiOcchioVero(opz = {}) {
     return null;
   }
 
-  // ⚠️ L'OCCHIO VUOLE UNA STANZA SUA. Misurato il 04/09/2026 sulla pagina viva:
-  //    con la scena 3D caricata l'occhio non si apre e l'errore e' un numero
-  //    nudo, 267935216 -- che sono 255,5 MB, cioe' il tetto di memoria del
-  //    motore ONNX. Non e' un guasto: e' che quella memoria, nella pagina, non
-  //    c'e' piu'. Nella stessa identica prova fatta su una pagina vuota lo
-  //    stesso formato si apre senza un fiato.
-  //
-  //    `proxy` sposta il motore in un lavoratore separato, che ha la sua
-  //    memoria e il suo filo di esecuzione. Due cose in una: l'occhio trova lo
-  //    spazio, e la pagina smette di bloccarsi mentre lui carica -- gli scatti
-  //    che si vedevano durante la simulazione erano anche questo.
+  // ⚠️ L'OCCHIO VUOLE UNA STANZA SUA. Questa e' la strada di riserva, quando
+  //    il lavoratore (`occhioNelLavoratore`) non si apre: `proxy` sposta
+  //    almeno il motore ONNX in un lavoratore separato, cosi' la pagina non si
+  //    blocca mentre lui carica.
+  //    ⛔ La vecchia spiegazione di qui («267935216 = 255,5 MB, il tetto di
+  //       memoria») era sbagliata: e' l'indirizzo di un'eccezione C++, non una
+  //       misura (23/09). E l'occhio che «non si apriva con la scena carica»
+  //       era la pagina ferma in un ciclo infinito di `dijkstra` (24/09).
   //
   //    ⚠️ VA MESSO PRIMA che venga creata la prima sessione. Dopo non serve a
   //       niente: il motore si accende una volta sola per pagina e resta com'e'

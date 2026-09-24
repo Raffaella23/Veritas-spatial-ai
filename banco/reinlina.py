@@ -112,6 +112,12 @@ def main():
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
     modulo, legatura = sys.argv[1], sys.argv[2]
+    # ⛔ veritas_corpo.js e' una copia MORTA: il corpo fisico vivo sta solo in
+    #    index.html, ed e' andato avanti (24/09: filtro a rate, mondi mai
+    #    abbandonati). Reinlinarlo cancellerebbe in silenzio quelle correzioni.
+    if os.path.basename(modulo) == "veritas_corpo.js":
+        raise SystemExit("veritas_corpo.js non si reinlina: e' una copia morta, "
+                         "il codice vivo e' in index.html (HANDOFF §3).")
     nuovo_corpo = sorgente_inline(modulo, legatura)
 
     documento = open("index.html", encoding="utf-8").read()
