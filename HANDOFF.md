@@ -125,7 +125,7 @@ Cosa vuol dire, operativamente:
 
 | | |
 |---|---|
-| **Aggiornato** | 24/09/2026 (§6.17 punto 1 CHIUSO: è un limite di Chromium sotto carico — il Worker dell'occhio non trova posto per nascere mentre la scena 3D + la fisica sono già accese. Non è transformers.js/OWLv2, non è il filo principale bloccato in assoluto. Restano due strade di correzione da scegliere con Raffaella, non ancora scritte) |
+| **Aggiornato** | 24/09/2026 (la strada 1 — svegliare l'occhio presto — esiste già dal 04/09 e nascere presto le riesce davvero, ma non basta: una volta nato, l'occhio non risponde a uno sguardo vero mentre la scena è carica, nemmeno in 3 minuti. Il difetto non è solo "quando nasce", è "quanto tempo macchina ottiene per lavorare mentre la scena gira". Serve anche la strada 2, mirata sulla durata dello sguardo, non solo sulla nascita — da discutere con Raffaella prima di scrivere) |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `1c4faef` — *l'occhio guarda solo dove c'è qualcosa* (prima: `c178d16` un giro solo e domande in fila, `90f59c6` la statura 1,75, `7ba9a28` tutta la documentazione al narratore) |
@@ -1286,6 +1286,66 @@ scegliere insieme:
 Nessuna delle due si scrive senza il tuo via: sono entrambe modifiche
 all'ordine in cui le cose accadono, non un dettaglio da 1 parola come i fix
 gia' proposti sopra.
+
+---
+
+## ⛔ 24/09/2026 — LA "STRADA 1" GIA' ESISTE, E DA SOLA NON BASTA. Corretto un
+   consiglio dato a Raffaella prima di verificarlo sul codice vero.
+
+**Prima di scrivere la strada 1 da zero, trovato che esiste gia'.**
+`veritas_riconosce.js` (~riga 1910-1959) ha una funzione, `accendiQuandoEFerma`,
+scritta il **04/09/2026** per questo stesso identico sintomo: sveglia l'occhio
+8 secondi dopo che la pagina ha finito di caricarsi, apposta A PAGINA VUOTA,
+prima che arrivi un modello. Il commento di allora misurava la stessa cosa
+misurata ora: *"pagina vuota → si apre in 3,6-7,9 s; dopo il modello → non si
+apre, errore un numero nudo"*. E' la strada 1, gia' scritta e pubblicata da
+tre settimane — solo che nessuno l'aveva verificata nella diagnosi di
+questi giorni, perche' i banchi del §6.17 chiamano `occhioLocale()` a mano,
+DOPO il modello, bypassando quel meccanismo.
+
+**Verificato ora se funziona davvero** (`banco/vivo/sveglia_presto_poi_scena.mjs`,
+non pubblicato): pagina aperta, **15 secondi senza toccare niente**, poi il
+modello. Risultato:
+
+| momento | stato dell'occhio |
+|---|---|
+| dopo 15 s a pagina ferma | ancora "in carico" (sta scaricando i pesi, centinaia di MB, non e' finito) |
+| a scena carica, un po' piu' tardi | **"pronto" (wasm/q8) — l'accensione anticipata e' riuscita davvero** |
+
+**Ma "pronto" non basta.** Chiesto all'occhio gia' acceso di guardare
+davvero un'immagine (una prova minima: un quadratino bianco, una parola
+sola) **con la scena gia' carica — nessuna risposta in 3 minuti pieni**
+(180.000 ms, tetto esterno, misura certa). Rifatto due volte: primo giro 40 s
+di tetto, poi 180 s riusando lo stesso profilo (quindi con i pesi gia' in
+cache, per escludere che fosse ancora lo scaricamento) — stesso risultato.
+
+⛔ **QUESTO SMENTISCE (IN PARTE) LA RACCOMANDAZIONE DATA A RAFFAELLA PRIMA DI
+QUESTA PROVA.** Avevo consigliato la strada 1 come soluzione, ragionando che
+il problema fosse solo il MOMENTO in cui il Worker nasce. E' vero che nascere
+presto RIESCE (confermato sopra). **Ma il prodotto non ha bisogno solo che
+l'occhio nasca: ha bisogno che GUARDI, e guarda dopo, quando la scena e'
+gia' pesante** (`window.__veritasGuarda` parte dopo che gli ambienti sono
+stati misurati — a scena completa, non prima). Un occhio nato presto ma muto
+quando serve davvero non risolve il problema del cliente che aspetta.
+
+**Il sospetto si sposta, di nuovo, con una misura sotto:** non e' (solo) la
+NASCITA del Worker a trovare posto difficile sotto carico — e' l'INTERO
+lavoro che il Worker fa, dalla nascita fino a ogni singolo sguardo, a essere
+sistematicamente affamato di tempo macchina finche' la scena 3D e la fisica
+girano. Coerente con come i browser trattano di solito i fili: quello
+principale (e chi gli parla da fuori, come i nostri `1+1`) ha una corsia
+preferenziale per restare reattivo; un Worker di sottofondo no — sotto lo
+stesso carico, il filo principale rispondeva in ~5 s, il Worker non ha
+risposto in 180 s netti.
+
+**Cosa serve ora, prima di scrivere qualunque correzione:** la strada 1 resta
+valida come UNA parte (nascere presto e' comunque meglio di nascere tardi),
+ma non basta da sola. Va aggiunta la strada 2 — o una sua versione mirata:
+non solo un istante alla nascita, ma **alleggerire la macchina per tutta la
+durata di ogni sguardo vero**, non solo alla nascita del Worker. Da discutere
+con Raffaella prima di scrivere: quanto alleggerire, per quanto tempo, e se
+il costo (la scena che rallenta o si ferma mentre l'occhio guarda) sia
+accettabile per il prodotto.
 
 **Test A, B, C, D non ancora eseguiti fino in fondo**: tre volte su tre la
 pagina non ha superato l'accensione dell'occhio (caduta con poca memoria,
