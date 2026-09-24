@@ -86,6 +86,15 @@ export function riascolta(perche) {
   } finally {
     window.__veritasAssegnazioneAutorevole = false;
   }
+  // ⚠️ LE TAPPE NUOVE VANNO RIAPPOGGIATE (§6.16, 24/09/2026). La rianalisi
+  //    rifa' le tappe sui baricentri degli ambienti; a meta' giro le aveva
+  //    messe sugli arredi `__veritasZoneSulCammino`, e qui nessuno la
+  //    richiamava. Misurato: a fine giro 0 tappe su un arredo, 8 posti su 20.
+  //    Si fa subito, prima che la comprensione dia i nomi alle tappe.
+  if (typeof window.__veritasZoneSulCammino === 'function') {
+    try { window.__veritasZoneSulCammino(); }
+    catch (e) { console.warn('[VERITAS comando] tappe non riappoggiate: ' + ((e && e.message) || e)); }
+  }
   const dopo = foto();
   const d = (a, b) => (a === b ? String(b) : a + ' → ' + b);
   console.log('[VERITAS comando] dopo aver ascoltato l’occhio: '

@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-24-e";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -4186,6 +4186,15 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
   let lastNavigablePoints = null;
   let lastFloorLevels = [0];
   let lastZones = null;
+  // Gli ambienti PRIMA che diventino tappe (§6.16). `lastZones` tiene la lista
+  // gia' ridotta: rilanciare l'assegnazione su quella non fa crescere niente.
+  // Si tiene la lista come e' ARRIVATA, prima di dividiZoneGrandi: ridata a
+  // una lista gia' divisa, la divide di nuovo (misurato: 22 -> 34 ambienti).
+  // `quantiAmbienti` e' il conto DOPO la divisione, quello che vale.
+  let ambientiInteri = null, quantiAmbienti = 0;
+  // Il modello su cui il riconteggio coi posti misurati e' gia' stato fatto:
+  // una volta sola per modello.
+  let riconteggioFattoPer = null;
 
   // Assegnazione automatica delle zone ai punti del progetto.
   //
@@ -4503,6 +4512,38 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
   // ⚠️ Che due aree non si raggiungano NON e' un difetto del calcolo: e' un
   //    dato di progetto, e a un architetto interessa. Si dice, non si aggira.
   window.__veritasZoneSulCammino = function () {
+    // ⚠️ IL CONTO DELLE ZONE SI RIFA' QUANDO ARRIVANO GLI ARREDI (§6.16).
+    //
+    //    Quando applyAutoAssignment decide quante tappe fare, `veritas_cose`
+    //    non ha ancora letto la scena: misurato «21 ambienti, 0 posti
+    //    misurati -> 10 tappe», e un secondo dopo i posti sono 20. Il lettore
+    //    degli arredi chiama questa funzione appena finisce: qui, UNA VOLTA
+    //    per modello e SOLO se i posti chiedono piu' tappe di quelle che ci
+    //    sono, si rifa' l'assegnazione sugli ambienti interi. Poi il resto
+    //    della funzione appoggia le tappe sui posti come sempre.
+    //
+    //    Non dopo i nomi: se l'occhio o la comprensione hanno gia' battezzato
+    //    le tappe, rifarle li perderebbe. E non su zone dichiarate da un IFC.
+    const Pz = window.__veritasPercorso;
+    const radiceOra = window.__veritasModelRoot || null;
+    const postiOra = ((window.__veritasCoseTrovate || {}).posti || []).length;
+    if (Pz && radiceOra && riconteggioFattoPer !== radiceOra && postiOra > 0
+        && Array.isArray(ambientiInteri) && quantiAmbienti > 8
+        && currentNodes && currentNodes.length >= 2
+        && !currentNodes.some((n) => n.origine === "bim" || n.origine === "occhi"
+                                  || n.origine === "comprensione")) {
+      const servono = Pz.tappeConsigliate(quantiAmbienti, postiOra);
+      if (servono > currentNodes.length) {
+        riconteggioFattoPer = radiceOra;
+        console.log("[VERITAS percorso] arrivati " + postiOra + " posti misurati: "
+          + currentNodes.length + " tappe non bastano, ne servono " + servono
+          + " — rifaccio l'assegnazione sui " + quantiAmbienti + " ambienti");
+        window.__veritasAssegnazioneAutorevole = true;
+        try { applyAutoAssignment(ambientiInteri); }
+        finally { window.__veritasAssegnazioneAutorevole = false; }
+      }
+    }
+
     const nm = window.__veritasNavmesh;
     if (!nm || !nm.stato() || !currentNodes || currentNodes.length < 2) return 0;
 
@@ -5163,6 +5204,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
   }
 
   function applyAutoAssignment(zones) {
+    if (Array.isArray(zones)) ambientiInteri = zones;
     // ⚠️ UNA STANZA CHE E' L'82% DELL'EDIFICIO NON E' UNA STANZA — 08/09/2026.
     //    In un terminal, fra accettazione controlli e lounge, i muri non ci
     //    sono: il misuratore restituisce UN ambiente da 2.759 m2 su 3.364. Al
@@ -5194,6 +5236,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-24-d";
     // restano tutti in __veritasAutoZones per il referto: qui si riduce solo
     // cio' che diventa percorso.
     const P = window.__veritasPercorso;
+    if (Array.isArray(zones)) quantiAmbienti = zones.length;
     if (P && Array.isArray(zones) && zones.length > 8) {
       // ⚠️ E I POSTI MISURATI, non solo gli ambienti (§6.16). Un mucchio di
       //    arredi e' un posto dove la gente fa qualcosa, e merita una zona: se
@@ -30866,7 +30909,7 @@ if (typeof window !== 'undefined') {
 <script type="module" src="./veritas_accessi.js?v=11"></script>
 <script type="module" src="./veritas_cinema.js?v=48"></script>
 <script type="module" src="./veritas_catena.js?v=2"></script>
-<script type="module" src="./veritas_comando.js?v=1"></script>
+<script type="module" src="./veritas_comando.js?v=2"></script>
 
 <!-- VERITAS - il ciclo occhio-cervello. Parte da solo sul modello caricato
      (HANDOFF.md: «Il riconoscimento non si chiede: avviene»). In fondo

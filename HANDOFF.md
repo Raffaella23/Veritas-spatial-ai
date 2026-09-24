@@ -888,7 +888,45 @@ false. Il costo è stato il suo scoraggiamento, ed è il piu' alto della giornat
 
 ---
 
-### 6.16 — ⛔ Sette zone distribuite su venti posti misurati — fix META' FATTO
+### 6.16 — Sette zone distribuite su venti posti misurati — ✅ PUBBLICATO il 24/09 (`2026-09-24-e`), limite residuo nel §6.14
+
+**✅ 24/09 sera — fatto, misurato, pubblicato.** Due pezzi:
+1. **Il ponte** in cima a `__veritasZoneSulCammino` (`index.html`): quando
+   arrivano i posti misurati, una volta per modello e solo se chiedono piu'
+   tappe, rifa' `applyAutoAssignment` sugli ambienti INTERI (`ambientiInteri`,
+   la lista come arriva, PRIMA di `dividiZoneGrandi`: ridata gia' divisa la
+   divideva di nuovo, 22 -> 34). Non scatta su IFC ne' dopo i nomi.
+2. **Il riappoggio dopo l'occhio** (`veritas_comando.js` `riascolta`, `?v=2`):
+   la rianalisi di fine giro (~150-200 s) rifaceva le tappe sui baricentri e
+   nessuno le rimetteva sugli arredi. Ora chiama `__veritasZoneSulCammino`
+   subito, prima che la comprensione dia i nomi. Deciso con Raffaella.
+
+**Misura** (`banco/vivo/conta_tappe.mjs`, aeroporto di prova, 20 posti):
+
+| | pubblicata `-d` | `-e` |
+|---|---|---|
+| a meta' giro: tappe | 10 | **20** (il ponte scatta a 12 s) |
+| a meta' giro: posti con tappa entro 4 m | 9 | 7 (10 tappe escluse: fuori dal gruppo raggiungibile) |
+| **a fine giro: tappe su un arredo** | **0** | **10** |
+| **a fine giro: posti con tappa entro 4 m** | **8** | **10** |
+| a fine giro: nomi dalla comprensione | applicati | applicati (6 esatti, 4 per vicinanza) |
+
+⛔ **LIMITE RESIDUO — non e' del §6.16, e' del §6.14.** Il posatore dice
+«solo 10 posti su 20 buoni»: dei 20 posti solo 10 si raggiungono a piedi fra
+loro (mappa di cammino in 9 pezzi, §0.2 la scala). Finche' la mappa e' in
+pezzi, piu' zone non vogliono dire piu' posti coperti. A meta' giro, con 20
+tappe, il gruppo principale ne tiene esattamente la meta', quindi scatta
+l'esclusione (10 fuori) invece dell'appoggio sugli arredi: stato di
+passaggio, a fine giro si riappoggia. Non si tocca il posatore: si risolve
+chiudendo il §6.14.
+⚠️ Il narratore (`__veritasOcchiGuarda`) parte a ~11 s sulle 10 tappe
+vecchie; la seconda chiamata trova «sto gia guardando». Con LM Studio acceso
+i suoi nomi andrebbero a tappe gia' sostituite — ma li sostituiva gia' la
+rianalisi di fine giro; i nomi che restano sono quelli della comprensione.
+
+---
+
+**Storia (22-24/09):**
 
 Raffaella, 22/09/2026, cerchiando in rosso un blocco di sedute in mezzo al
 terminal, con i flussi che ci passano sopra: *«in quella zona non ho mai visto
@@ -1144,8 +1182,8 @@ la mappa di cammino ha i varchi.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-24-d` - commit `60bc3d3` su `main` (prima, stesso giorno: `d6d677c`, costruzione `-b`) |
-| **Giornata** | 24/09: §6.17 chiuso — causa trovata, sette correzioni, tutte misurate prima e dopo |
+| **Costruzione pubblicata** | `2026-09-24-e` su `main` (prima: `-d`, `60bc3d3`) |
+| **Giornata** | 24/09 sera: §6.16 pubblicato — ponte + riappoggio dopo l'occhio; a fine giro 10 posti su 20 coperti (erano 8). Mattina: §6.17 chiuso |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
 un ciclo infinito in `dijkstra`; l'occhio era la vittima, non il colpevole.
@@ -1162,13 +1200,18 @@ interruzione. Conta il battito dei timer della pagina.
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
+**6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
+arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
+coperti su 20 (erano 8). Il resto dipende dal §6.14.
+
 **6.17 - LA PAGINA CHE MUORE: RISOLTO E PUBBLICATO** (`2026-09-24-d`,
 `60bc3d3`; causa e misure in cima al §6.17). Resta da verificare dal vivo nel
 Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
 fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
 **Poi, nell'ordine deciso con Raffaella:**
-- **6.16** la meta' mancante (rifare il conto quando gli arredi arrivano);
+- **6.14** la mappa di cammino in pezzi (la scala dalle figure, §0.2): e' il
+  collo di bottiglia misurato nel §6.16 — 10 posti su 20 non si raggiungono;
 - **6.18** il lato dell'accesso;
 - **l'occhio che gira e si avvicina** a quello che sta capendo, con il nome che
   compare li': chiesto da Raffaella il 22/09, ed e' il 0.1 applicato alla
