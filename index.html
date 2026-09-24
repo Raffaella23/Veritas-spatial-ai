@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-24-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -2325,8 +2325,14 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
     return adj;
   }
 
+  // ⛔ 24/09/2026 — QUI SI FERMAVA LA PAGINA (§6.17). Con `end` fuori dal
+  // grafo, `dist[end]` era `undefined` (non Infinity), il controllo sotto
+  // non scattava, e `c = prev[c]` restava `undefined` per sempre: ciclo
+  // infinito sul filo principale, memoria senza fine, poi il crash.
   function dijkstra(adj, start, end) {
-    const dist = new Array(adj.length).fill(Infinity), prev = new Array(adj.length).fill(-1), visited = new Array(adj.length).fill(false);
+    const n = adj.length;
+    if (!(start >= 0 && start < n && end >= 0 && end < n)) return null;
+    const dist = new Array(n).fill(Infinity), prev = new Array(n).fill(-1), visited = new Array(n).fill(false);
     dist[start] = 0;
     for (let iter = 0; iter < adj.length; iter++) {
       let u = -1, best = Infinity;
@@ -2336,10 +2342,10 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
       if (u === end) break;
       for (const e of adj[u]) { if (dist[u] + e.d < dist[e.to]) { dist[e.to] = dist[u] + e.d; prev[e.to] = u; } }
     }
-    if (dist[end] === Infinity) return null;
+    if (!(dist[end] < Infinity)) return null;
     const path = [];
-    for (let c = end; c !== -1; c = prev[c]) path.unshift(c);
-    return path;
+    for (let c = end; c !== -1 && path.length <= n; c = prev[c]) path.unshift(c);
+    return path.length <= n ? path : null;
   }
 
   // 14/09/2026 — LE FRECCE GUIDANO ANCHE IL CAMMINO, NON SOLO LA META'.
@@ -2509,11 +2515,18 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
       if (dt < td) { td = dt; ti = i; }
     });
     if (fi === ti) return [toPos];
-    if (!lastZoneGraph) lastZoneGraph = buildZoneGraph(lastZones, lastNavigablePoints);
+    // Il grafo si rifà quando cambiano le zone o i punti: costruito una volta
+    // sola, restava quello delle prime zone e gli indici nuovi cadevano fuori.
+    if (!lastZoneGraph || lastZoneGraphZone !== lastZones || lastZoneGraphPunti !== lastNavigablePoints) {
+      lastZoneGraph = buildZoneGraph(lastZones, lastNavigablePoints);
+      lastZoneGraphZone = lastZones;
+      lastZoneGraphPunti = lastNavigablePoints;
+    }
     const route = dijkstra(lastZoneGraph, fi, ti);
     if (!route) return [toPos];
     return route.map((zi) => lastZones[zi].pos).concat([toPos]);
   }
+  let lastZoneGraphZone = null, lastZoneGraphPunti = null;
   let lastZoneGraph = null;
 
   // === VERITAS FIX TASK 6: ANTI-MURO + CODA + BOTTLENECK ===
@@ -2625,19 +2638,31 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-22-e";
     
     // Aggiunge jitter evitato per muri: se un agente e' troppo vicino a un punto non navigabile, spingilo verso il centro navigabile
     // (usa lastNavigablePoints come proxy dei muri)
-    if (typeof lastNavigablePoints !== 'undefined' && lastNavigablePoints.length) {
+    if (typeof lastNavigablePoints !== 'undefined' && lastNavigablePoints && lastNavigablePoints.length) {
+      // ⛔ 24/09/2026 — §6.17. Qui si scorreva TUTTA la nuvola dei punti
+      // calpestabili per ogni corpo a ogni fotogramma: sull'aeroporto il filo
+      // della pagina restava fermo decine di secondi. Stessa domanda, ma solo
+      // dentro le celle dell'indice che gia' esiste (`indiceNuvola`).
+      const ix = indiceNuvola(lastNavigablePoints);
+      const vicini = (x, z, r, fn) => {
+        const k = Math.ceil(r / ix.cella), cx = Math.floor(x / ix.cella), cz = Math.floor(z / ix.cella);
+        for (let dx = -k; dx <= k; dx++) for (let dz = -k; dz <= k; dz++) {
+          const arr = ix.h.get((cx + dx) + "," + (cz + dz));
+          if (arr) for (const p of arr) if (fn(p) === false) return;
+        }
+      };
       for (const ag of frameAgents) {
         let hasSupport = false;
-        for (const p of lastNavigablePoints) {
-          if (Math.hypot(p[0]-ag.pos[0], p[2]-ag.pos[2]) < 1.2) { hasSupport = true; break; }
-        }
+        vicini(ag.pos[0], ag.pos[2], 1.2, (p) => {
+          if (Math.hypot(p[0]-ag.pos[0], p[2]-ag.pos[2]) < 1.2) { hasSupport = true; return false; }
+        });
         if (!hasSupport) {
           // Trova il punto navigabile piu' vicino e spingi verso di esso (anti-muro)
           let best = null, bestD = 3;
-          for (const p of lastNavigablePoints) {
+          vicini(ag.pos[0], ag.pos[2], 3, (p) => {
             const d = Math.hypot(p[0]-ag.pos[0], p[2]-ag.pos[2]);
             if (d < bestD) { bestD = d; best = p; }
-          }
+          });
           if (best) {
             const nx = (best[0]-ag.pos[0])/bestD, nz = (best[2]-ag.pos[2])/bestD;
             ag.pos[0] += nx * 0.1; ag.pos[2] += nz * 0.1;
@@ -29532,6 +29557,13 @@ const TETTO_MS = 45000;
 // nessuno: campionarlo costa un quarto e dice la stessa cosa.
 const PASSO_COLLAUDO = 4;
 
+// ⛔ 24/09/2026 — §6.17. Il filtro calcolava la simulazione intera in un colpo
+//    solo: misurato sull'aeroporto, la pagina restava sorda fino a 132 s di
+//    fila (niente timer, niente disegno, niente messaggi dall'occhio). Ora
+//    ogni RESPIRO_MS di lavoro restituisce la parola alla pagina; il risultato
+//    e' lo stesso, cambia solo quando lo si calcola.
+const RESPIRO_MS = 30;
+
 // -----------------------------------------------------------------------------
 // 2. La libreria
 // -----------------------------------------------------------------------------
@@ -30044,13 +30076,16 @@ function nascitaLibera(scena, piede) {
  * o e' arrivato) non viene toccato: si conserva il fotogramma com'era, campi
  * compresi. Questo modulo cambia le POSIZIONI, non decide chi c'e'.
  */
-function filtraFrames(scena, frames, opz = {}) {
+async function filtraFrames(scena, frames, opz = {}) {
   if (!scena || !Array.isArray(frames) || !frames.length) {
     return { ok: false, perche: 'nessun fotogramma da filtrare', frames };
   }
   const m = scena.misure;
   const t0 = ora();
   const tettoMs = opz.tettoMs != null ? opz.tettoMs : TETTO_MS;
+  // Il tetto conta il LAVORO, non le pause in cui la pagina fa altro.
+  let lavoro = 0, fetta = ora();
+  const lavorato = () => lavoro + (ora() - fetta);
   // Quanto puo' recuperare chi e' rimasto indietro, in frazione del passo
   // pianificato. Mezzo passo in piu' e' abbastanza per rientrare dietro un
   // pilastro e non abbastanza per saltare un muro.
@@ -30086,12 +30121,40 @@ function filtraFrames(scena, frames, opz = {}) {
 
   const nuovi = new Array(frames.length);
 
+  const oltreIlTetto = (f) => {
+    // Onesta': si dice quanto si e' fatto e si restituisce il piano intatto.
+    // Un risultato mezzo filtrato sarebbe peggio di nessun filtro, perche'
+    // avrebbe l'aria di essere stato verificato.
+    pulisciCorpi();
+    return {
+      ok: false,
+      perche: 'oltre il tempo massimo (' + tettoMs + ' ms) al fotogramma ' + f + ' di ' + frames.length,
+      frames, corpi: corpi.size, fotogrammiFatti: f + 1,
+      ms: Math.round(lavorato()),
+    };
+  };
+
   for (let f = 0; f < frames.length; f++) {
     const fr = frames[f];
     const agenti = (fr && fr.agents) || [];
     const fuori = new Array(agenti.length);
 
     for (let a = 0; a < agenti.length; a++) {
+      // Fra un corpo e l'altro nessuna chiamata a Rapier e' in corso: e' il
+      // punto sicuro per lasciar lavorare la pagina.
+      if (ora() - fetta > RESPIRO_MS) {
+        lavoro += ora() - fetta;
+        await new Promise((r) => setTimeout(r, 0));
+        fetta = ora();
+        const motivo = opz.interrompi ? opz.interrompi() : null;
+        if (motivo) {
+          // Mondo rifatto mentre si aspettava: e' gia' stato restituito alla
+          // libreria, e toccarlo adesso vorrebbe dire usare memoria liberata.
+          if (motivo !== 'mondo rifatto') pulisciCorpi();
+          return { ok: false, interrotto: motivo, perche: 'filtro interrotto: ' + motivo, frames };
+        }
+        if (lavorato() > tettoMs) return oltreIlTetto(f);
+      }
       const ag = agenti[a];
       const p = ag && ag.pos;
       if (!p || p.length < 3 || !isFinite(p[0]) || !isFinite(p[1]) || !isFinite(p[2])) {
@@ -30188,18 +30251,7 @@ function filtraFrames(scena, frames, opz = {}) {
 
     nuovi[f] = { ...fr, agents: fuori };
 
-    if (ora() - t0 > tettoMs) {
-      // Onesta': si dice quanto si e' fatto e si restituisce il piano intatto.
-      // Un risultato mezzo filtrato sarebbe peggio di nessun filtro, perche'
-      // avrebbe l'aria di essere stato verificato.
-      pulisciCorpi();
-      return {
-        ok: false,
-        perche: 'oltre il tempo massimo (' + tettoMs + ' ms) al fotogramma ' + f + ' di ' + frames.length,
-        frames, corpi: corpi.size, fotogrammiFatti: f + 1,
-        ms: Math.round(ora() - t0),
-      };
-    }
+    if (lavorato() > tettoMs) return oltreIlTetto(f);
   }
 
   scostamenti.sort((a, b) => a - b);
@@ -30230,7 +30282,8 @@ function filtraFrames(scena, frames, opz = {}) {
     scostamentoMediano: +mediano.toFixed(3),
     scostamentoMassimo: +massimo.toFixed(3),
     triangoli: scena.triangoli,
-    ms: Math.round(ora() - t0),
+    ms: Math.round(lavorato()),
+    msTotali: Math.round(ora() - t0),
   };
 }
 
@@ -30365,7 +30418,26 @@ function ultimoEsito() { return ULTIMO; }
  * inventa niente e non si rompe niente: senza corpo fisico il programma si
  * comporta come ieri, e lo dice.
  */
+// Una corsa del filtro alla volta. Ora che il filtro lascia lavorare la pagina,
+// un ricalcolo della traiettoria puo' arrivare mentre il precedente e' a meta':
+// il nuovo ferma il vecchio (il suo risultato verrebbe comunque sostituito) e
+// aspetta che abbia tolto i suoi corpi dal mondo prima di cominciare.
+let FILTRO_GEN = 0, FILTRO_CORSA = null;
 async function filtraTraiettoria(traiettoria, opz = {}) {
+  const mia = ++FILTRO_GEN;
+  while (FILTRO_CORSA) { try { await FILTRO_CORSA; } catch (e) {} }
+  if (mia !== FILTRO_GEN) { ULTIMO = null; return traiettoria; }
+  const corsa = filtraTraiettoriaUnaVolta(traiettoria, opz, mia);
+  FILTRO_CORSA = corsa;
+  try { return await corsa; } finally { if (FILTRO_CORSA === corsa) FILTRO_CORSA = null; }
+}
+
+function conGuardia(opz, scena, mia) {
+  return { ...opz, interrompi: () => (SCENA !== scena ? 'mondo rifatto'
+    : mia !== FILTRO_GEN ? 'superato da un ricalcolo piu recente' : null) };
+}
+
+async function filtraTraiettoriaUnaVolta(traiettoria, opz, mia) {
   ULTIMO = null;
   if (!traiettoria || !Array.isArray(traiettoria.frames) || !traiettoria.frames.length) {
     return traiettoria;
@@ -30393,7 +30465,7 @@ async function filtraTraiettoria(traiettoria, opz = {}) {
   }
   let esito;
   try {
-    esito = filtraFrames(SCENA, traiettoria.frames, opz);
+    esito = await filtraFrames(SCENA, traiettoria.frames, conGuardia(opz, SCENA, mia));
   } catch (e) {
     // ⚠️ UN SOLO SECONDO TENTATIVO, SU UN MONDO APPENA COSTRUITO — 10/09/2026.
     //    Misurato sulla pagina viva: sul mondo che gira da qualche passata la
@@ -30413,7 +30485,7 @@ async function filtraTraiettoria(traiettoria, opz = {}) {
       return traiettoria;
     }
     try {
-      esito = filtraFrames(SCENA, traiettoria.frames, opz);
+      esito = await filtraFrames(SCENA, traiettoria.frames, conGuardia(opz, SCENA, mia));
       try {
         console.log('[VERITAS corpo] il mondo si era inceppato (' + primoErrore
           + '): rifatto, e questa volta il corpo si applica.');
@@ -30423,6 +30495,9 @@ async function filtraTraiettoria(traiettoria, opz = {}) {
       return traiettoria;
     }
   }
+  // Interrotto: non e' un esito da raccontare, il ricalcolo che l'ha fermato
+  // dira' il suo.
+  if (esito && esito.interrotto) { ULTIMO = null; return traiettoria; }
   ULTIMO = esito;
   if (!esito.ok) return traiettoria;
   return { ...traiettoria, frames: esito.frames };

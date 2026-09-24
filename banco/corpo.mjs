@@ -42,7 +42,7 @@ await p.waitForTimeout(55000);
 await p.click("#veritas-play-ready-btn").catch(() => {});
 await p.waitForTimeout(25000);
 
-const r = await p.evaluate(() => {
+const r = await p.evaluate(async () => {
   const C = window.__veritasCorpo;
   const out = {
     modulo: !!C,
@@ -96,7 +96,7 @@ const r = await p.evaluate(() => {
   // il piano fa nascere dentro un solido. Senza questi due numeri non si sa
   // se il filtro e' lento o se e' il piano a essere impossibile.
   const t0 = performance.now();
-  const senzaTetto = C.filtraFrames(scena, frames, { tettoMs: 600000 });
+  const senzaTetto = await C.filtraFrames(scena, frames, { tettoMs: 600000 });
   out.senzaTetto = {
     ok: senzaTetto.ok, perche: senzaTetto.perche,
     ms: Math.round(performance.now() - t0),
