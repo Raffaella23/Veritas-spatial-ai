@@ -1681,7 +1681,7 @@ riconosciuta. Riparare §6.19 e costruire §12 sono la stessa strada.
 | A | contare i tipi che contano sul terminal e gli sguardi che servono | ✅ **fatto il 25/09**, vedi sotto: **84 tipi → 21 sguardi, ~4 minuti** |
 | B | la telecamera che isola e inquadra un tipo (riusa `scorciTreQuarti`+`bersaglio`, `riempiLaFinestra`) | l'occhio nomina le sedute del terminal guardandole da sole |
 | C | la propagazione alle copie (nome + conseguenza + posizione) | ✅ **fatto il 25/09**: 66 sedute su 66 col nome, da UNO sguardo, vedi sotto |
-| D | la regia nel velo: carrello, fermata, nome, pannello col ragionamento | il cliente vede ogni fermata; quello che vede = quello che l'occhio guarda |
+| D | la regia nel velo: carrello, fermata, nome, pannello col ragionamento | ✅ **meccanica fatta il 25/09** (workspace): 6 fermate su 6, velo su «Oggetti», stessa immagine dell'occhio; ⛔ nomi sbagliati su 4 tipi su 6, vedi sotto |
 | E | §6.19: il corpo che si siede sulla seduta riconosciuta | almeno un agente seduto su una seduta vera, visto dal vivo |
 
 #### Passo A — il conto, fatto a tavolino il 25/09 (nessuna riga di codice dell'app)
@@ -1722,6 +1722,47 @@ dimostra che l'occhio riconosce la seduta anche in un riquadro da 320 px.
 non sono misurate. Un tipo intero puo' ancora risultare spezzato in due se i
 suoi pezzi non si toccano. Il conto sta in `banco/_passo_a.mjs`, solo nel
 workspace.
+
+#### Passo D — la regia nel velo, 25/09 sera (codice solo nel workspace, NON pubblicato)
+
+**La decisione di Raffaella (25/09), che ordina il film:** *«un unico film con
+vari livelli di lettura: prima la zonizzazione, poi gli zoom sugli oggetti,
+dopo l'analisi»*. Il nome si da' all'inizio; l'analisi viene dopo i nomi.
+
+**Cosa si e' scritto:**
+- `veritas_regia.js` (nuovo, `index.html` lo carica prima del montaggio):
+  sceglie 6 tipi interi per **superficie di pavimento occupata** (copie ×
+  impronta: in cima banconi, sedute, chioschi; le sagome di persone restano in
+  fondo senza doverle riconoscere), li inquadra isolati, annuncia
+  `veritas:fermata` con la STESSA telecamera e immagine che vanno all'occhio,
+  un solo sguardo, nome sulla cosa inquadrata, `nominaIlTipo`, e annuncia
+  `veritas:nome` col ragionamento (la conseguenza del vocabolario a parole:
+  «Sedie girevoli, 66 in tutto. In questo posto la gente potrà sostare
+  seduta.»). Tetto 150 s. Esiti in `__veritasCoseNominate`, `__veritasSedute`.
+- `veritas_montaggio.js`: il giro di comprensione aspetta la regia (lo stesso
+  occhio: insieme ogni sguardo costerebbe il doppio).
+- `veritas_apertura.js` (il velo): quinto stato **«Oggetti»** fra Zone e
+  Conformita'; il **carrello** va alla telecamera dell'occhio (a tempo, non a
+  fotogrammi: ~2 s su qualunque macchina), stessa inquadratura corretta per
+  l'obiettivo del velo; la **replica si isola** come l'occhio (oggetto + 1 m);
+  **cornice** di luce sull'oggetto; **l'immagine dell'occhio** nel report; il
+  **nome** accanto alla cosa e un **punto di luce su ogni copia**; il velo non
+  chiude e non salta agli Oggetti prima che la regia finisca.
+- `veritas_apertura.test.mjs`: cinque stati invece di quattro. Tutte passano.
+
+**Prove dal vivo** (`banco/vivo/regia_nel_velo.mjs`, quattro corse da 2-5 min):
+6 fermate su 6, velo sempre su «Oggetti», **immagine del velo = immagine
+dell'occhio** a ogni fermata, ordine Zone → Oggetti → Conformita', regia
+finita in 99-116 s, giro partito dopo. Una corsa (la quarta) ha avuto sguardi
+da **112-116 s invece di 13**: nessun Chrome di prova rimasto acceso, il
+computer era occupato; il tetto di 150 s ha fermato la regia a 2 fermate,
+come deve.
+
+**⛔ Cosa NON va: i nomi.** Sulle 6 fermate: «building» (bancone), «scala»
+(e' un pontile), **«sedie girevoli» ✅**, «building», «sky», **«servizi
+igienici»** — che porta POSTURA «seduto» e darebbe **6 posti a sedere falsi**
+al passo E. L'occhio sbaglia sugli oggetti grandi guardati da soli.
+Mancano anche i nomi italiani di «building» e «sky».
 
 #### Passo C — ✅ PASSATO il 25/09 sera (codice solo nel workspace, non pubblicato)
 
