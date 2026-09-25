@@ -135,7 +135,9 @@ check('il confronto vede la promozione, non una zona nuova', promo.promosse.leng
 // stato senza dati veri si salta, non si riempie.
 console.log('\n7. la successione degli stati');
 const tutti = { zone: true, conformita: true, orientamento: true };
-check('quattro stati, in quest\'ordine', STATI.join(',') === 'attesa,zone,conformita,orientamento');
+check('cinque stati (25/09: un unico film, zone → oggetti → analisi)', STATI.join(',') === 'attesa,zone,oggetti,conformita,orientamento');
+check('dopo le zone vengono gli oggetti, se ci sono', prossimoStato({ stato: 'zone', eta: DURATA_STATO, pronti: { ...tutti, oggetti: true } }) === 'oggetti'
+  && prossimoStato({ stato: 'oggetti', eta: DURATA_STATO, pronti: { ...tutti, oggetti: true } }) === 'conformita');
 check('in attesa finche\' non ci sono zone misurate', prossimoStato({ stato: 'attesa', eta: 60000, pronti: { zone: false } }) === 'attesa');
 check('l\'attesa si vede: non si lascia prima di DURATA_ATTESA', prossimoStato({ stato: 'attesa', eta: DURATA_ATTESA - 1, pronti: tutti }) === 'attesa');
 check('poi si passa alle zone', prossimoStato({ stato: 'attesa', eta: DURATA_ATTESA, pronti: tutti }) === 'zone');

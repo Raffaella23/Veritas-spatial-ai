@@ -39,7 +39,7 @@ if (DAL_WS) {
 const p = ctx.pages()[0] || await ctx.newPage();
 await p.goto(BASE + "?cb=" + Date.now(), { waitUntil: "load", timeout: 90000 });
 const r = await p.evaluate(async () => {
-  const m = await import("./veritas_riconosce.js?v=11");
+  const m = await import("./veritas_riconosce.js?v=13");
   const t0 = performance.now();
   const rileva = await Promise.race([m.occhioLocale(), new Promise((res) => setTimeout(() => res(null), 240000))]);
   const acceso = performance.now() - t0;

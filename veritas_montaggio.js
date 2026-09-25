@@ -65,12 +65,12 @@ import "./veritas_lessico.js?v=2";
 // ===========================================================================
 
 import { comprendi, puoAgire, racconta,
-         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=20"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
+         VISTE_PER_GIRO, GIRI_MASSIMI } from "./veritas_comprensione.js?v=22"   // ⚠️ la versione serve: senza, il browser tiene la copia vecchia;
 // ⚠️ Il ?v= va cambiato a OGNI modifica di veritas_anteprima.js: un modulo
 // esterno ha la sua cache, e senza numero nuovo arriva quello di prima
 // anche con index.html rinfrescato (trappola pagata il 02/09).
-import { anteprima } from "./veritas_anteprima.js?v=20";
-import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=11";
+import { anteprima } from "./veritas_anteprima.js?v=22";
+import { occhioLocale, piantaInTela, stato } from "./veritas_riconosce.js?v=13";
 // Dove sta cio' che l'occhio vede (17/09/2026): i riquadri in frazioni, e i
 // raggi dalla telecamera della foto fino al modello.
 import { inFrazioni, posaRiquadro, posaVarco } from "./veritas_posa.js?v=1";
@@ -1491,7 +1491,18 @@ function modelloNuovo(radice) {
     attesaInCorso = null;
     log("comincio: " + (geometriaPronta() ? "geometria pronta" : "tetto di sicurezza raggiunto")
       + ", dopo " + Math.round((Date.now() - partenza) / 1000) + " s");
-    window.__veritasComprendi().catch(function (e) {
+    // ⚠️ UN UNICO FILM (Raffaella, 25/09): prima la zonizzazione, poi gli
+    //    zoom sugli oggetti (veritas_regia.js), poi l'analisi. La regia usa lo
+    //    stesso occhio: se lavorassero insieme ogni sguardo costerebbe il doppio
+    //    (misurato: 26-29 s invece di 13-15). Il giro la aspetta, col suo tetto.
+    const regia = (window.__veritasRegiaAuto !== false && typeof window.__veritasRegia === "function")
+      ? Promise.resolve().then(() => window.__veritasRegia()).catch(function (e) {
+          console.warn("[VERITAS montaggio] la regia non e' andata:", (e && e.message) || e);
+        })
+      : Promise.resolve();
+    regia.then(function () {
+      return window.__veritasComprendi();
+    }).catch(function (e) {
       console.warn("[VERITAS montaggio] non ha capito:", (e && e.message) || e);
     });
   }, 200);

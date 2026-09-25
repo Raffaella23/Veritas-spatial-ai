@@ -1238,6 +1238,75 @@ export function leggiScena(THREE, radice, opz = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// 10-bis. I TIPI INTERI e il nome che passa alle copie — §12 passi B e C
+// ---------------------------------------------------------------------------
+//
+// Un esportatore spezza un arredo in piu' pezzi (sedile, schienale, gambe):
+// ogni pezzo ha la sua firma. Due firme sono LO STESSO oggetto quando hanno
+// lo stesso numero di copie e ogni copia dell'una tocca una copia dell'altra.
+// Il tipo intero e' quello che la telecamera inquadra e l'occhio nomina UNA
+// volta: il nome, con la sua conseguenza, vale per tutte le copie, ognuna al
+// suo posto vero (misurato il 25/09 sul terminal: 474 firme -> 191 tipi).
+
+function siToccano(a, b, gioco) {
+  for (let k = 0; k < 3; k++)
+    if (Math.abs(a.centro[k] - b.centro[k]) > (Math.abs(a.ingombro[k]) + Math.abs(b.ingombro[k])) / 2 + gioco) return false;
+  return true;
+}
+
+/**
+ * @returns {Array<{copie: Array<{min, max, centro, pezzi}>, misura:[dx,dy,dz], stacco}>}
+ *          ordinati per numero di copie, dal piu' ripetuto
+ */
+export function tipiInteri(inventario, opz = {}) {
+  const gioco = opz.gioco != null ? opz.gioco : 0.05;
+  const quote = opz.quotePavimento || quotePavimento(inventario);
+  const firme = [...perFirma(inventario).values()];
+  const padre = firme.map((_, i) => i);
+  const radice = (i) => (padre[i] === i ? i : (padre[i] = radice(padre[i])));
+  const perNumero = new Map();
+  firme.forEach((f, i) => { if (!perNumero.has(f.length)) perNumero.set(f.length, []); perNumero.get(f.length).push(i); });
+  for (const gruppo of perNumero.values())
+    for (let a = 0; a < gruppo.length; a++)
+      for (let b = a + 1; b < gruppo.length; b++) {
+        const A = firme[gruppo[a]], B = firme[gruppo[b]];
+        if (A.every((p) => B.some((q) => siToccano(p, q, gioco)))) padre[radice(gruppo[a])] = radice(gruppo[b]);
+      }
+  const insiemi = new Map();
+  firme.forEach((f, i) => { const r = radice(i); if (!insiemi.has(r)) insiemi.set(r, []); insiemi.get(r).push(f); });
+  const fuori = [];
+  for (const fs of insiemi.values()) {
+    // la copia k e' il pezzo k della prima firma piu' i pezzi delle altre che lo toccano
+    const copie = fs[0].map((p0) => {
+      const pezzi = [p0].concat(fs.slice(1).map((f) => f.find((q) => siToccano(p0, q, gioco))).filter(Boolean));
+      const min = [0, 1, 2].map((k) => Math.min(...pezzi.map((p) => p.centro[k] - Math.abs(p.ingombro[k]) / 2)));
+      const max = [0, 1, 2].map((k) => Math.max(...pezzi.map((p) => p.centro[k] + Math.abs(p.ingombro[k]) / 2)));
+      return { min, max, centro: min.map((v, k) => (v + max[k]) / 2), pezzi };
+    });
+    const c0 = copie[0];
+    fuori.push({ copie, misura: c0.max.map((v, k) => v - c0.min[k]),
+                 stacco: c0.min[1] - pavimentoSotto(c0.min[1], quote) });
+  }
+  return fuori.sort((a, b) => b.copie.length - a.copie.length);
+}
+
+/**
+ * Il nome visto su UNA copia passa a tutte, con la sua conseguenza (la voce
+ * del vocabolario: nome, postura, funzione...) e la posizione VERA di ognuna.
+ * La geometria dice DOVE sono le copie; cosa sono lo ha detto l'occhio (§0.4).
+ */
+export function nominaIlTipo(tipo, voce, opz = {}) {
+  if (!tipo || !voce) return [];
+  return tipo.copie.map((c, i) => ({
+    indice: i, centro: c.centro.slice(), min: c.min.slice(), max: c.max.slice(),
+    termine: voce.termine || voce.chiedi || null, nome: voce.nome || null,
+    postura: voce.postura || null, funzione: voce.funzione || null,
+    fiducia: opz.fiducia != null ? opz.fiducia : null,
+    provenienza: "occhio, una copia guardata e propagata",
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // 11. Si aggancia da solo al caricamento del modello
 // ---------------------------------------------------------------------------
 //
@@ -1297,6 +1366,6 @@ export default {
   quotePavimento, pavimentoSotto, distanzaDiUnione,
   distanzaFraScatole, sovrapposizione, mucchiPerScatola,
   cose, posti, posiAppoggiabili, appoggiaTappe,
-  inventarioDaScena, leggiScena,
+  inventarioDaScena, leggiScena, tipiInteri, nominaIlTipo,
   racconta, raccontaCosa,
 };

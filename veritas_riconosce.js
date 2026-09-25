@@ -132,6 +132,7 @@ export const ADE20K_150 = Object.freeze([
 const FUNZIONE_DI = Object.freeze({
   // ci si siede: e' un'area di sosta
   chair: "sosta", armchair: "sosta", seat: "sosta", sofa: "sosta",
+  "swivel chair": "sosta", // 25/09, con POSTURA_DI: la seduta del terminal
   bench: "sosta", stool: "sosta", ottoman: "sosta", grandstand: "sosta",
   // ci si presenta a qualcuno
   counter: "accoglienza", countertop: "accoglienza", desk: "accoglienza",
@@ -229,6 +230,7 @@ const LUOGHI = Object.freeze(new Set([
 const POSTURA_DI = Object.freeze({
   // ci si siede
   chair: "seduto", armchair: "seduto", seat: "seduto", sofa: "seduto",
+  "swivel chair": "seduto", // 25/09: e' la parola che l'occhio dice sulle sedute del terminal
   bench: "seduto", stool: "seduto", ottoman: "seduto", grandstand: "seduto",
   toilet: "seduto",
   // ci si sta sdraiati
@@ -458,10 +460,12 @@ const PASSO_DI = Object.freeze({
 // non diventano mai il nome di una zona.
 const NOME_IT = Object.freeze({
   chair: "sedie", armchair: "poltrone", seat: "sedute", sofa: "divani",
+  "swivel chair": "sedie girevoli",
   bench: "panche", stool: "sgabelli", ottoman: "pouf", grandstand: "gradinata",
   counter: "bancone", countertop: "piano di lavoro", desk: "scrivania",
   booth: "chiosco", buffet: "banco", bar: "bar",
   stairs: "scale", stairway: "scala", escalator: "scala mobile",
+  building: "edificio", sky: "cielo", // 25/09: li dice l'occhio regista sugli oggetti grandi
   door: "porta", "screen door": "porta a vetri", path: "percorso",
   bridge: "passerella", step: "gradino", railing: "parapetto",
   painting: "quadri", sculpture: "sculture", case: "vetrine",

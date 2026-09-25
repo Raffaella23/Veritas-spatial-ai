@@ -575,7 +575,24 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
   const indice = genitore ? genitore.children.indexOf(radice) : -1;
 
   const risultati = [];
+  // ⚠️ L'OGGETTO DA SOLO — §12 passo B, 25/09/2026 (l'occhio regista).
+  //    Con `isola` si disegna solo il bersaglio e il suo giro d'aria
+  //    (`giroDAria`, 1 m): cio' che serve a capire a cosa serve, non
+  //    l'universo dietro. Tutto il resto si spegne per lo scatto e si
+  //    riaccende nel `finally`, sempre.
+  const spenti = [];
+  const recinto = (opzioni.isola && opzioni.bersaglio)
+    ? inquadra.clone().expandByScalar(opzioni.giroDAria != null ? opzioni.giroDAria : 1)
+    : null;
   try {
+    if (recinto) {
+      const sua = new THREE.Box3();
+      radice.traverse((o) => {
+        if (!o.isMesh || !o.visible) return;
+        sua.setFromObject(o);
+        if (!sua.intersectsBox(recinto)) { o.visible = false; spenti.push(o); }
+      });
+    }
     scena.add(radice);
     const bersaglio = new THREE.WebGLRenderTarget(larghezza, altezza, {
       minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
@@ -680,6 +697,7 @@ export function scorciTreQuarti(THREE, renderer, radice, opzioni = {}) {
     renderer.setRenderTarget(bersaglioPrec);
     try { bersaglio.dispose(); } catch (e) {}
   } finally {
+    for (const o of spenti) o.visible = true;
     // Il modello TORNA dov'era, sempre - stessa regola di piantaDelPavimento.
     if (genitore) {
       if (indice >= 0) genitore.children.splice(indice, 0, radice);

@@ -67,7 +67,9 @@ const BATTITO = 300;
 // LA SUCCESSIONE DEGLI STATI. Ogni stato resta almeno DURATA_STATO, e si passa
 // al successivo solo se ha qualcosa di vero da mostrare. Un clic su uno stato
 // lo ferma per PAUSA_MANUALE: chi legge non deve vederselo cambiare sotto gli occhi.
-export const STATI = ['attesa', 'zone', 'conformita', 'orientamento'];
+// ⚠️ UN UNICO FILM (Raffaella, 25/09/2026): prima la zonizzazione, poi gli
+//    zoom sugli oggetti (veritas_regia.js, HANDOFF §12 passo D), poi l'analisi.
+export const STATI = ['attesa', 'zone', 'oggetti', 'conformita', 'orientamento'];
 export const DURATA_STATO = 9000;
 export const DURATA_ATTESA = 3000;
 const PAUSA_MANUALE = 20000;
@@ -75,7 +77,7 @@ const PAUSA_MANUALE = 20000;
 // Le tinte: il grado delle velature del marchio (292 simulazione, 349 esiti,
 // 63 norme) spinto per il fondo scuro, come nelle immagini di riferimento; il
 // teal e' quello dei pulsanti e dei segni dell'occhio.
-const TINTE = { attesa: '#2EE6D6', zone: '#A970FF', conformita: '#FF4D6D', orientamento: '#FFB020' };
+const TINTE = { attesa: '#2EE6D6', zone: '#A970FF', oggetti: '#7CFFB2', conformita: '#FF4D6D', orientamento: '#FFB020' };
 const OCCHIO = '#5CF2E6';
 const OK = '#5EEAD4';
 const TESTO = '#D7DEE8';
@@ -220,7 +222,7 @@ export function prossimoStato({ stato, eta, pronti, zoneInCoda, manuale }) {
   if (stato === 'attesa') return pronti && pronti.zone && eta >= DURATA_ATTESA ? 'zone' : 'attesa';
   if (eta < DURATA_STATO) return stato;
   if (stato === 'zone' && zoneInCoda) return 'zone';
-  const giro = ['zone', 'conformita', 'orientamento'];
+  const giro = ['zone', 'oggetti', 'conformita', 'orientamento'];
   const i = giro.indexOf(stato);
   for (let k = 1; k <= giro.length; k++) {
     const s = giro[(i + k) % giro.length];
@@ -415,6 +417,24 @@ export function reportDi(stato, d, L) {
     return { titolo: tt(L, 'REPORT DI COMPRENSIONE', 'COMPREHENSION REPORT'), comando: tt(L, '$ LETTURA DELLE ZONE...', '$ READING THE ZONES...'), righe, barra, note };
   }
 
+  if (stato === 'oggetti') {
+    // Lo zoom sugli oggetti: la telecamera va da UN tipo alla volta, l'occhio
+    // lo guarda da vicino e il nome passa a tutte le copie. Il ragionamento e'
+    // la conseguenza del vocabolario, detta a parole (veritas_regia.js).
+    const r = d.regia || {}, es = r.esiti || [], adesso = r.ora;
+    const sedute = es.filter((e) => e.postura === 'seduto').reduce((n, e) => n + (e.copie ? e.copie.length : 0), 0);
+    riga(tt(L, 'Fermata', 'Stop'), r.quante ? Math.min(r.quante, es.length + (r.attiva && adesso && !adesso.nome ? 1 : 0)) + '/' + r.quante : null);
+    riga(tt(L, 'Sto guardando', 'Looking at'), adesso ? (adesso.nome ? adesso.nome.toUpperCase() : tt(L, 'un oggetto, da vicino…', 'an object, up close…')) : null, adesso && adesso.nome ? 'ok' : null);
+    riga(tt(L, 'Copie nel modello', 'Copies in the model'), adesso ? adesso.copie : null);
+    riga(tt(L, 'Tipi nominati', 'Types named'), es.length ? es.filter((e) => e.nome).length + '/' + es.length : null);
+    riga(tt(L, 'Posti a sedere', 'Seats'), es.length ? sedute : null, sedute ? 'ok' : null);
+    riga(tt(L, 'Occhio', 'Eye'), r.attiva ? tt(L, 'sta guardando da vicino', 'looking up close') : occhioRiga());
+    barra = r.quante ? Math.min(1, es.length / r.quante) : null;
+    for (const e of es.slice().reverse().slice(0, 4)) nota(e.ragionamento, e.nome ? 'occhio' : null);
+    if (!es.length) nota(tt(L, "La telecamera va dagli oggetti, uno per tipo: l'occhio li guarda da vicino", 'The camera goes to the objects, one per type: the eye looks at them up close'));
+    return { titolo: tt(L, 'REPORT DEGLI OGGETTI', 'OBJECTS REPORT'), comando: tt(L, '$ ZOOM SUGLI OGGETTI...', '$ ZOOMING ON OBJECTS...'), righe, barra, note };
+  }
+
   if (stato === 'conformita') {
     const ver = d.verifiche;
     const titolo = tt(L, 'REPORT DI CONFORMITÀ', 'COMPLIANCE REPORT');
@@ -505,6 +525,8 @@ const CSS = `
 .vap-cursore{display:inline-block;width:.55em;height:1.05em;background:currentColor;margin-left:6px;vertical-align:-3px;animation:vap-lampo 1s steps(1) infinite}
 @keyframes vap-lampo{50%{opacity:0}}
 .vap-righe{display:flex;flex-direction:column;gap:9px;font-size:13.5px}
+.vap-inq{display:none;margin-top:12px;border:1px solid var(--tinta);border-radius:6px;overflow:hidden}
+.vap-inq.su{display:block}.vap-inq img{display:block;width:100%;max-height:170px;object-fit:contain;background:#f4f1ea}
 .vap-riga{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${TESTO};opacity:0;transform:translateX(-6px);animation:vap-entra .45s ease forwards}
 @keyframes vap-entra{to{opacity:1;transform:none}}
 .vap-comando .t{display:inline-block;vertical-align:bottom;overflow:hidden;white-space:nowrap;animation:vap-scrivi .7s steps(30,end) both}
@@ -590,7 +612,7 @@ function creaVelo(L) {
     + `<nav class="vap-passi">${STATI.map((s) => `<button class="vap-passo" data-stato="${s}">${esc(nomeStato(s, L))}</button>`).join('')}</nav></div>`;
   html += `<div class="vap-report"><div class="vap-punti">${STATI.map((s) => `<i data-stato="${s}"></i>`).join('')}</div>`
     + '<div class="vap-titolo"></div><div class="vap-comando"><span class="t"></span><span class="vap-cursore"></span></div>'
-    + '<div class="vap-righe"></div><div class="vap-sep"></div>'
+    + '<div class="vap-righe"></div><div class="vap-inq"><img alt=""></div><div class="vap-sep"></div>'
     + `<div class="vap-sezione">${tt(L, 'OSSERVAZIONI', 'INSIGHTS')}</div><div class="vap-note"></div>`
     + '<div class="vap-dettaglio"></div><div class="vap-coda"></div>'
     + `<button class="vap-bottone" data-azione="dettaglio">[ ${tt(L, 'DETTAGLIO', 'DETAILS')} ⌄ ]</button></div>`;
@@ -608,12 +630,12 @@ function creaVelo(L) {
   return {
     ospite, velo, tela: q('.vap-tela'), strati: q('.vap-strati'), report: q('.vap-report'), titolo: q('.vap-titolo'),
     comando: q('.vap-comando .t'), righe: q('.vap-righe'), note: q('.vap-note'), coda: q('.vap-coda'),
-    dettaglio: q('.vap-dettaglio'), sotto: q('.vap-sotto'), scheda: q('.vap-scheda'), bottone: q('.vap-bottone'),
+    dettaglio: q('.vap-dettaglio'), inq: q('.vap-inq'), sotto: q('.vap-sotto'), scheda: q('.vap-scheda'), bottone: q('.vap-bottone'),
   };
 }
 
 function nomeStato(s, L) {
-  return { attesa: tt(L, 'In attesa', 'Standby'), zone: tt(L, 'Zone', 'Zones'),
+  return { attesa: tt(L, 'In attesa', 'Standby'), zone: tt(L, 'Zone', 'Zones'), oggetti: tt(L, 'Oggetti', 'Objects'),
     conformita: tt(L, 'Conformità', 'Compliance'), orientamento: tt(L, 'Orientamento', 'Wayfinding') }[s];
 }
 
@@ -754,6 +776,7 @@ function replicaArgilla(T, radice, scena) {
     m.matrix.fromArray(o.matrixWorld.elements);
     m.matrixAutoUpdate = false;
     scena.add(m);
+    (scena.userData.repliche = scena.userData.repliche || []).push(m);
     n++;
   });
   log('replica d\'argilla: ' + n + ' mesh, stessa geometria del modello vero');
@@ -792,8 +815,77 @@ function posaCamera(S, t) {
   const { centro, raggio } = S.vista;
   const az = Math.PI / 4 + 0.32 * Math.sin(t * 0.00011);
   const quota = raggio * (0.9 + 0.05 * Math.sin(t * 0.00007));
-  S.cam.position.set(centro.x + raggio * 1.62 * Math.cos(az), centro.y + quota, centro.z + raggio * 1.62 * Math.sin(az));
-  S.cam.lookAt(centro);
+  const orbita = [centro.x + raggio * 1.62 * Math.cos(az), centro.y + quota, centro.z + raggio * 1.62 * Math.sin(az)];
+  // ⚠️ IL CARRELLO (§12 passo D): durante una fermata la telecamera va dove
+  //    sta la telecamera dell'occhio, e guarda quello che guarda lui. Si
+  //    muove per gradi, a ogni fotogramma: e' il movimento che il cliente vede;
+  //    l'occhio guarda solo alla fermata.
+  const vuoiP = S.fuoco ? S.fuoco.pos : orbita;
+  const vuoiG = S.fuoco ? S.fuoco.guarda : [centro.x, centro.y, centro.z];
+  if (!S.camP) { S.camP = vuoiP.slice(); S.camG = vuoiG.slice(); }
+  // per TEMPO, non per fotogramma: su una macchina lenta (o nel Chrome senza
+  // finestra delle prove, pochi fotogrammi al secondo) il carrello arriva lo
+  // stesso in ~2 s. Misurato il 25/09: per fotogramma a 2,5 s era a meta' strada.
+  const dt = Math.min(0.5, Math.max(0, ((t - (S.ultimoT || t)) / 1000)));
+  S.ultimoT = t;
+  const k = 1 - Math.exp(-dt / (S.fuoco ? 0.45 : 0.7));
+  for (let i = 0; i < 3; i++) { S.camP[i] = verso(S.camP[i], vuoiP[i], k); S.camG[i] = verso(S.camG[i], vuoiG[i], k); }
+  S.cam.position.set(S.camP[0], S.camP[1], S.camP[2]);
+  S.cam.lookAt(S.camG[0], S.camG[1], S.camG[2]);
+}
+
+// LA FERMATA: il carrello va all'oggetto, una cornice di luce lo stacca dal
+// fondo, e nel pannello compare l'immagine che l'occhio sta guardando.
+function mostraFermata(S, d) {
+  const T = S.THREE, m = d.camera && d.camera.mondo;
+  if (Array.isArray(m) && m.length === 16) {
+    // La stessa inquadratura dell'occhio con l'obiettivo del velo: si sta sulla
+    // stessa retta di sguardo, alla distanza che da' lo stesso campo (e un quarto
+    // in piu', perche' il report copre il lato destro).
+    const P = d.camera.proiezione, g = d.centro;
+    const campoOcchio = Array.isArray(P) && P[5] ? 1 / P[5] : Math.tan(25 * Math.PI / 180);
+    const f = (campoOcchio / Math.tan(S.cam.fov * Math.PI / 360)) * 1.25;
+    S.fuoco = { pos: [0, 1, 2].map((k) => g[k] + ([m[12], m[13], m[14]][k] - g[k]) * f), guarda: g.slice() };
+  }
+  if (S.cornice) { S.scena.remove(S.cornice); S.cornice = null; }
+  const dim = [0, 1, 2].map((k) => Math.max(0.05, d.max[k] - d.min[k]));
+  const cornice = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(dim[0] * 1.08, dim[1] * 1.08, dim[2] * 1.08)),
+    materialeLuce(T, TINTE.oggetti, 0.95, 'linea'));
+  cornice.position.set(d.centro[0], d.centro[1], d.centro[2]);
+  S.scena.add(cornice);
+  S.cornice = cornice;
+  // ⚠️ QUELLO CHE VEDE IL CLIENTE E' QUELLO CHE GUARDA L'OCCHIO (§0.5): lo
+  //    stesso recinto di `isola` (bersaglio + 1 m d'aria), il resto si spegne.
+  const recinto = new T.Box3(new T.Vector3().fromArray(d.min), new T.Vector3().fromArray(d.max))
+    .expandByScalar(d.giroDAria != null ? d.giroDAria : 1);
+  const sua = new T.Box3();
+  for (const r of S.scena.userData.repliche || []) {
+    if (!r.userData.scatola) {
+      if (!r.geometry.boundingBox) r.geometry.computeBoundingBox();
+      r.userData.scatola = sua.copy(r.geometry.boundingBox).applyMatrix4(r.matrix).clone();
+    }
+    r.visible = r.userData.scatola.intersectsBox(recinto);
+  }
+  if (S.inq && d.immagine) { const img = S.inq.querySelector('img'); if (img) img.src = d.immagine; }
+}
+
+// IL NOME: accanto alla cosa, e un punto di luce su OGNI copia — il nome visto
+// una volta vale per tutte, ognuna al suo posto vero.
+function mostraNome(S, d) {
+  if (!d || !d.nome) return;
+  const T = S.THREE;
+  const cima = [(d.min[0] + d.max[0]) / 2, d.max[1] + 0.2, (d.min[2] + d.max[2]) / 2];
+  const n = (d.copie || []).length;
+  const et = creaEtichetta(S, TINTE.oggetti, d.nome.toUpperCase(), n > 1 ? ' · ' + n : '', 40);
+  (S.nomiRegia = S.nomiRegia || []).push({ et, x: cima[0], y: cima[1], z: cima[2], nata: performance.now() });
+  if (n) {
+    const pos = new Float32Array(n * 3);
+    d.copie.forEach((c, i) => { pos[i * 3] = c[0]; pos[i * 3 + 1] = c[1] + 0.4; pos[i * 3 + 2] = c[2]; });
+    const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3));
+    const punti = new T.Points(g, new T.PointsMaterial({ color: new T.Color(TINTE.oggetti), size: 0.5, sizeAttenuation: true,
+      transparent: true, opacity: 0.95, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false }));
+    S.scena.add(punti);
+  }
 }
 
 // Un'ombra morbida sotto il modello: lo appoggia, al posto del reticolo.
@@ -1130,6 +1222,12 @@ function aggiornaScena(S, t) {
     s.f.g.visible = s.peso > 0.01;
     if (s.et) { s.et.style.opacity = String(s.peso); if (s.peso > 0.02) proietta(s.x, (s.y || 0) + 0.3, s.z, s.et, 64); else s.et.style.display = 'none'; }
   }
+  for (const nr of S.nomiRegia || []) {
+    const eta = Math.min(1, (t - nr.nata) / 700);
+    nr.et.style.opacity = String(eta * (stato === 'oggetti' ? 1 : 0.55));
+    proietta(nr.x, nr.y, nr.z, nr.et, 40);
+  }
+  if (S.inq) S.inq.classList.toggle('su', stato === 'oggetti' && !!(S.regia && S.regia.attiva));
   S.fotogrammi = (S.fotogrammi || 0) + 1;
   if (S.fotogrammi % 3 === 0 || posate.length !== S.ultimePosate) { S.ultimePosate = posate.length; diradaEtichette(S, posate); }
   if (S.codaOcchio && S.codaOcchio.length) {
@@ -1277,6 +1375,7 @@ function battito() {
 
   aggiornaSegniOcchio(S);
   S.dati = leggiDati(S);
+  S.dati.regia = S.regia;
   aggiornaSegni(S);
 
   // La successione degli stati.
@@ -1284,8 +1383,19 @@ function battito() {
     zone: S.dati.zone.tot > 0,
     conformita: !!S.dati.verifiche,
     orientamento: !!(S.dati.accessi || S.dati.navmesh != null),
+    oggetti: !!(S.regia && S.regia.esiti.length),
   };
-  const prossimo = prossimoStato({ stato: S.stato, eta: Date.now() - S.statoDa, pronti, zoneInCoda: S.coda.length > 0, manuale: Date.now() < S.manualeFino });
+  let prossimo = prossimoStato({ stato: S.stato, eta: Date.now() - S.statoDa, pronti, zoneInCoda: S.coda.length > 0, manuale: Date.now() < S.manualeFino });
+  // Mentre la regia lavora il film sta sugli oggetti: dopo che le zone si sono
+  // viste (o se non arrivano), e senza tornare indietro finche' non finisce.
+  const regiaAttesa = S.regia && !S.regia.attiva && !S.regia.finita
+    && typeof window.__veritasRegia === 'function' && window.__veritasRegiaAuto !== false;
+  if (regiaAttesa && S.stato === 'zone' && prossimo !== 'zone' && Date.now() >= S.manualeFino) prossimo = 'zone';
+  if (S.regia && S.regia.attiva && Date.now() >= S.manualeFino) {
+    const eta = Date.now() - S.statoDa;
+    if (S.stato === 'oggetti') prossimo = 'oggetti';
+    else if (S.stato === 'zone' ? eta >= DURATA_STATO : (S.stato !== 'attesa' || eta >= 2 * DURATA_ATTESA)) prossimo = 'oggetti';
+  }
   if (prossimo !== S.stato) cambiaStato(S, prossimo);
   scriviReport(S, false);
   scriviCoda(S);
@@ -1296,7 +1406,7 @@ function battito() {
     nascita: S.nascita, occhioHaParlato: S.occhioHaParlato, occhioAssente,
     ultimaNotizia: S.ultimaNotizia, durataMinima: S.durataMinima,
   });
-  if (Date.now() >= quando && !S.coda.length) {
+  if (Date.now() >= quando && !S.coda.length && !(S.regia && S.regia.attiva)) {
     chiudi(S.occhioHaParlato ? 'l\'occhio ha parlato'
       : occhioAssente ? 'il giro dell\'occhio non e\' partito'
       : 'tetto di ' + Math.round(TETTO_ATTESA / 60000) + ' minuti');
@@ -1331,6 +1441,34 @@ function agganciaEventiVeri(S) {
   };
   addEventListener('veritas:vista', S.suVista);
 
+  // LA REGIA (veritas_regia.js): fermate e nomi, gli stessi che vanno all'occhio.
+  S.regia = { attiva: false, quante: 0, esiti: [], ora: null };
+  S.suRegia = (e) => {
+    const d = (e && e.detail) || {};
+    if (d.fase === 'inizio') { S.regia.attiva = true; S.regia.quante = d.quante || 0; }
+    if (d.fase === 'fine') {
+      S.regia.attiva = false; S.regia.finita = true; S.fuoco = null; S.ultimaNotizia = Date.now();
+      for (const r of S.scena.userData.repliche || []) r.visible = true;
+      if (S.cornice) { S.scena.remove(S.cornice); S.cornice = null; }
+    }
+  };
+  S.suFermata = (e) => {
+    const d = e && e.detail; if (!d) return;
+    S.regia.attiva = true; S.regia.quante = d.quante || S.regia.quante;
+    S.regia.ora = { copie: d.copie, nome: null };
+    try { mostraFermata(S, d); } catch (err) { /* la messa in scena non ferma la regia */ }
+  };
+  S.suNome = (e) => {
+    const d = e && e.detail; if (!d) return;
+    S.regia.esiti.push(d);
+    if (S.regia.ora) S.regia.ora.nome = d.nome;
+    S.ultimaNotizia = Date.now();
+    try { mostraNome(S, d); } catch (err) { /* idem */ }
+  };
+  addEventListener('veritas:regia', S.suRegia);
+  addEventListener('veritas:fermata', S.suFermata);
+  addEventListener('veritas:nome', S.suNome);
+
   const prec = window.__veritasApplicaOcchi;
   window.__veritasApplicaOcchi = function (esito, zone) {
     let out;
@@ -1357,6 +1495,10 @@ function agganciaEventiVeri(S) {
 
 function sgancia(S) {
   try { removeEventListener('veritas:vista', S.suVista); } catch (e) {}
+  try {
+    removeEventListener('veritas:regia', S.suRegia); removeEventListener('veritas:fermata', S.suFermata);
+    removeEventListener('veritas:nome', S.suNome);
+  } catch (e) {}
   try { clearInterval(S.timerBattito); } catch (e) {}
   try { removeEventListener('resize', S.onResize); } catch (e) {}
 }
