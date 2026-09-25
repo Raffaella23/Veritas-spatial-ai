@@ -146,6 +146,27 @@ guardando** — mai un'animazione finta sopra un lavoro che avviene altrove.
 
 ---
 
+### 0.6 — PRIMA LA SCALA, POI TUTTO IL RESTO (25/09/2026)
+
+> Raffaella, 25/09/2026, davanti al velo che segnava «VARCO 0,16 m ⚠ < 0,80 m»
+> su tutto il terminal: «16 cm è relativo a cosa, sta misurando il modello fuori
+> scala???? Un architetto lo nota subito. Prima di ogni analisi deve effettuare
+> la scalatura del modello, poi parte il tutto.»
+
+⚠️ **Nessuna misura, zona, varco, norma, sguardo o simulazione parte prima che
+il modello sia in scala** (righello umano, §0.2). Un numero misurato prima della
+scala non si mostra, non si corregge a valle: si butta e si rifa'.
+**0,16 m × 5,58 (il fattore del righello su questo terminal) = 0,89 m**: era
+una porta normale misurata sul modello ancora piccolo.
+⚠️ Misurato il 25/09 sulla pubblicata `2026-09-24-h`, strada «+ Nuovo progetto
+→ scegli il file»: la scala arriva a 10 s «prima di misurare» e i varchi sono
+giusti (1,0 / 1,12 / 2,5 m). **Il suo 0,16 m viene da un'altra strada di
+apertura** (progetto salvato? file trascinato? da accertare): e' li' che
+un'analisi parte prima della scala. Da notare anche: tutte le strettoie
+misurano esattamente 0,50 m — sospetto di un valore di ripiego.
+
+---
+
 ## 1. STATO ATTUALE
 
 | | |
@@ -1776,6 +1797,11 @@ vengono tolti ✅, ma **anche le sedie girevoli vere** ⛔ (dal davanti: «sky»
 0,27) → **0 sedute**. Causa, vista nella fotografia: le file sono schiena
 contro schiena, e la fila accanto sta dentro il giro d'aria di 1 m: dal
 davanti la telecamera guarda gli schienali dell'ALTRA fila, a un palmo.
+
+##### Seconda prova della conferma (giro d'aria 5 cm): ⛔ NON PASSATA
+Dal davanti, sulla sola seduta: «base» 0,36 → di nuovo 0 sedute. Sguardi da
+142 s (computer occupato): la regia si e' fermata al tetto dopo 3 fermate.
+Ci si ferma: la conferma dal lato opposto non funziona su questa seduta.
 
 #### Passo C — ✅ PASSATO il 25/09 sera (codice solo nel workspace, non pubblicato)
 
