@@ -1352,6 +1352,28 @@ applicata alla simulazione.
 
 ---
 
+### 6.20 — ⛔ PLAY: i percorsi ci sono, le persone non si vedono (misurato il 25/09 sera)
+
+Raffaella, 25/09: *«ho schiacciato play ma la simulazione non parte, la spia e'
+viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mjs`
+(nel workspace): apri il terminal, Entra, «▶ Avvia simulazione», e ogni 15 s si legge.
+
+| | `2026-09-25-a` (oggi) | `2026-09-24-h` (ieri) |
+|---|---|---|
+| fotogrammi calcolati | 800, 27 agenti | 800, 27 agenti |
+| figure visibili | **0 / 28** | **2 / 28** (una volta 28) |
+| barra di riproduzione | ferma a «FRAME 0/1», 1 s | «FRAME 1/1», 1 s |
+| riquadro TRAJECTORY | **1 FRAMES · 0 NODES** | **1 FRAMES · 0 NODES** |
+| KPI | 28 in cammino, saturazione 18% | uguale |
+
+- **La spia viola non e' il guasto:** Render dormiva (70 s senza risposta, come
+  ogni volta oggi), si usa il generatore locale → «Percorso semplificato».
+- **Il guasto era gia' su ieri**, non viene dalla regia: i KPI leggono gli 800
+  fotogrammi, ma la barra e il riquadro del bundle restano sulla traiettoria
+  finta da 1 fotogramma. La traiettoria calcolata non arriva alla riproduzione.
+- Da guardare anche (detti da Raffaella, non ancora misurati): «Spatial Layers →
+  Zone» fa una piastra unica grande quanto l'edificio; lo Zone editor non si capisce.
+
 ## 7. TEST E VERIFICHE
 
 | Test | Data | Tipo | Risultato |
