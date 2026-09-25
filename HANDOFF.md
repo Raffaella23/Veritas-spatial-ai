@@ -1680,7 +1680,7 @@ riconosciuta. Riparare §6.19 e costruire §12 sono la stessa strada.
 |---|---|---|
 | A | contare i tipi che contano sul terminal e gli sguardi che servono | ✅ **fatto il 25/09**, vedi sotto: **84 tipi → 21 sguardi, ~4 minuti** |
 | B | la telecamera che isola e inquadra un tipo (riusa `scorciTreQuarti`+`bersaglio`, `riempiLaFinestra`) | l'occhio nomina le sedute del terminal guardandole da sole |
-| C | la propagazione alle copie (nome + conseguenza + posizione) | tutte le 40 sedute della fila con nome, da UNO sguardo |
+| C | la propagazione alle copie (nome + conseguenza + posizione) | ✅ **fatto il 25/09**: 66 sedute su 66 col nome, da UNO sguardo, vedi sotto |
 | D | la regia nel velo: carrello, fermata, nome, pannello col ragionamento | il cliente vede ogni fermata; quello che vede = quello che l'occhio guarda |
 | E | §6.19: il corpo che si siede sulla seduta riconosciuta | almeno un agente seduto su una seduta vera, visto dal vivo |
 
@@ -1722,6 +1722,26 @@ dimostra che l'occhio riconosce la seduta anche in un riquadro da 320 px.
 non sono misurate. Un tipo intero puo' ancora risultare spezzato in due se i
 suoi pezzi non si toccano. Il conto sta in `banco/_passo_a.mjs`, solo nel
 workspace.
+
+#### Passo C — ✅ PASSATO il 25/09 sera (codice solo nel workspace, non pubblicato)
+
+**Cosa si e' scritto** (in `veritas_cose.js` e nella sua copia dentro
+`index.html`, identiche): `tipiInteri` — i pezzi che stanno sempre insieme sono
+un oggetto solo (474 firme → 191 tipi), con ogni copia e la sua scatola vera;
+`nominaIlTipo` — il nome visto su UNA copia passa a tutte, con la conseguenza
+del vocabolario e la posizione di ciascuna. In `veritas_riconosce.js` «swivel
+chair» ha ora nome («sedie girevoli»), funzione («sosta») e postura («seduto»).
+
+**Prova nella pagina** (`seduta_da_sola.mjs`, 1 min 4 s su un tetto di 4):
+uno sguardo sulla fila isolata → «swivel chair» 0,32 → **66 sedute su 66 con
+nome «sedie girevoli», postura «seduto», 66 posti distinti**; i tipi interi si
+calcolano in 17 ms. In node, sul file: stesso risultato in 11 ms.
+
+**Regressioni:** `veritas_cose/sequenza/posa/controprova.test.mjs` passano;
+`veritas_riconosce.test.mjs` (1 prova fallita), `veritas_vista.test.mjs`
+(46/49) e `veritas_occhi.test.mjs` (importa un `FUNZIONI` che non esiste)
+danno **lo stesso identico esito prima e dopo** queste modifiche: erano gia'
+cosi' su `main`. Da sistemare a parte.
 
 #### Passo B — ✅ PASSATO alla seconda prova, 25/09 sera (codice solo nel workspace, non pubblicato)
 
