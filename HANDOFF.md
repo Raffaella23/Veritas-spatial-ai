@@ -1723,6 +1723,47 @@ non sono misurate. Un tipo intero puo' ancora risultare spezzato in due se i
 suoi pezzi non si toccano. Il conto sta in `banco/_passo_a.mjs`, solo nel
 workspace.
 
+#### Passo B — prima prova, 25/09 sera: ⛔ NON PASSATA (codice solo nel workspace)
+
+**Cosa si e' scritto:** un'opzione `isola` nella telecamera (`scorciTreQuarti`,
+nelle due copie identiche `veritas_vista.js` e `index.html`): per lo scatto si
+spengono i pezzi fuori dal bersaglio + 1 m di «giro d'aria», poi si
+riaccendono. Nient'altro toccato. **Non pubblicato.**
+
+**La prova** (`banco/vivo/seduta_da_sola.mjs`, 9 min 40 s su 15): i 4 tipi a
+terra con piu' copie, UNA copia ciascuno, di lato, prima con l'edificio intorno
+e poi isolata; vocabolario intero dell'app (178 parole).
+
+| tipo | con l'edificio | isolato |
+|---|---|---|
+| **fila di 4 sedute** (66 copie) | al centro «lecture hall with tiered seating» 0,29; 79 rilevazioni | parola piu' forte **«swivel chair» 0,32**, ma al centro «base» 0,27; 51 rilevazioni |
+| figura (21 copie) | «plaything» | «earth» |
+| figura (20 copie) | «person standing» 0,28 | «directional floor arrow» 0,38 |
+| «chiosco» (20 copie) | «lecture hall» | «hood» — l'inquadratura e' finita DENTRO una sagoma |
+
+**Il criterio (deciso prima) era:** il primo nome della seduta isolata e' una
+parola da seduti. **Non passa, per due motivi:**
+1. il nome si leggeva al PUNTO CENTRALE dell'immagine, e sulla fila di 4
+   sedute il centro cade nel vuoto fra la seconda e la terza (sulla barra):
+   li' l'occhio vede «base». E' un difetto della regola di lettura della
+   sonda, non dell'occhio;
+2. la parola piu' forte, «swivel chair», **non ha conseguenza**: in
+   `POSTURA_DI` c'e' «chair» ma non «swivel chair» (che e' una parola
+   ADE20K). Anche detta, non porterebbe nessuno a sedersi.
+
+**Cosa ha funzionato:** l'isolamento (rilevazioni 79 → 51, sparita l'«aula a
+gradoni» che veniva dalle file dietro); uno sguardo costa 13-15 s con 178
+parole; disegnare costa meno di mezzo secondo.
+**Da sapere:** la telecamera ha guardato la fila DA DIETRO (schienali):
+`diLato` sceglie il lato lungo ma non il davanti. Le figure non sono sedute.
+
+⚠️ **Trappola del banco trovata qui:** `RADICE=$PWD` da Git Bash da' un
+percorso `/c/Users/...` che su Windows non esiste: la sonda con
+`DAL_WORKSPACE=1` serve allora in silenzio i file PUBBLICATI. Le sonde ora
+fanno `path.resolve(RADICE)`; senza RADICE va bene. Si controlla sempre che
+la pagina abbia il pezzo nuovo (`String(funzione).includes(...)`) prima di
+misurare.
+
 ⚠️ **Metodo (Raffaella, 25/09): niente tentativi a ripetizione.** Ogni prova
 lunga si scrive prima: cosa misura, quale numero la dichiara riuscita, quanto
 dura al massimo. Se non passa ci si ferma e si ragiona con lei.
