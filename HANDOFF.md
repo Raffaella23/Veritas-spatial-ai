@@ -1723,7 +1723,26 @@ non sono misurate. Un tipo intero puo' ancora risultare spezzato in due se i
 suoi pezzi non si toccano. Il conto sta in `banco/_passo_a.mjs`, solo nel
 workspace.
 
-#### Passo B — prima prova, 25/09 sera: ⛔ NON PASSATA (codice solo nel workspace)
+#### Passo B — ✅ PASSATO alla seconda prova, 25/09 sera (codice solo nel workspace, non pubblicato)
+
+Con Raffaella si sono corretti i due punti della prima prova (sotto):
+- **la regola di lettura della sonda:** il nome e' la rilevazione piu' forte
+  fra quelle che coprono almeno il 5% dell'inquadratura, non il punto centrale;
+- **`POSTURA_DI["swivel chair"] = "seduto"`** in `veritas_riconosce.js`
+  (versioni alzate in tutti gli importatori: riconosce 12, comprensione 21,
+  anteprima 21, montaggio 40, passo 7).
+
+**Esito:** la fila di 4 sedute isolata → **«swivel chair» 0,32 → seduto**.
+La prova parte appena l'occhio e' acceso, senza aspettare il giro: **2 min 41 s**
+contro i 9 min 40 s di prima. ⚠️ Con il giro che lavora insieme, uno sguardo costa
+26-29 s invece di 13-15: in regia gli sguardi non devono sovrapporsi al giro.
+Gli altri tre tipi (figure e «chiosco») restano senza un nome giusto: le figure
+non sono sedute, e sul «chiosco» l'inquadratura finisce dentro una sagoma.
+
+**Ancora da fare:** il velo con i nomi (passo D) NON e' fatto; la telecamera
+guarda la fila da dietro (`diLato` non sceglie il davanti).
+
+##### Passo B — prima prova, 25/09 sera: ⛔ NON PASSATA (codice solo nel workspace)
 
 **Cosa si e' scritto:** un'opzione `isola` nella telecamera (`scorciTreQuarti`,
 nelle due copie identiche `veritas_vista.js` e `index.html`): per lo scatto si
