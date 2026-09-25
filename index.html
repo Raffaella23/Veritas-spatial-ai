@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-25-b";
+window.__EIDETICA_COSTRUZIONE = "2026-09-25-c";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -8572,7 +8572,10 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-25-b";
       //    alla fine di QUELLA chiamata, che aspetta Render (70 s) e a volte non
       //    finiva mai. Premendo il play a mano le 28 persone camminavano: la
       //    ripresa va qui, dove i percorsi ci sono davvero.
-      if (window.__veritasSimStarted) {
+      //    ⚠️ UNA ripresa sola: i ricalcoli arrivano a raffiche (misurati 7
+      //    nello stesso secondo) e ogni clic sul play alterna avvio e pausa.
+      if (window.__veritasSimStarted && Date.now() - (window.__veritasUltimaRipresa || 0) > 1500) {
+        window.__veritasUltimaRipresa = Date.now();
         try { veritasResumeBundleTimeline(); } catch (e) { console.warn("[VERITAS] ripresa della barra fallita:", e); }
       }
 

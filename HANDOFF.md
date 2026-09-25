@@ -1352,7 +1352,7 @@ applicata alla simulazione.
 
 ---
 
-### 6.20 — ✅ CHIUSO il 25/09 notte (`2026-09-25-b`): PLAY, i percorsi c'erano, il lettore restava in pausa
+### 6.20 — ✅ CHIUSO il 25/09 notte (`2026-09-25-b`, fermo sulle raffiche in `-c`): PLAY, i percorsi c'erano, il lettore restava in pausa
 
 **Causa misurata:** dopo «Avvia» i fotogrammi erano pronti in ~25 s (800, dal
 generatore locale), ma la ripresa della barra era appesa alla FINE della
@@ -1452,7 +1452,7 @@ viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mj
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-25-b` — `-a` (l'occhio regista nel velo, §12 B-C-D) + il lettore che riparte quando i percorsi sono pronti (§6.20). «servizi igienici» resta un nome FALSO; conferma dal davanti spenta |
+| **Costruzione pubblicata** | `2026-09-25-c` (una ripresa sola per raffica di ricalcoli) su `2026-09-25-b` — `-a` (l'occhio regista nel velo, §12 B-C-D) + il lettore che riparte quando i percorsi sono pronti (§6.20). «servizi igienici» resta un nome FALSO; conferma dal davanti spenta |
 | **Giornata** | 24/09 notte: §6.14 passi 1-2-3 — frecce «a terra», occhio a pezzi da 36 m, mappa rifatta dopo l'occhio. Tre aperture camminabili, gruppi 7 → 2, tolte solo frecce. Misure nel §6.14 |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
