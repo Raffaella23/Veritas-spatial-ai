@@ -1287,9 +1287,25 @@ animazioni, però io nelle mie simulazioni non ho mai visto nessun agente
 sedersi. Prima di partire con la nuova impostazione controlla che ci siano e
 siano ben collegate.»*
 
-⚠️ **LETTO NEL CODICE, NON MISURATO DAL VIVO.** Il primo passo della prossima
-sessione e' una misura sola: quante tappe «sosta», quale motore ha prodotto i
-percorsi, quanti agenti con `seduto` nei fotogrammi.
+✅ **MISURATO il 25/09 pomeriggio** (pagina pubblicata `2026-09-24-h`,
+terminal di prova, sonda `banco/vivo/catena_del_sedersi.mjs` nel workspace,
+7 min e 50 s su un tetto di 15):
+
+| domanda | risposta |
+|---|---|
+| tappe «sosta» | **4 su 10** (origine 1, accoglienza 2, sosta 4, filtro 1, distribuzione 1, destinazione 1) |
+| quale motore | **generatore JS locale (ripiego)**: Render chiamato 13 volte durante il giro, **nessuna risposta** in 70 s (6 interruzioni registrate, zero traiettorie accettate) |
+| agenti `seduto` nei fotogrammi | **28 su 28**, per il 17% dei loro istanti (3.810 su 21.981); 28 su 28 passano per `WAITING` |
+
+Cosa dice: **gli anelli 1 e 3 funzionano**: col generatore locale le soste
+ci sono e nei fotogrammi gli agenti risultano seduti. Restano aperti tre punti:
+- **anello 4 non provato**: Render dormiva. Quando si sveglia (come nelle
+  simulazioni di Raffaella) nessuno si siede, e resta vero quanto letto nel codice;
+- **anello 2 non visto**: la sonda legge i fotogrammi, non i corpi. Che il
+  corpo mostri davvero `Sitting_Idle_Loop` non e' misurato;
+- **anello 5 intatto**: si siedono sul baricentro della tappa, cioe' nel vuoto.
+- la traiettoria letta e' quella in uso al momento del clic su «Avvia», fatta
+  dal generatore durante il giro (800 fotogrammi gia' pronti), non una nuova.
 
 | anello | dove | stato |
 |---|---|---|
@@ -1608,9 +1624,10 @@ La telecamera intelligente:
 
 **Il conto cambia natura**: il tempo segue la VARIETA' degli oggetti, non i
 metri quadri. Un aeroporto grande il doppio ha il doppio delle sedute, non il
-doppio dei tipi di seduta. ⚠️ DA MISURARE (passo A): quanti dei 547 tipi
-contano (quelli ripetuti, quelli a misura d'uomo, quelli sul calpestabile) e
-quanti sguardi servono impaginandoli.
+doppio dei tipi di seduta. ✅ Misurato il 25/09 (passo A, §12.5): contando
+i pezzi che stanno insieme come un oggetto solo, i tipi interi sono 191, e
+**84 contano** (ripetuti e a misura d'uomo). Il «547» scritto sopra contava
+i pezzi, non gli oggetti.
 
 ⚠️ **Regola 0-bis intatta**: i tipi si riconoscono dalla FORMA ripetuta (la
 geometria uguale), mai dal nome della mesh. Il nome resta solo alle sonde.
@@ -1661,11 +1678,50 @@ riconosciuta. Riparare §6.19 e costruire §12 sono la stessa strada.
 
 | passo | cosa | criterio di riuscita, deciso prima |
 |---|---|---|
-| A | contare i tipi che contano sul terminal e gli sguardi che servono | un numero di sguardi e di minuti, scritto qui prima del passo B |
+| A | contare i tipi che contano sul terminal e gli sguardi che servono | ✅ **fatto il 25/09**, vedi sotto: **84 tipi → 21 sguardi, ~4 minuti** |
 | B | la telecamera che isola e inquadra un tipo (riusa `scorciTreQuarti`+`bersaglio`, `riempiLaFinestra`) | l'occhio nomina le sedute del terminal guardandole da sole |
 | C | la propagazione alle copie (nome + conseguenza + posizione) | tutte le 40 sedute della fila con nome, da UNO sguardo |
 | D | la regia nel velo: carrello, fermata, nome, pannello col ragionamento | il cliente vede ogni fermata; quello che vede = quello che l'occhio guarda |
 | E | §6.19: il corpo che si siede sulla seduta riconosciuta | almeno un agente seduto su una seduta vera, visto dal vivo |
+
+#### Passo A — il conto, fatto a tavolino il 25/09 (nessuna riga di codice dell'app)
+
+Sul file del terminal, con la scala della figura umana (×5,58: figure a 1,80 m,
+come la costruzione `-f`), sola geometria, nessun nome di mesh (regola 0-bis).
+Ogni riga toglie qualcosa a quella sopra:
+
+| filtro | tipi | oggetti |
+|---|---|---|
+| pezzi del file | — | 2.416 |
+| forme distinte (firme) | 474 | — |
+| **tipi interi**: pezzi che stanno sempre insieme (sedile + schienale = una seduta) | 191 | 1.485 |
+| ripetuti (almeno 2 copie) | 172 | 1.466 |
+| **a misura d'uomo** (lato 0,3–6 m, alti 0,2–3 m) | **84** | **659** |
+| · di cui appoggiati a terra | 73 | 511 |
+| · di cui staccati da terra (appesi, su un piano) | 11 | 148 |
+| (a parte: pezzi unici a misura d'uomo) | 8 | 8 |
+
+Dentro gli 84, **27 sono sagome alte e strette come una persona** (241 figure):
+sono la gente disegnata, il metro del §0.2. Restano **~57 tipi di cose**.
+Le copie vanno da 66 (una seduta in fila) a 2.
+
+**Costo, a 11 s per sguardo (misurato il 24/09):**
+
+| come si guarda | sguardi | minuti |
+|---|---|---|
+| un tipo per sguardo | 84 (92 con gli unici) | 15,4 (16,9) |
+| **catalogo da 4 per foglio (riquadri da 480 px)** | **21** | **~4** |
+| catalogo da 9 per foglio (riquadri da 320 px) | 10 | ~2 |
+
+**Criterio per il passo B, deciso adesso: 21 sguardi, 4 minuti al massimo**
+per nominare tutti i tipi del terminal. Oggi il giro dura 4–6,5 minuti e
+guarda zone, non cose. Da 4 a 9 per foglio si passa solo se il passo B
+dimostra che l'occhio riconosce la seduta anche in un riquadro da 320 px.
+
+⚠️ Le soglie (0,3–6 m, 0,2–3 m, «a terra» = entro 0,3 m) le ho scelte io e
+non sono misurate. Un tipo intero puo' ancora risultare spezzato in due se i
+suoi pezzi non si toccano. Il conto sta in `banco/_passo_a.mjs`, solo nel
+workspace.
 
 ⚠️ **Metodo (Raffaella, 25/09): niente tentativi a ripetizione.** Ogni prova
 lunga si scrive prima: cosa misura, quale numero la dichiara riuscita, quanto
