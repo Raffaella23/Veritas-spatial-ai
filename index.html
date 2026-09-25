@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-25-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-25-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -8565,6 +8565,16 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-25-a";
       // frame: chi non trova la propria viene saltato in silenzio.
       veritasEnsurePassengerPool(traj.frames);
       console.log("[VERITAS] Traiettoria aggiornata:", fresh.frames.length, "frame,", currentNodes.length, "punti.");
+      // ⚠️ PRONTI I PERCORSI, PARTE IL LETTORE — 25/09/2026, Raffaella: «ho
+      //    schiacciato play ma la simulazione non parte». Misurato: dopo
+      //    «Avvia» i fotogrammi erano pronti in 25 s, ma la barra restava in
+      //    pausa sulla sequenza finta da 1 s, perche' la ripresa era appesa
+      //    alla fine di QUELLA chiamata, che aspetta Render (70 s) e a volte non
+      //    finiva mai. Premendo il play a mano le 28 persone camminavano: la
+      //    ripresa va qui, dove i percorsi ci sono davvero.
+      if (window.__veritasSimStarted) {
+        try { veritasResumeBundleTimeline(); } catch (e) { console.warn("[VERITAS] ripresa della barra fallita:", e); }
+      }
 
       // ⚠️ PERCHE' I QUATTRO RIQUADRI RESTANO A ZERO — la misura che lo dice.
       //

@@ -1352,7 +1352,20 @@ applicata alla simulazione.
 
 ---
 
-### 6.20 — ⛔ PLAY: i percorsi ci sono, le persone non si vedono (misurato il 25/09 sera)
+### 6.20 — ✅ CHIUSO il 25/09 notte (`2026-09-25-b`): PLAY, i percorsi c'erano, il lettore restava in pausa
+
+**Causa misurata:** dopo «Avvia» i fotogrammi erano pronti in ~25 s (800, dal
+generatore locale), ma la ripresa della barra era appesa alla FINE della
+chiamata di «Avvia», che aspetta Render 70 s e — misurato — a volte non finiva
+mai. La barra restava in pausa sulla sequenza finta da 1 s: nessuna figura.
+Premuto il play del lettore a mano, 28/28 camminavano. **Correzione:** la barra
+riparte dove si scrive «Traiettoria aggiornata», se la simulazione e' avviata.
+**Prova** (`banco/vivo/_play.mjs`, senza toccare niente dopo «Avvia»): barra
+ripartita a +29 s, 27-28/28 figure visibili, FRAME 233/800 a +146 s.
+⚠️ Resta aperto: perche' la chiamata di «Avvia» non finisce; una volta la
+pagina e' caduta a 239 s col giro in corso (non riprodotta).
+
+#### com'era, misurato prima della correzione
 
 Raffaella, 25/09: *«ho schiacciato play ma la simulazione non parte, la spia e'
 viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mjs`
@@ -1439,7 +1452,7 @@ viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mj
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-25-a` su `main`, commit `7184f3a` — l'occhio regista nel velo (§12 passi B-C-D). Verificata sulla pubblicata: 6 fermate in 98 s, velo su «Oggetti», stessa immagine dell'occhio; nomi giusti solo su sedie girevoli e scala; «servizi igienici» e' un nome FALSO (6 sedute false in `__veritasSedute`, non ancora usate); conferma dal davanti SPENTA (`__veritasRegiaConferma`) |
+| **Costruzione pubblicata** | `2026-09-25-b` — `-a` (l'occhio regista nel velo, §12 B-C-D) + il lettore che riparte quando i percorsi sono pronti (§6.20). «servizi igienici» resta un nome FALSO; conferma dal davanti spenta |
 | **Giornata** | 24/09 notte: §6.14 passi 1-2-3 — frecce «a terra», occhio a pezzi da 36 m, mappa rifatta dopo l'occhio. Tre aperture camminabili, gruppi 7 → 2, tolte solo frecce. Misure nel §6.14 |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
