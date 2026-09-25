@@ -1417,7 +1417,7 @@ applicata alla simulazione.
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-24-h` su `main`, commit `228e1af` (superpoteri dell'occhio); `-g` cucitura lungo la parete; `-f` righello 1,80 |
+| **Costruzione pubblicata** | `2026-09-25-a` su `main`, commit `7184f3a` — l'occhio regista nel velo (§12 passi B-C-D). Verificata sulla pubblicata: 6 fermate in 98 s, velo su «Oggetti», stessa immagine dell'occhio; nomi giusti solo su sedie girevoli e scala; «servizi igienici» e' un nome FALSO (6 sedute false in `__veritasSedute`, non ancora usate); conferma dal davanti SPENTA (`__veritasRegiaConferma`) |
 | **Giornata** | 24/09 notte: §6.14 passi 1-2-3 — frecce «a terra», occhio a pezzi da 36 m, mappa rifatta dopo l'occhio. Tre aperture camminabili, gruppi 7 → 2, tolte solo frecce. Misure nel §6.14 |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
