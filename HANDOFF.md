@@ -119,13 +119,38 @@ Cosa vuol dire, operativamente:
    che l'occhio vede — §6.12, le 44 rilevazioni «sul vuoto». Chi riapre il §6.1
    parta da lì e non dal permesso, che è già dato.
 
+### 0.5 — L'OCCHIO REGISTA: UNA TELECAMERA CHE VA DALLE COSE, E IL CLIENTE LA GUARDA (25/09/2026)
+
+> Raffaella, 25/09/2026: «Invece di aumentare il numero delle elaborate, non
+> possiamo implementare una visione intelligente del modello, cioè una
+> telecamera guidata dall'AI che si avvicina al modello, non alle immagini, al
+> modello proprio, e guarda gli oggetti da vicino? Senza che facciamo mille
+> settecentocinquantasette fotografie. […] Immaginati una regia
+> cinematografica: un carrello che si muove, e zoom. […] Questo me lo devi
+> rendere dinamico e osservabile dal cliente, attaccato alla parte
+> introduttiva, al layer iniziale. […] Dovrebbe uscire il pannello laterale
+> con la scritta "sedia" e il ragionamento: in questo posto la gente potrà
+> sostare.»
+
+⚠️ **E' una richiesta di MESI, non di oggi.** Le sessioni l'hanno trattata come
+un'aggiunta alla strada delle fotografie (pianta intera, ritagli, abaco,
+scorci, sezioni a pezzi) invece che come il CAMBIO DI IMPOSTAZIONE che era.
+La strada delle fotografie **non scala**: ogni sguardo dell'occhio costa ~11 s
+(§6.14) e un edificio grande il doppio ne vuole il doppio. Chi riprende questo
+lavoro non propone piu' fotografie in piu': il progetto e' nel §12.
+
+⚠️ **Regola di giudizio per ogni schermata di attesa d'ora in poi:** il cliente
+vede la telecamera muoversi, avvicinarsi, inquadrare, e il nome comparire con
+il ragionamento. **Quello che vede e' esattamente quello che l'occhio sta
+guardando** — mai un'animazione finta sopra un lavoro che avviene altrove.
+
 ---
 
 ## 1. STATO ATTUALE
 
 | | |
 |---|---|
-| **Aggiornato** | 24/09/2026 notte — §6.14 I SUPERPOTERI DELL'OCCHIO, passi 1-2-3 PUBBLICATI (`2026-09-24-h`): le frecce a terra si calpestano, tre aperture camminabili, gruppi di posti 7 → 2. Prossimo: sezioni e prospetti a pezzi (§9) |
+| **Aggiornato** | 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `228e1af` — *i superpoteri dell'occhio: le frecce a terra si calpestano* (prima: `c7a8b83` cucitura lungo la parete, `60bc3d3` pagina fluida) |
@@ -1255,6 +1280,41 @@ la mappa di cammino ha i varchi.
 
 ---
 
+### 6.19 — ⛔ Nessun agente si e' mai seduto: la catena, anello per anello (letta nel codice il 25/09)
+
+Raffaella, 25/09: *«avevi già inserito le librerie dei comportamenti e le
+animazioni, però io nelle mie simulazioni non ho mai visto nessun agente
+sedersi. Prima di partire con la nuova impostazione controlla che ci siano e
+siano ben collegate.»*
+
+⚠️ **LETTO NEL CODICE, NON MISURATO DAL VIVO.** Il primo passo della prossima
+sessione e' una misura sola: quante tappe «sosta», quale motore ha prodotto i
+percorsi, quanti agenti con `seduto` nei fotogrammi.
+
+| anello | dove | stato |
+|---|---|---|
+| 1. La libreria dei corpi | `corpi/persona.gltf` (Quaternius, CC0), caricata da `caricaLibreriaCorpi` (`index.html` ~6477) | ✅ c'e': 46 movimenti, fra cui **`Sitting_Enter`**, **`Sitting_Idle_Loop`**, **`Sitting_Exit`**, `Sitting_Talking_Loop`, `Idle_Talking_Loop`, `Walk_Loop` |
+| 2. Il corpo che cambia movimento | `index.html` ~6722: se la traccia dice `WAITING` + `seduto` → `Sitting_Idle_Loop` | ✅ scritto. ⚠️ `Sitting_Enter`/`Sitting_Exit` non usati: passerebbe a seduto di colpo |
+| 3. Chi scrive `seduto` | SOLO il generatore JS locale (`index.html` ~3392), e SOLO se una tappa del percorso ha tipo **`sosta`** (~3231) | ⚠️ dipende da come l'occhio e il cervello classificano le zone |
+| 4. Il motore Python (Render) | `Assets/core/behaviour.py`: stati `idle/moving/arrived/waiting`, nessuna «sosta», nessun «sedersi»; `seated` esiste solo come altezza d'occhio della carrozzina (`engine.py`). `veritasNormalizeTrajectory` non aggiunge `seduto` | ⛔ **quando Render risponde — cioe' di solito — nessuno si siede**, tranne la carrozzina, seduta per sempre |
+| 5. Dove si siede | sul PUNTO della tappa (il baricentro), non su una seduta vera del modello | ⛔ anche col generatore locale si siederebbe nel vuoto |
+
+⚠️ **Da non confondere:** `MANUALE.comportamenti` (`veritas_manuale.js`) e' il
+carattere delle ZONE (una sosta ha sedute e non si attraversa; un filtro e'
+stretto e fa coda), usato da `veritas_divide.js`. Non sono i comportamenti
+delle persone. Quelli sono: archetipi, missioni, attesa al filtro, sosta.
+
+**Cosa serve perche' si vedano sedersi** (dopo la misura, in quest'ordine):
+(a) il motore Python deve ricevere e rispettare le tappe «sosta», o il ponte
+deve marcare `seduto` sui fotogrammi remoti quando l'agente e' fermo su una
+sosta; (b) la sosta deve portare il posto a sedere VERO — la seduta che
+l'occhio ha nominato (§12), non il baricentro; (c) usare `Sitting_Enter` e
+`Sitting_Exit`. E' la conseguenza della parola «seduta» (POSTURA_DI =
+«seduto», `veritas_riconosce.js`) che arriva fino al corpo: la direttiva 17
+applicata alla simulazione.
+
+---
+
 ## 7. TEST E VERIFICHE
 
 | Test | Data | Tipo | Risultato |
@@ -1347,9 +1407,27 @@ coperti su 20 (erano 8). Il resto dipende dal §6.14.
 Chrome di Raffaella, con la GPU vera, e i punti aperti del riquadro (il filtro
 fisico vicino al suo tetto, lo scostamento di 7,95 m).
 
+**PROSSIMA SESSIONE, in quest'ordine (25/09):**
+1. **§6.19 — una misura sola** sul sedersi (tappe «sosta», motore usato,
+   agenti con `seduto`). Criterio deciso PRIMA di lanciarla; nessun
+   tentativo a ripetizione.
+2. **§12 — l'occhio regista**, passo A: il conto dei TIPI di oggetto che
+   contano e dei minuti che costerebbero, prima di scrivere una riga.
+3. Nessuna prova lunga (>5 min) senza aver scritto prima: cosa misura, quale
+   numero la dichiara riuscita, quanto dura al massimo. Raffaella, 25/09:
+   *«non possiamo andare avanti a tentativi infiniti, fermati e ragiona»*.
+
 **Poi, nell'ordine deciso con Raffaella:**
 - **6.14 — FATTO E PUBBLICATO** (`2026-09-24-h`, misure nel §6.14).
-- ⛔ **PROSSIMO: SEZIONI E PROSPETTI A PEZZI** — Raffaella, 24/09 notte, con
+- ⛔ **SUPERATO il 25/09 — NON SI FA.** Le sezioni a pezzi erano la strada
+  delle fotografie portata piu' avanti: Raffaella ha deciso l'occhio regista
+  (§0.5, §12). Quello che resta utile di questo lavoro sono le MISURE, non il
+  codice (che e' rimasto solo nel banco di una sessione e non e' pubblicato):
+  un foglio 6:1 occupa il 2-6% del quadrato che l'occhio guarda, un pezzo
+  quadrato il 13-36%; con i pezzi l'occhio non si e' mai detto soddisfatto
+  (a ogni pezzo una parola nuova: «sky», «land», «earth»), e 48 pezzi in coda
+  al primo sguardo hanno tenuto in ostaggio la mappa per oltre 15 minuti.
+  Testo originale della richiesta, per memoria: Raffaella, 24/09 notte, con
   quattro schermate del pannello «what I see»: *«cosa può capire mai il povero
   occhio!!!! sono quasi tutti così gli scorci... la sezione longitudinale deve
   essere suddivisa in pezzi grandi come una sequenza, magari con un nome che
@@ -1398,6 +1476,9 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 25/09 | **L'occhio regista** (§0.5, §12): la telecamera va dalle cose, una per tipo, e il cliente la guarda nella schermata iniziale col nome e il ragionamento. Basta con le fotografie in piu' |
+| 25/09 | Sezioni e prospetti a pezzi per l'occhio: **abbandonati**. Sezioni e piante restano disegni per il cervello |
+| 25/09 | Prima della nuova impostazione si verifica la catena del **sedersi** (§6.19) |
 | 24/09 notte | **La freccia a terra si calpesta perche' l'occhio la vede** (PASSO_DI "a terra"), non per una regola geometrica. La geometria dice solo QUALE cosa del riquadro e' la lastra |
 | 24/09 notte | L'occhio guarda i piani **a pezzi da 36 m** (60 celle x 0,60 m, il metro del §0.2), solo dove si cammina, una volta sola |
 | 24/09 notte | Si giudica **la cosa intera**, mai il suo pezzo per materiale |
@@ -1484,3 +1565,109 @@ https, `--allow-running-insecure-content`.
   `window.__veritasCaricaFile`;
 - dichiarare chiuso un difetto perché il codice è stato scritto: finché non è stato
   visto funzionare, è «presente nel codice», non «verificato».
+
+---
+
+## 12. PROGETTO — L'OCCHIO REGISTA (25/09/2026)
+
+> Scritto su richiesta di Raffaella «come una tesi di laurea, con la santa
+> pazienza»: e' il ragionamento completo, da leggere prima di scrivere codice.
+> Nessuna riga e' ancora scritta. Le parti marcate ⚠️ DA MISURARE non sono
+> fatti: sono le prime cose da verificare.
+
+### 12.1 Il problema, in una frase
+
+L'occhio di EIDETICA (OWLv2, nel browser del cliente) paga **~11 secondi per
+ogni immagine che guarda**, qualunque cosa ci sia dentro e con quante parole
+gli si chieda (misurato il 24/09, `banco/vivo/quanto_costa_uno_sguardo.mjs`).
+Il tempo quindi non lo decide la telecamera ne' il disegno — una tavola si
+disegna in mezzo secondo — ma **quante volte si guarda**. Tutta la strada
+seguita finora (pianta intera, ritagli, abaco, scorci, pezzi) moltiplica le
+immagini con la grandezza dell'edificio: un terminal due volte piu' grande
+costa due volte il tempo. Non scala.
+
+### 12.2 L'idea: guardare le COSE, una per tipo
+
+Il modello non e' una fotografia: e' fatto di oggetti. Sul terminal di prova
+(misurato il 24/09, `veritas_cose`): **2.416 pezzi, ma 547 tipi di oggetto
+ripetuti** — le 40 sedute di una fila sono la stessa seduta ripetuta 40 volte.
+La telecamera intelligente:
+
+1. **va all'oggetto, non all'edificio**: lo inquadra da vicino, dal lato che
+   ne fa vedere la forma (la regola `diLato` di `scorciTreQuarti` esiste gia'),
+   con lo zoom che lo riempie (`riempiLaFinestra` esiste gia');
+2. **mostra solo lui**: si disegnano l'oggetto e il suo intorno stretto (il
+   «giro d'aria» che serve a capire a cosa serve: un banco senza il suo
+   davanti non si distingue da uno scaffale), non l'universo — niente cielo,
+   niente aerei dietro a confondere l'occhio;
+3. **guarda ogni TIPO una volta sola**: «questa e' una seduta» vale per tutte
+   le copie. La conseguenza (POSTURA_DI, PASSO_DI, CALPESTIO_DI…) si propaga a
+   ogni copia, con la sua posizione vera, che il modello conosce gia';
+4. **gli oggetti piccoli si impaginano** su un foglio, come un catalogo di
+   dettagli (`tavolaDiRitagli` esiste gia'): uno sguardo, piu' oggetti.
+
+**Il conto cambia natura**: il tempo segue la VARIETA' degli oggetti, non i
+metri quadri. Un aeroporto grande il doppio ha il doppio delle sedute, non il
+doppio dei tipi di seduta. ⚠️ DA MISURARE (passo A): quanti dei 547 tipi
+contano (quelli ripetuti, quelli a misura d'uomo, quelli sul calpestabile) e
+quanti sguardi servono impaginandoli.
+
+⚠️ **Regola 0-bis intatta**: i tipi si riconoscono dalla FORMA ripetuta (la
+geometria uguale), mai dal nome della mesh. Il nome resta solo alle sonde.
+⚠️ **§0.4 intatta**: la geometria dice DOVE sono le copie; che cosa sono lo
+dice l'occhio.
+
+### 12.3 La regia: il cliente guarda l'occhio lavorare
+
+Oggi il cliente guarda una schermata ferma per cinque minuti (§9, 22/09). Con
+l'occhio regista **l'attesa diventa lo spettacolo**, nella schermata iniziale
+(il velo, `veritas_apertura.js`) e non in un pannello a parte:
+
+1. la telecamera **si muove come un carrello** verso la prossima cosa da
+   guardare — un movimento fluido fra due inquadrature, con giri e zoom (pan,
+   dolly, orbita), come una regia;
+2. arrivata, **inquadra** la cosa: e' lo STESSO fotogramma che va all'occhio;
+3. quando l'occhio ha capito, compare **il nome accanto alla cosa** nel disegno
+   («sedute», «tornelli», «freccia a terra»);
+4. e nel **pannello laterale** compare il ragionamento, in italiano semplice:
+   *«Sedute in fila, 40 posti. In questo posto la gente potrà sostare.»* —
+   *«Tornelli: qui si passa uno alla volta, a monte si forma la coda.»* —
+   *«Freccia dipinta a terra: si cammina sopra, indica la direzione.»* Il
+   ragionamento non si inventa: e' la CONSEGUENZA gia' scritta nel vocabolario
+   (`POSTURA_DI`, `PASSO_DI`, `FUNZIONE_DI`, `CALPESTIO_DI`) detta a parole;
+5. poi passa alla cosa successiva.
+
+⚠️ **Il movimento non costa sguardi**: il carrello si muove a 60 fotogrammi al
+secondo per il cliente, ma l'occhio guarda solo alle FERMATE. Gli sguardi
+restano pochi e scelti; lo spettacolo e' continuo.
+⚠️ **Il velo resta il vestito** (§0.1): stessa carta, stesse velature, e quello
+che l'AI ha capito si stacca dal fondo.
+⚠️ **Cosa esiste gia' da riusare, e non riscrivere:** la messa in scena
+ascolta gia' l'evento `veritas:vista` (con `camera`, `taglio`, `regione`,
+`veritas_comprensione.js` `annunciaVista`); `veritas_cinema.js` ha gia' una
+regia di telecamere; il pannello «what I see» (`veritas_anteprima.js`) mostra
+gia' le viste dell'occhio. Il lavoro e' collegarli, non moltiplicarli.
+
+### 12.4 Dove porta: la simulazione che si siede
+
+Il nome visto porta la sua conseguenza fino al corpo (direttiva 17):
+«sedute» → POSTURA_DI = seduto → la tappa e' una SOSTA → l'agente ci va, si
+siede **su quella seduta** (`Sitting_Enter`), aspetta (`Sitting_Idle_Loop`),
+si rialza (`Sitting_Exit`). Oggi questa catena e' rotta in tre punti (§6.19).
+L'occhio regista le da' l'anello che manca: la POSIZIONE vera di ogni seduta
+riconosciuta. Riparare §6.19 e costruire §12 sono la stessa strada.
+
+### 12.5 Il piano, a passi misurabili
+
+| passo | cosa | criterio di riuscita, deciso prima |
+|---|---|---|
+| A | contare i tipi che contano sul terminal e gli sguardi che servono | un numero di sguardi e di minuti, scritto qui prima del passo B |
+| B | la telecamera che isola e inquadra un tipo (riusa `scorciTreQuarti`+`bersaglio`, `riempiLaFinestra`) | l'occhio nomina le sedute del terminal guardandole da sole |
+| C | la propagazione alle copie (nome + conseguenza + posizione) | tutte le 40 sedute della fila con nome, da UNO sguardo |
+| D | la regia nel velo: carrello, fermata, nome, pannello col ragionamento | il cliente vede ogni fermata; quello che vede = quello che l'occhio guarda |
+| E | §6.19: il corpo che si siede sulla seduta riconosciuta | almeno un agente seduto su una seduta vera, visto dal vivo |
+
+⚠️ **Metodo (Raffaella, 25/09): niente tentativi a ripetizione.** Ogni prova
+lunga si scrive prima: cosa misura, quale numero la dichiara riuscita, quanto
+dura al massimo. Se non passa ci si ferma e si ragiona con lei.
+
