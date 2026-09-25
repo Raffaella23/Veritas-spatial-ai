@@ -1764,6 +1764,19 @@ igienici»** — che porta POSTURA «seduto» e darebbe **6 posti a sedere falsi
 al passo E. L'occhio sbaglia sugli oggetti grandi guardati da soli.
 Mancano anche i nomi italiani di «building» e «sky».
 
+#### Passo D — il secondo sguardo di conferma, 25/09 sera: ⛔ NON PASSATO (workspace, non pubblicato)
+
+Deciso con Raffaella: un nome che fa sedere (POSTURA «seduto»/«sdraiato») si
+conferma guardando dal lato opposto (`scartoGradi: 180`); se non conferma, il
+nome resta senza conseguenza. Aggiunti anche i nomi italiani «edificio» e
+«cielo». Costruzione preparata `2026-09-25-a`, **non pubblicata**.
+
+**Esito** (`regia_nel_velo.mjs`, 2 min 32 s): i falsi «servizi igienici»
+vengono tolti ✅, ma **anche le sedie girevoli vere** ⛔ (dal davanti: «sky»
+0,27) → **0 sedute**. Causa, vista nella fotografia: le file sono schiena
+contro schiena, e la fila accanto sta dentro il giro d'aria di 1 m: dal
+davanti la telecamera guarda gli schienali dell'ALTRA fila, a un palmo.
+
 #### Passo C — ✅ PASSATO il 25/09 sera (codice solo nel workspace, non pubblicato)
 
 **Cosa si e' scritto** (in `veritas_cose.js` e nella sua copia dentro
