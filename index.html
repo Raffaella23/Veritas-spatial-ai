@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-28-a";
+window.__EIDETICA_COSTRUZIONE = "2026-09-28-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -8203,6 +8203,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-28-a";
       + "font-family:'JetBrains Mono',monospace;flex:none;";
     b.onclick = () => {
       window.__veritasSimStarted = true;
+      window.__veritasInquadraAgenti = true;   // alla prima ripartenza la telecamera va sugli agenti
       veritasApplyPassengerScale(); // i gruppi possono essere nati prima del progetto
       b.disabled = true;
       b.style.opacity = "0.6";
@@ -8330,7 +8331,64 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-28-a";
   //
   // Si riparte DOPO che i fotogrammi e la durata sono a posto: al contrario
   // la barra correrebbe sui fotogrammi vecchi.
+  // ============================================================
+  // LA TELECAMERA VA DOVE SONO GLI AGENTI — 28/09/2026 (Fase A)
+  //
+  // Raffaella: «nella vista principale dall'esterno non riesco a vedere
+  // correttamente gli agenti muoversi dentro il modello». Misurato sulla
+  // `2026-09-28-a`: le 28 figure sono nella scena, alla posizione della
+  // simulazione, e si muovono — ma la telecamera «Top Down 80m» sta a ~108 m e
+  // ogni figura e' alta 12 PIXEL, ammassata fra le sagome ferme del modello.
+  //
+  // Una volta sola per ogni «Avvia», quando la barra riparte sui fotogrammi
+  // veri: la telecamera va sul baricentro di dove stanno gli agenti nei primi
+  // 30 s della traiettoria, alla distanza a cui una persona (1,80 m, il metro
+  // del §0.2) misura 55-90 px, mantenendo la direzione da cui si guardava.
+  // Poi la telecamera e' di nuovo dell'utente.
+  // ⚠️ Solo la telecamera: simulazione, figure, scena, modello non si toccano.
+  // ============================================================
+  const VERITAS_FIGURA_M = 1.80, VERITAS_FIGURA_PX = [55, 90];
+  function veritasInquadraAgentiSeServe() {
+    if (!window.__veritasInquadraAgenti || !window.__veritasSimStarted) return false;
+    const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
+    const cam = window.__veritasCamera, ctrl = window.__veritasControls, THREE = window.THREE;
+    if (!traj || !traj.frames || traj.frames.length < 2 || !cam || !ctrl || !ctrl.target || !THREE) return false;
+    const t0 = traj.frames[0].t || 0, pos = [];
+    for (const f of traj.frames) {
+      if ((f.t || 0) > t0 + 30) break;
+      for (const a of (f.agents || [])) if (a && a.pos) pos.push(a.pos);
+    }
+    if (!pos.length) return false;
+    window.__veritasInquadraAgenti = false;   // una volta sola per «Avvia»
+    const c = [0, 1, 2].map((k) => pos.reduce((s, p) => s + (p[k] || 0), 0) / pos.length);
+    const dist = pos.map((p) => Math.hypot(p[0] - c[0], p[2] - c[2])).sort((a, b) => a - b);
+    const raggio = dist[Math.floor(dist.length * 0.8)] || 5;          // l'80% degli agenti
+    const tan = Math.tan((cam.fov || 42) * Math.PI / 360);
+    const H = (window.__veritasRenderer && window.__veritasRenderer.domElement.clientHeight) || 800;
+    const aPx = (px) => VERITAS_FIGURA_M * H / (2 * tan * px);          // distanza per una figura di px pixel
+    const d = Math.min(aPx(VERITAS_FIGURA_PX[0]), Math.max(aPx(VERITAS_FIGURA_PX[1]), raggio * 1.1 / tan));
+    const dir = cam.position.clone().sub(ctrl.target);
+    if (dir.lengthSq() < 1e-6) dir.set(1, 1, 1);
+    dir.normalize();
+    const bersaglio = new THREE.Vector3(c[0], c[1], c[2]);
+    const arrivo = bersaglio.clone().add(dir.multiplyScalar(d));
+    const daPos = cam.position.clone(), daBers = ctrl.target.clone(), inizio = performance.now(), durata = 1500;
+    const passo = (ora) => {
+      const u = Math.min(1, (ora - inizio) / durata), e = 1 - Math.pow(1 - u, 3);
+      cam.position.lerpVectors(daPos, arrivo, e);
+      ctrl.target.lerpVectors(daBers, bersaglio, e);
+      ctrl.update();
+      if (u < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    console.log("[VERITAS vista] inquadro gli agenti: " + pos.length + " posizioni nei primi 30 s, centro ["
+      + c.map((v) => v.toFixed(1)).join(", ") + "], raggio " + raggio.toFixed(1) + " m, distanza " + d.toFixed(1)
+      + " m, una persona alta ~" + Math.round(VERITAS_FIGURA_M * H / (2 * tan * d)) + " px");
+    return true;
+  }
+
   function veritasResumeBundleTimeline() {
+    try { veritasInquadraAgentiSeServe(); } catch (e) { console.warn("[VERITAS vista] inquadratura degli agenti fallita:", e); }
     const btn = (veritasBundleTimelineBtn && document.contains(veritasBundleTimelineBtn))
       ? veritasBundleTimelineBtn : null;
     // Se sul bottone c'e' l'icona «Play», la barra e' ferma e va fatta
