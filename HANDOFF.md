@@ -171,13 +171,13 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
+| **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `228e1af` — *i superpoteri dell'occhio: le frecce a terra si calpestano* (prima: `c7a8b83` cucitura lungo la parete, `60bc3d3` pagina fluida) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-09-24-h` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-24-h` |
+| **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -1386,6 +1386,51 @@ viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mj
   finta da 1 fotogramma. La traiettoria calcolata non arriva alla riproduzione.
 - Da guardare anche (detti da Raffaella, non ancora misurati): «Spatial Layers →
   Zone» fa una piastra unica grande quanto l'edificio; lo Zone editor non si capisce.
+  → letti nel codice il 26/09: §6.21 e §6.22.
+
+#### 6.20-bis — perche' «Avvia» non finisce: letto nel codice il 26/09 (non misurato)
+
+Il bottone (`index.html` ~8204) aspetta `applyNodesToScene()`, che aspetta
+prima Render (`veritasTryBackendSimulate`, ~8055). Il tetto di 70 s copre SOLO
+l'arrivo della prima risposta: `clearTimeout(timeout)` sta subito dopo il
+`fetch`, e la lettura del corpo (`await res.json()`, 800 fotogrammi + la
+percezione) **non ha nessun tetto**. Se Render risponde «ci sono» e poi il
+corpo non arriva (risveglio del piano gratuito, connessione che resta
+aperta), l'attesa e' infinita: il bottone resta su «▶ Avvio…» per sempre. E'
+l'unica attesa senza tetto della catena: il corpo fisico (`filtraFrames`) ha il
+suo tetto, e i ricalcoli in coda si fermano da soli quando arriva il piu' nuovo.
+**Correzione proposta (una riga):** il `clearTimeout` va DOPO `res.json()`.
+Criterio: con Render che non risponde, il bottone sparisce entro 70 s + il
+generatore locale. Non misurato dal vivo: la causa e' letta, non vista.
+
+### 6.21 — ⛔ «Spatial Layers → Zone»: la piastra unica (letto nel codice il 26/09)
+
+Due difetti insieme, in `veritasRebuildHotspots` (~6225) e nelle funzioni che
+lo seguono (`moveHotspotVisual` ~7043, `applyMarkerScale` ~7055):
+1. **il conto dei pezzi e' sbagliato.** Ogni zona con una forma misurata porta
+   QUATTRO pezzi (blocco, spigoli, anello, cartellino), ma chi li sposta e li
+   scala ne conta TRE (`index * 3`). Dalla seconda zona in poi ognuno prende il
+   pezzo del vicino: blocchi spostati sulla zona sbagliata, anelli scambiati
+   per blocchi. E siccome il controllo «gia' fatto» (`children.length ===
+   nodi * 3`) non torna mai, il gruppo si butta e si rifa' a ogni ricalcolo
+   (fino a 7 al secondo, §6.20).
+2. **il blocco e' grande quanto la zona misurata**: il rettangolo equivalente
+   di tutte le celle libere della regione (~19968). In un terminal aperto la
+   regione e' quasi tutto il piano, e il blocco diventa una lastra alta 1,70 m
+   (`__veritasPillarHeightM`) grande quanto l'edificio; piu' lastre
+   trasparenti sovrapposte si leggono come una piastra sola.
+**Correzione del punto 1:** contare i pezzi per zona invece di supporre tre.
+Il punto 2 e' una scelta di disegno (come si mostra una zona su un piano
+aperto): si chiede a Raffaella, non si decide qui.
+
+### 6.22 — ⛔ Lo Zone editor non si capisce (letto nel codice il 26/09)
+
+Il pannello (`veritas-picker-panel`, ~8855) si chiama «Punti» e mescola comandi
+da tecnico: «Larghezza marker (X)», «Profondita' marker (Z)», «Altezza pillar»,
+«Scala passeggeri», «Rianalizza mesh», «Report struttura», «Rigenera
+simulazione», «Salva». Le due «larghezze» non sono metri: MOLTIPLICANO la forma
+misurata (a 2 una zona di 40 m ne diventa 80). Da rifare con Raffaella, da
+architetto: prima cosa deve poter fare un architetto su una zona, poi i comandi.
 
 ## 7. TEST E VERIFICHE
 
@@ -1452,7 +1497,7 @@ viola, non vedo ne' la simulazione ne' gli agenti»*. Sonda `banco/vivo/_play.mj
 
 | | |
 |---|---|
-| **Costruzione pubblicata** | `2026-09-25-c` (una ripresa sola per raffica di ricalcoli) su `2026-09-25-b` — `-a` (l'occhio regista nel velo, §12 B-C-D) + il lettore che riparte quando i percorsi sono pronti (§6.20). «servizi igienici» resta un nome FALSO; conferma dal davanti spenta |
+| **Costruzione pubblicata** | `2026-09-28-a` — la regia verificata il 28/09 (§12, passo D: catalogo da 4, parole di cose, conseguenze sospese, quota di superficie verticale). Stabilita' verificata da Raffaella; resta aperto il tempo dopo «Avvia» (175 s contro 70 s), non indagato. Prima: `2026-09-25-c` (una ripresa sola per raffica di ricalcoli) su `2026-09-25-b` — `-a` (l'occhio regista nel velo, §12 B-C-D) + il lettore che riparte quando i percorsi sono pronti (§6.20). «servizi igienici» resta un nome FALSO; conferma dal davanti spenta |
 | **Giornata** | 24/09 notte: §6.14 passi 1-2-3 — frecce «a terra», occhio a pezzi da 36 m, mappa rifatta dopo l'occhio. Tre aperture camminabili, gruppi 7 → 2, tolte solo frecce. Misure nel §6.14 |
 
 Il dettaglio sta nel riquadro in cima al §6.17. In breve: la pagina moriva per
@@ -1548,6 +1593,7 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 28/09 | **Riconoscere non e' sapere a cosa serve.** Quattro livelli distinti: etichetta visiva (cio' che dice OWLv2) → categoria di EIDETICA → significato spaziale → affordance. Un'etichetta incerta non produce una funzione. **La geometria puo' togliere o sospendere una CONSEGUENZA, mai il riconoscimento**: non dice «non e' una culla», dice «non ho prove sufficienti per "sdraiato"». E' una seconda evidenza indipendente, non un veto sull'occhio (§0.4). Niente regole per un solo edificio. Da progettare prima di scrivere; catalogo e HANDOFF non si pubblicano finche' non e' deciso |
 | 25/09 | **L'occhio regista** (§0.5, §12): la telecamera va dalle cose, una per tipo, e il cliente la guarda nella schermata iniziale col nome e il ragionamento. Basta con le fotografie in piu' |
 | 25/09 | Sezioni e prospetti a pezzi per l'occhio: **abbandonati**. Sezioni e piante restano disegni per il cervello |
 | 25/09 | Prima della nuova impostazione si verifica la catena del **sedersi** (§6.19) |
@@ -1819,6 +1865,206 @@ come deve.
 igienici»** — che porta POSTURA «seduto» e darebbe **6 posti a sedere falsi**
 al passo E. L'occhio sbaglia sugli oggetti grandi guardati da soli.
 Mancano anche i nomi italiani di «building» e «sky».
+
+#### Passo D — AUTORIZZATO da Raffaella il 25/09 sera, da fare
+
+Due cose, dette si' da Raffaella:
+1. **l'occhio si ferma su TUTTI gli oggetti**, non su 6 (`FERMATE = 6` in
+   `veritas_regia.js`);
+2. **davanti a un oggetto si chiedono solo nomi di oggetti**: via le parole che
+   non sono cose (cielo, edificio, pavimento, parete, soffitto, strada, terra,
+   stanza, i «luoghi»…). Non si tolgono dal VOCABOLARIO (direttiva 6): la
+   regia ne chiede un sottoinsieme, marcato nel vocabolario stesso.
+⚠️ **Il conto, prima di scrivere (26/09):** i tipi a terra che contano sono 73
+(passo A). Uno sguardo per tipo = 73 × ~13 s = **~16 minuti**, non «qualche
+minuto in piu'» come era stato detto. Col catalogo da 4 per foglio gia' deciso
+nel passo A: ~19 sguardi, **~4 minuti**. Il tetto oggi e' 180 s, e il velo e
+il giro aspettano la fine della regia.
+
+#### Passo D — il catalogo da 4: ✅ PASSATO il 26/09 (pubblicato in `2026-09-28-a`)
+
+Raffaella, 26/09: *«Sì, fai il catalogo da 4 oggetti per foglio. Mantieni
+questa scelta nel quadro dell'occhio regista già definito nel §12. Non passare
+al catalogo da 9.»*
+
+**Cosa si e' scritto:**
+- `veritas_regia.js` (`?v=5`): fermate su TUTTI i tipi che contano (non 6);
+  quattro tasselli da 480 px su un foglio 2×2, UNO sguardo per foglio; il
+  carrello va comunque da ogni oggetto (2,5 s l'uno) mentre l'occhio guarda il
+  foglio; il nome va al tassello dove cade il CENTRO della rilevazione (≥ 5%
+  del tassello); davanti agli oggetti si chiedono solo parole di COSE
+  (`paroleDiCose`: via superfici, paesaggio e «luoghi», 147 parole restano; il
+  VOCABOLARIO non si tocca). Tetto 360 s (rete, non obiettivo).
+- `veritas_apertura.js` (`?v=14`): il contatore «Fermata» conta dalla
+  fermata, non dai nomi (col foglio i nomi arrivano a gruppi, e restava su
+  «1/74»); il nome va alla fermata che e' sua.
+- `veritas_regia.test.mjs` (nuovo): 30/30. `veritas_apertura.test.mjs`: tutte.
+
+**Prova dal vivo** (`banco/vivo/regia_nel_velo.mjs`, codice del workspace,
+terminal; criterio scritto prima: tutti gli oggetti, ≤ 21 sguardi, ~4-5 min,
+nessun «edificio/cielo», velo su «Oggetti» con la stessa immagine; tetto 10 min):
+**74 fermate, 19 fogli, regia finita in 231 s** (un foglio = 10-12 s),
+**74/74 tipi nominati**, 493 copie col nome, **72 sedute** (le due file di
+sedie girevoli, 66 + 6), **zero** «edificio»/«cielo», stessa immagine
+dell'occhio 41/41 fotografate, velo su «Oggetti» 40/41 (l'ultima fotografia e'
+stata scattata dalla sonda dopo la fine, a velo gia' su «Conformita'»).
+
+**⛔ Cosa resta, visto nella prova:**
+1. **74 cartellini insieme** a fine regia: sul terminal fanno un mucchio
+   illeggibile (fotografia `dopo_la_regia.jpg`). Con 6 fermate non si vedeva.
+   Come si mostrano i nomi quando sono tanti e' da decidere con Raffaella.
+2. **nomi senza traduzione**: Bannister, Tank, Blind, Mirror, Windowpane,
+   Cradle (manca `NOME_IT` in `veritas_riconosce.js`).
+3. **«Cradle» (culla) porta «qui ci si sdraia»**: conseguenza falsa, come i
+   «servizi igienici» del 25/09. Non fa sedere nessuno (le sedute sono solo le
+   72 vere), ma e' scritta nel pannello.
+4. 13 dei 74 tipi sono «pontile d'imbarco» e 13 «persona»: pezzi dello stesso
+   finger e figure diverse. Non e' un errore dell'occhio: e' `tipiInteri`
+   che li tiene separati.
+
+#### Passo D — la seconda evidenza sulle misure del corpo, 28/09: ⛔ UN PUNTO NON PASSATO (misura; la regola a scatola per «seduto»/«sdraiato» e' stata poi sostituita dalla quota verticale)
+
+Solo strada 1 (regia), prima di `nominaIlTipo`: `verificaAffordance` in
+`veritas_regia.js` (`?v=6`), prove PER AFFORDANCE in `MISURE_DEL_CORPO`
+(statura 1,80 = `ALTEZZA_UOMO`). Il riconoscimento resta sempre; postura e
+funzione passano solo se «confermata»; «sospesa» e «non verificabile» le
+tolgono. `passo` escluso (strada 3). Vocabolario e tabelle non toccati.
+`veritas_regia.test.mjs` 42/42.
+**Prova** (terminal, 5 min 15 s di regia, sguardi 14-18 s: computer piu' lento
+del 26/09): 74/74 nominati; 34 confermate (16 in piedi, 17 passa, 1 seduto),
+32 senza conseguenza, 4 sospese, 4 non verificabili (autobus, nave, 2 aerei:
+solo funzione, nessuna prova scritta); **zero** oggetti sospesi con una
+conseguenza. ✅ culla (0,60 × 1,72 × 0,33 m) riconosciuta, «sdraiato» sospeso.
+⛔ **sedute 66 invece di 72**: il tipo da 6 copie (2,44 × 1,03 × 1,48 m, sedie
+girevoli 0,40) sospeso perche' profondo 1,48 > 1,26: sono due file schiena
+contro schiena. La regola «profondita' massima» non e' una misura del corpo.
+Sospese anche due «porte» larghe 0,56 e 0,37 m (sotto 0,60: coerente con la regola).
+
+**Verifica delle misure, 28/09** (`banco/pezzi_delle_sedute.mjs`, sul file, scala
+5,58, stesso `veritas_cose.js` dell'app). `misura` e' [x, ALTEZZA, z]: il gruppo
+da 6 e' alto **1,03** m, e 1,48 e' la PROFONDITA'. Quell'1,03 e' la cima della
+SCATOLA intera (il pezzo piu' alto arriva a 1,03), non la seduta. Per ogni
+copia abbiamo solo: la scatola del tipo, lo stacco da terra, e la scatola di
+ciascun PEZZO (allineata agli assi) col numero di triangoli — nessun vertice,
+nessuna normale. La quota di seduta si legge solo per caso: nel gruppo da 6 c'e'
+un pezzo piatto (spessore 0) a 0,39 m, 2,44 × 0,71; nel tipo da 66 no (due pezzi
+0–0,27 e 0,27–0,67, seduta e schienale insieme). ⚠️ E la «culla» e' una
+SAGOMA DI PERSONA (un piano di 2 triangoli, 0,60 × 1,72 m, foto di un turista):
+la controprova non l'ha riconosciuta come figura. **Fermato qui: la modifica
+alla regola «seduto» non e' fatta**, in attesa della scelta di Raffaella.
+Raffaella, 28/09: **non si applica la regola debole** (appoggio + altezza):
+la regola «seduto» resta com'e', la strada 2 (forma vera dai triangoli) non si fa.
+
+#### La «sagoma fotografica piana» — SOLO MISURA, 28/09 (nessuna regola)
+
+Principio fissato da Raffaella: **«sagoma fotografica piana» ≠ «persona»**. Se
+un giorno entra nella regia potra' dire soltanto «non attribuire a questo oggetto
+un'affordance che presuppone che la sua superficie sostenga un corpo»; mai
+«questo oggetto e' una persona», mai rinominare quello che ha detto l'occhio.
+Sonda `banco/sagome_piane.mjs` (con o senza il registro della regia; colonne
+solo descrittive: pezzi, triangoli, spessore VERO dalla scatola locale,
+orientamento del piano, grandezza in «figure» da 1,80 m, `alphaMode`, foto).
+Aeroporto, 63 dei 74 tipi della regia ritrovati: **24 piani (≤ 2 pezzi, ≤ 4
+triangoli, spessore 0) con foto, 24 persone guardando la foto, 0 falsi**;
+tutti verticali, tutti `BLEND`, 0,70–1,05 figure (tre a 1,27 m: la fascia
+1,35–2,25 le perderebbe). L'unica foto non umana (una pianta) sta su un volume
+`OPAQUE`. Su tutto il modello (191 tipi) i piani verticali con foto sono 26,
+tutti persone; gli altri piani sono orizzontali (suolo, delimitazione, freccia).
+⚠️ **Il modello non contiene cartelli, manifesti, alberi piani**: i falsi
+positivi NON sono misurabili qui. Manca un secondo GLB con questi oggetti; nel
+repository non c'e' (solo l'aeroporto, una casa IFC finta, il corpo, i modelli
+Unity). 11 tipi su 74 non ritrovati: pagina e banco raggruppano le copie in
+modo diverso.
+**Pezzo per pezzo** (`banco/piani_pezzo_per_pezzo.mjs`, anche i pezzi unici):
+aeroporto 2.416 pezzi, 262 piani, **227 piani con foto e ≤ 4 triangoli: 227
+persone** (tutte le 28 immagini guardate), tutti verticali, tutti `BLEND`.
+**Secondo modello, 28/09:** `LittlestTokyo.glb` (three.js, CC-BY Glen Fox,
+4,1 MB, scaricato con il permesso di Raffaella nello scratchpad, NON nel
+repository): 71 pezzi, **zero piani** — insegne, cartelli e foglie sono volumi
+con immagini su atlanti (15 materiali, 4 immagini, Draco). Non prova niente
+sui falsi positivi: serve un altro modello con piani veri. Letti solo
+nell'intestazione altri 6 modelli di scena di three.js: zero piani. Ricerca
+del GLB FERMATA da Raffaella (28/09).
+
+**La svolta (Raffaella, 28/09: «non è che un Gaussian Splat potrebbe
+indirettamente risolvere il problema?»).** Triangoli, `alphaMode`, materiali
+dicono COME E' STATO FATTO IL FILE, non com'e' lo spazio, e su uno splat non
+esistono. Quello che vale per mesh e splat e' la FORMA DELLA SUPERFICIE,
+misurata sui suoi punti. Deciso: la planarita' e' un segnale geometrico di
+**impossibilita' di sostenere un corpo**, MAI una classe semantica
+(«planare» ≠ immagine, cartello, sagoma). Analisi scritta il 28/09 (in chat,
+riassunta qui): la grandezza giusta non e' «piano» ma **superficie d'appoggio**
+— l'area della superficie con normale entro ~15° dalla verticale, alla quota e
+con l'estensione che il corpo chiede (sedersi, sdraiarsi); un piano verticale
+senza spessore ne ha zero. Mesh: momenti pesati per AREA dei triangoli (mai per
+vertici). Splat: gaussiane pesate per opacita' × area, normale = asse piu'
+corto, oggetto delimitato dall'occhio; il rumore si tara sul pavimento della
+stessa scansione. Non decide mai «ci si passa» ne' «ci si ferma davanti».
+Niente codice finche' Raffaella non decide.
+
+**Verifica minima sull'aeroporto, 28/09** (`banco/appoggio.mjs`: SOLO triangoli
+nel mondo in scala 5,58, pesati per area; parametri scritti prima: normale entro
+15° dalla verticale, fasce di 2 cm, appoggio per sedersi = fascia fra 0,30 e
+0,70 m con lato minore ≥ 0,30 m e area ≥ 0,09 m²):
+- falsa sagoma («cradle»): piano verticale, spessore 0, nessuna superficie
+  orizzontale → **NO appoggio** ✅;
+- seduta a 6 copie (due file): superficie orizzontale a 0,38 m, 1,12 m²,
+  2,90 × 0,43 → **SI' appoggio** ✅ (quella sospesa a torto dalla scatola);
+- porta (tipo piu' vicino, 0,56 × 1,44): verticale, nessun appoggio utile → NO;
+- **seduta a 66 copie (le sedie vere): NO appoggio ⛔** — l'orizzontale c'e'
+  (0,70 m² in tutto) ma spezzata su due quote (0,26 e 0,34 m) e larga in media
+  0,19–0,22 m: la seduta vera non si ricompone con questa misura;
+- parete: non trovata come pezzo a se' (i muri stanno dentro la mesh
+  dell'edificio).
+**Esito: B** — il principio non e' ancora robusto: sulle sedute vere del
+terminal la superficie di seduta risulta frammentata e non viene ricomposta,
+quindi il filtro sospenderebbe anche i posti veri.
+
+**Seconda verifica, ricomposta (28/09, `banco/appoggio_ricomposto.mjs`,
+parametri scritti prima: fasce di quota unite entro ±5 cm, contiguita' in pianta
+su griglia 2,5 cm a 8 vicini, seduta = quadrato 0,30 × 0,30 m a quota
+0,30–0,70 m, area ≥ 0,09 m²):** falsa sagoma → nessuna superficie orizzontale,
+NO ✅. Sedie a 66 copie → **NO ⛔**: quattro superfici a 0,27 m (0,10 m²,
+quadrato 0,18 m) e le sedute a 0,33 m (0,09 m², **quadrato 0,25 m**): la parte
+orizzontale della seduta e' profonda circa 25 cm, il resto e' curvo o inclinato
+oltre 15°. **Esito B**: con misure prese dal corpo la seduta vera non passa;
+abbassarle per farla passare avvicina la regola a quella debole scartata.
+**Raffaella, 28/09: STOP.** La superficie d'appoggio non e' abbastanza robusta
+come filtro generale: non si modifica piu', non si cercano altri modelli. Le
+sonde (`sagome_piane`, `piani_pezzo_per_pezzo`, `appoggio`,
+`appoggio_ricomposto`, `pezzi_delle_sedute`, `sagome_mancanti`,
+`vivo/percorso_completo`) sono evidenza sperimentale: **NON pubblicate** su
+GitHub (decisione di Raffaella, 28/09), restano solo nel workspace di quella
+sessione. Qui sopra ci sono i loro numeri.
+Si torna alla regia attuale con un segnale minimo.
+
+#### La quota di superficie verticale — ✅ PASSATA il 28/09 (pubblicata in `2026-09-28-a`)
+
+Deciso da Raffaella: per «seduto» e «sdraiato» la prova a scatola lascia il
+posto a UN segnale: su una copia del tipo, area con normale entro 15°
+dall'orizzontale / area totale. ≥ 95% → «seduto»/«sdraiato» sospesi; sotto,
+il segnale non conferma e non sospende («non contraddetta»). Non rinomina,
+non tocca «in piedi» ne' «ci si passa». `veritas_regia.js` (`?v=7`:
+`quotaVerticaleDaTriangoli`, `quotaVerticaleDelTipo`, `verificaAffordance`
+con `geo`), `veritas_regia.test.mjs` 47/47, `index.html` solo la versione.
+**Prova sul terminal** (regia 264 s, 74/74 nominati): **72 sedute** (66 + 6,
+«non contraddetta»); culla «sdraiato» **sospeso**; «ci si passa» 17 prima e 17
+dopo; nomi mostrati e parole dell'occhio **identici** alla prova precedente,
+74 su 74. Limiti: le due «porte» strette (0,56 e 0,37 m) restano senza «ci si
+passa» per la prova a scatola di prima, invariata; su uno splat la superficie
+non e' ancora letta, quindi «seduto» risulterebbe «non verificabile» e sospeso.
+
+**Controllo finale di stabilita', 28/09 — chiuso da Raffaella:** «Stabilità
+verificata. Nessuna regressione funzionale.» Prove automatiche: 34 verdi e 8
+rosse sul workspace, 33 + 8 sulla versione ufficiale (le stesse 8 rosse, gia'
+rosse su `main`; la verde in piu' e' `veritas_regia.test.mjs`). Percorso
+completo (`banco/vivo/percorso_completo.mjs`: velo fino alla fine, Entra,
+Avvia), workspace e pubblicata: 0 errori di pagina, zone → oggetti →
+conformita', 72 sedute, pulsante «Avvia» che scompare, 28/28 figure che
+camminano. ⚠️ **Resta aperto, NON attribuito e NON indagato:** dopo «Avvia» la
+barra riparte a **175 s** nel workspace contro **70 s** nella pubblicata (una
+prova per parte; il codice di «Avvia» e' identico, `index.html` cambia solo
+nei numeri di versione dei moduli).
 
 #### Passo D — il secondo sguardo di conferma, 25/09 sera: ⛔ NON PASSATO (workspace, non pubblicato)
 

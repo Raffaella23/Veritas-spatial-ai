@@ -423,7 +423,10 @@ export function reportDi(stato, d, L) {
     // la conseguenza del vocabolario, detta a parole (veritas_regia.js).
     const r = d.regia || {}, es = r.esiti || [], adesso = r.ora;
     const sedute = es.filter((e) => e.postura === 'seduto').reduce((n, e) => n + (e.copie ? e.copie.length : 0), 0);
-    riga(tt(L, 'Fermata', 'Stop'), r.quante ? Math.min(r.quante, es.length + (r.attiva && adesso && !adesso.nome ? 1 : 0)) + '/' + r.quante : null);
+    // ⚠️ La fermata si conta dalla FERMATA, non dai nomi (26/09): col catalogo da 4
+    //    i nomi arrivano a gruppi, dopo che il carrello e' gia' andato avanti.
+    riga(tt(L, 'Fermata', 'Stop'), r.quante ? Math.min(r.quante, adesso && adesso.indice != null ? adesso.indice + 1
+      : es.length + (r.attiva && adesso && !adesso.nome ? 1 : 0)) + '/' + r.quante : null);
     riga(tt(L, 'Sto guardando', 'Looking at'), adesso ? (adesso.nome ? adesso.nome.toUpperCase() : tt(L, 'un oggetto, da vicino…', 'an object, up close…')) : null, adesso && adesso.nome ? 'ok' : null);
     riga(tt(L, 'Copie nel modello', 'Copies in the model'), adesso ? adesso.copie : null);
     riga(tt(L, 'Tipi nominati', 'Types named'), es.length ? es.filter((e) => e.nome).length + '/' + es.length : null);
@@ -1455,13 +1458,14 @@ function agganciaEventiVeri(S) {
   S.suFermata = (e) => {
     const d = e && e.detail; if (!d) return;
     S.regia.attiva = true; S.regia.quante = d.quante || S.regia.quante;
-    S.regia.ora = { copie: d.copie, nome: null };
+    S.regia.ora = { copie: d.copie, nome: null, indice: d.indice };
     try { mostraFermata(S, d); } catch (err) { /* la messa in scena non ferma la regia */ }
   };
   S.suNome = (e) => {
     const d = e && e.detail; if (!d) return;
     S.regia.esiti.push(d);
-    if (S.regia.ora) S.regia.ora.nome = d.nome;
+    // il nome va alla fermata che e' SUA: col foglio da 4 il carrello e' gia' oltre
+    if (S.regia.ora && (S.regia.ora.indice == null || S.regia.ora.indice === d.indice)) S.regia.ora.nome = d.nome;
     S.ultimaNotizia = Date.now();
     try { mostraNome(S, d); } catch (err) { /* idem */ }
   };
