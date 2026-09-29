@@ -176,6 +176,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
+| **Branch aperta, NON unita** | `esperienza-plastico` = `2f226dc` (29/09, costruzione `2026-09-29-d`, parte da `vista-esterna-agenti`): i passi 1-4 dell'esperienza, tutti approvati da Raffaella (§9, Fase B). NON pubblicata, NON unita |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
@@ -247,7 +248,9 @@ Dentro, in ordine di apparizione:
 | `veritas_accessi.js` | ricerca dei varchi d'ingresso, con voci multiple che devono accordarsi |
 | `veritas_bim.js` | lettura IFC (web-ifc). Strada separata, usata solo se il file è IFC |
 | `veritas_apertura.js` | il velo di apertura: la scena che prende forma in diretta al caricamento |
-| `veritas_carta.js` | il vestito: piattaforma chiara, vista 3D grigia col reticolo |
+| `veritas_carta.js` | il vestito. Dal 29/09 (branch `esperienza-plastico`): la vista 3D e' il PLASTICO SCURO del velo (fondo, argilla, luce, ombre); i pannelli sono ancora carta chiara |
+| `veritas_modo.js` | (branch `esperienza-plastico`) Analisi / Esperienza: la stessa scena con due quantita' di informazione |
+| `veritas_selezione.js` | (branch `esperienza-plastico`) clic su una persona: gli altri attenuati, anello, cartellino, il suo cammino vero fino alla meta |
 | `veritas_deposito.js` | i byte del modello in IndexedDB, legati all'id del progetto |
 
 ### Rapporti fra le parti
@@ -1548,6 +1551,75 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
   prima persona e' nel nucleo; la catena ambiente → agente → profilo → task →
   traiettoria → prima persona; pronto/mancante; strada tecnica col minimo
   lavoro inutile (NON decisi in partenza ne' Unity ne' WebXR); demo breve.
+- ⚠️ **IL SITO PUBBLICATO RESTA `2026-09-28-a`** (`main`) finche' Raffaella non
+  decide il merge e la pubblicazione. Le branch `vista-esterna-agenti` ed
+  `esperienza-plastico` non sono servite da GitHub Pages.
+- **FASE B — ESPERIENZA, 29/09: passi 1-4 FATTI E APPROVATI, sulla branch
+  `esperienza-plastico` = `2f226dc` (costruzione `2026-09-29-d`, parte da
+  `vista-esterna-agenti`; NON unita, NON pubblicata).** Riferimento: la tavola
+  UX di Raffaella (plastico → persona scelta → occhi della persona) e la sua
+  specifica «Information when needed». Esperienza scelta: *il plastico e gli
+  occhi*. Ogni passo provato con `banco/vivo/render_base.mjs`,
+  `prova_modi.mjs`, `prova_selezione.mjs` (stessa inquadratura, Chrome senza
+  scheda grafica), prove automatiche identiche a `main` (34/42) ogni volta.
+  1. **Render base** (`veritas_carta.js`): il velo portato nella vista dal
+     vivo — fondo del velo, niente reticolo/gabbia, modello in ARGILLA
+     monocroma (le 227 sagome ritagliate restano sagome, i 93 vetri restano
+     vetri), persone come figure di luce viola (`TINTA_AGENTE`, `index.html`).
+     ⚠️ L'argilla e le ombre del modello si mettono SOLO dentro
+     `renderer.render` della scena della pagina: l'occhio fotografa lo stesso
+     modello e deve vedere i colori veri (misurato: fuori dal disegno 0 mesh
+     con argilla). Luce del velo (cielo 0,95 + sole 1,7, diffusa a 0,12),
+     sole che copre tutto il modello (mappa 4096), i vetri non fanno ombra.
+     Sole spento/acceso: luminosita' 25,6 → 59,5, contrasto 26 → 43.
+     `veritasCarta.modelloOriginale(true/false)` = il modello com'e' (§0.1).
+  2. **Analisi / Esperienza** (`veritas_modo.js`): interruttore in alto al
+     centro + «Modello originale». In Esperienza si spengono zone (solo nel
+     disegno: «Spatial Layers → Zones» conserva il suo stato), barra degli
+     strumenti, KPI, chat, strumenti a sinistra (tranne «Persone in scena»),
+     messaggi del motore; la scena si allarga. Si parte in Esperienza.
+  3. **Selezione** (`veritas_selezione.js`, solo in Esperienza): clic vicino a
+     una figura (40 px), gli altri al 22%, anello ai piedi, cartellino scuro
+     col filo: persona, profilo, meta (ultimo obiettivo della missione),
+     velocita' MISURATA sulla traiettoria, altezza occhi, larghezza — dati da
+     `window.__veritasSchedaAgente(id)` (`index.html`). Esc / clic nel vuoto.
+  4. **Il cammino vero fino alla meta**: le posizioni future della persona
+     nella traiettoria, dal fotogramma in cui e' ORA, tagliate dove arriva
+     entro 6 m dalla meta (la soglia della pagella, `VICINO_M`); filo di luce
+     calda + alone + punto alla meta; si accorcia camminando (misurato 83,8 →
+     80,4 m in 3 s). Senza taglio era 331 m.
+  **Limiti noti:** pannelli ancora carta chiara (passaggio a parte: la carta fa
+  anche lavori utili — progetto, linguetta, anteprima); la foschia viene
+  rimessa a `#0b0f17` da qualcuno (quasi uguale); fps misurati solo senza
+  scheda grafica (simulazione: 18,1 prima → 11,9-15,4 dopo, piu' pixel e
+  ombre); in Analisi restano i blocchi del §6.21.
+
+- **⛔ BLOCCO OBBLIGATORIO PRIMA DEL PASSO 5 (deciso da Raffaella il 29/09):
+  le tracce interne e la direzione vera degli agenti.** Misurato:
+  `__veritasOcchiDiAgente(id).direzione` = **[1,0,0] per tutti**. Causa letta
+  nel codice: la mappa `TRACCE` (`index.html`, `ricostruisciTracce`) si rifa'
+  solo se `traj !== trajVista`; ma dopo «Avvia» la traiettoria vera viene
+  versata DENTRO LO STESSO OGGETTO (`traj.frames.length = 0;
+  traj.frames.push(...fresh.frames)`, in `applyNodesToScene`), quindi `TRACCE`
+  resta quella della traiettoria finta da un fotogramma. Conseguenze da
+  misurare: la direzione degli occhi; probabilmente anche lo stato del corpo
+  (cammina / in coda / seduto, `statoVero`), non misurato. **Criterio di
+  VERIFICA** (Raffaella, 29/09: e' una misura, NON una regola da applicare
+  alla simulazione): per ogni agente in cammino la direzione degli occhi
+  coincide entro ~20° con il verso del suo spostamento nei fotogrammi
+  successivi, e `TRACCE` ha tutti i punti della traiettoria per agente dopo
+  «Avvia». **Prima si misura il comportamento reale; solo se non coincide si
+  interviene sulla CAUSA.** Correzione probabile della causa: rifare le tracce quando cambia
+  il contenuto (numero di fotogrammi, primo/ultimo istante, o un contatore di
+  versione messo dove si versano i fotogrammi), non l'oggetto. Il cartellino e
+  la linea del passo 4 NON dipendono da `TRACCE` (leggono la traiettoria).
+- **PASSO 5 — prima persona, solo dopo il blocco:** la telecamera della STESSA
+  scena (niente `veritas_cinema.js`, niente secondo mondo) all'altezza d'occhio
+  del profilo, che guarda e si muove col comportamento vero della persona
+  scelta (direzione, soste, code); transizione fluida dal plastico; UI minima
+  (persona, meta). Il corpo della persona scelta si nasconde. Poi: pannelli
+  scuri, e la Fase C (visore).
+
 - **FASE C — solo dopo:** implementazione, prova su visore, eventuale Meta,
   demo del contest — solo cio' che serve a dimostrare la funzione centrale.
 
@@ -1629,6 +1701,7 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 29/09 | **Fondo scuro, un solo render** (tavola UX di Raffaella): plastico MONOCROMO in argilla dove spiccano solo i segni nostri e i cartellini; niente reticolo; «piu' pulita e' la scena, meglio e'»; massima leggibilita' (ombre); «esteticamente top». **Due modi sulla stessa scena**: Analisi (zone, cartellini, diagnostica) / Esperienza (solo cio' che serve). **Sequenza:** render → modi → selezione → traiettoria → ⛔ tracce interne e direzione vera → prima persona. La curva sulla scala mobile NON si ammorbidisce: e' il cammino vero. Il cartellino mostra la meta che il sistema conosce oggi |
 | 28/09 | **Riconoscere non e' sapere a cosa serve.** Quattro livelli distinti: etichetta visiva (cio' che dice OWLv2) → categoria di EIDETICA → significato spaziale → affordance. Un'etichetta incerta non produce una funzione. **La geometria puo' togliere o sospendere una CONSEGUENZA, mai il riconoscimento**: non dice «non e' una culla», dice «non ho prove sufficienti per "sdraiato"». E' una seconda evidenza indipendente, non un veto sull'occhio (§0.4). Niente regole per un solo edificio. Da progettare prima di scrivere; catalogo e HANDOFF non si pubblicano finche' non e' deciso |
 | 25/09 | **L'occhio regista** (§0.5, §12): la telecamera va dalle cose, una per tipo, e il cliente la guarda nella schermata iniziale col nome e il ragionamento. Basta con le fotografie in piu' |
 | 25/09 | Sezioni e prospetti a pezzi per l'occhio: **abbandonati**. Sezioni e piante restano disegni per il cervello |
@@ -1649,7 +1722,7 @@ https, `--allow-running-insecure-content`.
 | 28/08 | «All'aperto» non è una ragione per escludere una zona dal percorso: decide il riconoscimento, non la quota |
 | 30/08 | L'esterno non si cancella più, si marca: nasce come nodo `esterno`, visibile e nominabile |
 | 02/09 | Il modello **non va sul server**: resta in IndexedDB legato al progetto. Un solo «carica file» per volta a schermo |
-| 05/09 | Il vestito è carta: piattaforma chiara, vista 3D grigia col reticolo, quattro velature dal marchio |
+| 05/09 | ~~Il vestito è carta: piattaforma chiara, vista 3D grigia col reticolo~~ — **la vista 3D e' SUPERATA il 29/09** (fondo scuro); i pannelli restano carta finche' non si decide il loro passaggio |
 | 06/09 | Inglese come lingua di partenza della piattaforma |
 | 11/09 | **L'occhio è il re supremo**, il cervello ha potere consultivo, mai decisionale. Vale per ogni posizionamento |
 | 13/09 | Si lavora nella scheda EIDETICA del browser di Raffaella senza chiedere ogni volta; mai le altre schede |
