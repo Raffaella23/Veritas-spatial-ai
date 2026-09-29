@@ -1686,12 +1686,37 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
      viene rimpiazzata 5-6 volte, l'ultima anche ~30 s dopo; ogni volta le figure
      saltano. Da tenere presente nel passo 5.
   **Il passo 5 si puo' fare**, a sforzo del modello alto (Raffaella).
-- **PASSO 5 — prima persona (il blocco e' superato, 29/09 sera):** la telecamera della STESSA
-  scena (niente `veritas_cinema.js`, niente secondo mondo) all'altezza d'occhio
-  del profilo, che guarda e si muove col comportamento vero della persona
-  scelta (direzione, soste, code); transizione fluida dal plastico; UI minima
-  (persona, meta). Il corpo della persona scelta si nasconde. Poi: pannelli
-  scuri, e la Fase C (visore).
+- **✅ PASSO 5 — PRIMA PERSONA FATTA E APPROVATA, 29/09 sera, branch
+  `esperienza-plastico` = `ade8ed2` (`9dcb376` codice, `ade8ed2` sonda;
+  costruzione `2026-09-29-i`; NON unita, NON pubblicata).** Solo
+  `veritas_selezione.js` (v=6) e una riga di `veritas_carta.js` (v=15).
+  Catena voluta da Raffaella: **plastico → persona scelta → il suo percorso →
+  i suoi occhi → lo stesso percorso mentre si cammina con lei.**
+  - Ingresso: pulsante «Con i suoi occhi» nel cartellino (approvato). La
+    telecamera della STESSA scena scende in 1,5 s all'altezza d'occhio del
+    profilo (piedi MISURATI sul corpo + tabella per archetipo: 1,20 m in
+    carrozzina) e segue la persona con `__veritasOcchiDiAgente` (tempo della
+    simulazione, T+1 s); soste e code sono quelle vere; la testa gira in 0,35 s.
+  - La telecamera si posa DENTRO `renderer.render`, solo per la vista del
+    cliente: vince sui controlli, sul volo del bundle, sull'inquadratura di
+    «Avvia», sull'inseguimento dalla lista. Il corpo della persona si spegne
+    solo in quel disegno; anello e cartellino nascosti; gli altri tornano pieni.
+  - **La linea dorata resta ed e' LA STESSA del passo 4** (`disegnaVia`, il
+    percorso vero), non una linea nuova per la prima persona (Raffaella).
+  - Cartellino in alto: persona, profilo, meta, Esc. Esc = risale in 1,5 s al
+    punto esatto del plastico, persona ancora scelta.
+  - Misure (`banco/vivo/prova_occhi.mjs`, due lanci, criteri scritti prima):
+    discesa 1,48 s; distanza dalla persona 0 cm; quota mediana -0,5 cm (84%
+    entro 5 cm: il sobbalzo di 7 cm del passo non si segue, voluto); sguardo
+    mediana 3°, **84% entro 15°** (sotto il 90% che mi ero dato: e' il ritardo
+    della testa nelle curve; senza, la vista frusterebbe sugli ondeggiamenti
+    di 80° della traccia); corpo mai disegnato nella vista del cliente (3
+    volte da un'altra telecamera della pagina); ritorno esatto (0 cm). Prove
+    automatiche identiche prima/dopo (31/42 nel clone senza `three`).
+  - Noto, NON aperto: i rimpiazzi tardivi della traiettoria fanno saltare la
+    figura, e negli occhi salta la telecamera.
+  **Prossimo:** pannelli scuri, poi la Fase C (visore). Merge e pubblicazione
+  li decide Raffaella.
 
 - **FASE C — solo dopo:** implementazione, prova su visore, eventuale Meta,
   demo del contest — solo cio' che serve a dimostrare la funzione centrale.
