@@ -936,10 +936,10 @@ function luminanzaDi(css) {
   return { L, alfa };
 }
 
-// #eidetica-modo (veritas_modo.js) e #eidetica-scheda (veritas_selezione.js)
+// #eidetica-modo (veritas_modo.js), #eidetica-scheda e #eidetica-occhi (veritas_selezione.js)
 // stanno SULLA scena, che e' scura: la carta non li schiarisce e non li tinge.
 function dentroLaVista(el) {
-  return !!el.closest("canvas, .va-vista, #veritas-boot-splash, #va-firma, #eidetica-modo, #eidetica-scheda");
+  return !!el.closest("canvas, .va-vista, #veritas-boot-splash, #va-firma, #eidetica-modo, #eidetica-scheda, #eidetica-occhi");
 }
 
 function sbiancaScuri(radice) {

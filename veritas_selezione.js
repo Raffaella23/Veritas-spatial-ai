@@ -21,11 +21,12 @@
 // ⚠️ SOLO IN ESPERIENZA (veritas_modo.js). In Analisi il clic sulla scena ha
 //    gia' dei padroni (lo Zone editor posa punti): non si ruba.
 // Col passo 4 disegna anche la traiettoria della persona scelta (sotto).
-// ⚠️ NON TOCCA la prima persona (passo 5), ne' la simulazione:
-//    l'attenuazione cambia l'opacita' dei materiali dei corpi (ogni corpo ha
-//    i suoi, clonati da vestiUna) e la rimette.
+// Col passo 5 porta la telecamera negli occhi della persona scelta (in fondo).
+// ⚠️ NON TOCCA la simulazione: l'attenuazione cambia l'opacita' dei materiali
+//    dei corpi (ogni corpo ha i suoi, clonati da vestiUna) e la rimette.
 //
 //   window.eideticaSelezione.scegli(id) / .lascia() / .scelto()
+//                          .occhi() / .esciDagliOcchi() / .negliOcchi()
 // ============================================================================
 
 const TINTA = "#2EE6D6";          // la tinta «accesa» della piattaforma (velo, interruttore)
@@ -34,9 +35,11 @@ const RAGGIO_PX = 40;
 
 const TESTI = {
   it: { persona: "PERSONA", velocita: "Velocità", occhi: "Altezza occhi", larghezza: "Larghezza",
+        neiSuoiOcchi: "Con i suoi occhi", torna: "torna al plastico",
         profili: { business: "Viaggio di lavoro", family: "Famiglia", elderly: "Anziano", senior: "Anziano",
                    wheelchair: "In carrozzina", tourist: "Turista", student: "Studente", crew: "Personale", vip: "VIP" } },
   en: { persona: "PERSON", velocita: "Speed", occhi: "Eye height", larghezza: "Width",
+        neiSuoiOcchi: "Through their eyes", torna: "back to the model",
         profili: { business: "Business traveller", family: "Family", elderly: "Senior", senior: "Senior",
                    wheelchair: "Wheelchair user", tourist: "Tourist", student: "Student", crew: "Crew", vip: "VIP" } },
 };
@@ -66,6 +69,22 @@ const CSS = `
   grid-template-columns:auto auto;column-gap:18px;row-gap:5px;font-size:12px}
 #eidetica-scheda .es-dati span:nth-child(odd){color:#8A94A6}
 #eidetica-scheda .es-dati span:nth-child(even){color:#F2F5F9;text-align:right;font-variant-numeric:tabular-nums}
+#eidetica-scheda .es-occhi{all:unset;pointer-events:auto;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  margin-top:9px;padding:5px 11px;border-radius:7px;border:1px solid rgba(46,230,214,.45);color:${TINTA};
+  font:500 12px Inter,"Segoe UI",system-ui,sans-serif;letter-spacing:.03em;transition:background .25s,color .25s}
+#eidetica-scheda .es-occhi:hover{background:${TINTA};color:#0b1016}
+#eidetica-occhi{position:fixed;top:62px;left:50%;transform:translate(-50%,-6px);z-index:9600;pointer-events:none;
+  display:flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;border-radius:10px;white-space:nowrap;
+  background:rgba(10,14,20,.72);border:1px solid rgba(46,230,214,.30);box-shadow:0 10px 30px rgba(0,0,0,.35);
+  backdrop-filter:blur(14px);font:12px Inter,"Segoe UI",system-ui,sans-serif;color:#AEB7C6;
+  opacity:0;transition:opacity .4s ease,transform .4s ease}
+#eidetica-occhi.su{opacity:1;transform:translate(-50%,0)}
+#eidetica-occhi .eo-pt{width:7px;height:7px;border-radius:50%;background:${TINTA};box-shadow:0 0 8px ${TINTA}}
+#eidetica-occhi .eo-nome{font-weight:600;letter-spacing:.08em;color:#F2F5F9}
+#eidetica-occhi .eo-meta{color:#D7DEE8}
+#eidetica-occhi button{all:unset;pointer-events:auto;cursor:pointer;margin-left:4px;padding:3px 8px;border-radius:6px;
+  border:1px solid rgba(255,255,255,.14);color:#8A94A6;font-size:11px}
+#eidetica-occhi button:hover{color:#D7DEE8;border-color:rgba(255,255,255,.3)}
 `;
 
 const S = { id: null, scheda: null, anello: null, attenuati: new Map(), giro: 0,
@@ -224,9 +243,12 @@ function scheda(id) {
         <div class="es-nome">${L.persona} ${String(id).padStart(2, "0")}</div>
         ${profilo ? `<div class="es-riga">${esc(profilo)}</div>` : ""}
         ${d && d.meta ? `<div class="es-riga es-meta">→ ${esc(d.meta)}</div>` : ""}
+        <button class="es-occhi" type="button"><svg width="15" height="10" viewBox="0 0 15 10" fill="none" stroke="currentColor" stroke-width="1.3">
+          <path d="M1 5c1.8-2.7 4-4 6.5-4S12.2 2.3 14 5c-1.8 2.7-4 4-6.5 4S2.8 7.7 1 5z"/><circle cx="7.5" cy="5" r="1.8"/></svg>${esc(L.neiSuoiOcchi)}</button>
       </div>
       ${dati.length ? `<div class="es-dati">${dati.map(([k, v]) => `<span>${esc(k)}</span><span>${esc(v)}</span>`).join("")}</div>` : ""}
     </div>`;
+  el.querySelector(".es-occhi").addEventListener("click", (e) => { e.stopPropagation(); occhi(); });
   requestAnimationFrame(() => el.classList.add("su"));
 }
 
@@ -246,7 +268,13 @@ function segui() {
   const box = new T.Box3().setFromObject(corpo);
   const pos = new T.Vector3(); g[1].getWorldPosition(pos);
   const piedi = box.isEmpty() ? pos.y : box.min.y, cima = box.isEmpty() ? pos.y + 1.8 : box.max.y;
-  if (S.anello) S.anello.position.set(pos.x, piedi + 0.03, pos.z);
+  // negli occhi della persona (passo 5) l'anello e il cartellino sono suoi:
+  // non si vedono. La linea del cammino RESTA, ed e' LA STESSA (disegnaVia,
+  // il percorso vero della simulazione): Raffaella, 29/09 — «non una nuova
+  // linea costruita per la prima persona». Plastico → persona → il suo
+  // percorso → i suoi occhi → lo stesso percorso mentre si cammina con lei.
+  const dentro = O.fase === "giu" || O.fase === "dentro";
+  if (S.anello) { S.anello.position.set(pos.x, piedi + 0.03, pos.z); S.anello.visible = !dentro; }
   const adesso = performance.now();
   if (adesso - S.viaQuando > VIA_OGNI_MS) {
     S.viaQuando = adesso;
@@ -259,7 +287,7 @@ function segui() {
   const x = r.left + (testa.x + 1) / 2 * r.width, y = r.top + (1 - testa.y) / 2 * r.height;
   const el = S.scheda;
   if (el) {
-    el.style.display = dietro ? "none" : "";
+    el.style.display = dietro || dentro ? "none" : "";
     el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
     const carta = el.querySelector(".es-carta"), filo = el.querySelector(".es-filo"), pt = el.querySelector(".es-pt");
     if (carta && filo && pt) {
@@ -286,12 +314,191 @@ function scegli(id) {
 }
 function lascia() {
   if (S.id == null) return;
+  if (O.fase) esciSubito();
   S.id = null;
   togliVia(); S.viaDa = -1; S.viaQuando = 0;
   rimettiOpacita();
   if (S.anello && S.anello.parent) S.anello.parent.remove(S.anello);
   if (S.scheda) { S.scheda.classList.remove("su"); const s = S.scheda; setTimeout(() => { if (S.id == null) s.style.display = "none"; }, 350); }
   if (S.giro) { cancelAnimationFrame(S.giro); S.giro = 0; }
+}
+
+// ─── NEGLI OCCHI DELLA PERSONA — passo 5 (29/09/2026) ───────────────────────
+// Dal plastico, «Con i suoi occhi» nel cartellino: la telecamera della STESSA
+// scena (niente veritas_cinema.js, niente secondo mondo) scende in 1,5 s
+// all'altezza d'occhio del profilo e da li' segue la persona scelta. Esc (o il
+// tasto nel cartellino in alto) la riporta, in 1,5 s, dov'era sul plastico.
+//
+// Da dove vengono i dati, e nient'altro:
+//   dove sta      la figura, cioe' la posizione che la simulazione le da' ORA
+//                 (il bundle la mette li' a ogni fotogramma);
+//   dove guarda   window.__veritasOcchiDiAgente(id).direzione: gli occhi nel
+//                 tempo della simulazione, verso dove sara' 1 s dopo; ferma,
+//                 guarda dove guardava (index.html, verificato 92% entro 20°);
+//   a che altezza i piedi MISURATI sul corpo (come l'anello) + l'altezza
+//                 d'occhio del profilo (la tabella di __veritasOcchiDiAgente:
+//                 in carrozzina 1,20 m). Non group.y + altezza: l'origine del
+//                 gruppo del bundle non e' ai piedi.
+// Soste e code sono quelle vere: la figura si ferma, la telecamera con lei.
+//
+// ⚠️ LA TELECAMERA SI POSA DENTRO renderer.render, e solo li'. Qui la
+//    muovono in tanti (i controlli a ogni fotogramma, il volo del bundle,
+//    l'inquadratura a ogni «Avvia», l'inseguimento dalla lista): posandola un
+//    istante prima del disegno, vince sempre e non si litiga con nessuno. Per
+//    lo stesso motivo il corpo della persona si spegne solo per quel disegno:
+//    nessuno stato da rimettere se qualcosa va storto.
+// ⚠️ I rimpiazzi tardivi della traiettoria (HANDOFF §9, aperto) fanno saltare
+//    le figure: negli occhi salta anche la telecamera. Noto, non si copre.
+const DISCESA_MS = 1500;
+const O = { fase: null, t0: 0,                     // fase: "giu" | "dentro" | "su"
+            daPos: null, daQuat: null,              // da dove parte il volo in corso
+            plastico: null,                         // { pos, target, quat, comandi } per tornare
+            y: null, yaw: null, ultimo: 0, cartello: null };
+
+const liscia = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+function cartelloInAlto(id) {
+  const d = typeof window.__veritasSchedaAgente === "function" ? window.__veritasSchedaAgente(id) : null;
+  const L = TESTI[lingua()];
+  const profilo = d && d.archetipo ? (L.profili[d.archetipo] || d.archetipo) : null;
+  const el = O.cartello || document.body.appendChild(Object.assign(document.createElement("div"), { id: "eidetica-occhi" }));
+  O.cartello = el;
+  el.innerHTML = `<span class="eo-pt"></span>
+    <span class="eo-nome">${L.persona} ${String(id).padStart(2, "0")}</span>
+    ${profilo ? `<span>${esc(profilo)}</span>` : ""}
+    ${d && d.meta ? `<span class="eo-meta">→ ${esc(d.meta)}</span>` : ""}
+    <button type="button" title="${esc(L.torna)}">Esc</button>`;
+  el.querySelector("button").addEventListener("click", () => esciDagliOcchi());
+  el.style.display = "";
+  requestAnimationFrame(() => el.classList.add("su"));
+}
+function togliCartello() {
+  const el = O.cartello;
+  if (!el) return;
+  el.classList.remove("su");
+  setTimeout(() => { if (!O.fase || O.fase === "su") el.style.display = "none"; }, 400);
+}
+
+// La posa degli occhi ORA: posizione e orientamento (quaternione).
+function posaDegliOcchi(T) {
+  const g = gruppi().find(([id]) => id === S.id);
+  const occhi = g && typeof window.__veritasOcchiDiAgente === "function" ? window.__veritasOcchiDiAgente(S.id) : null;
+  if (!g || !occhi) return null;
+  // il corpo vero; se la libreria dei corpi non e' arrivata, la figura del bundle
+  const corpo = g[1].getObjectByName("__veritasCorpo") || g[1];
+  const pos = new T.Vector3(); g[1].getWorldPosition(pos);
+  const box = new T.Box3().setFromObject(corpo);
+  const piedi = box.isEmpty() ? pos.y : box.min.y;
+  const adesso = performance.now();
+  const dt = O.ultimo ? Math.min(0.1, (adesso - O.ultimo) / 1000) : 0;
+  O.ultimo = adesso;
+  // la quota si liscia appena (il passo del bundle fa sobbalzare la figura di
+  // 7 cm); x e z no: la telecamera sta dove sta la persona.
+  const y = piedi + occhi.altezzaOcchio;
+  O.y = O.y == null ? y : O.y + (y - O.y) * (1 - Math.exp(-dt / 0.2));
+  // lo sguardo gira come gira una testa, non scatta: 0,35 s
+  const [dx, , dz] = occhi.direzione;
+  const verso = Math.atan2(dz, dx);
+  if (O.yaw == null) O.yaw = verso;
+  else {
+    let d = verso - O.yaw;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    O.yaw += d * (1 - Math.exp(-dt / 0.35));
+  }
+  const p = new T.Vector3(pos.x, O.y, pos.z);
+  const avanti = new T.Vector3(Math.cos(O.yaw), 0, Math.sin(O.yaw));
+  const m = new T.Matrix4().lookAt(p, p.clone().add(avanti), new T.Vector3(0, 1, 0));
+  return { pos: p, quat: new T.Quaternion().setFromRotationMatrix(m), avanti, corpo };
+}
+
+function posaLaTelecamera(T, cam) {
+  const ctrl = window.__veritasControls;
+  const e = liscia(Math.min(1, (performance.now() - O.t0) / DISCESA_MS));
+  if (O.fase === "su") {
+    const P = O.plastico;
+    cam.position.lerpVectors(O.daPos, P.pos, e);
+    cam.quaternion.slerpQuaternions(O.daQuat, P.quat, e);
+    if (e >= 1) finisciUscita();
+    // il corpo torna visibile appena la telecamera esce dalla testa
+    return e < 0.3 ? O.corpo : null;
+  }
+  const occhi = posaDegliOcchi(T);
+  if (!occhi) { esciDagliOcchi(); return null; }         // la persona non c'e' piu' (arrivata, ricalcolo)
+  O.corpo = occhi.corpo;
+  if (O.fase === "giu") {
+    cam.position.lerpVectors(O.daPos, occhi.pos, e);
+    cam.quaternion.slerpQuaternions(O.daQuat, occhi.quat, e);
+    if (e >= 1) { O.fase = "dentro"; cartelloInAlto(S.id); }
+  } else {
+    cam.position.copy(occhi.pos);
+    cam.quaternion.copy(occhi.quat);
+  }
+  // i controlli guardano un punto davanti agli occhi: al fotogramma dopo il
+  // loro update riparte da qui, non da dov'era il plastico
+  if (ctrl) ctrl.target.copy(occhi.pos).addScaledVector(occhi.avanti, 3);
+  return occhi.corpo;
+}
+
+function avvolgiIlRenderer(ren) {
+  if (ren.__eideticaOcchi) return;
+  ren.__eideticaOcchi = true;
+  const disegna = ren.render.bind(ren);
+  ren.render = function (scena, camera) {
+    // solo la vista del cliente: la scena della pagina, la sua telecamera,
+    // sullo schermo (l'occhio che fotografa ha i suoi bersagli)
+    if (!O.fase || scena !== window.__veritasScene || camera !== window.__veritasCamera
+        || ren.getRenderTarget() !== null || !window.THREE) return disegna(scena, camera);
+    let corpo = null;
+    try { corpo = posaLaTelecamera(window.THREE, camera); }
+    catch (e) { console.warn("[EIDETICA occhi]", e && e.message); }
+    const acceso = corpo ? corpo.visible : false;
+    if (corpo) corpo.visible = false;
+    try { return disegna(scena, camera); }
+    finally { if (corpo) corpo.visible = acceso; }
+  };
+}
+
+function occhi() {
+  const T = window.THREE, cam = window.__veritasCamera, ctrl = window.__veritasControls;
+  if (S.id == null || O.fase || !T || !cam || !ctrl) return false;
+  if (typeof window.__veritasOcchiDiAgente !== "function" || !window.__veritasOcchiDiAgente(S.id)) return false;
+  O.plastico = { pos: cam.position.clone(), target: ctrl.target.clone(), quat: cam.quaternion.clone(),
+                 comandi: ctrl.enabled };
+  O.daPos = cam.position.clone(); O.daQuat = cam.quaternion.clone();
+  O.y = null; O.yaw = null; O.ultimo = 0; O.corpo = null;
+  ctrl.enabled = false;               // negli occhi non si gira la vista col mouse
+  rimettiOpacita();                   // fra la gente, la gente e' tutta presente
+  O.fase = "giu"; O.t0 = performance.now();
+  return true;
+}
+
+function esciDagliOcchi() {
+  if (O.fase !== "giu" && O.fase !== "dentro") return;
+  const cam = window.__veritasCamera;
+  O.daPos = cam.position.clone(); O.daQuat = cam.quaternion.clone();
+  O.fase = "su"; O.t0 = performance.now();
+  togliCartello();
+}
+
+function finisciUscita() {
+  const cam = window.__veritasCamera, ctrl = window.__veritasControls, P = O.plastico;
+  O.fase = null; O.corpo = null;
+  if (cam && P) { cam.position.copy(P.pos); cam.quaternion.copy(P.quat); }
+  if (ctrl && P) { ctrl.target.copy(P.target); ctrl.enabled = P.comandi; }
+  O.plastico = null;
+  if (S.id != null) attenua(S.id);    // di nuovo sul plastico, con la persona scelta
+}
+
+// Senza volo: quando la selezione si chiude (Analisi, clic nel vuoto) o la
+// pagina lo chiede.
+function esciSubito() {
+  if (!O.fase) return;
+  togliCartello();
+  const id = S.id;
+  S.id = null;                        // finisciUscita non riattenua
+  finisciUscita();
+  S.id = id;
 }
 
 // ─── IL CLIC ─────────────────────────────────────────────────────────────────
@@ -320,10 +527,12 @@ function aggancia() {
   if (!ren || ren.domElement.__eideticaSelezione) return !!ren;
   const tela = ren.domElement;
   tela.__eideticaSelezione = true;
+  avvolgiIlRenderer(ren);
   let giu = null;
   tela.addEventListener("pointerdown", (e) => { giu = { x: e.clientX, y: e.clientY, t: performance.now() }; });
   tela.addEventListener("pointerup", (e) => {
-    if (!giu || !esperienza() || e.button !== 0) { giu = null; return; }
+    // negli occhi di qualcuno un clic sulla scena non sceglie un altro
+    if (!giu || !esperienza() || e.button !== 0 || O.fase) { giu = null; return; }
     const mosso = Math.hypot(e.clientX - giu.x, e.clientY - giu.y), durata = performance.now() - giu.t;
     giu = null;
     if (mosso > 5 || durata > 400) return;
@@ -340,7 +549,12 @@ function avvio() {
     s.textContent = CSS;
     document.head.appendChild(s);
   }
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") lascia(); });
+  // Esc: dagli occhi si torna al plastico con la persona ancora scelta; dal
+  // plastico, si lascia la persona.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (O.fase === "giu" || O.fase === "dentro") esciDagliOcchi(); else if (!O.fase) lascia();
+  });
   // Si passa in Analisi: la selezione si lascia (i suoi segni sono dell'Esperienza).
   new MutationObserver(() => { if (!esperienza()) lascia(); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-eidetica-modo"] });
@@ -350,7 +564,8 @@ function avvio() {
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
-  window.eideticaSelezione = { scegli, lascia, scelto: () => S.id };
+  window.eideticaSelezione = { scegli, lascia, scelto: () => S.id,
+                               occhi, esciDagliOcchi, negliOcchi: () => O.fase };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avvio);
   else avvio();
 }
