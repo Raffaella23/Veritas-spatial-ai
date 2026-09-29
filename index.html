@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-29-e";
+window.__EIDETICA_COSTRUZIONE = "2026-09-29-g";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -3481,7 +3481,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-e";
         // ma si sa che sono una famiglia, ed e' la famiglia intera che deve
         // restare compatta, non solo "un po' vicina" come per estranei nella
         // stessa fila. Richiamo triplo: 0.08 diventa 0.24.
-        if (gc && state === "MOVING" && !suPonte && Math.random() < 0.9) {
+        //
+        // 29/09/2026 — SEMPRE, non 9 volte su 10. Il richiamo saltato a caso
+        // faceva scattare la persona via dal gruppo per mezzo secondo (0,4 m;
+        // 1,2 m le famiglie) e poi tornare: misurato, e' la firma del 57%
+        // delle inversioni del percorso (banco/vivo/misure_29_09).
+        if (gc && state === "MOVING" && !suPonte) {
           const richiamo = ag.archetype === 'family' ? 0.24 : 0.08;
           x += (gc.x - x) * richiamo; z += (gc.z - z) * richiamo;
         }
