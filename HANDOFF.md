@@ -174,7 +174,8 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `228e1af` — *i superpoteri dell'occhio: le frecce a terra si calpestano* (prima: `c7a8b83` cucitura lungo la parete, `60bc3d3` pagina fluida) |
+| **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
+| **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
@@ -1514,6 +1515,41 @@ interruzione. Conta il battito dei timer della pagina.
 ---
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
+
+### Piano deciso da Raffaella il 28/09 sera — UNA FUNZIONE CENTRALE → UNA DIMOSTRAZIONE FORTE → POI ESTENSIONE
+
+**Diagnosi della vista esterna (28/09, build `2026-09-28-a`):** gli agenti sono
+disegnati, nella stessa scena e con la stessa telecamera del modello, alla
+posizione della simulazione (A = B), e si muovono. Due cause di «non li vedo»:
+(1) dopo «Avvia», se si entra a velo finito, 175–197 s con 2/28 figure e la
+barra ferma (entrando prima del giro dell'occhio: 25 s) — meccanismo non
+misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
+**12 px**, ammassata fra le sagome ferme del modello.
+
+- **FASE A — ✅ FATTA il 28/09 sera, sulla branch `vista-esterna-agenti`
+  (`8ae7dd4`, su GitHub, NON unita a `main`; costruzione `2026-09-28-b`).**
+  Solo `index.html`: `veritasInquadraAgentiSeServe` — a ogni «Avvia», alla prima
+  ripartenza della barra sui fotogrammi veri, la telecamera va (1,5 s) sul
+  baricentro degli agenti nei primi 30 s, alla distanza a cui una persona di
+  1,80 m misura 55–90 px, stessa direzione di vista; poi e' dell'utente. Test
+  (percorso completo, due fotografie senza ingrandire a 5 s): **28/28 agenti
+  in quadro, 59–78 px; 9 in movimento visibile** (agente 17: 7,4 m in 5 s);
+  prove automatiche identiche a `main`. Limiti: chi va lontano esce dal quadro
+  (la telecamera non insegue); l'attesa dopo «Avvia» (causa 1) resta (197 s).
+  Il merge su `main` lo decide Raffaella.
+- **FASE B — prossima sessione: l'esperienza, non la tecnologia.** «Un utente entra in un
+  ambiente spaziale e lo vive attraverso gli occhi di un agente, mentre altri
+  agenti autonomi con obiettivi propri si muovono nello stesso spazio.» La
+  prima persona e' una DIRETTRICE, non un ritocco: verificato che puo' nascere
+  sulla STESSA scena della vista esterna (stesso modello, agenti, materiali,
+  luce, ombre, orologio; telecamera all'altezza d'occhio del profilo), mentre
+  `veritas_cinema.js` oggi e' un secondo mondo ricostruito, con motore,
+  corpi e orologio suoi. Da definire: esperienza minima interessante; se la
+  prima persona e' nel nucleo; la catena ambiente → agente → profilo → task →
+  traiettoria → prima persona; pronto/mancante; strada tecnica col minimo
+  lavoro inutile (NON decisi in partenza ne' Unity ne' WebXR); demo breve.
+- **FASE C — solo dopo:** implementazione, prova su visore, eventuale Meta,
+  demo del contest — solo cio' che serve a dimostrare la funzione centrale.
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
