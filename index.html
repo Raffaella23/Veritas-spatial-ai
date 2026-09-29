@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-29-g";
+window.__EIDETICA_COSTRUZIONE = "2026-09-29-h";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6469,10 +6469,54 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-g";
     const traccia = TRACCE.get(id);
     let direzione = [1, 0, 0];
     if (traccia && traccia.length > 1) {
-      const i = Math.max(0, Math.min(traccia.length - 2, v.traccia >= 0 ? v.traccia : 0));
-      const p0 = traccia[i].pos, p1 = traccia[i + 1].pos;
-      const dx = p1[0] - p0[0], dz = p1[2] - p0[2];
-      if (Math.hypot(dx, dz) > 1e-4) direzione = [dx, 0, dz];
+      // 29/09/2026 — verificato la sera stessa: 92% entro 20° (256 persone in
+      // cammino, banco/vivo/misure_29_09), 8% residuo non analizzato. Prima si
+      // cercava il punto della traccia piu' VICINO alla figura e si guardava
+      // il tratto dopo: con gli scarti laterali e i ripassaggi quel punto
+      // spesso non e' dove la persona e' in questo istante (misurato: 46%
+      // entro 20°). Ora si trova l'ISTANTE della simulazione in cui la
+      // persona e' li' — la figura sta sempre sulla retta fra due fotogrammi
+      // della sua traccia — scegliendo, fra i tratti che la contengono,
+      // quello che segue l'istante trovato la volta prima (il tempo va solo
+      // avanti). Gli occhi guardano dove sara' 1 s di simulazione dopo.
+      const g = v.group.position, TOLL = 0.05;
+      // la prima volta, fra piu' passaggi dallo stesso punto, vale l'istante
+      // gia' trovato per gli altri (l'orologio della simulazione e' uno solo)
+      const altri = CORPI_VIVI.filter((x) => x !== v && x.tempoOcchi != null).map((x) => x.tempoOcchi).sort((a, b) => a - b);
+      const riferimento = altri.length ? altri[altri.length >> 1] : null;
+      let scelto = null, vicino = null;
+      for (let k = 0; k + 1 < traccia.length; k++) {
+        const a = traccia[k].pos, b = traccia[k + 1].pos;
+        const sx = b[0] - a[0], sz = b[2] - a[2], l2 = sx * sx + sz * sz;
+        let u = l2 > 1e-9 ? ((g.x - a[0]) * sx + (g.z - a[2]) * sz) / l2 : 0;
+        u = Math.max(0, Math.min(1, u));
+        const d = Math.hypot(g.x - (a[0] + sx * u), g.z - (a[2] + sz * u));
+        const t = traccia[k].t + (traccia[k + 1].t - traccia[k].t) * u;
+        if (!vicino || d < vicino.d) vicino = { d, t };
+        if (d > TOLL) continue;
+        if (v.tempoOcchi == null) {                                              // la prima volta
+          const scarto = riferimento == null ? t : Math.abs(t - riferimento);
+          if (!scelto || scarto < scelto.scarto) scelto = { t, scarto };
+          continue;
+        }
+        const avanti = t - v.tempoOcchi;
+        if (avanti < -0.25) continue;                                            // il tempo non torna indietro
+        if (!scelto || avanti < scelto.avanti) scelto = { t, avanti };
+      }
+      const T = scelto ? scelto.t : vicino.t;
+      v.tempoOcchi = T;
+      // la posizione sulla traccia a T + 1 s
+      const T1 = T + 1.0;
+      let k1 = traccia.findIndex((p) => p.t >= T1);
+      let meta;
+      if (k1 <= 0) meta = traccia[traccia.length - 1].pos;
+      else {
+        const a = traccia[k1 - 1], b = traccia[k1], u = (T1 - a.t) / ((b.t - a.t) || 1);
+        meta = [a.pos[0] + (b.pos[0] - a.pos[0]) * u, 0, a.pos[2] + (b.pos[2] - a.pos[2]) * u];
+      }
+      const dx = meta[0] - g.x, dz = meta[2] - g.z;
+      if (Math.hypot(dx, dz) > 0.05) { direzione = [dx, 0, dz]; v.direzioneOcchi = direzione; }
+      else if (v.direzioneOcchi) direzione = v.direzioneOcchi;   // fermo: si guarda dove guardava
     }
     const archetipo = v.group.userData && v.group.userData.archetipo;
     const altezzaOcchio = ALTEZZA_OCCHIO_ARCHETIPO[archetipo] || 1.65;
@@ -6730,7 +6774,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-g";
           // vecchio apparteneva a un'altra traccia.
           if (traj && (traj !== trajVista || traj.__versioneFotogrammi !== versioneVista)) {
             ricostruisciTracce(traj); trajVista = traj; versioneVista = traj.__versioneFotogrammi;
-            for (const v of CORPI_VIVI) v.traccia = -1;
+            for (const v of CORPI_VIVI) { v.traccia = -1; v.tempoOcchi = null; }
           }
         } catch (e) {}
       }
