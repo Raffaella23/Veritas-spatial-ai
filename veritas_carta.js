@@ -316,30 +316,14 @@ html[data-veritas-vestito="carta"] .va-velato .va-corpo{
   background:var(--va-alzato)!important;
 }
 
-/* ═══ 7 · LA FINESTRA TECNICA: GRIGIA, COL RETICOLO ═════════════════════ */
-/* La tela 3D e' TRASPARENTE (verificato: alpha true sul contesto WebGL), e
-   ne' lei ne' il suo contenitore dipingono un fondo. Quindi il fondo glielo
-   si puo' dare qui, in CSS, senza entrare nel motore 3D e senza toccare il
-   ciclo di disegno. Il modello ci si appoggia sopra.
-
-   IL GRIGIO. Non bianco: un modello illuminato su bianco pieno perde le
-   proprie ombre e la sagoma si scioglie. Non nero: aprirebbe un buco in
-   mezzo a una piattaforma di carta. Questo e' il grigio della camera chiara.
-
-   IL RETICOLO, due passi. Uno fitto da 24 px che da' la grana, e uno largo
-   da 120 px che da' la misura — come un foglio a quadretti, dove i quadretti
-   piccoli si sentono e le righe grosse si contano. Sono tutti e due
-   debolissimi apposta: un reticolo che si vede e' un reticolo che disturba. */
-/* ⚠️ QUI RESTA SOLO IL GRIGIO. Il reticolo NON e' piu' qui.
-   Un reticolo disegnato in CSS sta SOPRA la tela, piatto, e non gira con la
-   camera: si vede subito che e' un adesivo appiccicato allo schermo invece
-   che un pavimento. Raffaella, 05/09: «con l'effetto prospettiva, insomma,
-   per intenderci». Quindi il reticolo e' passato DENTRO la scena, sul piano
-   di terra, dove la prospettiva gliela da' la camera — vedi vestiLaScena()
-   piu' sotto. Questo grigio resta solo per i momenti in cui la scena non c'e'
-   ancora e la tela e' trasparente. */
+/* ═══ 7 · LA FINESTRA TECNICA: IL PLASTICO SCURO ════════════════════════ */
+/* 29/09: il grigio col reticolo del 05/09 e' SUPERATO. Il fondo vero lo
+   dipinge la scena (vestiLaScena, piu' sotto: lo stesso fondo del velo).
+   Questo colore resta solo per i momenti in cui la scena non c'e' ancora e
+   la tela e' trasparente: e' il colore di meta' del fondo del velo, cosi'
+   quando la scena arriva non si vede il salto. */
 html[data-veritas-vestito="carta"] canvas{
-  background-color:#E9EBF0!important;
+  background-color:#0e131b!important;
 }
 
 /* ═══ 7-bis · IL CARATTERE DELLE SCRITTE UMANE ═══════════════════════════ */
@@ -611,82 +595,68 @@ html[data-veritas-vestito="carta"] .va-vista{
 `;
 
 // ============================================================================
-// LA VISTA TRIDIMENSIONALE
+// LA VISTA TRIDIMENSIONALE — IL PLASTICO SCURO (29/09/2026)
 // ============================================================================
-// Raffaella, 05/09: «troppo distacco fra il nero della finestra 3D e il resto»,
-// «il nero proprio nero no», «reticolo prospettico leggermente piu' scuro».
+// Raffaella, 29/09, con una tavola di riferimento: «piu' pulita e' la scena,
+// meglio e'. Piu' abbiamo un plastico monocromo con questi segni colorati
+// tech, dove spiccano solamente i cartellini e queste luci che diamo noi,
+// meglio e'». SOSTITUISCE la vista grigia col reticolo del 05/09, che non
+// vale piu': niente grigio, niente reticolo, niente gabbia.
 //
-// Tre cose, e vanno insieme:
+// E' il render del velo (veritas_apertura.js) portato nella vista dal vivo,
+// come chiede il §0.1 del HANDOFF: stesso fondo, stessa argilla. Un render
+// solo; sopra cambiano soltanto i segni (zone, cartellini, traiettorie).
 //
-//   IL FONDO. La tela e' trasparente (setClearColor(0x000000, 0)), quindi
-//   basterebbe il CSS. Ma appena c'e' una scena conviene dirlo alla scena: e'
-//   lei che comanda, e il CSS diventa un ripiego che nessuno legge.
+//   IL FONDO. Lo stesso del velo: un alone blu-notte un po' a sinistra del
+//   centro che scende quasi al nero ai bordi. Una tessitura dipinta una
+//   volta, non un CSS sotto la tela: e' la scena che comanda.
 //
-//   ⚠️ LA FOSCHIA, ed e' QUESTA la ragione per cui restava nero anche col
-//      fondo chiaro. C'e' una `THREE.Fog(0x0b0f17, ...)` — nero-blu — messa
-//      per una ragione giusta: «lega il modello al fondo, senza l'edificio
-//      galleggia». Ma una foschia NERA su un fondo CHIARO fa il contrario di
-//      quello per cui e' nata: invece di fondere il modello nello sfondo, gli
-//      spalma addosso del nero. La foschia deve SEMPRE essere del colore del
-//      fondo — e' l'unica cosa che deve essere, sempre, in qualunque vestito.
+//   LA FOSCHIA. Sempre del colore del fondo — la regola del 05/09 resta vera
+//   in qualunque vestito: una foschia di un altro colore spalma quel colore
+//   sul modello invece di fonderlo nell'aria.
 //
-//   IL RETICOLO. Non in CSS: sul piano di terra, dentro la scena, cosi' la
-//   prospettiva gliela da' la camera. E' il pavimento a quadretti sotto il
-//   modello, non un adesivo sullo schermo.
-//   Due passi, come il foglio a quadretti: uno fitto che da' la grana e uno
-//   largo che da' la misura. Il passo e' scelto in METRI TONDI — 1, 2, 5, 10,
-//   20, 50 — perche' un reticolo si conta, e nessuno conta a passo 6,37.
+//   IL MODELLO IN ARGILLA. Un tono solo, quello del velo. I vetri restano
+//   vetri (argilla trasparente), se no un tetto di vetro diventa un coperchio
+//   e nasconde la gente.
+//
+// ⚠️ L'ARGILLA SI METTE SOLO MENTRE SI DISEGNA LA VISTA DEL CLIENTE, e si
+//    toglie subito dopo. L'occhio fotografa lo STESSO modello con lo stesso
+//    renderer (veritas_vista.js lo sposta in una scena sua e lo disegna): se
+//    l'argilla restasse addosso al modello, l'occhio vedrebbe un plastico
+//    grigio invece dei colori veri. Quindi si avvolge `renderer.render`, e
+//    SOLO quando disegna la scena della pagina sullo schermo il modello
+//    indossa l'argilla. Ogni altro disegno (occhio, piante, miniature) trova
+//    il modello com'e'.
+//
+// ⚠️ IL MODELLO ORIGINALE NON SPARISCE (§0.1):
+//      window.veritasCarta.modelloOriginale(true)   // i suoi materiali
+//      window.veritasCarta.modelloOriginale(false)  // l'argilla
+//    Il pulsante arriva col passo 2 (Analisi / Esperienza), nello stesso posto.
 
-const FONDO_VISTA   = 0xE9EBF0;   // l'aria attorno
-const TERRA_VISTA   = 0xDFE2EA;   // la lastra di terra: un gradino sotto l'aria
-const RETICOLO_SU_TERRA = 0xA8AEC2;  // il reticolo a terra: un gradino sotto la terra
-const RETICOLO_SU_MURO  = 0xC2C7D6;  // sulle pareti piu' tenue: e' fondale, non piano di lavoro
+const PLASTICO = {
+  // il fondo del velo: centro, meta', bordo (.vap-velo in veritas_apertura.js)
+  fondo: ["#1a2231", "#0e131b", "#07090d"],
+  aria: 0x0e131b,        // la foschia: il colore di meta' del fondo
+  terra: 0x10151d,       // la lastra: appena sopra l'aria, riceve l'ombra
+  argilla: 0x6b707a,     // ARGILLA di veritas_apertura.js
+};
 
-// ⚠️ NON SI AGGIUNGE NIENTE ALLA SCENA. Verificato guardandola: la scena ha
-//    GIA' la sua griglia (un GridHelper a y=0) e GIA' la sua lastra di terra
-//    (200x200 m, colore #151a23 — ed e' LEI il «nero della finestra 3D», non
-//    lo sfondo, che era gia' chiaro).
-//    La prima versione di questo file ne aggiungeva di sue: due griglie dove
-//    ne bastava una, e per giunta sotto la lastra, quindi invisibili. Due
-//    oggetti che fanno lo stesso mestiere divergono alla prima modifica.
-//    Qui si RICOLORA quello che c'e', e si tiene da parte il colore di prima
-//    per poterlo rimettere: e' quello che rende lo strato uno strato.
-
+// La lastra di terra si ricolora; il colore di prima si tiene.
 const memoria = new Map();   // uuid -> colore originale
-
 function ricorda(oggetto, materiale) {
   if (!memoria.has(oggetto.uuid)) memoria.set(oggetto.uuid, materiale.color.getHex());
-}
-function rimetti(scena) {
-  scena.traverse((o) => {
-    const m = o.material;
-    if (m && m.color && memoria.has(o.uuid)) m.color.setHex(memoria.get(o.uuid));
-  });
 }
 
 /**
  * La lastra di terra.
  *
  * ⚠️ SI CERCA PRIMA PER COLORE, POI PER MISURA, e l'ordine e' tutto.
- *    Primo tentativo: `traverse` + un Box3 per OGNI mesh. Su un aeroporto
- *    sono migliaia di mesh, ognuna con la geometria da scorrere: la pagina si
- *    e' piantata sul serio, il riquadro non rispondeva piu'.
- *    Secondo tentativo: solo i figli diretti della scena. Economico, ma
- *    SBAGLIATO — la lastra non e' un figlio diretto, sta dentro un gruppo, e
- *    cosi' non la trovava piu' nessuno. Il fondo restava nero.
- *    Terzo, e questo funziona: si scorre tutto l'albero ma si guarda solo il
- *    COLORE, che e' gia' in memoria e non costa niente. Le mesh molto scure
- *    sono una manciata; solo su quelle si misura l'ingombro. Migliaia di
- *    letture gratis, cinque misure vere.
+ *    Un Box3 per OGNI mesh di un aeroporto (migliaia) pianta la pagina; i
+ *    soli figli diretti non bastano (la lastra sta dentro un gruppo). Si
+ *    scorre tutto l'albero guardando solo il COLORE, che non costa niente, e
+ *    si misura l'ingombro solo delle poche mesh molto scure. La misura si
+ *    fa NEL MONDO: un piano nasce in piedi (200 x 200 x 0) e viene coricato.
  */
-// ⚠️ SI LEGGE IL COLORE COME LO SI VEDE, non come lo tiene THREE.
-//    `colore.r/.g/.b` puo' essere in spazio lineare, dove #151a23 vale circa
-//    0,009 invece di 0,082: una soglia scelta guardando il codice a occhio
-//    sbaglia di un ordine di grandezza. `getHexString()` torna sempre l'sRGB,
-//    cioe' il numero che si legge nel file e che corrisponde a quello che si
-//    vede. Misurato: #151a23 fa 0,100 di luminanza. La prima soglia era 0,06
-//    e lo mancava — e allora ricoloriva il primo cubetto nero che trovava,
-//    che e' peggio di non fare niente.
 function luminanzaSRGB(materiale) {
   const h = materiale.color.getHexString();
   const r = parseInt(h.slice(0, 2), 16) / 255;
@@ -702,18 +672,8 @@ function terraDi(T, scena) {
     if (luminanzaSRGB(o.material) > 0.25) return;   // costa tre moltiplicazioni
     candidate.push(o);
   });
-  // ⚠️ E DEV'ESSERE GRANDE DAVVERO. Un pavimento di un terminal sta sui
-  //    40.000 m2; un cubetto nero del modello sta sotto il metro quadro. La
-  //    soglia a 2000 m2 e' larga per un pavimento e impossibile per un
-  //    oggetto — e' quella che impedisce di ricolorare la cosa sbagliata.
-  // ⚠️ SI MISURA NEL MONDO, NON NELLA GEOMETRIA. Errore mio, e mi e' costato
-  //    tre giri: un piano orizzontale, DENTRO la sua geometria, e' 200 x 200
-  //    x ZERO — largo in X e in Y, spesso niente in Z — perche' nasce in
-  //    piedi e viene coricato con una rotazione. Io controllavo «e' alta meno
-  //    di un metro?» guardando la Y della geometria, che vale 200, e quindi
-  //    scartavo esattamente l'oggetto che stavo cercando.
-  //    Trasformare la scatola gia' in cache con la matrice del mondo costa
-  //    otto vertici — non tutta la geometria — e da' le misure come si vedono.
+  // Grande davvero: un pavimento di terminal sta sui 40.000 m2, un cubetto
+  // nero del modello sotto il metro quadro. 2000 m2 separa i due.
   let vinta = null, area = 2000;
   const scatola = new T.Box3();
   for (const o of candidate) {
@@ -723,186 +683,225 @@ function terraDi(T, scena) {
     if (!g.boundingBox) continue;
     o.updateWorldMatrix(true, false);
     scatola.copy(g.boundingBox).applyMatrix4(o.matrixWorld);
-    const dx = scatola.max.x - scatola.min.x;
-    const dy = scatola.max.y - scatola.min.y;
-    const dz = scatola.max.z - scatola.min.z;
-    if (dy > 1.0) continue;              // piatta, adesso davvero
-    const a = dx * dz;
+    if (scatola.max.y - scatola.min.y > 1.0) continue;
+    const a = (scatola.max.x - scatola.min.x) * (scatola.max.z - scatola.min.z);
     if (a > area) { area = a; vinta = o; }
   }
   return vinta;
 }
 
-// ─── LA GABBIA: IL RETICOLO SUI TRE PIANI ───────────────────────────────────
-// Raffaella, 05/09: «il reticolo va esteso a tutto l'ambiente, non solo al
-// piano orizzontale — una griglia prospettica su tutti e tre i piani».
-//
-// E' il fondale dello studio, o la carta da spolvero attorno al plastico: un
-// pavimento e due pareti a quadretti. Serve a una cosa precisa — dare la
-// PROFONDITA'. Un reticolo sul solo pavimento dice quanto e' larga una cosa;
-// tre reticoli ad angolo dicono anche quanto e' alta e quanto e' lontana,
-// perche' l'occhio legge la prospettiva sulle righe che convergono.
-//
-// ⚠️ NON SI USA GridHelper. Quello nasce sempre QUADRATO: per fare una parete
-//    alta un quarto di quanto e' larga bisognerebbe schiacciarlo, e le
-//    caselle diventerebbero rettangoli. Su tre piani che devono sembrare LO
-//    STESSO foglio piegato, caselle di forma diversa rovinano tutto. Quindi
-//    la griglia se la fa da se', rettangolare, con lo stesso passo ovunque.
-
-const NOME_GABBIA = "eidetica-gabbia";
-
-/** Una griglia piana w x h di passo `passo`, nel piano XY, centrata. */
-function grigliaPiana(T, w, h, passo, colore, opacita) {
-  const punti = [];
-  const nx = Math.round(w / passo), ny = Math.round(h / passo);
-  const x0 = -w / 2, y0 = -h / 2;
-  for (let i = 0; i <= nx; i++) {
-    const x = x0 + i * passo;
-    punti.push(x, y0, 0, x, y0 + ny * passo, 0);
-  }
-  for (let j = 0; j <= ny; j++) {
-    const y = y0 + j * passo;
-    punti.push(x0, y, 0, x0 + nx * passo, y, 0);
-  }
-  const g = new T.BufferGeometry();
-  g.setAttribute("position", new T.Float32BufferAttribute(punti, 3));
-  const m = new T.LineBasicMaterial({
-    color: colore, transparent: true, opacity: opacita, depthWrite: false,
-  });
-  return new T.LineSegments(g, m);
-}
-
-/** Un passo tondo in metri: un reticolo si conta, e nessuno conta a 6,37. */
-function passoTondo(lato) {
-  for (const p of [0.5, 1, 2, 5, 10, 20, 50, 100]) if (lato / p <= 60) return p;
-  return 100;
-}
-
+// La gabbia del 05/09 non si costruisce piu'. Chi ha la pagina aperta da
+// prima di questa versione potrebbe averla ancora in scena: si toglie.
 function togliGabbia(scena) {
-  const v = scena.getObjectByName(NOME_GABBIA);
+  const v = scena.getObjectByName("eidetica-gabbia");
   if (!v) return;
   v.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
   scena.remove(v);
 }
 
-function costruisciGabbia(T, scena, scatola) {
-  togliGabbia(scena);
-  const dim = scatola.getSize(new T.Vector3());
-  const centro = scatola.getCenter(new T.Vector3());
-  const lato = Math.max(dim.x, dim.z) * 1.45 || 60;
-  // ⚠️ Le pareti NON sono alte quanto sono larghe. Un aeroporto e' largo
-  //    300 m e alto 15: una parete quadrata sarebbe un muro di 300 m che
-  //    riempie il cielo e nasconde il modello. Si sta sul triplo dell'altezza
-  //    vera dell'edificio, che e' quanto basta per leggere la profondita'.
-  const alto = Math.min(lato * 0.45, Math.max(dim.y * 3, lato * 0.12));
-  const passo = passoTondo(lato);
+/** Il fondo del velo, dipinto una volta su una tessitura. */
+function fondoDipinto(T) {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 512;
+  const x = c.getContext("2d");
+  // come il velo: l'alone sta al 38% in orizzontale e al 52% in verticale
+  const g = x.createRadialGradient(195, 266, 0, 195, 266, 420);
+  g.addColorStop(0, PLASTICO.fondo[0]);
+  g.addColorStop(0.55, PLASTICO.fondo[1]);
+  g.addColorStop(1, PLASTICO.fondo[2]);
+  x.fillStyle = g;
+  x.fillRect(0, 0, 512, 512);
+  const t = new T.CanvasTexture(c);
+  if (T.SRGBColorSpace) t.colorSpace = T.SRGBColorSpace;
+  return t;
+}
 
-  const gruppo = new T.Group();
-  gruppo.name = NOME_GABBIA;
-  const base = scatola.min.y;
+// ─── L'ARGILLA, SOLO SULLO SCHERMO DEL CLIENTE ──────────────────────────────
+const ARGILLA = { opaca: null, vetri: new Map(), sagome: new Map(), originale: false };
 
-  // IL PAVIMENTO — un filo sotto il modello, se no i due piani si contendono
-  // lo stesso pixel e il reticolo sfarfalla appena si muove la camera.
-  const suolo = grigliaPiana(T, lato, lato, passo, RETICOLO_SU_TERRA, 0.75);
-  suolo.rotation.x = -Math.PI / 2;
-  suolo.position.set(centro.x, base + 0.02, centro.z);
-  gruppo.add(suolo);
-
-  // LE QUATTRO PARETI. Raffaella, 05/09: «la griglia ovunque».
-  // Prima erano due, ad angolo, e da certe inquadrature meta' campo restava
-  // bianco vuoto — la profondita' si leggeva solo girandosi da una parte.
-  // Quattro chiudono lo spazio da qualunque parte guardi.
-  //
-  // ⚠️ NIENTE SOFFITTO. Con la camera dall'alto — che e' l'inquadratura
-  //    normale di una pianta — un reticolo sul soffitto si infilerebbe fra
-  //    l'occhio e il modello, e si guarderebbe il piano attraverso una rete.
-  //
-  // Piu' tenui del pavimento: sono il FONDALE, non il piano di lavoro. Se
-  // pesassero uguale, il modello sembrerebbe chiuso dentro una gabbia invece
-  // che appoggiato su un tavolo.
-  const mezzo = lato / 2;
-  const pareti = [
-    [centro.x, centro.z - mezzo, 0],              // dietro
-    [centro.x, centro.z + mezzo, 0],              // davanti
-    [centro.x - mezzo, centro.z, Math.PI / 2],    // sinistra
-    [centro.x + mezzo, centro.z, Math.PI / 2],    // destra
-  ];
-  for (const [px, pz, ry] of pareti) {
-    const muro = grigliaPiana(T, lato, alto, passo, RETICOLO_SU_MURO, 0.45);
-    muro.rotation.y = ry;
-    muro.position.set(px, base + alto / 2, pz);
-    gruppo.add(muro);
+function argillaPer(T, m) {
+  if (!ARGILLA.opaca) {
+    ARGILLA.opaca = new T.MeshStandardMaterial({ color: PLASTICO.argilla, roughness: 0.9, metalness: 0.02 });
+    ARGILLA.opaca.name = "eidetica-argilla";
   }
+  if (!m || !m.transparent) return ARGILLA.opaca;
+  // ⚠️ UNA SAGOMA NON E' UN VETRO. Misurato sull'aeroporto il 29/09: dei 320
+  //    materiali trasparenti, 227 sono immagini ritagliate (gente, piante:
+  //    una foto con la trasparenza dentro, opacita' 1) e 93 sono vetri veri
+  //    (opacita' 0,3-0,5, senza immagine). Trattate da vetro, le sagome
+  //    diventavano rettangoli grigi. Qui l'immagine resta SOLO per il
+  //    ritaglio: la forma della persona si vede, i suoi colori no.
+  if (m.map) {
+    if (!ARGILLA.sagome.has(m.map.uuid)) {
+      const s = new T.MeshStandardMaterial({ color: PLASTICO.argilla, roughness: 0.9, metalness: 0.02,
+        map: m.map, alphaTest: 0.5, side: m.side });
+      s.name = "eidetica-argilla-sagoma";
+      s.onBeforeCompile = (sh) => {
+        sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>",
+          "#ifdef USE_MAP\n  diffuseColor.a *= texture2D( map, vMapUv ).a;\n#endif");
+      };
+      s.customProgramCacheKey = () => "eidetica-argilla-sagoma";
+      ARGILLA.sagome.set(m.map.uuid, s);
+    }
+    return ARGILLA.sagome.get(m.map.uuid);
+  }
+  // un vetro resta un vetro: stessa trasparenza, arrotondata al decimo
+  // perche' i materiali siano una manciata e non uno per lastra
+  const o = Math.max(0.1, Math.min(0.6, Math.round((m.opacity ?? 0.5) * 10) / 10));
+  if (!ARGILLA.vetri.has(o)) {
+    const v = new T.MeshStandardMaterial({ color: PLASTICO.argilla, roughness: 0.6, metalness: 0.02,
+      transparent: true, opacity: o, depthWrite: false, side: m.side });
+    v.name = "eidetica-argilla-vetro";
+    ARGILLA.vetri.set(o, v);
+  }
+  return ARGILLA.vetri.get(o);
+}
 
-  gruppo.renderOrder = -1;
-  scena.add(gruppo);
-  console.log("[EIDETICA carta] gabbia: lato " + Math.round(lato) + " m, alto "
-              + Math.round(alto) + " m, passo " + passo + " m, 4 pareti + pavimento");
+// Le mesh del modello e la loro argilla, calcolate una volta per modello.
+let coppie = null, radiceDiCoppie = null;
+function coppieDi(T, radice) {
+  if (radiceDiCoppie === radice && coppie) return coppie;
+  coppie = [];
+  radice.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const argilla = Array.isArray(o.material)
+      ? o.material.map((m) => argillaPer(T, m)) : argillaPer(T, o.material);
+    // un vetro non fa ombra: la luce ci passa. Solo opachi e sagome.
+    const vetro = [].concat(o.material).every((m) => m && m.transparent && !m.map);
+    coppie.push([o, argilla, null, null, null, !vetro]);
+  });
+  radiceDiCoppie = radice;
+  return coppie;
+}
+
+function avvolgiIlRenderer(T, renderer) {
+  if (renderer.__eideticaPlastico) return;
+  renderer.__eideticaPlastico = true;
+  const disegna = renderer.render.bind(renderer);
+  renderer.render = function (scena, camera) {
+    const radice = window.__veritasModelRoot;
+    // solo la scena della pagina, sullo schermo, col modello dentro
+    if (scena !== window.__veritasScene || !radice
+        || renderer.getRenderTarget() !== null || !radice.parent) {
+      return disegna(scena, camera);
+    }
+    // Le ombre valgono anche col modello originale: sono leggibilita', non
+    // vestito. L'argilla solo se non si e' chiesto l'originale.
+    const argilla = !ARGILLA.originale;
+    const cc = coppieDi(T, radice);
+    for (const c of cc) {
+      const o = c[0];
+      c[2] = o.material; c[3] = o.castShadow; c[4] = o.receiveShadow;
+      if (argilla) o.material = c[1];
+      o.castShadow = c[5]; o.receiveShadow = true;
+    }
+    // In Esperienza (veritas_modo.js) le zone non si disegnano: si spengono
+    // solo per questo disegno, cosi' «Spatial Layers → Zones» resta com'era.
+    const zone = document.documentElement.getAttribute("data-eidetica-modo") === "esperienza"
+      ? window.__veritasHotspotGroup : null;
+    const zoneAccese = zone ? zone.visible : false;
+    if (zone) zone.visible = false;
+    try { return disegna(scena, camera); }
+    finally {
+      for (const c of cc) { c[0].material = c[2]; c[0].castShadow = c[3]; c[0].receiveShadow = c[4]; }
+      if (zone) zone.visible = zoneAccese;
+    }
+  };
+}
+
+// ─── LE OMBRE ────────────────────────────────────────────────────────────────
+// Raffaella, 29/09: «mi sembra manchino le ombre, dobbiamo dare la massima
+// leggibilita'». Misurato: il sole della scena dal vivo fa ombra (mappa 2048),
+// ma NESSUNA mesh del modello la getta (0 su 2416), e la sua camera d'ombra e'
+// quella di fabbrica di three, un quadrato di 10 m attorno all'origine: su un
+// aeroporto di 113 x 63 m quasi tutto resta fuori. Qui: il sole guarda il
+// centro del modello e la sua camera d'ombra lo copre tutto; il modello getta
+// e riceve ombra SOLO mentre si disegna la vista del cliente (sopra), come
+// l'argilla — l'occhio, che accende un sole suo, trova il modello com'e'.
+// L'altezza del sole resta quella della scena (~60 gradi): ombre lunghe
+// quanto basta a dire l'altezza, senza annegare la pianta.
+function sistemaIlSole(T, scena, radice) {
+  let sole = null;
+  scena.traverse((o) => { if (!sole && o.isDirectionalLight && o.castShadow) sole = o; });
+  if (!sole || !radice) return null;
+  const scatola = new T.Box3().setFromObject(radice);
+  if (scatola.isEmpty()) return null;
+  const centro = scatola.getCenter(new T.Vector3());
+  const misure = scatola.getSize(new T.Vector3());
+  const raggio = Math.max(5, Math.hypot(misure.x, misure.z) / 2 + 2);
+  if (!sole.userData.__eideticaDirezione) sole.userData.__eideticaDirezione = sole.position.clone().sub(sole.target.position).normalize();
+  const dir = sole.userData.__eideticaDirezione;
+  sole.target.position.copy(centro);
+  if (!sole.target.parent) scena.add(sole.target);
+  sole.position.copy(centro).addScaledVector(dir, raggio * 2);
+  const c = sole.shadow.camera;
+  c.left = -raggio; c.right = raggio; c.top = raggio; c.bottom = -raggio;
+  c.near = 0.5; c.far = raggio * 4 + misure.y;
+  c.updateProjectionMatrix();
+  // 4096: su 130 m sono 3 cm per punto d'ombra — una seduta si legge
+  if (sole.shadow.mapSize.x < 4096) {
+    sole.shadow.mapSize.set(4096, 4096);
+    if (sole.shadow.map) { sole.shadow.map.dispose(); sole.shadow.map = null; }
+  }
+  sole.shadow.bias = -0.0004;
+  sole.shadow.normalBias = Math.max(0.02, raggio * 0.0015);
+
+  // LA LUCE DEL VELO (§0.1). Misurato: la scena dal vivo aveva una luce
+  // diffusa BIANCA e UGUALE da tutte le parti (0,45) contro un sole di 1,2:
+  // le ombre c'erano ma deboli, e un muro e un pavimento si leggevano quasi
+  // uguali — lo stesso errore del §6.9, «non cieco, al buio». Il velo usa un
+  // CIELO (chiaro dall'alto, scuro da terra: le facce verticali si staccano
+  // dal pavimento) e un sole piu' forte. Si porta qui la stessa ricetta:
+  // cielo 0,95, sole 1,7; la luce diffusa scende a un filo che tiene
+  // leggibile il fondo delle ombre. Il controluce azzurro resta com'e'.
+  sole.intensity = 1.7;
+  scena.traverse((o) => { if (o.isAmbientLight) o.intensity = 0.12; });
+  if (!scena.getObjectByName("eidetica-cielo")) {
+    const cielo = new T.HemisphereLight(0xb8c4d6, 0x141820, 0.95);
+    cielo.name = "eidetica-cielo";
+    scena.add(cielo);
+  }
+  return { raggio: Math.round(raggio), mappa: sole.shadow.mapSize.x };
 }
 
 /**
- * Veste la scena: aria, terra, reticolo, foschia.
+ * Veste la scena: fondo, foschia, terra, niente reticolo, modello d'argilla.
  * Torna false se la scena non c'e' ancora — non e' un errore, e' «non ancora».
  */
 function vestiLaScena() {
-  const T = window.THREE, scena = window.__veritasScene;
+  const T = window.THREE, scena = window.__veritasScene, renderer = window.__veritasRenderer;
   if (!T || !scena) return false;
-  const acceso = document.documentElement.getAttribute("data-veritas-vestito") === "carta";
 
-  if (!acceso) {
-    togliGabbia(scena);
-    rimetti(scena);
-    scena.background = null;
-    // ⚠️ la foschia torna al nero-blu di prima: e' il colore giusto per il
-    //    vestito scuro, ed e' il file che lo rimette, non chi lo aveva messo.
-    if (scena.fog) scena.fog.color = new T.Color(0x0b0f17);
-    return true;
-  }
+  togliGabbia(scena);
+  if (!scena.userData.__eideticaFondo) scena.userData.__eideticaFondo = fondoDipinto(T);
+  scena.background = scena.userData.__eideticaFondo;
+  if (scena.fog) scena.fog.color = new T.Color(PLASTICO.aria);
 
-  scena.background = new T.Color(FONDO_VISTA);
-  // ⚠️ LA FOSCHIA E' LA RAGIONE PER CUI RESTAVA NERO. Era 0x0b0f17, messa per
-  //    una ragione giusta — «lega il modello al fondo, senza galleggia» — ma
-  //    una foschia NERA su un fondo CHIARO fa l'opposto: spalma nero sul
-  //    modello invece di fonderlo nell'aria. Dev'essere sempre del colore
-  //    dell'aria, in qualunque vestito.
-  if (scena.fog) scena.fog.color = new T.Color(FONDO_VISTA);
-
-  // ⚠️ NIENTE Box3 SUL MODELLO. Anche solo misurare l'ingombro del modello
-  //    intero costa un giro completo dell'albero, ed e' l'altra meta' del
-  //    motivo per cui la pagina si piantava. Non serve: la lastra e' la mesh
-  //    piatta piu' larga fra i figli diretti della scena, e questo si sa
-  //    senza misurare niente del modello.
   const terra = terraDi(T, scena);
-  if (terra) { ricorda(terra, terra.material); terra.material.color.setHex(TERRA_VISTA); }
+  if (terra) { ricorda(terra, terra.material); terra.material.color.setHex(PLASTICO.terra); }
 
-  // IL RETICOLO che c'e' gia'. «Leggermente piu' scuro» della terra: si conta,
-  // non si guarda.
-  let quante = 0;
+  // IL RETICOLO NON C'E' PIU': la griglia della scena si spegne, non si
+  // cancella (e' del bundle).
+  let griglie = 0;
   scena.traverse((o) => {
     if (o.type !== "GridHelper" && !o.isGridHelper) return;
-    if (o.name && o.name.startsWith("va-reticolo")) return;
-    const materiali = Array.isArray(o.material) ? o.material : [o.material];
-    for (const m of materiali) {
-      if (!m || !m.color) continue;
-      ricorda(o, m);
-      m.color.setHex(RETICOLO_SU_TERRA);
-      m.opacity = 0.85; m.transparent = true;
-    }
-    quante++;
+    o.visible = false; griglie++;
   });
-  // LA GABBIA sui tre piani. Serve la misura del modello, quindi si fa solo
-  // quando il modello c'e'. ⚠️ UN Box3 SOLO, sulla radice: e' un giro
-  // dell'albero, non uno per mesh — quello era l'errore che piantava la
-  // pagina.
-  const radice = window.__veritasModelRoot;
-  if (radice) {
-    const scatola = new T.Box3().setFromObject(radice);
-    if (isFinite(scatola.min.y)) costruisciGabbia(T, scena, scatola);
-  }
 
-  console.log("[EIDETICA carta] vista chiara: terra " + (terra ? "ricolorata" : "non trovata")
-              + ", " + quante + " reticolo/i dell'applicazione, foschia allineata all'aria.");
+  if (renderer) avvolgiIlRenderer(T, renderer);
+  if (terra) terra.receiveShadow = true;
+  const ombre = sistemaIlSole(T, scena, window.__veritasModelRoot);
+
+  console.log("[EIDETICA carta] plastico scuro: terra " + (terra ? "ricolorata" : "non trovata")
+              + ", " + griglie + " griglia/e spenta/e, argilla "
+              + (ARGILLA.originale ? "tolta (modello originale)" : "sullo schermo")
+              + (ombre ? ", ombre sul modello intero (raggio " + ombre.raggio + " m, mappa " + ombre.mappa + ")" : ", ombre: sole o modello non ancora pronti"));
   return true;
+}
+
+function modelloOriginale(si) {
+  ARGILLA.originale = !!si;
+  return ARGILLA.originale ? "originale" : "argilla";
 }
 
 // ─── LA RETE A STRASCICO: TUTTO CIO' CHE E' NATO SUL NERO ───────────────────
@@ -937,8 +936,10 @@ function luminanzaDi(css) {
   return { L, alfa };
 }
 
+// #eidetica-modo (veritas_modo.js) e #eidetica-scheda (veritas_selezione.js)
+// stanno SULLA scena, che e' scura: la carta non li schiarisce e non li tinge.
 function dentroLaVista(el) {
-  return !!el.closest("canvas, .va-vista, #veritas-boot-splash, #va-firma");
+  return !!el.closest("canvas, .va-vista, #veritas-boot-splash, #va-firma, #eidetica-modo, #eidetica-scheda");
 }
 
 function sbiancaScuri(radice) {
@@ -1386,6 +1387,7 @@ function tingiUI() {
   let etichette = 0, blocchi = 0;
   for (const e of document.querySelectorAll("div,span,p,label,h1,h2,h3,button")) {
     if (e.children.length) continue;                     // solo le foglie
+    if (dentroLaVista(e)) continue;
     const t = (e.textContent || "").trim();
     if (!t || t.length > 26) continue;
     const classe = mestiereDi(t);
@@ -1523,7 +1525,7 @@ function avvio() {
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
-  window.veritasCarta = { accendi, spegni, inverti, GRADI };
+  window.veritasCarta = { accendi, spegni, inverti, GRADI, modelloOriginale };
 
   // RIFAI LE ZONE DA CAPO.
   //
