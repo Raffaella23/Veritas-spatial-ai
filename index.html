@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-09-29-d";
+window.__EIDETICA_COSTRUZIONE = "2026-09-29-e";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -6660,7 +6660,7 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-d";
   // uguale con play/pausa/velocita' x1/x2 — il punto della traccia piu' vicino
   // a dove il bundle ha messo davvero la figura in questo istante.
   const TRACCE = new Map();      // id -> [{pos:[x,y,z], state, t}, ...]
-  let trajVista = null;
+  let trajVista = null, versioneVista;
 
   function ricostruisciTracce(traj) {
     TRACCE.clear();
@@ -6681,7 +6681,9 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-d";
     let migliore = idx >= 0 && idx < traccia.length ? idx : 0;
     let distMin = Infinity;
     const FINESTRA = 90;
-    const da = Math.max(0, migliore - 10), a = Math.min(traccia.length, migliore + FINESTRA);
+    // Senza un punto di partenza (traccia appena rifatta) si cerca su tutta.
+    const tutta = !(idx >= 0 && idx < traccia.length);
+    const da = tutta ? 0 : Math.max(0, migliore - 10), a = tutta ? traccia.length : Math.min(traccia.length, migliore + FINESTRA);
     for (let i = da; i < a; i++) {
       const p = traccia[i].pos;
       const d = (p[0] - x) * (p[0] - x) + (p[2] - z) * (p[2] - z);
@@ -6717,7 +6719,14 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-d";
         prossimoControlloTraj = t + 500;
         try {
           const traj = window.__veritasGetTrajectory && window.__veritasGetTrajectory();
-          if (traj && traj !== trajVista) { ricostruisciTracce(traj); trajVista = traj; }
+          // Si rifa' quando cambia l'oggetto O il suo contenuto (vedi
+          // __versioneFotogrammi dove si versano i fotogrammi veri), e ogni
+          // corpo ricerca il suo punto su tutta la traccia nuova: l'indice
+          // vecchio apparteneva a un'altra traccia.
+          if (traj && (traj !== trajVista || traj.__versioneFotogrammi !== versioneVista)) {
+            ricostruisciTracce(traj); trajVista = traj; versioneVista = traj.__versioneFotogrammi;
+            for (const v of CORPI_VIVI) v.traccia = -1;
+          }
         } catch (e) {}
       }
       for (const v of CORPI_VIVI) {
@@ -8654,6 +8663,12 @@ window.__EIDETICA_COSTRUZIONE = "2026-09-29-d";
       fresh = await veritasApplicaCorpo(fresh);
       traj.frames.length = 0;
       traj.frames.push(...fresh.frames);
+      // 29/09/2026 — il blocco prima della prima persona. I fotogrammi si
+      // versano DENTRO lo stesso oggetto, quindi chi guarda solo l'oggetto
+      // (le TRACCE del battito) non se ne accorge: misurato, TRACCE vuota e
+      // occhi di tutti fermi su [1,0,0]. Il contatore dice «il contenuto e'
+      // cambiato» a chi legge la traiettoria.
+      traj.__versioneFotogrammi = (traj.__versioneFotogrammi || 0) + 1;
       // Sempre riscritto, mai solo "se vero": senza questo una corsa
       // successiva SENZA emergenza erediterebbe il true di quella precedente,
       // perche' `traj` e' lo stesso oggetto riusato da tutte le corse (vedi
