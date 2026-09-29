@@ -176,7 +176,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
-| **Branch aperta, NON unita** | `esperienza-plastico` = `eb523d7` (29/09, costruzione `2026-09-29-e`, parte da `vista-esterna-agenti`): i passi 1-4 dell'esperienza, tutti approvati da Raffaella (§9, Fase B), piu' la riparazione delle tracce interne e le misure del blocco prima del passo 5 (§9). NON pubblicata, NON unita |
+| **Branch aperta, NON unita** | `esperienza-plastico` = `b52ae04` (29/09 sera, costruzione `2026-09-29-h`, parte da `vista-esterna-agenti`): i passi 1-4 dell'esperienza, tutti approvati da Raffaella (§9, Fase B), piu' il blocco prima del passo 5 SUPERATO: tracce interne, richiamo al gruppo, occhi nel tempo della simulazione (92%), con sonde e misure (§9). NON pubblicata, NON unita |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
@@ -1656,7 +1656,37 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
   **Prossima misura:** PERCHE' il planner produce quelle inversioni, attorno
   alle linee ricorrenti; solo dopo si decide se il planner va corretto o se quei
   ritorni hanno una ragione strutturale. **Il passo 5 resta bloccato.**
-- **PASSO 5 — prima persona, solo dopo il blocco:** la telecamera della STESSA
+- **✅ BLOCCO SUPERATO — 29/09 sera, branch `esperienza-plastico` = `b52ae04`
+  (costruzione `2026-09-29-h`; NON unita, NON pubblicata).** Dettagli e tabelle:
+  `banco/vivo/misure_29_09/RISULTATI.md` (parte «La sera»). Un lancio per misura.
+  1. **Le linee fisse le crea il rientro sul calpestabile** (`veritasRientraSulCammino`):
+     sono i BORDI della mappa di cammino (punti sulle linee 88 → 641 dopo il
+     rientro). Le inversioni invece c'erano gia' prima (1.074 → 1.052).
+  2. **Causa principale delle inversioni: il richiamo al gruppo saltato a caso**
+     1 volta su 10 (`Math.random() < 0.9` in `generateTrajectory`). Firma nel 57%:
+     scarto VIA dal centro del gruppo, di 0,275 / 0,096 della distanza = i
+     coefficienti 0,24 famiglie / 0,08 altri. 43% non attribuito, NON indagato.
+     **Correzione `-g` (`536175a`): richiamo sempre.** Inversioni 1.052 → **390**;
+     scarto laterale tipico 2,7 → 1,9 cm. Rientro, spostamento laterale e
+     separazione NON toccati (Raffaella).
+  3. **La figura segue la traccia esattamente** (`misura_figura.mjs`: distanza
+     0,000 m, velocita' media 1,01): la riproduzione e' giusta. La vecchia sonda
+     era falsata: partiva mentre la traiettoria veniva rimpiazzata e usava 1 s di
+     tempo REALE, che senza scheda grafica avanza a scatti (0,08-3,3×).
+     **`misura_sguardo.mjs` la supera**: parte a traiettoria ferma e confronta con
+     la traccia fra T e T + 1 s di SIMULAZIONE. Sguardo di prima: **46%**.
+  4. **Correzione `-h` (`0c68378`): gli occhi nel tempo della simulazione.**
+     `__veritasOcchiDiAgente` trova l'istante in cui la persona e' sulla traccia
+     (andando avanti dal precedente, non il punto piu' vicino) e guarda a T + 1 s;
+     da ferma guarda dove guardava; nel battito `tempoOcchi` si azzera quando la
+     traiettoria cambia. **Verifica: 92% entro 20° (236/256, mediana 0°), corpo
+     276/276. CRITERIO SUPERATO.** ⚠️ In parte verifica di coerenza (occhi e
+     riferimento leggono la stessa traccia); 8% residuo non analizzato.
+  5. **Aperto, NON indagato (Raffaella: non ora):** dopo «Avvia» la traiettoria
+     viene rimpiazzata 5-6 volte, l'ultima anche ~30 s dopo; ogni volta le figure
+     saltano. Da tenere presente nel passo 5.
+  **Il passo 5 si puo' fare**, a sforzo del modello alto (Raffaella).
+- **PASSO 5 — prima persona (il blocco e' superato, 29/09 sera):** la telecamera della STESSA
   scena (niente `veritas_cinema.js`, niente secondo mondo) all'altezza d'occhio
   del profilo, che guarda e si muove col comportamento vero della persona
   scelta (direzione, soste, code); transizione fluida dal plastico; UI minima
