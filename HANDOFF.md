@@ -176,7 +176,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
-| **Branch aperta, NON unita** | `esperienza-plastico` = `2f226dc` (29/09, costruzione `2026-09-29-d`, parte da `vista-esterna-agenti`): i passi 1-4 dell'esperienza, tutti approvati da Raffaella (§9, Fase B). NON pubblicata, NON unita |
+| **Branch aperta, NON unita** | `esperienza-plastico` = `eb523d7` (29/09, costruzione `2026-09-29-e`, parte da `vista-esterna-agenti`): i passi 1-4 dell'esperienza, tutti approvati da Raffaella (§9, Fase B), piu' la riparazione delle tracce interne e le misure del blocco prima del passo 5 (§9). NON pubblicata, NON unita |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
@@ -1613,6 +1613,49 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
   il contenuto (numero di fotogrammi, primo/ultimo istante, o un contatore di
   versione messo dove si versano i fotogrammi), non l'oggetto. Il cartellino e
   la linea del passo 4 NON dipendono da `TRACCE` (leggono la traiettoria).
+- **BLOCCO — MISURATO il 29/09 pomeriggio. Diagnosi cambiata: le inversioni
+  nascono nel PERCORSO PIANIFICATO.** Sonde `banco/vivo/misura_tracce.mjs` e
+  `misura_piano_corpo.mjs`, stessa corsa di `airport_foot_traffic.glb`, ~2 min
+  a lancio. **Salvato sulla branch `esperienza-plastico` = `eb523d7`** (NON
+  unita, NON pubblicata): `c1a01e6` riparazione delle tracce (costruzione
+  `2026-09-29-e`, solo `index.html`), `91c654e` le tre sonde
+  (`misura_tracce.mjs`, `misura_piano_corpo.mjs`, `analisi_piano_corpo.cjs`),
+  `eb523d7` `banco/vivo/misure_29_09/RISULTATI.md` + i cinque resoconti dei
+  lanci. Esclusi per decisione di Raffaella: la prova dello sguardo e i JSON
+  grezzi (si rifanno con le sonde).
+  | | prima | tracce riparate | + sguardo 0,5 m |
+  |---|---|---|---|
+  | persone in `TRACCE` | 0 / 28 | **28 / 28** | 28 / 28 |
+  | corpo giusto (cammina/fermo/seduto) | 99 / 140 | **140 / 140** | 138 / 140 |
+  | occhi entro 20° (in cammino) | 0% (tutti [1,0,0]) | 51% | **70%** (mediana 9°) |
+  1. **Tracce interne: riparate.** Contatore `traj.__versioneFotogrammi` dove
+     si versano i fotogrammi; il battito rifa' `TRACCE` se cambia oggetto O
+     contatore, e ogni corpo ricerca il suo punto su tutta la traccia nuova.
+  2. **Sguardo a 0,5 m davanti** (il primo punto del percorso a 0,5 m dalla
+     figura, non il tratto dopo il punto piu' vicino): **PROVA, non soluzione**
+     (Raffaella). A tavolino dava 82%, dal vivo 70%. Il criterio resta ≥90%.
+     Prova FALLITA: **tolta dal codice**, non e' sulla branch (costruzione
+     `-f` esistita solo nel workspace).
+  3. **I casi a 180°**: quasi tutti dove il percorso va avanti e indietro
+     (persona 2: −7,78 → −6,43 → −7,78 in 1 s; persona 8: z 11,52 ↔ 9,57 ogni
+     0,5 s) su linee fisse ricorrenti **x = −7,78; z = 11,52 / 9,57 / 13,32**.
+     Chi ripassa dallo stesso punto confonde la ricerca del punto sulla traccia.
+     Quindi l'orientamento all'indietro e' probabilmente una CONSEGUENZA del
+     percorso, non un errore della prima persona.
+  4. **Ondeggiamento**: scarto tipico 2,7 cm (diritto), ma 24% dei passi oltre
+     10 cm: non un dondolio, SALTI su quelle linee. 1.055 inversioni (>0,3 m)
+     su 17.611 passi in cammino.
+  5. **Piano → corpo** (sola lettura: `window.__veritasCorpo.filtraTraiettoria`
+     avvolta solo nella pagina della prova): il corpo ha cambiato **0 punti su
+     21.978**. Inversioni, linee e prima inversione (persona 1, t = 2 s, su
+     x = −7,78) sono identiche nel piano e nel cammino: **nascono nel planner**.
+  6. **Problema separato, NON da indagare ora** (Raffaella): in questa corsa il
+     resoconto del corpo (`ultimoEsito`) e' vuoto e il corpo non agisce.
+  **Deciso da Raffaella (29/09):** nessuna correzione (ne' traccia, ne' occhi,
+  ne' simulazione), e NON lisciare la traiettoria per far passare gli occhi.
+  **Prossima misura:** PERCHE' il planner produce quelle inversioni, attorno
+  alle linee ricorrenti; solo dopo si decide se il planner va corretto o se quei
+  ritorni hanno una ragione strutturale. **Il passo 5 resta bloccato.**
 - **PASSO 5 — prima persona, solo dopo il blocco:** la telecamera della STESSA
   scena (niente `veritas_cinema.js`, niente secondo mondo) all'altezza d'occhio
   del profilo, che guarda e si muove col comportamento vero della persona
