@@ -322,7 +322,7 @@ html[data-veritas-vestito="carta"] .va-velato .va-corpo{
    Questo colore resta solo per i momenti in cui la scena non c'e' ancora e
    la tela e' trasparente: e' il colore di meta' del fondo del velo, cosi'
    quando la scena arriva non si vede il salto. */
-html[data-veritas-vestito="carta"] canvas{
+html[data-veritas-vestito] canvas{
   background-color:#0e131b!important;
 }
 
@@ -385,8 +385,11 @@ html[data-veritas-vestito="carta"] #vaio-report-menu{
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
   border:1px solid var(--va-orlo)!important;
   box-shadow:var(--va-ombra)!important;
-  /* e non deve poter crescere fino in fondo allo schermo: un menu e' un
-     menu, se ha piu' voci di quante ce ne stanno si scorre. */
+}
+/* e non deve poter crescere fino in fondo allo schermo: un menu e' un
+   menu, se ha piu' voci di quante ce ne stanno si scorre. (Qualunque vestito.) */
+html[data-veritas-vestito] #vaio-layers-menu,
+html[data-veritas-vestito] #vaio-report-menu{
   max-height:min(60vh,420px)!important; overflow:auto!important;
 }
 html[data-veritas-vestito="carta"] #vaio-layers-menu button,
@@ -493,13 +496,17 @@ html[data-veritas-vestito="carta"] .va-lista > *{
    flex del contenitore della tela: basta cambiare l'ordine di disegno.
    Spostarle a mano vorrebbe dire staccarle dal loro genitore e sperare che
    il bundle non se ne accorga - e il bundle e' il blocco che non si tocca.
-   Con 'order' il DOM resta identico: a spostarsi e' solo il disegno. */
-html[data-veritas-vestito="carta"] [class*='border-r'][class*='shrink-0']{
+   Con 'order' il DOM resta identico: a spostarsi e' solo il disegno.
+   29/09 — PANNELLI SCURI: questa e le regole d'impaginato qui sotto (la
+   linguetta, la striscia, l'anteprima ancorata) valgono con QUALUNQUE
+   vestito, [data-veritas-vestito]: sono comportamenti, non colori. Il
+   vestito scuro li ha identici; cambia solo la tinta. */
+html[data-veritas-vestito] [class*='border-r'][class*='shrink-0']{
   order:3!important;
   border-right:0!important;
   border-left:1px solid var(--va-orlo)!important;
 }
-html[data-veritas-vestito="carta"] [class*='border-l'][class*='shrink-0']{
+html[data-veritas-vestito] [class*='border-l'][class*='shrink-0']{
   order:4!important;
 }
 
@@ -507,10 +514,10 @@ html[data-veritas-vestito="carta"] [class*='border-l'][class*='shrink-0']{
    La barretta dei comandi resta: e' l'unico modo per tornare indietro, e un
    modo per tornare indietro che sparisce col resto e' una porta che si
    chiude da fuori. */
-html[data-veritas-vestito="carta"][data-eidetica-massimo="si"] [class*='shrink-0'][class*='border-l'],
-html[data-veritas-vestito="carta"][data-eidetica-massimo="si"] [class*='shrink-0'][class*='border-r'],
-html[data-veritas-vestito="carta"][data-eidetica-massimo="si"] #veritas-anteprima,
-html[data-veritas-vestito="carta"][data-eidetica-massimo="si"] .va-fascia-misure{
+html[data-veritas-vestito][data-eidetica-massimo="si"] [class*='shrink-0'][class*='border-l'],
+html[data-veritas-vestito][data-eidetica-massimo="si"] [class*='shrink-0'][class*='border-r'],
+html[data-veritas-vestito][data-eidetica-massimo="si"] #veritas-anteprima,
+html[data-veritas-vestito][data-eidetica-massimo="si"] .va-fascia-misure{
   display:none!important;
 }
 
@@ -522,23 +529,32 @@ html[data-veritas-vestito="carta"][data-eidetica-massimo="si"] .va-fascia-misure
    Due posti per lo stesso dato non sono ridondanza utile: sono due cose da
    tenere allineate per sempre, e il giorno che divergono nessuno sa quale
    guardare. Ora stanno solo di lato, dove stanno tutti i pannelli. */
-html[data-veritas-vestito="carta"] .va-fascia-misure{
+html[data-veritas-vestito] .va-fascia-misure{
   display:none!important;
 }
 
 /* LA LINGUETTA sta a sinistra, sotto i tastini: e' un comando, e i comandi
-   stanno a sinistra. */
+   stanno a sinistra. Scura come l'interruttore Analisi/Esperienza
+   (veritas_modo.js): vetro scuro, filo sottile. Sulla carta, carta. */
 #va-massimo{
   position:fixed; left:16px; bottom:16px; z-index:9630;
   display:flex; align-items:center; gap:8px;
   padding:8px 13px; border-radius:11px; cursor:pointer;
   font:600 11px/1 'Jura','Inter',system-ui,sans-serif; letter-spacing:.12em;
+  background:rgba(10,14,20,.72); color:#AEB7C6;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+}
+#va-massimo:hover{ color:#F2F5F9; border-color:rgba(46,230,214,.45); }
+html[data-veritas-vestito="carta"] #va-massimo{
   background:oklch(.965 .026 266); color:oklch(.46 .16 266);
   border:1px solid oklch(.90 .045 266);
   box-shadow:0 1px 2px rgba(22,24,58,.05), 0 10px 26px -16px rgba(22,24,58,.30);
+  backdrop-filter:none; -webkit-backdrop-filter:none;
 }
-#va-massimo:hover{ background:oklch(.94 .04 266); }
-html:not([data-veritas-vestito="carta"]) #va-massimo{ display:none; }
+html[data-veritas-vestito="carta"] #va-massimo:hover{ background:oklch(.94 .04 266); }
+html:not([data-veritas-vestito]) #va-massimo{ display:none; }
 
 /* === 7-sexies - «QUELLO CHE VEDO» SI ANCORA, NON GALLEGGIA ============== */
 /* Raffaella, 06/09: «facciamo in modo che non rimanga sempre li' a peso
@@ -556,7 +572,7 @@ html:not([data-veritas-vestito="carta"]) #va-massimo{ display:none; }
    posizione statica quel 'top' non ha piu' effetto, e la logica gira a vuoto
    senza far danno. Se un domani il pannello tornera' a galleggiare, quella
    logica e' ancora li' buona. */
-html[data-veritas-vestito="carta"] #veritas-anteprima.va-ancorato{
+html[data-veritas-vestito] #veritas-anteprima.va-ancorato{
   position:static!important;
   width:auto!important; max-width:none!important; max-height:none!important;
   margin:10px 10px 14px!important;
@@ -564,7 +580,7 @@ html[data-veritas-vestito="carta"] #veritas-anteprima.va-ancorato{
   box-shadow:none!important;
 }
 /* la colonna deve poter scorrere, se no il pannello in fondo non si raggiunge */
-html[data-veritas-vestito="carta"] .va-colonna-pannelli{
+html[data-veritas-vestito] .va-colonna-pannelli{
   overflow-y:auto!important;
 }
 
@@ -581,7 +597,7 @@ html[data-veritas-vestito="carta"] .va-colonna-pannelli{
   opacity:.9;
 }
 #va-firma img{ display:block; width:100%; height:auto; }
-html:not([data-veritas-vestito="carta"]) #va-firma{ display:none; }
+html:not([data-veritas-vestito]) #va-firma{ display:none; }
 
 /* LA FINESTRA DEV'ESSERE UNA FINESTRA, non un buco: il grigio non tocca il
    bianco di testa. Un filo e un rientro — il passe-partout di una tavola
@@ -993,17 +1009,11 @@ function sorveglia() {
     if (attesa) return;
     attesa = setTimeout(() => {
       attesa = null;
-      if (document.documentElement.getAttribute("data-veritas-vestito") !== "carta") return;
-      const n = sbiancaScuri();
-      const t = tingiUI();
-      rigaturaListe();
-      rivestiBottoni();
-      scostaLaBarra();
-      scriviTarghetta();
-      sfoltisciChat();
-      linguettaMassimo();
-      fasciaMisure();
-      ancoraAnteprima();
+      const vestito = document.documentElement.getAttribute("data-veritas-vestito");
+      if (!vestito) return;
+      let n = 0, t = 0;
+      if (vestito === "carta") { n = sbiancaScuri(); t = tingiUI(); rigaturaListe(); rivestiBottoni(); }
+      lavoriComuni();
       if (n || t) console.log("[EIDETICA carta] nati dopo: " + n + " fondi, " + t + " etichette");
     }, 260);
   });
@@ -1465,7 +1475,39 @@ function agganciaAlModello() {
   };
 }
 
-const CHIAVE = "veritas:vestito";
+// ─── PANNELLI SCURI (29/09/2026) ─────────────────────────────────────────────
+// Raffaella, 29/09: tutta EIDETICA su fondo scuro; la carta chiara del 05/09
+// e' superata. Ma la carta non faceva solo colore: faceva anche dei LAVORI
+// (il nome del progetto nella targhetta, la linguetta MASSIMIZZA,
+// l'anteprima ancorata in fondo alla colonna, e l'impaginato: pannelli a
+// destra, striscia in basso tolta, barra scostata, chat sfoltita, firma).
+// Quei lavori restano IDENTICI; cambia solo la tinta. Quindi tre vestiti:
+//   "scuro"  il predefinito: pannelli scuri NATIVI (il vetro del bundle,
+//            index.html --va-vetro) + i lavori + il plastico;
+//   "carta"  la carta chiara di prima, per chi la chiede a mano
+//            (veritasCarta.accendi());
+//   nessuno  com'era prima della carta (veritasCarta.spegni()).
+// Il plastico scuro della vista (vestiLaScena) vale in tutti e tre.
+function lavoriComuni() {
+  scostaLaBarra(); scriviTarghetta(); sfoltisciChat();
+  linguettaMassimo(); fasciaMisure(); ancoraAnteprima();
+}
+
+// Dalla carta allo scuro senza ricaricare: si tolgono i colori che la carta
+// aveva scritto DENTRO gli elementi (le classi .va-velato/.va-scritta/.va-lista
+// non hanno regole fuori dalla carta, e restano innocue).
+function togliColoriCarta() {
+  rimettiDOM();
+  for (const b of document.querySelectorAll("button[data-va-vestito]")) {
+    for (const p of ["background", "background-image", "color", "border-color"]) b.style.removeProperty(p);
+    delete b.dataset.vaVestito;
+  }
+}
+
+// ⚠️ UNA CHIAVE NUOVA. La vecchia («veritas:vestito») la scriveva accendi()
+//    a OGNI avvio: dentro c'e' «carta» per tutti, anche per chi non l'ha mai
+//    scelta. Leggerla terrebbe tutti sulla carta.
+const CHIAVE = "eidetica:vestito";
 
 function stile() {
   if (document.getElementById("va-carta-stile")) return;
@@ -1482,34 +1524,40 @@ function accendi() {
   stile();
   document.documentElement.setAttribute("data-veritas-vestito", "carta");
   try { localStorage.setItem(CHIAVE, "carta"); } catch {}
-  try { sbiancaScuri(); vestiLaScena(); firma(); tingiUI(); rigaturaListe(); rivestiBottoni(); scostaLaBarra();
-         scriviTarghetta(); sfoltisciChat(); ricordaProgetto();
-         linguettaMassimo(); ancoraAnteprima(); sorveglia(); } catch (e) {}
+  try { sbiancaScuri(); vestiLaScena(); firma(); tingiUI(); rigaturaListe(); rivestiBottoni();
+         ricordaProgetto(); lavoriComuni(); sorveglia(); } catch (e) {}
   return "carta";
+}
+
+function scuro(ricorda = true) {
+  stile();
+  document.documentElement.setAttribute("data-veritas-vestito", "scuro");
+  if (ricorda) { try { localStorage.setItem(CHIAVE, "scuro"); } catch {} }
+  try { togliColoriCarta(); vestiLaScena(); firma(); ricordaProgetto(); lavoriComuni(); sorveglia(); } catch (e) {}
+  return "scuro";
 }
 
 function spegni() {
   document.documentElement.removeAttribute("data-veritas-vestito");
   try { localStorage.setItem(CHIAVE, "notte"); } catch {}
-  try { rimettiDOM(); vestiLaScena(); } catch (e) {}
+  try { togliColoriCarta(); vestiLaScena(); } catch (e) {}
   return "notte";
 }
 
 function inverti() {
-  return document.documentElement.getAttribute("data-veritas-vestito")
-    ? spegni() : accendi();
+  return document.documentElement.getAttribute("data-veritas-vestito") === "carta"
+    ? scuro() : accendi();
 }
 
-// All'avvio: si accende, a meno che qualcuno non abbia scelto la notte.
-// ⚠️ IL VALORE PREDEFINITO E' IL MARCHIO. La scelta e' per chi ci sta dentro
-//    da tre ore; il valore predefinito e' quello che vede il mondo — ogni
-//    schermata, ogni dimostrazione, ogni immagine di lancio.
+// All'avvio: lo SCURO (29/09), a meno che qualcuno non abbia scelto a mano
+// la carta o la notte. Il predefinito non si scrive: resta una non-scelta.
 function avvio() {
   agganciaAlModello();
   let scelto = null;
   try { scelto = localStorage.getItem(CHIAVE); } catch {}
   if (scelto === "notte") { stile(); return; }
-  accendi();
+  if (scelto === "carta") accendi(); else scuro(false);
+  const carta = () => document.documentElement.getAttribute("data-veritas-vestito") === "carta";
   // ⚠️ LA SCENA NASCE DOPO DI NOI, e non sempre passa dal gancio del modello
   //    (si entra nello spazio di lavoro, la tela si crea, il modello magari
   //    arriva molto dopo o non arriva). Quindi si riprova per un po', e si
@@ -1518,14 +1566,15 @@ function avvio() {
   let tentativi = 0;
   const t = setInterval(() => {
     let fatto = false;
-    try { fatto = vestiLaScena(); firma(); sbiancaScuri(); tingiUI(); rigaturaListe(); rivestiBottoni(); scostaLaBarra();
-           scriviTarghetta(); sfoltisciChat(); linguettaMassimo(); ancoraAnteprima(); } catch (e) {}
+    try { fatto = vestiLaScena(); firma();
+           if (carta()) { sbiancaScuri(); tingiUI(); rigaturaListe(); rivestiBottoni(); }
+           lavoriComuni(); } catch (e) {}
     if (fatto || ++tentativi > 40) clearInterval(t);
   }, 700);
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
-  window.veritasCarta = { accendi, spegni, inverti, GRADI, modelloOriginale };
+  window.veritasCarta = { accendi, scuro, spegni, inverti, GRADI, modelloOriginale };
 
   // RIFAI LE ZONE DA CAPO.
   //
@@ -1570,7 +1619,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   // i pannelli laterali compaiono e spariscono con la larghezza della
   // finestra: la barra deve rimisurarsi, se no torna a sovrapporsi.
   window.addEventListener("resize", () => {
-    if (document.documentElement.getAttribute("data-veritas-vestito") === "carta") {
+    if (document.documentElement.getAttribute("data-veritas-vestito")) {
       try { scostaLaBarra(); } catch (e) {}
     }
   });
