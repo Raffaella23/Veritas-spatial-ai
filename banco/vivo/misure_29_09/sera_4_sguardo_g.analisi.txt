@@ -1,0 +1,13 @@
+traiettoria: versione 5 -> 6 | stesso oggetto true
+istanti T: 15.57 17.40 19.66 20.78 22.29 24.14 26.32 28.13 28.88 30.54 | velocita' fra campioni: 1.00 1.31 0.69 0.96 1.10 1.36 1.11 0.46 1.00
+figure fuori dalla traccia (>10 cm, escluse): 195
+IN CAMMINO: 75 | occhi entro 20°: 28 = 37% | mediana 37°
+corpo giusto: 80/81
+fuori 20°: 47 di cui con tratto degli occhi sotto 10 cm: 7 | esempi [{"id":2,"T":15.57,"ang":51,"lunghezzaOcchi":0.39},{"id":5,"T":15.57,"ang":104,"lunghezzaOcchi":1},{"id":13,"T":15.57,"ang":166,"lunghezzaOcchi":1.11},{"id":14,"T":15.57,"ang":127,"lunghezzaOcchi":0.02},{"id":15,"T":15.57,"ang":174,"lunghezzaOcchi":1},{"id":23,"T":15.57,"ang":27,"lunghezzaOcchi":0.45},{"id":14,"T":17.4,"ang":126,"lunghezzaOcchi":0.02},{"id":17,"T":17.4,"ang":174,"lunghezzaOcchi":1}]
+--- solo i campioni 8-9, gli unici sulla traiettoria definitiva:
+traiettoria: versione 5 -> 6 | stesso oggetto true
+istanti T: 28.88 30.54 | velocita' fra campioni: 1.00
+figure fuori dalla traccia (>10 cm, escluse): 0
+IN CAMMINO: 52 | occhi entro 20°: 24 = 46% | mediana 22°
+corpo giusto: 55/56
+fuori 20°: 28 di cui con tratto degli occhi sotto 10 cm: 0 | esempi [{"id":2,"T":28.88,"ang":40,"lunghezzaOcchi":0.37},{"id":4,"T":28.88,"ang":93,"lunghezzaOcchi":1},{"id":5,"T":28.88,"ang":91,"lunghezzaOcchi":1.95},{"id":6,"T":28.88,"ang":22,"lunghezzaOcchi":0.89},{"id":9,"T":28.88,"ang":26,"lunghezzaOcchi":0.77},{"id":11,"T":28.88,"ang":52,"lunghezzaOcchi":1.52},{"id":13,"T":28.88,"ang":58,"lunghezzaOcchi":0.44},{"id":14,"T":28.88,"ang":53,"lunghezzaOcchi":0.5}]

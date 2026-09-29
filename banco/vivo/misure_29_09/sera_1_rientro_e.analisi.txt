@@ -1,0 +1,6 @@
+chiamate 58866 punti finali 21977 accostati 19649 da 19590
+PRIMA del rientro: {"passi":17782,"inversioni":1074,"linee":{"z=9,57":49,"z=11,52":22,"z=13,32":7,"x=-7,78":10}}
+DOPO il rientro:   {"passi":17782,"inversioni":1052,"linee":{"x=-7,78":117,"z=11,52":307,"z=9,57":155,"z=13,32":62}}
+punti spostati dal rientro: 4914 su 21977 | spostamento mediano 0.43 m, p90 0.89 m
+inversioni finali con il punto di mezzo spostato dal rientro (>10 cm): 227 su 1052
+esempi: [{"id":0,"t":20.5,"prima":[-22.377,9.752],"dopo":[-22.972,9.156]},{"id":0,"t":44.5,"prima":[-17.751,-3.634],"dopo":[-17.751,-3.634]},{"id":0,"t":49.5,"prima":[-21.105,-4.158],"dopo":[-21.734,-4.982]},{"id":0,"t":50,"prima":[-21.003,-3.887],"dopo":[-21.003,-3.887]},{"id":0,"t":67,"prima":[-35.086,-4.497],"dopo":[-35.086,-4.497]}]
