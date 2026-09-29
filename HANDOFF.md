@@ -248,7 +248,7 @@ Dentro, in ordine di apparizione:
 | `veritas_accessi.js` | ricerca dei varchi d'ingresso, con voci multiple che devono accordarsi |
 | `veritas_bim.js` | lettura IFC (web-ifc). Strada separata, usata solo se il file è IFC |
 | `veritas_apertura.js` | il velo di apertura: la scena che prende forma in diretta al caricamento |
-| `veritas_carta.js` | il vestito. Dal 29/09 (branch `esperienza-plastico`): la vista 3D e' il PLASTICO SCURO del velo (fondo, argilla, luce, ombre); i pannelli sono ancora carta chiara |
+| `veritas_carta.js` | il vestito. Dal 29/09 (branch `esperienza-plastico`): la vista 3D e' il PLASTICO SCURO del velo (fondo, argilla, luce, ombre); dal 29/09 sera (`2026-09-29-j`) si parte con i PANNELLI SCURI nativi; i lavori della carta (targhetta, linguetta, anteprima, impaginato) valgono con qualunque vestito; la carta chiara resta a mano (`veritasCarta.accendi()` / `.scuro()`) |
 | `veritas_modo.js` | (branch `esperienza-plastico`) Analisi / Esperienza: la stessa scena con due quantita' di informazione |
 | `veritas_selezione.js` | (branch `esperienza-plastico`) clic su una persona: gli altri attenuati, anello, cartellino, il suo cammino vero fino alla meta |
 | `veritas_deposito.js` | i byte del modello in IndexedDB, legati all'id del progetto |
@@ -1588,8 +1588,7 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
      entro 6 m dalla meta (la soglia della pagella, `VICINO_M`); filo di luce
      calda + alone + punto alla meta; si accorcia camminando (misurato 83,8 →
      80,4 m in 3 s). Senza taglio era 331 m.
-  **Limiti noti:** pannelli ancora carta chiara (passaggio a parte: la carta fa
-  anche lavori utili — progetto, linguetta, anteprima); la foschia viene
+  **Limiti noti:** (i pannelli carta chiara: risolto dai pannelli scuri, sotto); la foschia viene
   rimessa a `#0b0f17` da qualcuno (quasi uguale); fps misurati solo senza
   scheda grafica (simulazione: 18,1 prima → 11,9-15,4 dopo, piu' pixel e
   ombre); in Analisi restano i blocchi del §6.21.
@@ -1715,8 +1714,41 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     automatiche identiche prima/dopo (31/42 nel clone senza `three`).
   - Noto, NON aperto: i rimpiazzi tardivi della traiettoria fanno saltare la
     figura, e negli occhi salta la telecamera.
-  **Prossimo:** pannelli scuri, poi la Fase C (visore). Merge e pubblicazione
-  li decide Raffaella.
+- **PANNELLI SCURI — IMPLEMENTATI E VERIFICATI, ANTEPRIMA NON VERIFICATA IN
+  RUNTIME (29/09 sera).** Branch `esperienza-plastico` = `cbe19ac` (`ac6104d`
+  codice, `cbe19ac` sonda; costruzione `2026-09-29-j`; NON unita, NON
+  pubblicata). **Salvato, ma non ancora completamente validato
+  sull'anteprima.** Solo `veritas_carta.js` (v=16) e due righe di
+  `index.html`; passo 5, `veritas_selezione.js` e traiettoria non toccati.
+  - La carta e' separata in LAVORI e COLORI. I lavori valgono con qualunque
+    vestito e restano identici: nome del progetto nella targhetta, linguetta
+    MASSIMIZZA, anteprima ancorata in fondo alla colonna, pannelli a destra,
+    striscia in basso tolta, barra scostata, chat sfoltita, firma. I colori
+    chiari solo con la carta, che resta a mano (`veritasCarta.accendi()`;
+    ritorno con `.scuro()`, senza ricaricare). Si parte SCURI: i pannelli
+    scuri NATIVI (`--va-vetro` di `index.html`), non una variante nuova; la
+    linguetta scura come l'interruttore Analisi/Esperienza. Chiave nuova
+    `eidetica:vestito` (la vecchia `veritas:vestito` conteneva «carta» per
+    tutti: la carta la riscriveva a ogni avvio).
+  - Verificato (`banco/vivo/prova_pannelli.mjs`, un lancio, percorso vero):
+    vestito «scuro» all'avvio e non salvato come scelta; targhetta «banco di
+    prova» come con la carta; linguetta scura, clic vero: tela 1300 → 1600 px,
+    colonne sparite, poi rimesse; plastico intatto; carta a mano → scuro
+    rimette tutto; prove automatiche identiche (31/42 nel clone senza
+    `three`). Pannelli chiari rimasti: **2** (erano 12 con la carta).
+  - ⚠️ **Anteprima NON verificata in runtime:** il pannello «what I see» non e'
+    comparso durante la prova. La regola d'ancoraggio e' la stessa di prima,
+    estesa allo scuro; va vista al lavoro quando il pannello compare.
+  - **I due elementi chiari residui NON si eliminano in questa modifica:** il
+    tasto rotondo `play` e' nativo del bundle; «Live view» (`#eidetica-live-btn`)
+    appartiene a `veritas_cinema.js`.
+  - **Fuori scope, preesistenti (identici con la carta):** il pannello durante
+    il caricamento sopra la colonna di destra («…signal is aborted without
+    reason», ora scuro invece che bianco); la barra in alto che tocca il
+    pulsante «Original model».
+  **Prossimo:** verificare l'anteprima quando compare; poi la Fase C (visore),
+  sulla stessa scena, senza un secondo ambiente. Merge e pubblicazione li
+  decide Raffaella.
 
 - **FASE C — solo dopo:** implementazione, prova su visore, eventuale Meta,
   demo del contest — solo cio' che serve a dimostrare la funzione centrale.
