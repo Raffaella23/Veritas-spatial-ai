@@ -120,6 +120,12 @@ await attendi("velo aperto", () => !!(window.__veritasApertura && window.__verit
 console.log(ora() + "  velo aperto");
 await new Promise((r) => setTimeout(r, 12000));
 await foto("1_velo.jpg");
+// 1-bis. ASPETTA_ANTEPRIMA=1: l'anteprima («what I see») nasce solo quando si
+// accende l'occhio, dentro il giro del velo: si aspetta lei prima di entrare (tetto 8 min)
+if (process.env.ASPETTA_ANTEPRIMA === "1") {
+  const nata = await attendi("anteprima", () => !!document.getElementById("veritas-anteprima"), 480000);
+  console.log(ora() + "  anteprima nata: " + nata);
+}
 // 2. si entra prima del giro dell'occhio (25 s dopo «Avvia», non 175)
 await p.evaluate(() => window.__veritasApertura && window.__veritasApertura.chiudi("prova")).catch(() => {});
 await attendi("scena e modello", () => !!(window.__veritasScene && window.__veritasModelRoot), 120000);
@@ -162,7 +168,14 @@ const PANNELLI = () => {
     targhetta: document.querySelector("#vaio-brand .vname")?.textContent.trim(),
     nomeRicordato: window.__vaNomeProgetto || localStorage.getItem("eidetica:progetto"),
     linguetta: b ? { testo: b.textContent.trim(), fondo: getComputedStyle(b).backgroundColor, visibile: getComputedStyle(b).display !== "none" } : null,
-    anteprima: ant ? { ancorata: ant.classList.contains("va-ancorato"), nellaColonna: !!(col && ant.parentElement === col), posizione: getComputedStyle(ant).position } : "non c'e'",
+    anteprima: ant ? { ancorata: ant.classList.contains("va-ancorato"), nellaColonna: !!(col && ant.parentElement === col), ultimoNellaColonna: !!(col && col.lastElementChild === ant),
+      posizione: getComputedStyle(ant).position, fondo: getComputedStyle(ant).backgroundColor,
+      leggibilita: (() => { const rl = (css) => { const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(css || ""); if (!m) return null;
+          const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(+m[1]) + 0.7152 * f(+m[2]) + 0.0722 * f(+m[3]); };
+        const fondoDi = (el) => { for (let e = el; e; e = e.parentElement) { const b = getComputedStyle(e).backgroundColor; const a = /rgba\([^)]*,\s*([\d.]+)\)/.exec(b); if (b && b !== "transparent" && !(a && +a[1] < 0.3)) return b; } return "rgb(0,0,0)"; };
+        const c = (el) => { if (!el) return null; const a = rl(getComputedStyle(el).color), b = rl(fondoDi(el)); return +((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(1); };
+        return { titolo: c(ant.querySelector(":scope > div:first-child > span")), menu: c(ant.querySelector("select")), interruttori: c(ant.querySelector("label")) }; })(), visibile: getComputedStyle(ant).display !== "none",
+      misure: (() => { const r = ant.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; })() } : "non c'e'",
     colonnaDestra: col ? Math.round(col.getBoundingClientRect().width) + " px" : null,
     firma: !!document.getElementById("va-firma") && getComputedStyle(document.getElementById("va-firma")).display !== "none",
     plastico: { fondoScena: !!(S && S.background && S.background.isTexture), foschia: S && S.fog ? "#" + S.fog.color.getHexString() : null },
@@ -183,6 +196,7 @@ await new Promise((r) => setTimeout(r, 1200));
 console.log(ora() + "  MASSIMIZZATO " + JSON.stringify(await p.evaluate(() => ({
   attributo: document.documentElement.getAttribute("data-eidetica-massimo"), testo: document.getElementById("va-massimo").textContent.trim(),
   colonneVisibili: [...document.querySelectorAll("[class*='shrink-0'][class*='border-l'],[class*='shrink-0'][class*='border-r']")].filter((e) => getComputedStyle(e).display !== "none").length,
+  anteprimaVisibile: document.getElementById("veritas-anteprima") ? getComputedStyle(document.getElementById("veritas-anteprima")).display !== "none" : "non c'e'",
   tela: Math.round(window.__veritasRenderer.domElement.getBoundingClientRect().width) }))));
 await foto("p3_massimizzato.jpg");
 await p.click("#va-massimo");
