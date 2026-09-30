@@ -821,9 +821,12 @@ function avvolgiIlRenderer(T, renderer) {
   const disegna = renderer.render.bind(renderer);
   renderer.render = function (scena, camera) {
     const radice = window.__veritasModelRoot;
-    // solo la scena della pagina, sullo schermo, col modello dentro
-    if (scena !== window.__veritasScene || !radice
-        || renderer.getRenderTarget() !== null || !radice.parent) {
+    // solo la scena della pagina, sullo schermo, col modello dentro.
+    // Nel visore (veritas_visore.js) lo schermo e' il bersaglio del visore.
+    const bersaglio = renderer.getRenderTarget();
+    const schermo = bersaglio === null
+      || (renderer.xr.isPresenting && bersaglio === renderer.__eideticaSchermoVisore);
+    if (scena !== window.__veritasScene || !radice || !schermo || !radice.parent) {
       return disegna(scena, camera);
     }
     // Le ombre valgono anche col modello originale: sono leggibilita', non
