@@ -444,6 +444,31 @@ html[data-veritas-vestito="carta"] #veritas-anteprima canvas,
 html[data-veritas-vestito="carta"] #veritas-anteprima img{
   background:#E9EBF0!important; border-radius:6px!important;
 }
+/* ⚠️ E COI PANNELLI SCURI (30/09). veritas_anteprima.js porta colori suoi,
+      scritti in linea e tarati sul chiaro il 05/09: corpo grigio chiaro,
+      intestazione scura con la scritta scura, menu scuro con la scritta
+      scura. La carta li copriva; senza carta restava un pannello metà e metà
+      che non si legge. Qui prende lo stesso vetro scuro degli altri segni
+      sulla scena (cartellino, interruttore). La miniatura resta com'e': e'
+      il disegno che l'occhio guarda, non un pannello. */
+html[data-veritas-vestito="scuro"] #veritas-anteprima{
+  background:rgba(10,14,20,.86)!important; color:#D7DEE8!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  backdrop-filter:blur(14px)!important; -webkit-backdrop-filter:blur(14px)!important;
+}
+html[data-veritas-vestito="scuro"] #veritas-anteprima > div:first-child{
+  background:transparent!important; border-bottom:1px solid rgba(255,255,255,.08)!important;
+}
+html[data-veritas-vestito="scuro"] #veritas-anteprima > div:first-child > span{ color:#F2F5F9!important; }
+html[data-veritas-vestito="scuro"] #veritas-anteprima label,
+html[data-veritas-vestito="scuro"] #veritas-anteprima span{ color:#8A94A6; }
+html[data-veritas-vestito="scuro"] #veritas-anteprima select{
+  background:#0b0d12!important; color:#D7DEE8!important; border:1px solid rgba(255,255,255,.14)!important;
+}
+html[data-veritas-vestito="scuro"] #veritas-anteprima button{
+  color:#AEB7C6!important; border:1px solid rgba(255,255,255,.14)!important; background:transparent!important;
+}
+html[data-veritas-vestito="scuro"] #veritas-anteprima canvas{ border-color:rgba(255,255,255,.10)!important; }
 
 /* ⚠️ LA BARRETTA DEI TASTINI, a sinistra sopra la vista. Il suo effetto di
       passaggio era rgba(255,255,255,.07) — schiarire una cosa gia' bianca
