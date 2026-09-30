@@ -1714,12 +1714,13 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     automatiche identiche prima/dopo (31/42 nel clone senza `three`).
   - Noto, NON aperto: i rimpiazzi tardivi della traiettoria fanno saltare la
     figura, e negli occhi salta la telecamera.
-- **PANNELLI SCURI — IMPLEMENTATI E VERIFICATI, ANTEPRIMA NON VERIFICATA IN
-  RUNTIME (29/09 sera).** Branch `esperienza-plastico` = `cbe19ac` (`ac6104d`
-  codice, `cbe19ac` sonda; costruzione `2026-09-29-j`; NON unita, NON
-  pubblicata). **Salvato, ma non ancora completamente validato
-  sull'anteprima.** Solo `veritas_carta.js` (v=16) e due righe di
-  `index.html`; passo 5, `veritas_selezione.js` e traiettoria non toccati.
+- **✅ PANNELLI SCURI — IMPLEMENTATI E VERIFICATI, ANTEPRIMA COMPRESA
+  (29/09 sera + 30/09).** Branch `esperienza-plastico` = `52e9f65` (`ac6104d`
+  codice, `cbe19ac` sonda, `831e026` anteprima scura, `52e9f65` sonda con
+  attesa dell'anteprima; costruzione `2026-09-30-a`; NON unita, NON
+  pubblicata). Solo `veritas_carta.js` (v=17) e le righe di costruzione e
+  versione di `index.html`; passo 5, `veritas_selezione.js`, traiettoria e
+  `veritas_anteprima.js` non toccati.
   - La carta e' separata in LAVORI e COLORI. I lavori valgono con qualunque
     vestito e restano identici: nome del progetto nella targhetta, linguetta
     MASSIMIZZA, anteprima ancorata in fondo alla colonna, pannelli a destra,
@@ -1730,25 +1731,32 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     linguetta scura come l'interruttore Analisi/Esperienza. Chiave nuova
     `eidetica:vestito` (la vecchia `veritas:vestito` conteneva «carta» per
     tutti: la carta la riscriveva a ogni avvio).
-  - Verificato (`banco/vivo/prova_pannelli.mjs`, un lancio, percorso vero):
-    vestito «scuro» all'avvio e non salvato come scelta; targhetta «banco di
-    prova» come con la carta; linguetta scura, clic vero: tela 1300 → 1600 px,
+  - Verificato (`banco/vivo/prova_pannelli.mjs`, percorso vero): vestito
+    «scuro» all'avvio e non salvato come scelta; targhetta «banco di prova»
+    come con la carta; linguetta scura, clic vero: tela 1300 → 1600 px,
     colonne sparite, poi rimesse; plastico intatto; carta a mano → scuro
-    rimette tutto; prove automatiche identiche (31/42 nel clone senza
-    `three`). Pannelli chiari rimasti: **2** (erano 12 con la carta).
-  - ⚠️ **Anteprima NON verificata in runtime:** il pannello «what I see» non e'
-    comparso durante la prova. La regola d'ancoraggio e' la stessa di prima,
-    estesa allo scuro; va vista al lavoro quando il pannello compare.
-  - **I due elementi chiari residui NON si eliminano in questa modifica:** il
-    tasto rotondo `play` e' nativo del bundle; «Live view» (`#eidetica-live-btn`)
-    appartiene a `veritas_cinema.js`.
+    rimette tutto; prove automatiche identiche (31/42 nel clone senza `three`).
+  - **Anteprima («what I see») VERIFICATA IN RUNTIME, non solo per regola
+    d'impaginato** (30/09, `ASPETTA_ANTEPRIMA=1`): compare dopo l'accensione
+    dell'occhio OWLv2, dentro il giro del velo (~260 s); resta in fondo alla
+    colonna di destra (ultimo pannello, `position:static`); si nasconde e
+    riappare con MASSIMIZZA. Prima era mezza chiara e illeggibile: i suoi
+    colori sono scritti in `veritas_anteprima.js`, tarati sul chiaro il 05/09,
+    e la carta li copriva. Ora col vestito scuro prende lo stesso vetro scuro
+    del cartellino e dell'interruttore (regola in `veritas_carta.js`); la
+    miniatura resta com'e'. **Contrasto verificato:** titolo 17,7:1, menu
+    14,3:1, interruttori 6,3:1 (soglia 4,5:1).
+  - **I tre elementi chiari residui NON si toccano: sono fuori dal lavoro sui
+    pannelli scuri e appartengono a sistemi diversi.** Il tasto rotondo `play`
+    (nativo del bundle), «Regenerate simulation» (`#vp-regen`, tasto
+    principale nativo di `index.html`), «Live view» (`#eidetica-live-btn`, di
+    `veritas_cinema.js`).
   - **Fuori scope, preesistenti (identici con la carta):** il pannello durante
     il caricamento sopra la colonna di destra («…signal is aborted without
     reason», ora scuro invece che bianco); la barra in alto che tocca il
     pulsante «Original model».
-  **Prossimo:** verificare l'anteprima quando compare; poi la Fase C (visore),
-  sulla stessa scena, senza un secondo ambiente. Merge e pubblicazione li
-  decide Raffaella.
+  **Prossimo:** la Fase C (visore), sulla stessa scena, senza un secondo
+  ambiente. Merge e pubblicazione li decide Raffaella.
 
 - **FASE C — solo dopo:** implementazione, prova su visore, eventuale Meta,
   demo del contest — solo cio' che serve a dimostrare la funzione centrale.
