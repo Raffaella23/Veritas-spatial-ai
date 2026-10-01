@@ -531,6 +531,34 @@ function togliIlTavolo() {
   V.tavolo = null;
 }
 
+// ─── GLI SCATTI DELL'OCCHIO ───────────────────────────────────────────────
+// Misurato il 01/10 (4 regie, iwer): finche' il visore e' acceso, three in
+// OGNI render() mette la telecamera del visore al posto di quella chiesta —
+// anche nelle foto fuori schermo che la regia scatta per l'occhio. L'occhio
+// riceveva 74 fogli vuoti su 74: 0/74 tipi nominati invece di 74/74.
+// Un disegno su un bersaglio che NON e' quello del visore e' una foto: per
+// la sua durata il visore si spegne per three, e la foto si fa con la
+// telecamera della regia. Il disegno del visore non cambia.
+function prendiGliScatti(ren) {
+  if (V.scatti) return;
+  const vero = ren.render;
+  const nostro = function (scena, camera) {
+    const rt = ren.getRenderTarget();
+    if (!V.scatti || !ren.xr.enabled || !rt || rt.isXRRenderTarget === true) return vero.apply(this, arguments);
+    ren.xr.enabled = false;
+    try { return vero.apply(this, arguments); } finally { ren.xr.enabled = true; }
+  };
+  ren.render = nostro;
+  V.scatti = { vero, nostro };
+}
+
+function lasciaGliScatti(ren) {
+  const S = V.scatti;
+  if (!S) return;
+  V.scatti = null;                        // se qualcuno l'ha avvolto dopo, il nostro passa e basta
+  if (ren.render === S.nostro) ren.render = S.vero;
+}
+
 // ─── ENTRARE / USCIRE ─────────────────────────────────────────────────────
 async function entra() {
   const T = window.THREE, ren = window.__veritasRenderer, cam = window.__veritasCamera,
@@ -560,6 +588,7 @@ async function entra() {
     aggiornaPulsante();
     return false;
   }
+  prendiGliScatti(ren);                    // le foto dell'occhio con la telecamera della regia
 
   V.salvato = { parent: cam.parent, pos: cam.position.clone(), quat: cam.quaternion.clone(),
                 scale: cam.scale.clone(), fov: cam.fov, zoom: cam.zoom, near: cam.near, far: cam.far,
@@ -596,6 +625,7 @@ async function entra() {
 // visore e stop() cade su null — e un errore qui non deve impedire di
 // rimettere a posto la telecamera (visto dal vivo il 30/09).
 function rimettiIlRenderer(ren) {
+  lasciaGliScatti(ren);
   try { ren.setAnimationLoop(null); } catch (e) { /* sessione mai partita */ }
   ren.xr.enabled = false;
   ren.xr.cameraAutoUpdate = true;
