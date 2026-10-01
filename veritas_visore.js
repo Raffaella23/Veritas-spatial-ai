@@ -120,17 +120,38 @@ function supportoPerIlPlastico(T) {
 }
 
 // ─── 2. IL RITMO DEL VISORE ───────────────────────────────────────────────
+// IL DISEGNO DEL VELO, DA PARTE (01/10, misurato): col velo aperto il suo giro
+// (veritas_apertura.js, giro: aggiornaScena + S.ren.render, tela e renderer
+// suoi) finiva in fila e si disegnava dentro ogni fotogramma del visore:
+// ~23 ms invece di 5-7, per un'immagine che nel visore non si vede. Finche' il
+// visore e' acceso la sua richiesta si tiene da parte; all'uscita si
+// restituisce e il velo riprende. Dati, stati, tempi, report ed eventi del
+// velo stanno nel suo battito (setInterval), che non passa di qui.
+// Si riconosce dal codice, non dal nome: «giro» c'e' anche altrove.
+const FIRMA_DEL_VELO = "aggiornaScena(S, t); S.ren.render(S.scena, S.cam)";
+const eDelVelo = new WeakMap();
+function giroDelVelo(cb) {
+  if (typeof cb !== "function") return false;
+  let si = eDelVelo.get(cb);
+  if (si === undefined) { si = Function.prototype.toString.call(cb).includes(FIRMA_DEL_VELO); eDelVelo.set(cb, si); }
+  return si;
+}
+
 function prendiIlRitmo() {
   V.rafVero = window.requestAnimationFrame;
   V.cafVero = window.cancelAnimationFrame;
+  V.velo = [];
   window.requestAnimationFrame = function (cb) {
     const id = V.prossimo++;
-    V.coda.push([id, cb]);
+    (giroDelVelo(cb) ? V.velo : V.coda).push([id, cb]);
     return id;
   };
   window.cancelAnimationFrame = function (id) {
-    const i = V.coda.findIndex((x) => x[0] === id);
-    if (i >= 0) V.coda.splice(i, 1); else V.cafVero.call(window, id);
+    for (const fila of [V.coda, V.velo]) {
+      const i = fila.findIndex((x) => x[0] === id);
+      if (i >= 0) { fila.splice(i, 1); return; }
+    }
+    V.cafVero.call(window, id);
   };
 }
 
@@ -138,8 +159,8 @@ function lasciaIlRitmo() {
   if (!V.rafVero) return;
   window.requestAnimationFrame = V.rafVero;
   window.cancelAnimationFrame = V.cafVero;
-  const coda = V.coda;
-  V.coda = []; V.rafVero = null; V.cafVero = null;
+  const coda = V.coda.concat(V.velo || []);
+  V.coda = []; V.velo = []; V.rafVero = null; V.cafVero = null;
   for (const [, cb] of coda) window.requestAnimationFrame(cb);
 }
 
@@ -677,6 +698,40 @@ function aggiornaPulsante() {
   const r = modo && modo.getBoundingClientRect();
   if (r && r.width) { b.style.left = Math.round(r.right + 10) + "px"; b.style.right = "auto"; }
   else { b.style.left = "auto"; b.style.right = "24px"; }
+  pulsanteNelVelo(dentro, occhi);
+}
+
+// IL PUNTO D'INGRESSO NEL VELO (Raffaella, 01/10, scelta A): «Entra nel
+// visore» accanto a «Entra», mentre l'analisi e' viva. Il velo sta sopra la
+// pagina (99990) e copre il pulsante qui sopra (9650). Lo mette questo modulo,
+// con la stessa veste dei bottoni del velo: veritas_apertura.js non si tocca,
+// e quando il velo si chiude il bottone se ne va con lui.
+// ⚠️ Il velo vive in un'ombra (shadow DOM): da document non si vede.
+function pulsanteNelVelo(dentro, occhi) {
+  const ospite = document.querySelector("[data-veritas-apertura]");
+  const ombra = ospite && ospite.shadowRoot;
+  const entraDelVelo = ombra && ombra.querySelector('.vap-primario[data-azione="entra"]');
+  if (!entraDelVelo) return;
+  let b = ombra.getElementById("eidetica-visore-velo");
+  const pronto = V.supportato && window.__veritasRenderer && window.__veritasModelRoot && !occhi;
+  if (!dentro && !pronto) { if (b) b.remove(); return; }
+  if (!b) {
+    b = document.createElement("button");
+    b.id = "eidetica-visore-velo";
+    b.type = "button";
+    b.className = "vap-secondario";
+    b.style.pointerEvents = "auto";
+    b.addEventListener("click", premuto);
+    entraDelVelo.insertAdjacentElement("afterend", b);
+  }
+  b.textContent = dentro ? testi().esci : testi().entra;
+  b.title = testi().titolo;
+}
+
+function premuto() {
+  // si chiude la sessione: three pulisce, poi il suo «end» chiama esci()
+  if (V.sessione) V.sessione.end().catch(() => esci());
+  else entra().catch((e) => console.warn("[EIDETICA visore]", e && e.message));
 }
 
 async function chiediAlBrowser() {
@@ -695,11 +750,7 @@ function avvio() {
   const b = document.createElement("button");
   b.id = "eidetica-visore";
   b.type = "button";
-  b.addEventListener("click", () => {
-    // si chiude la sessione: three pulisce, poi il suo «end» chiama esci()
-    if (V.sessione) V.sessione.end().catch(() => esci());
-    else entra().catch((e) => console.warn("[EIDETICA visore]", e && e.message));
-  });
+  b.addEventListener("click", premuto);
   document.body.appendChild(b);
   chiediAlBrowser();
   // il visore si accende e si spegne (Link): Chrome lo dice
