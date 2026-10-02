@@ -1758,92 +1758,108 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
   **Prossimo:** la Fase C (visore), sulla stessa scena, senza un secondo
   ambiente. Merge e pubblicazione li decide Raffaella.
 
-- **FASE C — IL VISORE, 30/09: IMPOSTATA, NON VALIDATA, NON SALVATA.**
-  Decisioni di Raffaella: nel visore si vede **il plastico in scala sul
-  tavolo**, con agenti e flussi luminosi in movimento; dopo, **schede della
-  conoscenza** in tempo reale da consultare e spostare. Si prova col **Quest
-  collegato al PC** (Quest Link via **Air Link**, niente cavo), nel Chrome del
-  PC: il progetto e l'analisi restano sul PC, niente pubblicazione. Mai un
-  secondo mondo, mai `veritas_cinema.js`.
-  - **Dove sta il lavoro: SOLO nel workspace** (clone di `esperienza-plastico`
-    = `52e9f65`, scratchpad della sessione del 30/09), costruzione
-    `2026-09-30-b`. **Nessun commit, la branch e' invariata.** File:
-    `veritas_visore.js` (nuovo, v=4); `veritas_carta.js` (v=18, una sola
-    condizione in `avvolgiIlRenderer`: il bersaglio del visore conta come
-    «schermo», se no nel visore niente argilla, ombre, zone spente); il tag in
-    `index.html`; le sonde `banco/vivo/prova_visore.mjs` e
-    `banco/vivo/misura_ritmo_visore.mjs`. Passo 5, pannelli scuri e
-    `veritas_cinema.js` non toccati. ⚠️ Se lo scratchpad sparisce, si rifa'
-    da questa descrizione.
-  - **La strada:** WebXR di three 0.171, gia' dentro il bundle, sulla STESSA
-    scena. Il pulsante «Entra nel visore» sta accanto ad Analisi / Esperienza
-    (solo in Esperienza, solo se Chrome vede il visore, non dagli occhi di una
-    persona). Il plastico a **1:80** (lato lungo 1,40 m, piano a 0,75 m da
-    terra, centro a 0,90 m davanti) si ottiene facendo **grande chi guarda**
-    (un supporto scalato porta la telecamera), non rimpicciolendo la scena:
-    simulazione, occhio e selezione continuano a lavorare in metri veri.
-  - **Cinque trappole, misurate:** (1) il bundle disegna a
-    `requestAnimationFrame` della finestra → visore nero: le richieste si
-    servono dentro il fotogramma del visore. (2) Il piano vicino della pagina
-    (1,69) e il campo unico dei due occhi calcolato in metri del mondo → 0 pezzi
-    su 2.416 visibili: piano vicino a 0,05 m reali, campo rifatto in metri
-    reali. (3) Sul Quest vero il primo ingresso e' stato rifiutato («object not
-    usable») e ha lasciato la telecamera spostata: ora la scena si tocca solo
-    dopo il si' del visore. (4) Chrome disegnava con la scheda **Intel** →
-    ~2 fotogrammi/s: nel banco `--force_high_performance_gpu`; per un utente
-    vero serve Windows → Grafica → Chrome «Prestazioni elevate». (5) Durante la
-    regia dell'occhio (~230 s) la pagina si ferma per secondi (un fotogramma
-    ogni 5-7 s): **nel visore si entra a regia finita.** In piu', la terra
-    della scena (200 x 200 m, a 1:80 una lastra di 2,5 m) si leggeva come
-    pavimento: nel visore si spegne e c'e' un tavolo della misura
-    dell'edificio.
-  - **Test.** Quest 3 simulato (`iwer`, criterio scritto prima):
-    **RIUSCITA** — pulsante, sessione a due occhi, argilla 2.416/2.416, agenti
-    in moto, testa 0,85 m sopra il piano, ritorno 0 cm / 0°, comandi ripresi.
-    Prove automatiche 34/42 identiche prima e dopo. **Quest vero:** ingresso
-    riuscito; plastico e ombre visti; agenti visti camminare, a scatti;
-    **uscita verificata** (mouse e rotella di nuovo attivi).
-  - **La fluidita': NON raggiunta.** Misura (NVIDIA, regia finita, dentro il
-    visore): **67 ms per fotogramma** (13,5 al secondo; il Quest ne vuole 72),
-    5.210 pezzi disegnati; **~56 ms vengono dai 2.416 pezzi del modello**,
-    ~13 ms dalle ombre, il resto della pagina ~1,4 ms. Quest vero, ingresso
-    pulito: 11 al secondo. **Una sola correzione, soglia < 13 ms decisa
-    prima:** il plastico unito per materiale, solo nel visore (2.416 → 31
-    pezzi, 258 disegnati) → **13,0 ms: FALLITA DI MISURA.** Raffaella: la
-    soglia resta **< 13 ms** (non diventa ≤ 13); nessun test visivo, nessun
-    Quest vero, nessun'altra ottimizzazione, nessun commit. La v=4 resta nel
-    banco.
-  - **Non validati:** fluidita'; scala e posizione percepite (Raffaella:
-    plastico «in basso», agenti piccoli e lontani; avvicinando la testa si
-    ingrandisce); campo visivo. **Mani e controller: non disegnati, non
-    funzionano** (non fatti). Cartellini e schede laterali sono pagina web: nel
-    visore non ci sono.
-  - **Fuori scope, visti dal Quest:** gli agenti camminano **sotto il
-    pontile** invece che sopra — e' la simulazione, uguale sullo schermo:
-    problema a parte, non del visore. Il passthrough (il plastico sul tavolo
-    vero) via Link da Chrome di solito non c'e'; col browser del Quest da solo
-    si': decisione a parte.
-  - **Corrispondenza PC → Quest, mani prima (PROPOSTA del 30/09, da
-    approvare; controller come riserva, stessi gesti):**
-
-    | Sul PC oggi | Nel Quest, con le mani | Controller |
-    |---|---|---|
-    | Girare la vista (trascinare) | girare intorno al tavolo con il corpo (c'e' gia'); una mano prende il plastico e lo gira | presa (grip) |
-    | Spostare la vista | una mano pizzica e trascina il plastico: piu' vicino, piu' alto | presa (grip) |
-    | Zoom (rotella, 2-120 m) | due mani a pizzico che si allontanano: il plastico cresce, fino a 1:1 («entrare») | due prese |
-    | Clic su una persona (entro 40 px, solo Esperienza) | indicare con la mano e pizzicare, con la stessa tolleranza (~2°); attenuazione, anello e linea dorata sono gia' 3D e compaiono da se' | grilletto |
-    | Clic nel vuoto / Esc | pizzico nel vuoto | grilletto nel vuoto |
-    | Cartellino della persona | scheda nello spazio col suo filo, si prende e si sposta (schede della conoscenza) | presa |
-    | «Con i suoi occhi» (passo 5) | NON cosi': una telecamera che cammina al posto della testa da' nausea. Proposta: in scala 1:1, fermi dove sta la persona. Da decidere | — |
-    | Play / pausa | menu sul polso sinistro (palmo verso di se') | pulsante |
-    | Analisi / Esperienza, Modello originale | menu sul polso, dopo; prima si resta in Esperienza | pulsante |
-    | Persone in scena | elenco nel menu del polso, dopo; «guarda dai suoi occhi» NO (e' `veritas_cinema.js`) | — |
-    | Avvia, Regenerate, anteprima, MAXIMIZE, Live view, Parla con VERITAS | restano sul PC | — |
-    | Uscire | gesto di sistema Meta | tasto Meta |
-
-  - **Prossimo (da approvare):** il primo incremento minimo delle mani. Prima
-    di ogni prova sul Quest vero con le mani resta aperta la fluidita', che
-    oggi non passa la soglia.
+- **FASE C — IL VISORE: SALVATA SULLA BRANCH `esperienza-plastico` = `7d2a61e`
+  (02/10). Non in `main`, non pubblicata.**
+  Decisioni di Raffaella: nel visore **il plastico in scala sul tavolo**, con
+  agenti e flussi luminosi; poi **schede della conoscenza** in tempo reale da
+  consultare e spostare con le mani. Prova col **Quest collegato al PC**
+  (Quest Link via **Air Link**), nel Chrome del PC. Mai un secondo mondo, mai
+  `veritas_cinema.js`. **Regola assoluta (01/10): la trasposizione nel visore
+  non deve cambiare il risultato scientifico dell'analisi.**
+  - **Commit della branch:** `3b5d228` visore v5 (plastico 1:80, tavolo,
+    plastico unito, presa con mani/controller) → `d8fb68a` le foto dell'occhio
+    con la telecamera della regia (`2026-10-01-a`, visore `?v=6`) → `7d2a61e`
+    «Entra nel visore» dentro il velo e disegno del velo tenuto da parte
+    (visore `?v=7`, costruzione invariata). Tutto in `veritas_visore.js` (+ il
+    tag in `index.html`; la condizione del 30/09 in `veritas_carta.js`).
+  - **La strada:** WebXR di three 0.171, gia' nel bundle, sulla STESSA scena.
+    Plastico **1:80** (lato lungo 1,40 m, piano a 0,75 m, centro 0,90 m davanti)
+    facendo **grande chi guarda** (un supporto scalato porta la telecamera):
+    simulazione, occhio e selezione restano in metri veri. Pulsante accanto ad
+    Analisi/Esperienza (solo Esperienza) **e, dal 01/10, dentro il velo**
+    accanto a «Entra» (scelta A di Raffaella: si entra mentre l'analisi e'
+    viva; il velo, a 99990, copriva l'altro pulsante). Il velo vive in uno
+    shadow DOM: il pulsante lo inserisce `veritas_visore.js`,
+    `veritas_apertura.js` NON e' toccato.
+  - **Trappole misurate (30/09-01/10):** (1) il bundle disegna a
+    `requestAnimationFrame` → le richieste si servono dentro il fotogramma del
+    visore. (2) Piano vicino 1,69 e campo dei due occhi in metri del mondo → 0
+    pezzi visibili: corretti in metri reali. (3) Primo ingresso rifiutato sul
+    Quest («object not usable»): la scena si tocca solo dopo il si' del
+    visore. (4) Chrome sulla scheda Intel → ~2 fps: serve la NVIDIA
+    (Windows → Grafica → Chrome «Prestazioni elevate»). (5) **Col visore acceso
+    three sostituisce la telecamera in OGNI `render()`, anche nelle foto per
+    l'occhio**: 74/74 fogli vuoti, **0/74 tipi nominati** (sul Quest vero 32/52,
+    0 sedute). Corretto in `d8fb68a`: un disegno su un bersaglio non-XR si fa
+    con xr spento per quel solo disegno. Verifica (2 regie col visore acceso):
+    **74/74, 493 copie, 72 sedute**, nomi identici alla base, foto identiche
+    pixel per pixel, 0/148 foto con la telecamera del visore. (6) **Col velo
+    aperto il suo disegno 3D finiva nei fotogrammi del visore: 23 ms.** Corretto
+    in `7d2a61e`: il giro del velo (riconosciuto dalla riga
+    `aggiornaScena(S, t); S.ren.render(S.scena, S.cam)`, unica; «giro» esiste
+    anche altrove) si tiene da parte e si restituisce all'uscita → **6,2-6,3 ms**;
+    il report del velo continua (sta nel battito), sul PC la sua immagine 3D
+    resta ferma finche' si e' nel visore.
+  - **Prestazioni:** la soglia concordata **< 13 ms resta** (il plastico unito
+    misurava 13,0 ms: fallita di misura, Raffaella 30/09). Nel simulatore,
+    dopo le correzioni: 6-8 ms. Sul Quest vero (30/09): 9-45 fps, altalenante.
+  - **Mani (01/10): CASO A, configurazione.** Chrome legge le mani solo dal
+    runtime OpenXR del PC. Servono, nell'app **Meta Horizon Link sul PC**
+    (non sul visore): Settings → Beta → **Sviluppatore / Developer runtime
+    features** acceso e tracciamento mani acceso; Sperimentale spento; poi
+    **riavvio completo** (app Link anche dall'icona vicino all'orologio, Quest,
+    Air Link). Senza riavvio non vale. Misurato: prima `hand-tracking` non
+    concesso e solo controller; dopo il riavvio `hand-tracking` concesso e
+    ingressi «mano left/right». Le mani **prendono il plastico** (pizzico);
+    controller: presa, rotazione, alzare/abbassare; A, B e joystick senza
+    compito (voluto). Mani disegnate a pallini sulle giunture: da sistemare.
+  - **Bando** (Meta VR Start Developer Competition 2026, scadenza 18/11/2026,
+    regolamento su Devpost): «fully usable with hands, end-to-end», controller
+    opzionale; WebXR = un LINK che i giudici aprono sul visore; video < 3 min
+    «as viewed on a Meta Quest device or via XR Simulator». Experience Design
+    (25%): «Passthrough should be purposeful … not a scene that plays the same
+    with passthrough off».
+  - **Passthrough e cattura (01/10, solo diagnosi):** passthrough WebXR =
+    sessione `immersive-ar` con fondo trasparente (oggi `immersive-vr`,
+    opaco); via Chrome+Link quasi certamente non c'e' (misura con Link acceso
+    da rifare). ON/OFF nella stessa scena: sessione AR sempre, OFF = fondo
+    dipinto di nero. La Fotocamera del Quest durante Link non cattura: limite
+    del percorso; Oculus Mirror registra cio' che disegna Chrome (senza
+    passthrough). La strada per passthrough, cattura e giudici e' il **Quest
+    Browser** (rischio: l'analisi girerebbe sul visore).
+  - **Flussi luminosi = la LINEA DORATA del passo 4** (`veritas_selezione.js`,
+    `disegnaVia`, `#FFB020`, filo + alone, dal punto attuale alla meta, ogni
+    500 ms; commit `2f226dc`; negli occhi la stessa linea, `9dcb376`). E' nella
+    scena principale: il visore la disegnerebbe gia', ma nel visore oggi non si
+    sceglie una persona. **Non esistono** i flussi di TUTTI gli agenti del
+    pannello 1 della tavola (il passo 4 e' «solo dell'agente selezionato»).
+    Riferimenti visivi in `Desktop\VERITAS`: «Tavola UX - Dallo spazio al
+    vissuto (29-09)», «Resa passo 4-5 - linea dorata e occhi (29-09)», il brief
+    AI-Eye View del 15/09 e i quattro riferimenti del velo.
+  - **Viste dagli occhi:** «guarda dai suoi occhi» del pannello Persone =
+    `veritas_cinema.apriSuAgente` (tela e scena sue, punti e palette
+    semantica: per questo sembra un debug); passo 5 = stessa scena, argilla e
+    ombre, coerente. Nel visore nessuna delle due.
+  - **Schede live — architettura decisa (02/10), NON costruita:** una scheda
+    3D figlia del supporto (ferma nella stanza), contenuto =
+    `window.__veritasApertura.stato().report` (la stessa `reportDi` del velo),
+    lettura al ritmo del battito del velo (300 ms), ridisegno solo se cambia,
+    tinte del velo (attesa `#2EE6D6`, zone `#A970FF`, oggetti `#7CFFB2`,
+    conformita' `#FF4D6D`, orientamento `#FFB020`). **Finisce col velo** quando
+    `aperta: false` (Raffaella: niente «ultimo stato» conservato); il referto
+    finale resta a richiesta. Il velo mostra UNO stato alla volta: una scheda
+    che segue lo stato corrente, non quattro fisse. «Quello che vedo» non e'
+    leggibile da fuori (servirebbe esporlo).
+  - **Sonde** (fuori dal repository): `Desktop\VERITAS\sonde_visore_01-10\`
+    (regia con/senza visore, ingresso dal velo, inventario della scena; vedi
+    LEGGIMI). ⚠️ Un profilo Chrome NUOVO si blocca al primo avvio: usare un
+    profilo gia' aperto una volta.
+  - **Prossimo, in ordine:** (1) UNA scheda live in sola lettura, senza presa,
+    solo `veritas_visore.js`; (2) la presa della scheda; (3) i flussi (decidere
+    se servono quelli di tutti); (4) scegliere una persona nel visore +
+    cartellino 3D; (5) vista dagli occhi dal passo 5; (6) passthrough e cattura
+    sul Quest Browser. Non provati ancora sul Quest vero: correzione
+    dell'occhio, ingresso dal velo, velo da parte.
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
@@ -1923,6 +1939,10 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 02/10 | **Le schede nel visore finiscono col velo**, come nel browser: niente «ultimo stato» conservato, niente seconda memoria del processo; il referto finale resta a richiesta. Contenuto = `stato().report`, nessun dato nuovo |
+| 01/10 | **Si entra nel visore dal velo** (scelta A): pulsante accanto a «Entra», `veritas_apertura.js` invariato. Mentre si e' nel visore il disegno 3D del velo si tiene da parte; dati, stati e tempi del velo non cambiano |
+| 01/10 | **La trasposizione nel visore non deve cambiare il risultato scientifico dell'analisi**: prima delle schede live si e' misurato e corretto il calo dell'occhio (0/74 → 74/74) |
+| 01/10 | **Passthrough ON/OFF** nella stessa esperienza (OFF = plastico su nero) e **cattura** di cio' che vede l'utente: prioritari, per ora solo diagnosi |
 | 29/09 | **Fondo scuro, un solo render** (tavola UX di Raffaella): plastico MONOCROMO in argilla dove spiccano solo i segni nostri e i cartellini; niente reticolo; «piu' pulita e' la scena, meglio e'»; massima leggibilita' (ombre); «esteticamente top». **Due modi sulla stessa scena**: Analisi (zone, cartellini, diagnostica) / Esperienza (solo cio' che serve). **Sequenza:** render → modi → selezione → traiettoria → ⛔ tracce interne e direzione vera → prima persona. La curva sulla scala mobile NON si ammorbidisce: e' il cammino vero. Il cartellino mostra la meta che il sistema conosce oggi |
 | 28/09 | **Riconoscere non e' sapere a cosa serve.** Quattro livelli distinti: etichetta visiva (cio' che dice OWLv2) → categoria di EIDETICA → significato spaziale → affordance. Un'etichetta incerta non produce una funzione. **La geometria puo' togliere o sospendere una CONSEGUENZA, mai il riconoscimento**: non dice «non e' una culla», dice «non ho prove sufficienti per "sdraiato"». E' una seconda evidenza indipendente, non un veto sull'occhio (§0.4). Niente regole per un solo edificio. Da progettare prima di scrivere; catalogo e HANDOFF non si pubblicano finche' non e' deciso |
 | 25/09 | **L'occhio regista** (§0.5, §12): la telecamera va dalle cose, una per tipo, e il cliente la guarda nella schermata iniziale col nome e il ragionamento. Basta con le fotografie in piu' |
