@@ -176,7 +176,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Branch** | `main` (unico, Regola B) |
 | **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
-| **Branch aperta, NON unita** | `esperienza-plastico` = `52e9f65` (30/09, costruzione `2026-09-30-a`, parte da `vista-esterna-agenti`): i passi 1-5 dell'esperienza (render, Analisi/Esperienza, selezione, traiettoria, occhi) e i pannelli scuri, tutti approvati da Raffaella (§9, Fase B). NON pubblicata, NON unita. **La Fase C (visore) NON e' su questa branch:** sta solo nel workspace (§9, Fase C) |
+| **Branch aperta, NON unita** | `esperienza-plastico` = `7d2a61e` (02/10, Fase C nel §9; prima `52e9f65` del 30/09, costruzione `2026-09-30-a`, parte da `vista-esterna-agenti`): i passi 1-5 dell'esperienza (render, Analisi/Esperienza, selezione, traiettoria, occhi) e i pannelli scuri, tutti approvati da Raffaella (§9, Fase B). NON pubblicata, NON unita. **La Fase C (visore) NON e' su questa branch:** sta solo nel workspace (§9, Fase C) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
@@ -1821,8 +1821,9 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     with passthrough off».
   - **Passthrough e cattura (01/10, solo diagnosi):** passthrough WebXR =
     sessione `immersive-ar` con fondo trasparente (oggi `immersive-vr`,
-    opaco); via Chrome+Link quasi certamente non c'e' (misura con Link acceso
-    da rifare). ON/OFF nella stessa scena: sessione AR sempre, OFF = fondo
+    opaco). **Misurato il 03/10 con Link acceso e visore visto: Chrome 154
+    via Link da' `immersive-vr` si', `immersive-ar` NO** → dal PC il
+    passthrough non c'e' (verifica chiusa). ON/OFF nella stessa scena: sessione AR sempre, OFF = fondo
     dipinto di nero. La Fotocamera del Quest durante Link non cattura: limite
     del percorso; Oculus Mirror registra cio' che disegna Chrome (senza
     passthrough). La strada per passthrough, cattura e giudici e' il **Quest
@@ -1854,12 +1855,51 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     (regia con/senza visore, ingresso dal velo, inventario della scena; vedi
     LEGGIMI). ⚠️ Un profilo Chrome NUOVO si blocca al primo avvio: usare un
     profilo gia' aperto una volta.
-  - **Prossimo, in ordine:** (1) UNA scheda live in sola lettura, senza presa,
-    solo `veritas_visore.js`; (2) la presa della scheda; (3) i flussi (decidere
-    se servono quelli di tutti); (4) scegliere una persona nel visore +
-    cartellino 3D; (5) vista dagli occhi dal passo 5; (6) passthrough e cattura
-    sul Quest Browser. Non provati ancora sul Quest vero: correzione
-    dell'occhio, ingresso dal velo, velo da parte.
+  - **La scheda live (02/10): costruita e provata, NON committata.** Solo
+    `veritas_visore.js` (+183/-3 sulla branch `7d2a61e`), sezione «LA SCHEDA DEL
+    VELO». Un piano 50 x 38 cm (**misura di prova**) a sinistra del tavolo,
+    centro a 1,25 m da terra e ~1 m da chi guarda, girato verso di lui, fermo
+    nella stanza (posa nel riferimento del supporto). Contenuto =
+    `stato().report` letto ogni 300 ms, ridisegnato solo se cambia, tinta dello
+    stato del velo, fondo scuro; si accende solo nei fotogrammi del visore e si
+    spegne in ogni foto dell'occhio; nessun raggio la tocca. A ogni fotogramma
+    chiede al velo se e' aperto: chiuso il velo, sparisce nello stesso
+    fotogramma (la prova 1 la lasciava un battito, 11 fotogrammi).
+    Prova 2 nel simulatore (iwer, NVIDIA), **5 su 5**: scheda = report in 243
+    letture su 243 (21 in ritardo di un battito, rientrate); 0 foto su 148 con
+    la scheda; regia 74/74 · 493 · 72; 0 fotogrammi con la scheda dopo la
+    chiusura; 7,0 ms medi, max 8. La domanda al velo costa 0,23 ms a velo
+    aperto (`stato()` costruisce tutto il report). Copia di sicurezza:
+    `Desktop\VERITAS\scheda_live_02-10\` (patch, file intero, sonda,
+    registro, LEGGIMI).
+  - **La scheda nel Quest vero (03/10, Air Link, codice del workspace):**
+    visore prima non visto da Chrome (Link «non connesso»): serve il riavvio
+    completo. Entrata dal velo da sola (clic del lanciatore; il 1° ingresso
+    chiede ~15 s). Disegno 7-10 ms (max 26); ritmo 8-36 fotogrammi/s
+    altalenante, collo fuori dal nostro disegno come il 30/09. La scheda si
+    vede, nello spazio, a sinistra del tavolo. Regia vera piu' lenta: 338 s;
+    Raffaella e' uscita dopo ~3 min col velo ancora su «oggetti» →
+    **cambio degli stati e sparizione alla chiusura NON visti nel Quest.**
+    Cattura: Oculus Mirror (si legge via PrintWindow; se e' a icona va
+    riaperto senza fuoco).
+  - **Giudizio di Raffaella (03/10): «non mi piace».** Le mani prendono solo
+    il plastico, non la scheda; la scheda sta di lato e non si avvicina;
+    tutto molto scuro; manca il passthrough. Vuole **tutto quello che il velo
+    mostra sul PC, non il solo report: anche la lettura dell'occhio con gli
+    zoom (le immagini che scorrono), in altre finestre che si aprono in tempo
+    reale** — «l'intrattenimento completo».
+  - **Passthrough: si va sul QUEST BROWSER** (decisione 03/10, dopo la misura
+    sopra). Prima di portarlo in EIDETICA, una pagina di prova separata,
+    WebXR puro, aperta nel Quest Browser: `navigator.xr`, `immersive-ar`,
+    sessione, `environmentBlendMode`, stanza visibile col fondo trasparente,
+    `hand-tracking` nella stessa sessione, mani senza controller.
+  - **Prossimo, in ordine:** (1) la prova del passthrough nel Quest Browser
+    (pagina separata, nessun codice di EIDETICA); (2) poi, con Raffaella, le
+    finestre live del velo nel visore (report + occhio con gli zoom), la
+    presa della scheda, la luce; (3) i flussi (decidere se servono quelli di
+    tutti); (4) scegliere una persona nel visore + cartellino 3D; (5) vista
+    dagli occhi dal passo 5; (6) la cattura. Non provati ancora sul Quest
+    vero: correzione dell'occhio (foto con il visore acceso), velo da parte.
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
@@ -1939,6 +1979,8 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 03/10 | **Il passthrough del progetto passa dal Quest Browser.** Misurato con Link acceso: Chrome sul PC via Link non offre `immersive-ar`. Prima di toccare EIDETICA, la prova in una pagina separata (WebXR puro) sul visore |
+| 03/10 | **Nel visore non basta il report: tutto quello che il velo mostra**, compresa la lettura dell'occhio con gli zoom, in finestre che si aprono in tempo reale; la scheda va presa e avvicinata con le mani e non deve essere cosi' scura (giudizio di Raffaella sulla prima scheda nel Quest) |
 | 02/10 | **Le schede nel visore finiscono col velo**, come nel browser: niente «ultimo stato» conservato, niente seconda memoria del processo; il referto finale resta a richiesta. Contenuto = `stato().report`, nessun dato nuovo |
 | 01/10 | **Si entra nel visore dal velo** (scelta A): pulsante accanto a «Entra», `veritas_apertura.js` invariato. Mentre si e' nel visore il disegno 3D del velo si tiene da parte; dati, stati e tempi del velo non cambiano |
 | 01/10 | **La trasposizione nel visore non deve cambiare il risultato scientifico dell'analisi**: prima delle schede live si e' misurato e corretto il calo dell'occhio (0/74 → 74/74) |
