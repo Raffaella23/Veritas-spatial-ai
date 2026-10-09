@@ -1,0 +1,6 @@
+traiettoria: versione 5 -> 5 | stesso oggetto true
+istanti T: 15.70 17.35 19.01 20.65 22.27 23.89 25.57 27.32 28.98 30.63 | velocita' fra campioni: 1.00 1.00 1.00 0.99 1.01 1.00 1.01 1.00 1.00
+figure fuori dalla traccia (>10 cm, escluse): 0
+IN CAMMINO: 256 | occhi entro 20°: 236 = 92% | mediana 0°
+corpo giusto: 276/276
+fuori 20°: 20 di cui con tratto degli occhi sotto 10 cm: 2 | esempi [{"id":17,"T":17.35,"ang":87,"lunghezzaOcchi":0.1},{"id":23,"T":19.01,"ang":128,"lunghezzaOcchi":1.85},{"id":27,"T":20.65,"ang":58,"lunghezzaOcchi":0.18},{"id":4,"T":22.27,"ang":59,"lunghezzaOcchi":0.78},{"id":21,"T":22.27,"ang":180,"lunghezzaOcchi":0.09},{"id":26,"T":22.27,"ang":30,"lunghezzaOcchi":1.96},{"id":4,"T":23.89,"ang":67,"lunghezzaOcchi":0.31},{"id":14,"T":23.89,"ang":38,"lunghezzaOcchi":1.11}]

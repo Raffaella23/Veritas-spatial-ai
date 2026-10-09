@@ -1,0 +1,31 @@
+   7s  costruzione 2026-09-29-f (workspace)
+   7s  [EIDETICA carta] nati dopo: 4 fondi, 0 etichette
+   8s  velo aperto
+   8s  [EIDETICA carta] velature: 8 etichette, 0 blocchi.
+   8s  [EIDETICA carta] nati dopo: 30 fondi, 8 etichette
+   8s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre: sole o modello non ancora pronti
+   8s  [EIDETICA carta] nati dopo: 23 fondi, 0 etichette
+   9s  [EIDETICA carta] nati dopo: 3 fondi, 0 etichette
+  16s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre sul modello intero (raggio 67 m, mappa 4096)
+  16s  [EIDETICA carta] velature: 14 etichette, 0 blocchi.
+  16s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre sul modello intero (raggio 67 m, mappa 4096)
+  16s  [EIDETICA carta] nati dopo: 29 fondi, 0 etichette
+  18s  [EIDETICA carta] nati dopo: 1 fondi, 0 etichette
+  31s  [VERITAS] avvio simulazione montato nella barra di riproduzione
+  31s  [EIDETICA carta] velature: 14 etichette, 0 blocchi.
+  31s  [EIDETICA carta] nati dopo: 24 fondi, 14 etichette
+  33s  [EIDETICA carta] nati dopo: 1 fondi, 0 etichette
+  40s  MISURA 2_dopo_entra {"vestito":"carta","renderer":{"toneMapping":4,"esposizione":1.1,"colorSpace":"srgb","ombre":true,"tipoOmbre":2,"pixelRatio":1,"clearAlpha":0,"fondoTela":"rgb(14, 19, 27)","fondoPadre":"none"},"fondo":"[object Object]","foschia":{"colore":"#0b0f17","near":236.2797602619165,"far":708.8392807857496},"luci":[{"tipo":"AmbientLight","colore":"#ffffff","intensita":0.12,"pos":[0,0,0],"ombra":false,"mappa":null,"visibile":true},{"tipo":"DirectionalLight","colore":"#ffffff","intensita":1.7,"pos":[24.4,122,24.8],"ombra":true,"mappa":4096,"visibile":true},{"tipo":"DirectionalLight","colore":"#8ec8ff","intensita":0.35,"pos":[-20,20,-20],"ombra":false,"mappa":512,"visibile":true},{"tipo":"HemisphereLight","colore":"#b8c4d6","intensita":0.95,"pos":[0,1,0],"ombra":false,"mappa":null,"visibile":true}],"griglie":[{"nome":"","visibile":false,"colore":"#ffffff"}],"figliScena":["AmbientLight:","DirectionalL
+  40s  Avvia premuto: true
+  41s  [EIDETICA carta] nati dopo: 2 fondi, 0 etichette
+  81s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  81s  [VERITAS] barra di riproduzione fatta ripartire col PLAY
+  82s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  82s  [EIDETICA carta] nati dopo: 2 fondi, 0 etichette
+  82s  inquadrato: true
+  85s  TRACCE {"fotogrammi":800,"personeNellaTraiettoria":28,"puntiPerPersona":[765,799],"agentiTracciati":28}
+  85s  ONDE {"terne":16606,"mediana_m":0.027,"p90_m":0.246,"oltre10cm":"24%","cambiDiLato":"22%","medianaPerPersona":{"0":0.025,"1":0.026,"2":0.033,"3":0.021,"4":0.036,"5":0.039,"6":0.023,"7":0.017,"8":0.029,"9":0.041,"10":0.024,"11":0.017,"12":0.026,"13":0.02,"14":0.027,"15":0.046,"16":0.027,"17":0.025,"18":0.037,"19":0.025,"20":0.023,"21":0.03,"22":0.039,"23":0.044,"24":0.023,"25":0.017,"26":0.028,"27":0.021}}
+  88s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  90s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  91s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+ 106s  ESITO {"tracce":{"fotogrammi":800,"personeNellaTraiettoria":28,"puntiPerPersona":[765,799],"agentiTracciati":28},"campioni":140,"inMoto":107,"entro20":75,"percentuale":70,"angoloMediano":9,"direzioniDiverse":131,"statoCoincide":"138/140","fuori20":[{"id":2,"k":0,"ang":179,"dir":[1.32,0,-0.1]},{"id":4,"k":0,"ang":35,"dir":[-0.22,0,0.61]},{"id":6,"k":0,"ang":20,"dir":[-7.78,0,7.62]},{"id":20,"k":0,"ang":132,"dir":[1.58,0,0.05]},{"id":22,"k":0,"ang":25,"dir":[-0.9,0,-0.66]},{"id":23,"k":0,"ang":43,"dir":[-2.59,0,-1.95]},{"id":0,"k":1,"ang":39,"dir":[-0.01,0,-0.56]},{"id":5,"k":1,"ang":62,"dir":[-1,0,-1.51]},{"id":21,"k":1,"ang":26,"dir":[-0.3,0,-0.58]},{"id":27,"k":1,"ang":169,"dir":[1.28,0,-0.15]},{"id":5,"k":2,"ang":128,"dir":[0.99,0,-0.14]},{"id":8,"k":2,"ang":119,"dir":[0.87,0,1.61]}]}

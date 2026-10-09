@@ -1,0 +1,29 @@
+   8s  costruzione 2026-09-29-h (workspace)
+   8s  [EIDETICA carta] velature: 8 etichette, 0 blocchi.
+   8s  [EIDETICA carta] nati dopo: 34 fondi, 8 etichette
+   8s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre: sole o modello non ancora pronti
+   8s  velo aperto
+   9s  [EIDETICA carta] nati dopo: 24 fondi, 0 etichette
+  10s  [EIDETICA carta] nati dopo: 3 fondi, 0 etichette
+  17s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre sul modello intero (raggio 67 m, mappa 4096)
+  17s  [EIDETICA carta] velature: 14 etichette, 0 blocchi.
+  17s  [EIDETICA carta] plastico scuro: terra ricolorata, 1 griglia/e spenta/e, argilla sullo schermo, ombre sul modello intero (raggio 67 m, mappa 4096)
+  17s  [EIDETICA carta] nati dopo: 29 fondi, 0 etichette
+  21s  [EIDETICA carta] velature: 14 etichette, 0 blocchi.
+  21s  [EIDETICA carta] nati dopo: 23 fondi, 14 etichette
+  35s  [VERITAS] avvio simulazione montato nella barra di riproduzione
+  36s  [EIDETICA carta] nati dopo: 2 fondi, 0 etichette
+  44s  MISURA 2_dopo_entra {"vestito":"carta","renderer":{"toneMapping":4,"esposizione":1.1,"colorSpace":"srgb","ombre":true,"tipoOmbre":2,"pixelRatio":1,"clearAlpha":0,"fondoTela":"rgb(14, 19, 27)","fondoPadre":"none"},"fondo":"[object Object]","foschia":{"colore":"#0b0f17","near":236.2797602619165,"far":708.8392807857496},"luci":[{"tipo":"AmbientLight","colore":"#ffffff","intensita":0.12,"pos":[0,0,0],"ombra":false,"mappa":null,"visibile":true},{"tipo":"DirectionalLight","colore":"#ffffff","intensita":1.7,"pos":[24.4,122,24.8],"ombra":true,"mappa":4096,"visibile":true},{"tipo":"DirectionalLight","colore":"#8ec8ff","intensita":0.35,"pos":[-20,20,-20],"ombra":false,"mappa":512,"visibile":true},{"tipo":"HemisphereLight","colore":"#b8c4d6","intensita":0.95,"pos":[0,1,0],"ombra":false,"mappa":null,"visibile":true}],"griglie":[{"nome":"","visibile":false,"colore":"#ffffff"}],"figliScena":["AmbientLight:","DirectionalL
+  44s  Avvia premuto: true
+  44s  [EIDETICA carta] nati dopo: 2 fondi, 0 etichette
+  82s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  82s  [VERITAS] barra di riproduzione fatta ripartire col PLAY
+  82s  inquadrato: true
+  83s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  83s  [EIDETICA carta] nati dopo: 2 fondi, 0 etichette
+  89s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  90s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  91s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
+  97s  FERMA dopo 5 rimpiazzi, l'ultimo 6 s fa
+ 116s  SGUARDO versione 5 -> 5, rimpiazzi totali 5, campioni 10
+ 116s  [VERITAS] Traiettoria aggiornata: 800 frame, 18 punti.
