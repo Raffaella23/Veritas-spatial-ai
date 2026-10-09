@@ -197,7 +197,7 @@ console.log(ora() + "  DIAGNOSI " + JSON.stringify(diagnosi));
 // si guarda il tavolo: testa inclinata di 40° in giu', come chi sta davanti a un plastico
 await p.evaluate(() => window.__provaXR.quaternion.set(-Math.sin(20 * Math.PI / 180), 0, 0, Math.cos(20 * Math.PI / 180)));
 await aspetta(1500);
-const occhiata = await p.evaluate(() => new Promise((ok) => {
+const FOTO = () => new Promise((ok) => {
   const S = window.__veritasScene, R = window.__veritasRenderer, vecchio = S.onAfterRender;
   S.onAfterRender = function (r) {
     if (vecchio) vecchio.apply(this, arguments);
@@ -211,12 +211,45 @@ const occhiata = await p.evaluate(() => new Promise((ok) => {
     const x = c.getContext("2d"), img = x.createImageData(w, h);
     for (let y = 0; y < h; y++) img.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
     x.putImageData(img, 0, 0);
-    let acceso = 0; for (let i = 0; i < px.length; i += 400) if (px[i] + px[i + 1] + px[i + 2] > 90) acceso++;
-    ok({ w, h, accesi: +(acceso / (px.length / 400)).toFixed(3), png: c.toDataURL("image/png") });
+    let acceso = 0, vuoti = 0; for (let i = 0; i < px.length; i += 400) { if (px[i] + px[i + 1] + px[i + 2] > 90) acceso++; if (px[i + 3] < 10) vuoti++; }
+    ok({ w, h, accesi: +(acceso / (px.length / 400)).toFixed(3), trasparenti: +(vuoti / (px.length / 400)).toFixed(3),
+         png: c.toDataURL("image/png") });
   };
-}));
+});
+const occhiata = await p.evaluate(FOTO);
 fs.writeFileSync(path.join(CARTELLA, "2_negli_occhi_del_visore.png"), Buffer.from(occhiata.png.split(",")[1], "base64"));
-console.log(ora() + "  FOTO DEL VISORE " + occhiata.w + " x " + occhiata.h + ", punti accesi " + occhiata.accesi);
+console.log(ora() + "  FOTO DEL VISORE " + occhiata.w + " x " + occhiata.h + ", punti accesi " + occhiata.accesi + ", trasparenti " + occhiata.trasparenti);
+// PASSTHROUGH (09/10): la stanza vera dietro il plastico; spento = la scena scura
+// cosa il disegno MANDA al visore: il fondo della scena e la pulitura (il colore e
+// l'alfa con cui three pulisce il foglio del visore). La foto qui sopra non lo
+// vede: il simulatore disegna sulla tela della pagina, opaca (alpha:false).
+const SPIA = () => new Promise((ok) => {
+  const R = window.__veritasRenderer, gl = R.getContext(), S = window.__veritasScene, vero = gl.clearColor;
+  const v = { disegni: 0, fondoNullo: 0, pulite: [], foto: 0 };
+  // solo i disegni che vanno AL VISORE: le foto dell'occhio hanno un bersaglio loro
+  const alVisore = () => { const t = R.getRenderTarget(); return R.xr.isPresenting && R.xr.enabled && (!t || t.isXRRenderTarget === true); };
+  gl.clearColor = function (r, g, b, a) { if (alVisore() && v.pulite.length < 40) v.pulite.push(+a.toFixed(2)); return vero.apply(this, arguments); };
+  const vecchio = S.onBeforeRender;
+  S.onBeforeRender = function (r) { if (vecchio) vecchio.apply(this, arguments);
+    if (!r.xr.isPresenting) return; if (!alVisore()) { v.foto++; return; } v.disegni++; if (S.background === null) v.fondoNullo++;
+    else if ((v.chi = v.chi || []).length < 3) v.chi.push(String(new Error().stack).split(String.fromCharCode(10)).slice(2, 9).map((r) => r.trim().replace(/https?:\/\/[^ )]*\//, "").slice(0, 90)).join(" < ")); };
+  setTimeout(() => { gl.clearColor = vero; S.onBeforeRender = vecchio;
+    ok({ disegni: v.disegni, fondoNullo: v.fondoNullo, fotoDellOcchio: v.foto, alfaDiPulitura: [...new Set(v.pulite)], chi: v.chi || [] }); }, 2500);
+});
+const spiaAcceso = await p.evaluate(SPIA);
+await p.evaluate(() => window.eideticaVisore.passthrough(false));
+const spiaSpento = await p.evaluate(SPIA);
+await p.evaluate(() => window.eideticaVisore.passthrough(true));
+console.log(ora() + "  SPIA acceso " + JSON.stringify(spiaAcceso) + " | spento " + JSON.stringify(spiaSpento));
+const sessioneAR = await p.evaluate(() => { const s = window.__veritasRenderer.xr.getSession(), st = window.eideticaVisore.stato();
+  return { ar: st.ar, supportatoAR: st.supportatoAR, passthrough: st.passthrough, fondo: s && s.environmentBlendMode }; });
+await p.evaluate(() => window.eideticaVisore.passthrough(false));
+await aspetta(800);
+const occhiataSpento = await p.evaluate(FOTO);
+fs.writeFileSync(path.join(CARTELLA, "2b_passthrough_spento.png"), Buffer.from(occhiataSpento.png.split(",")[1], "base64"));
+await p.evaluate(() => window.eideticaVisore.passthrough(true));
+console.log(ora() + "  PASSTHROUGH " + JSON.stringify(sessioneAR) + " acceso: trasparenti " + occhiata.trasparenti
+  + " | spento: trasparenti " + occhiataSpento.trasparenti + ", accesi " + occhiataSpento.accesi);
 
 // 3. FUORI: di nuovo il pulsante
 await p.click("#eidetica-visore");
@@ -248,6 +281,9 @@ const ok = {
   ritorno: dopo.distanza_cm < 0.01 && dopo.angolo_gradi < 0.01 && dopo.fov === dopo.fovPrima && dopo.genitore === null
            && dopo.comandi === dopo.comandiPrima && dopo.ritmoRestituito && !dopo.xrAcceso,
   scenaContinua: dopo.agenti.mossiOltre30cm > 0,
+  passthrough: sessioneAR.ar && sessioneAR.fondo === "alpha-blend" && occhiata.trasparenti >= 0.3 && occhiataSpento.trasparenti < 0.01,
+  passthroughSpia: sessioneAR.ar && spiaAcceso.disegni > 0 && spiaAcceso.fondoNullo === spiaAcceso.disegni
+    && spiaAcceso.alfaDiPulitura.every((a) => a === 0) && spiaSpento.fondoNullo === 0,
 };
 console.log(ora() + "  ESITO " + JSON.stringify(ok) + "  -> " + (Object.values(ok).every(Boolean) ? "RIUSCITA" : "NON RIUSCITA"));
 fs.writeFileSync(path.join(CARTELLA, "misure.json"), JSON.stringify({ pulsante, dentro, dopo, ok }, null, 1));
