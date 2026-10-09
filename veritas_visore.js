@@ -91,6 +91,10 @@ const V = {
   prese: 0,
   punti: null,        // i punti di luce di mani e controller
   costoMani: 0,       // ms per fotogramma della presa + dei punti (media)
+  supportatoAR: false, // il browser sa fare il passthrough (Quest Browser: si'; Chrome via Link: no)
+  ar: false,          // la sessione in corso e' «immersive-ar»
+  passthrough: true,  // la stanza vera dietro il plastico (solo se ar)
+  tastoPrima: false,  // il tasto A/X al fotogramma prima (per accorgersi della pressione)
 };
 
 function esperienza() {
@@ -207,13 +211,39 @@ function campoDeiDueOcchi(T, cXR, scala) {
 // Un errore qui dentro non deve spegnere il giro del visore: three chiede il
 // fotogramma dopo SOLO se questo e' finito bene, e senza fotogrammi il Quest
 // mostra la clessidra.
+// ─── IL PASSTHROUGH (09/10) ───────────────────────────────────────────────
+// Raffaella, 09/10: «troppo scuro, troppo buio: prima di tutto il
+// passthrough». Il Quest mostra la stanza vera solo in una sessione
+// «immersive-ar» (Quest Browser; Chrome via Link non la offre, misurato il
+// 03/10): li' il plastico sta nella stanza, sul tavolo vero. Il tasto A (o X)
+// del controller lo accende e lo spegne: spento = la scena scura di prima.
+function tastoDelPassthrough(frame) {
+  if (!V.ar) return;
+  let giu = false;
+  for (const s of frame.session.inputSources || []) {
+    const g = s.gamepad;
+    if (g && g.buttons && g.buttons[4] && g.buttons[4].pressed) giu = true;
+  }
+  if (giu && !V.tastoPrima) passthrough(!V.passthrough);
+  V.tastoPrima = giu;
+}
+
+function passthrough(si) {
+  V.passthrough = !!si;
+  console.log("[EIDETICA visore] passthrough " + (V.passthrough ? "acceso" : "spento"));
+  return V.passthrough;
+}
+
 function fotogramma(tempo, frame) {
   if (!frame || !V.sessione) return;
   const t0 = performance.now();
   const ren = window.__veritasRenderer, cam = window.__veritasCamera;
   const terra = V.tavolo && V.tavolo.terra, terraAccesa = terra ? terra.visible : false;
+  const scena = window.__veritasScene, fondo = scena ? scena.background : null;
+  const stanza = V.ar && V.passthrough;
   try {
     const tm = performance.now();
+    tastoDelPassthrough(frame);
     seguiLaPresa(window.THREE);            // il supporto, prima della telecamera
     disegnaLeMani(window.THREE);
     if (V.punti) V.punti.visible = true;
@@ -224,18 +254,24 @@ function fotogramma(tempo, frame) {
     ren.__eideticaSchermoVisore = ren.getRenderTarget();
     // nel visore il terreno della scena diventa il piano del tavolo
     if (terra) terra.visible = false;
-    if (V.tavolo) V.tavolo.piano.visible = true;
+    // col passthrough il tavolo e' quello vero della stanza: il piano finto no,
+    // e niente fondo dipinto (three, senza fondo, pulisce trasparente in AR)
+    if (V.tavolo) V.tavolo.piano.visible = !stanza;
+    if (stanza && scena) scena.background = null;
     // il plastico unito al posto dei suoi 2.416 pezzi (sotto, IL PLASTICO UNITO);
     // al primo fotogramma non c'e' ancora: si leggono i materiali della carta
     if (V.unito) accendiUnito(true); else if (!V.cattura) V.cattura = catturaIMateriali();
     const coda = V.coda;
     V.coda = [];
+    V.dentroFotogramma = true;
     for (const [, cb] of coda) {
       try { cb(tempo); } catch (e) { console.warn("[EIDETICA visore]", e && e.message); }
     }
   } catch (e) {
     console.warn("[EIDETICA visore] fotogramma:", e && e.message);
   } finally {
+    V.dentroFotogramma = false;
+    if (stanza && scena) scena.background = fondo;
     if (terra) terra.visible = terraAccesa;
     if (V.tavolo) V.tavolo.piano.visible = false;
     if (V.unito) accendiUnito(false);
@@ -565,9 +601,18 @@ function prendiGliScatti(ren) {
   const vero = ren.render;
   const nostro = function (scena, camera) {
     const rt = ren.getRenderTarget();
-    if (!V.scatti || !ren.xr.enabled || !rt || rt.isXRRenderTarget === true) return vero.apply(this, arguments);
+    // 09/10: anche un disegno «sullo schermo» FUORI dal fotogramma del visore
+    // e' una foto (misurato: captureFOV, le occhiate degli agenti, index.html,
+    // disegnano fra un fotogramma e l'altro): al visore non arriva, e con la
+    // telecamera del visore al posto della sua l'occhiata usciva sbagliata.
+    // ⚠️ fuori dal fotogramma three dichiara come bersaglio quello del visore
+    //    (isXRRenderTarget), non «nessuno»: si guarda solo il tempo.
+    const alVisore = !rt || rt.isXRRenderTarget === true;
+    if (!V.scatti || !ren.xr.enabled || (alVisore && V.dentroFotogramma)) return vero.apply(this, arguments);
     ren.xr.enabled = false;
-    try { return vero.apply(this, arguments); } finally { ren.xr.enabled = true; }
+    if (alVisore) ren.setRenderTarget(null);   // senza visore per three: la tela della pagina
+    try { return vero.apply(this, arguments); }
+    finally { ren.xr.enabled = true; if (alVisore && rt) ren.setRenderTarget(rt); }
   };
   ren.render = nostro;
   V.scatti = { vero, nostro };
@@ -587,8 +632,11 @@ async function entra() {
   if (V.sessione || !T || !ren || !cam || !window.__veritasModelRoot || !navigator.xr) return false;
   if (window.eideticaSelezione && window.eideticaSelezione.negliOcchi()) return false;
   // la sessione si chiede per prima: vuole il clic ancora «caldo»
-  const sessione = await navigator.xr.requestSession("immersive-vr",
+  // col passthrough se il browser lo sa fare (Quest Browser), se no come prima
+  const modo = V.supportatoAR ? "immersive-ar" : "immersive-vr";
+  const sessione = await navigator.xr.requestSession(modo,
     { optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"] });
+  V.ar = modo === "immersive-ar";
 
   // Prima il visore, poi la scena. Misurato col Quest vero il 30/09: il primo
   // tentativo puo' essere rifiutato (setSession: «object not usable») e il
@@ -634,6 +682,8 @@ async function entra() {
     const gl = ren.getContext(), d = gl.getExtension("WEBGL_debug_renderer_info");
     console.log("[EIDETICA visore] scheda grafica: " + (d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : "?"));
   } catch (e) { /* solo informazione */ }
+  console.log("[EIDETICA visore] sessione " + modo + ", fondo " + (sessione.environmentBlendMode || "?")
+    + (V.ar ? ", passthrough " + (V.passthrough ? "acceso" : "spento") + " (tasto A/X)" : ""));
   console.log("[EIDETICA visore] dentro: plastico 1:" + Math.round(scala) + ", "
     + misure.x.toFixed(0) + " x " + misure.z.toFixed(0) + " m -> "
     + (misure.x / scala).toFixed(2) + " x " + (misure.z / scala).toFixed(2) + " m");
@@ -657,6 +707,7 @@ function esci() {
   const s = V.sessione;
   if (!s && !V.salvato) return;
   V.sessione = null;
+  V.ar = false; V.tastoPrima = false;
   lasciaIlRitmo();
   const ren = window.__veritasRenderer, cam = window.__veritasCamera, ctrl = window.__veritasControls;
   if (ren) rimettiIlRenderer(ren);
@@ -737,6 +788,9 @@ function premuto() {
 async function chiediAlBrowser() {
   try { V.supportato = !!(navigator.xr && await navigator.xr.isSessionSupported("immersive-vr")); }
   catch (e) { V.supportato = false; }
+  try { V.supportatoAR = !!(navigator.xr && await navigator.xr.isSessionSupported("immersive-ar")); }
+  catch (e) { V.supportatoAR = false; }
+  if (V.supportatoAR) V.supportato = true;
   aggiornaPulsante();
 }
 
@@ -760,8 +814,9 @@ function avvio() {
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.eideticaVisore = {
-    entra, esci,
-    stato: () => ({ supportato: V.supportato, dentro: !!V.sessione, scala: V.scala,
+    entra, esci, passthrough,
+    stato: () => ({ supportato: V.supportato, supportatoAR: V.supportatoAR, ar: V.ar,
+                    passthrough: V.ar && V.passthrough, dentro: !!V.sessione, scala: V.scala,
                     fotogrammi: V.fotogrammi, inFila: V.coda.length,
                     ingressi: (V.ingressi || []).filter((x) => x.fonte)
                       .map((x) => (x.fonte.hand ? "mano " : "controller ") + (x.fonte.handedness || "?")),

@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-10-01-a";
+window.__EIDETICA_COSTRUZIONE = "2026-10-09-b";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -972,8 +972,25 @@ window.__EIDETICA_COSTRUZIONE = "2026-10-01-a";
     // Una strada sola: si sceglie il file, e SOLO ALLORA compare il resto.
     const inputFile = card.querySelector("#v-new-file");
     card.querySelector("#v-pick-file").onclick = () => inputFile.click();
-    inputFile.onchange = () => {
-      const file = inputFile.files && inputFile.files[0];
+    inputFile.onchange = () => scegliIlFile(inputFile.files && inputFile.files[0]);
+
+    // 09/10 — IL MODELLO DALL'INDIRIZZO, per il visore. Raffaella: nel Quest
+    // Browser (l'unico col passthrough) non si sceglie un file: il modello di
+    // ogni progetto sta solo nel browser che l'ha caricato. Con
+    // «?modello=nome.glb» il file si prende dalla stessa cartella del sito e la
+    // strada e' quella di sempre: compare il modulo, si preme «Crea e apri».
+    // Solo un nome di file della stessa cartella, niente indirizzi altrui.
+    const daIndirizzo = new URLSearchParams(location.search).get("modello");
+    if (daIndirizzo && !fileDaMettereInScena && /^[\w.\-]+\.(glb|gltf)$/i.test(daIndirizzo)) {
+      card.querySelector("#v-nuovo-form").style.display = "";
+      card.querySelector("#v-file-scelto").textContent = daIndirizzo + " …";
+      fetch("./" + daIndirizzo)
+        .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
+        .then((b) => scegliIlFile(new File([b], daIndirizzo, { type: "model/gltf-binary" })))
+        .catch((e) => { card.querySelector("#v-file-scelto").textContent = daIndirizzo + ": " + (e && e.message); });
+    }
+
+    function scegliIlFile(file) {
       if (!file) return;
       fileDaMettereInScena = file;
       const senzaEstensione = (file.name || "").replace(/\.[^.]+$/, "");
@@ -31316,7 +31333,7 @@ if (typeof window !== 'undefined') {
 <!-- LA SELEZIONE: clic su una persona, gli altri si attenuano, il suo cartellino (29/09). -->
 <script type="module" src="./veritas_selezione.js?v=6"></script>
 <!-- IL VISORE: la stessa scena, il plastico in scala nel Quest (Fase C, 30/09). -->
-<script type="module" src="./veritas_visore.js?v=7"></script>
+<script type="module" src="./veritas_visore.js?v=8"></script>
 <script type="module" src="./veritas_lingua.js?v=2"></script>
 <script type="module" src="./veritas_accessi.js?v=11"></script>
 <script type="module" src="./veritas_cinema.js?v=48"></script>
