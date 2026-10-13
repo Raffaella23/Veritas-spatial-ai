@@ -174,12 +174,12 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
-| **Ultimo commit di codice pubblicato** | `ca93e57` — *visore: agenti in cammino da /quest e finestre dal vivo nel passthrough* (costruzione `2026-10-13-b`, 13/10 sera) |
+| **Ultimo commit di codice pubblicato** | `6d86c88` — *visore: plastico davanti a chi guarda, pulsante che lampeggia, spia* (costruzione `2026-10-13-c`, 13/10 sera) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
 | **Branch** | `esperienza-plastico` = `6122289` (09/10): UNITA in `main` il 09/10. Da qui si lavora su `main` (o su una branch nuova da `main`) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-10-13-b` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-b`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
+| **Costruzione pubblicata e servita** | `2026-10-13-c` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-c`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -1965,6 +1965,25 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     `prova_costo_finestre.mjs` (solo nello scratchpad della sessione).
   - **Da verificare sul Quest vero:** l'analisi gira e a che ritmo; le mani
     nude prendono; leggibilita', misura e posto delle finestre.
+  - **Prova vera di `-b` (Raffaella):** entrare e aspettare nel visore «non
+    esiste»; dentro NON si vedeva niente; premuto il tasto per uscire, accanto
+    alla pagina comparivano plastico e finestre «in basso a destra», agenti in
+    cammino, ma niente mani ne' controller; rientrando, di nuovo niente. Nel
+    Quest simulato (stessa versione, stessi passi) plastico e finestre arrivano
+    agli occhi davanti: il guasto e' solo sul Quest vero, NON ancora capito.
+    Sospetto: l'origine del pavimento del Quest e' il centro della zona, non la
+    testa → scena fuori dallo sguardo (come la prima volta, «a terra a destra»).
+  - **`2026-10-13-c` (`6d86c88`), pubblicata come PROVA per capire** (si' di
+    Raffaella): plastico 0,9 m davanti alla testa e piano 0,55 m sotto gli
+    occhi al primo fotogramma e a 1,5 s (tasto B/Y e «ricentra» del Quest lo
+    rifanno; finestre con lui); «Entra nel visore» spento con l'avanzamento
+    finche' gli zoom non sono finiti e le persone camminano, poi lampeggia;
+    pulsante anche in Analisi nel Quest Browser; **la spia**: cartellino davanti
+    agli occhi + riquadro in basso a sinistra sulla pagina (fps, stato del
+    Quest, plastico «a X m · gradi destra/sinistra · su/giu'», errori).
+    ⚠️ Trappola misurata: fuori dal fotogramma del visore la telecamera della
+    pagina viene spostata dal giro del bundle; la testa si legge solo subito
+    dopo `updateCamera` (`V.testa`).
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
