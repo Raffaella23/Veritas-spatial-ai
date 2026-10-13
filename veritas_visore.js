@@ -56,11 +56,13 @@ const TESTI = {
   it: { entra: "Entra nel visore", esci: "Esci dal visore",
         titolo: "Il plastico in scala, nel visore (Quest Link)",
         prepara: "Visore in preparazione", pronto: "Ora puoi entrare nel visore",
-        zoom: "zoom", avvia: "premi ▶ Avvia simulazione", persone: "le persone partono" },
+        zoom: "zoom", avvia: "premi ▶ Avvia simulazione", persone: "le persone partono",
+        comincia: "l'occhio sta per cominciare" },
   en: { entra: "Enter headset", esci: "Exit headset",
         titolo: "The scale model, in the headset (Quest Link)",
         prepara: "Headset getting ready", pronto: "You can now enter the headset",
-        zoom: "close-ups", avvia: "press ▶ Start simulation", persone: "people are setting off" },
+        zoom: "close-ups", avvia: "press ▶ Start simulation", persone: "people are setting off",
+        comincia: "the eye is about to start" },
 };
 function lingua() {
   try { return localStorage.getItem("veritasLang") === "it" ? "it" : "en"; } catch (e) { return "en"; }
@@ -101,12 +103,12 @@ function prontoPerIlVisore() {
   let st = null;
   try { st = window.__veritasApertura && window.__veritasApertura.stato(); } catch (e) { st = null; }
   const veloAperto = !!(st && st.aperta);
-  const analisi = !veloAperto || OCCHIO.regiaFinita || (st && st.occhioHaParlato)
+  // 13/10 notte - Raffaella: «non vedo il processo di lettura dell'occhio, che e'
+  // la cosa che voglio vedere». Si entra quando l'occhio COMINCIA a leggere (la
+  // regia parte, a modello in scala): l'attesa diventa lo spettacolo.
+  const analisi = !veloAperto || OCCHIO.regiaIniziata || OCCHIO.regiaFinita || (st && st.occhioHaParlato)
     || (st && (st.stato === "conformita" || st.stato === "orientamento"));
-  if (!analisi) {
-    const f = OCCHIO.fermata;
-    return { pronto: false, perche: f && f.quante ? t.zoom + " " + ((f.indice || 0) + 1) + "/" + f.quante : "" };
-  }
+  if (!analisi) return { pronto: false, perche: t.comincia };
   if (!window.__veritasSimStarted && !veloAperto) return { pronto: true, perche: "" };   // pagina senza simulazione: come prima
   if (!window.__veritasSimStarted) return { pronto: false, perche: t.persone };
   return { pronto: true, perche: "" };
@@ -305,6 +307,37 @@ function metticiDavanti(T, W) {
   W.quat.copy(W.quat0).premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), V.centro.giro));
 }
 
+// 13/10 notte - Raffaella: «il plastico c'e', ma spostato di lato» (spia: 29° a
+// destra). Al primo fotogramma si guarda ancora il pulsante della pagina; poi
+// ci si gira. Nei primi SEGUI_S secondi, finche' nessuno lo prende: se la testa
+// e' ferma (meno di 5° in 0,7 s) e guarda oltre 15° di lato, il plastico torna
+// davanti. Dopo resta fermo; lo riporta il «ricentra» del Quest (anche a mani).
+const SEGUI_S = 10;
+function seguiConCalma() {
+  if (!V.centro || !V.testa || V.presa || V.presaFinestra) return;
+  const ora = performance.now();
+  if (ora - V.dentroDa > SEGUI_S * 1000) return;
+  if (V.prossimoControllo && ora < V.prossimoControllo) return;
+  V.prossimoControllo = ora + 700;
+  const T = window.THREE, f = new T.Vector3(0, 0, -1).applyQuaternion(V.testa.quat);
+  if (Math.hypot(f.x, f.z) < 0.2) return;
+  const giro = Math.atan2(-f.x, -f.z), ang = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const fermo = V.giroPrima != null && Math.abs(ang(giro - V.giroPrima)) < 5 * Math.PI / 180;
+  V.giroPrima = giro;
+  if (fermo && Math.abs(ang(giro - V.centro.giro)) > 15 * Math.PI / 180) V.daCentrare = true;
+}
+
+// la spia degli ingressi (13/10 notte): quanti ne vede il Quest e quanti ne collega three
+function contaGliIngressi(frame) {
+  const D = V.diag || (V.diag = {});
+  const src = frame.session.inputSources || [];
+  let mani = 0; for (const s of src) if (s.hand) mani++;
+  D.quest = src.length; D.maniQuest = mani; D.maxQuest = Math.max(D.maxQuest || 0, src.length);
+  const coll = (V.ingressi || []).filter((x) => x.fonte).length;
+  D.maxCollegati = Math.max(D.maxCollegati || 0, coll);
+  if (!D.concessi) try { D.concessi = frame.session.enabledFeatures ? [...frame.session.enabledFeatures].join(",") : "?"; } catch (e) { D.concessi = "?"; }
+}
+
 function tastoDelCentro(frame) {
   let giu = false;
   for (const s of frame.session.inputSources || []) {
@@ -331,7 +364,9 @@ function fotogramma(tempo, frame) {
   try {
     const tm = performance.now();
     tastoDelPassthrough(frame);
+    contaGliIngressi(frame);
     tastoDelCentro(frame);
+    seguiConCalma();
     if (V.daCentrare && centraSuChiGuarda(window.THREE, frame)) V.daCentrare = false;
     pizzichiDelleMani(window.THREE);       // la mano nuda: il pizzico dalle dita
     seguiLaPresa(window.THREE);            // il supporto, prima della telecamera
@@ -549,7 +584,7 @@ function preparaGliIngressi(ren) {
     });
     raggio.addEventListener("disconnected", () => { if (V.presa && V.presa.i === i) V.presa = null; ing.fonte = null; });
     const eMano = (e) => !!(e.data && e.data.hand);
-    raggio.addEventListener("selectstart", (e) => { if (eMano(e)) prendi(ing); });
+    raggio.addEventListener("selectstart", (e) => { V.selezioni = (V.selezioni || 0) + 1; if (eMano(e)) prendi(ing); });
     raggio.addEventListener("selectend", (e) => { if (eMano(e)) lascia(ing); });
     raggio.addEventListener("squeezestart", (e) => { if (!eMano(e)) prendi(ing); });
     raggio.addEventListener("squeezeend", (e) => { if (!eMano(e)) lascia(ing); });
@@ -768,7 +803,7 @@ function lasciaGliScatti(ren) {
 const FINESTRE = {
   //            larga  alta  posto (metri reali: x destra, y da terra, z davanti = -)
   racconto: { l: 0.52, h: 0.42, posto: [-0.80, 1.30, -0.72] },
-  zoom:     { l: 0.46, h: 0.58, posto: [0.00, 1.45, -1.50] },
+  zoom:     { l: 0.58, h: 0.73, posto: [0.00, 1.42, -1.40] },   // 13/10 notte: il cuore, piu' grande
   vedo:     { l: 0.52, h: 0.42, posto: [0.80, 1.30, -0.72] },
 };
 const FINESTRA_PX = 900;                    // larghezza del disegno
@@ -802,12 +837,16 @@ const titoli = () => TITOLI[lingua()];
 // ⚠️ Il nome arriva DOPO la fermata (misurato il 13/10: l'occhio guarda un
 //    foglio da quattro, il carrello e' gia' avanti di tre): sotto l'immagine
 //    di adesso si mostra l'ultimo oggetto nominato con la SUA immagine.
-const OCCHIO = { fermata: null, immagine: null, immagini: new Map(), nome: null, immagineNome: null,
+const OCCHIO = { fermata: null, immagine: null, immagini: new Map(), fermate: new Map(), nome: null, immagineNome: null,
                  nominati: 0, ultimo: 0, cambio: 0 };
 function ascoltaLOcchio() {
   addEventListener("veritas:fermata", (e) => {
     const d = e.detail || {};
     OCCHIO.fermata = d; OCCHIO.cambio++;
+    if (d.indice != null && d.min && d.max) {
+      OCCHIO.fermate.set(d.indice, { min: d.min, max: d.max });
+      if (OCCHIO.fermate.size > 24) OCCHIO.fermate.delete(OCCHIO.fermate.keys().next().value);
+    }
     if (d.immagine) {
       const img = new Image();
       img.onload = () => {
@@ -820,7 +859,7 @@ function ascoltaLOcchio() {
   });
   addEventListener("veritas:regia", (e) => {
     const d = e.detail || {};
-    if (d.fase === "inizio") OCCHIO.regiaFinita = false;
+    if (d.fase === "inizio") { OCCHIO.regiaFinita = false; OCCHIO.regiaIniziata = true; }
     if (d.fase === "fine") OCCHIO.regiaFinita = true;
   });
   addEventListener("veritas:nome", (e) => {
@@ -877,6 +916,7 @@ function preparaLeFinestre(T) {
   recinto.raycast = () => {};
   gruppo.add(recinto);
   F.recinto = recinto;
+  F.lettura = preparaLaLettura(T, gruppo);
   F.timer = setInterval(() => leggiLeFinestre(F), BATTITO_FINESTRE);
   leggiLeFinestre(F);
   return F;
@@ -1097,8 +1137,9 @@ function posaLeFinestre(T) {
     W.mesh.matrix.multiplyMatrices(V.supporto.matrixWorld, M);
     W.mesh.matrixWorld.copy(W.mesh.matrix);
   }
+  posaLaLettura(T, F.lettura, L.zoom.aperta && !OCCHIO.regiaFinita);
   // il recinto sull'oggetto che l'occhio guarda (metri veri, nella scena)
-  const f = L.zoom.aperta ? OCCHIO.fermata : null;
+  const f = L.zoom.aperta && !OCCHIO.regiaFinita ? OCCHIO.fermata : null;
   F.recinto.visible = !!(f && f.min && f.max);
   if (F.recinto.visible && F.fermataRecinto !== f) {
     F.fermataRecinto = f;
@@ -1108,6 +1149,114 @@ function posaLeFinestre(T) {
                 Math.max(0.05, f.max[2] - f.min[2]) * mar);
     r.updateMatrixWorld(true);
   }
+}
+
+// ── LA LETTURA DELL'OCCHIO, SUL PLASTICO (13/10 notte) ──
+// Raffaella: «il processo di lettura dell'occhio e' il cuore di EIDETICA».
+// Sul PC il velo mostra una telecamera che va dalle cose (§0.5); nel visore la
+// si vede SUL PLASTICO: una piccola telecamera di luce sta dove sta l'occhio
+// (la STESSA telecamera della fermata, veritas:fermata camera.mondo) e vola
+// da un oggetto all'altro; un filo la lega all'oggetto guardato; quando
+// l'occhio nomina un oggetto, sopra di lui compare il cartellino col nome e il
+// ragionamento (veritas:nome). Nessun dato nuovo, nessuna animazione finta: si
+// muove solo quando l'occhio si muove. Misure in metri reali x scala.
+const OCCHIO_LATO_M = 0.05, NOME_L = 0.20, NOME_H = 0.062, NOME_SOPRA_M = 0.035, CARRELLO_S = 0.35;
+function preparaLaLettura(T, gruppo) {
+  const luce = () => new T.LineBasicMaterial({ color: TINTE_DEL_VELO.oggetti, transparent: true, opacity: 0.95, toneMapped: false, fog: false });
+  // la telecamera: vertice + piramide aperta verso -z (come una telecamera di three)
+  const v = [0, 0, 0], a = [-0.6, 0.45, -1], b = [0.6, 0.45, -1], c = [0.6, -0.45, -1], d = [-0.6, -0.45, -1];
+  const g = new T.BufferGeometry();
+  g.setAttribute("position", new T.Float32BufferAttribute([...v, ...a, ...v, ...b, ...v, ...c, ...v, ...d,
+    ...a, ...b, ...b, ...c, ...c, ...d, ...d, ...a], 3));
+  const occhio = new T.Group();
+  occhio.name = "eidetica-visore-occhio";
+  const piramide = new T.LineSegments(g, luce());
+  occhio.add(piramide);
+  const punto = new T.Mesh(new T.SphereGeometry(0.18, 12, 8),
+    new T.MeshBasicMaterial({ color: TINTE_DEL_VELO.oggetti, toneMapped: false, fog: false }));
+  occhio.add(punto);
+  occhio.visible = false;
+  gruppo.add(occhio);
+  const filo = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), luce());
+  filo.material.opacity = 0.55; filo.frustumCulled = false; filo.visible = false;
+  gruppo.add(filo);
+  // il cartellino del nome, sopra l'oggetto nominato
+  const tela = document.createElement("canvas");
+  tela.width = 640; tela.height = Math.round(640 * NOME_H / NOME_L);
+  const trama = new T.CanvasTexture(tela);
+  trama.colorSpace = T.SRGBColorSpace;
+  const nome = new T.Mesh(new T.PlaneGeometry(1, 1),
+    new T.MeshBasicMaterial({ map: trama, transparent: true, toneMapped: false, depthWrite: false, fog: false }));
+  nome.name = "eidetica-visore-nome";
+  nome.renderOrder = 11; nome.visible = false; nome.matrixAutoUpdate = false; nome.frustumCulled = false;
+  gruppo.add(nome);
+  const asta = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), luce());
+  asta.frustumCulled = false; asta.visible = false;
+  gruppo.add(asta);
+  return { occhio, filo, nome, asta, tela, trama,
+           disposti: [g, punto.geometry, filo.geometry, nome.geometry, asta.geometry],
+           materiali: [piramide.material, punto.material, filo.material, nome.material, asta.material],
+           posa: null, ultimo: performance.now(), nomeDi: null, voli: 0 };
+}
+
+function posaLaLettura(T, Lt, accesa) {
+  if (!Lt) return;
+  const ora = performance.now(), dt = Math.min(0.2, (ora - Lt.ultimo) / 1000);
+  Lt.ultimo = ora;
+  const f = accesa ? OCCHIO.fermata : null, m = f && f.camera && f.camera.mondo;
+  Lt.occhio.visible = Lt.filo.visible = !!(m && m.length === 16 && V.scala);
+  if (Lt.occhio.visible) {
+    // il carrello: dalla posa di prima a quella della fermata, con calma
+    const meta = new T.Matrix4().fromArray(m), p = new T.Vector3(), q = new T.Quaternion(), s = new T.Vector3();
+    meta.decompose(p, q, s);
+    if (!Lt.posa) Lt.posa = { p: p.clone(), q: q.clone() };
+    if (Lt.posa.p.distanceTo(p) > 0.01) Lt.voli++;
+    const k = 1 - Math.exp(-dt / CARRELLO_S);
+    Lt.posa.p.lerp(p, k); Lt.posa.q.slerp(q, k);
+    Lt.occhio.position.copy(Lt.posa.p); Lt.occhio.quaternion.copy(Lt.posa.q);
+    Lt.occhio.scale.setScalar(OCCHIO_LATO_M * V.scala);
+    Lt.occhio.updateMatrixWorld(true);
+    const c = f.centro || [(f.min[0] + f.max[0]) / 2, (f.min[1] + f.max[1]) / 2, (f.min[2] + f.max[2]) / 2];
+    const pos = Lt.filo.geometry.attributes.position;
+    pos.setXYZ(0, Lt.posa.p.x, Lt.posa.p.y, Lt.posa.p.z); pos.setXYZ(1, c[0], c[1], c[2]); pos.needsUpdate = true;
+  }
+  // il nome sopra l'oggetto nominato: resta finche' ne arriva un altro (8 s dopo l'ultimo, sparisce)
+  const n = OCCHIO.nome, dove = n && OCCHIO.fermate.get(n.indice);
+  const vivo = !!(n && n.nome && dove && V.testa && V.supporto && (accesa || Date.now() - OCCHIO.ultimo < 8000));
+  Lt.nome.visible = Lt.asta.visible = vivo;
+  if (!vivo) return;
+  if (Lt.nomeDi !== n) { Lt.nomeDi = n; disegnaIlNome(Lt, n); }
+  const sc = V.scala, cx = (dove.min[0] + dove.max[0]) / 2, cz = (dove.min[2] + dove.max[2]) / 2;
+  const base = new T.Vector3(cx, dove.max[1], cz), su = base.clone().add(new T.Vector3(0, NOME_SOPRA_M * sc, 0));
+  const centro = su.clone().add(new T.Vector3(0, NOME_H * sc / 2, 0));
+  const testa = V.testa.pos.clone().applyMatrix4(V.supporto.matrixWorld);
+  const giro = Math.atan2(testa.x - centro.x, testa.z - centro.z);
+  Lt.nome.matrix.compose(centro, new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), giro), new T.Vector3(NOME_L * sc, NOME_H * sc, 1));
+  Lt.nome.matrixWorld.copy(Lt.nome.matrix);
+  const pa = Lt.asta.geometry.attributes.position;
+  pa.setXYZ(0, base.x, base.y, base.z); pa.setXYZ(1, su.x, su.y, su.z); pa.needsUpdate = true;
+}
+
+function disegnaIlNome(Lt, n) {
+  const c = Lt.tela.getContext("2d"), W = Lt.tela.width, H = Lt.tela.height;
+  c.clearRect(0, 0, W, H);
+  c.beginPath(); c.roundRect(3, 3, W - 6, H - 6, 22);
+  c.fillStyle = VETRO; c.fill();
+  c.lineWidth = 4; c.strokeStyle = TINTE_DEL_VELO.oggetti; c.stroke();
+  c.textBaseline = "alphabetic";
+  c.font = "700 46px " + SANS; c.fillStyle = INCHIOSTRI.oggetti;
+  c.fillText(adatta(c, n.nome + (n.copie && n.copie.length > 1 ? "  ×" + n.copie.length : ""), W - 50), 26, 64);
+  const ragione = String(n.ragionamento || "").replace(/^[^.]*,\s*\d+\s*in tutto\.\s*/i, "") || n.ragionamento || "";
+  c.font = "30px " + SANS; c.fillStyle = INCHIOSTRO;
+  aCapo(c, ragione, W - 50, 2).forEach((t, i) => c.fillText(t, 26, 112 + i * 38));
+  Lt.trama.needsUpdate = true;
+}
+
+function togliLaLettura(Lt) {
+  if (!Lt) return;
+  for (const g of Lt.disposti) g.dispose();
+  for (const m of Lt.materiali) m.dispose();
+  Lt.trama.dispose();
 }
 
 // ── PRENDERE UNA FINESTRA ──
@@ -1177,7 +1326,7 @@ function pizzichiDelleMani(T) {
     const a = j && j["thumb-tip"], b = j && j["index-finger-tip"];
     if (!a || !b || a.visible === false || b.visible === false) { if (ing.pizzico) { ing.pizzico = false; lascia(ing); } continue; }
     const d = a.position.distanceTo(b.position);
-    if (!ing.pizzico && d < PIZZICO_SI_M) { ing.pizzico = true; prendi(ing); }
+    if (!ing.pizzico && d < PIZZICO_SI_M) { ing.pizzico = true; V.pizzichi = (V.pizzichi || 0) + 1; prendi(ing); }
     else if (ing.pizzico && d > PIZZICO_NO_M) { ing.pizzico = false; lascia(ing); }
   }
 }
@@ -1191,6 +1340,7 @@ function togliLeFinestre() {
   if (F.gruppo.parent) F.gruppo.parent.remove(F.gruppo);
   for (const W of Object.values(F.lista)) { W.mesh.geometry.dispose(); W.mesh.material.dispose(); W.trama.dispose(); }
   F.recinto.geometry.dispose(); F.recinto.material.dispose();
+  togliLaLettura(F.lettura);
 }
 
 // ─── LA SPIA (13/10 sera) ─────────────────────────────────────────────────
@@ -1224,6 +1374,10 @@ function rigaDellaSpia(T) {
       + " · " + Math.abs(Math.round(el)) + "° " + (el >= 0 ? "in alto" : "in basso")
       + " · occhi a " + cam.pos.y.toFixed(2) + " m");
   }
+  const D = V.diag || {};
+  righe.push("concessi: " + (D.concessi || "?") + " · il Quest vede " + (D.quest || 0) + " ingressi (max " + (D.maxQuest || 0)
+    + ", mani " + (D.maniQuest || 0) + ") · collegati max " + (D.maxCollegati || 0) + " · pizzichi " + (V.pizzichi || 0)
+    + " · select " + (V.selezioni || 0) + " · prese " + (V.prese || 0) + "/" + (V.finestre ? V.finestre.prese : 0));
   righe.push("errori " + (V.errori || 0) + (V.ultimoErrore ? ": " + V.ultimoErrore : "")
     + " · ingressi: " + ((V.ingressi || []).filter((x) => x.fonte).map((x) => (x.fonte.hand ? "mano " : "controller ") + (x.fonte.handedness || "")).join(", ") || "nessuno"));
   return righe;
@@ -1270,6 +1424,9 @@ function preparaLaSpia(T, gruppo) {
 function posaLaSpia(T, cam) {
   const S = V.spia;
   if (!S) return;
+  // 13/10 notte - Raffaella: «il cartellino resta davanti agli occhi e copre le
+  // schede». Ha fatto il suo lavoro: davanti agli occhi solo se c'e' un errore.
+  S.mesh.visible = (V.errori || 0) > 0;
   S.mesh.matrix.copy(cam.matrixWorld).multiply(new T.Matrix4().compose(new T.Vector3(...SPIA_POSTO),
     new T.Quaternion(), new T.Vector3(SPIA_L, SPIA_H, 1)));
   S.mesh.matrixWorld.copy(S.mesh.matrix);
@@ -1325,6 +1482,7 @@ async function entra() {
   const { supporto, scala, misure } = supportoPerIlPlastico(T);
   V.supporto = supporto; V.scala = scala; V.fotogrammi = 0;
   V.supportoBase = supporto.matrix.clone(); V.centro = null; V.daCentrare = true;   // al primo fotogramma, davanti a te
+  V.dentroDa = performance.now(); V.giroPrima = null; V.prossimoControllo = 0;
   setTimeout(() => { if (V.sessione === sessione && !V.presa) V.daCentrare = true; }, 1500);   // e di nuovo a tracciamento assestato
   supporto.add(cam);                       // la telecamera sul supporto, non nella scena
   if (ctrl) ctrl.enabled = false;          // nel visore guida la testa, non il mouse
@@ -1334,6 +1492,7 @@ async function entra() {
   V.punti = preparaIPunti(T);
   V.finestre = preparaLeFinestre(T);
   V.errori = 0; V.ultimoErrore = null; V.ritmo = null; V.statoQuest = "visible";
+  V.diag = {}; V.pizzichi = 0; V.selezioni = 0;
   V.spia = preparaLaSpia(T, V.finestre.gruppo);
   prendiIlRitmo();
   V.sessione = sessione;                   // da qui fotogramma() lavora
@@ -1513,6 +1672,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
                     finestre: V.finestre ? Object.fromEntries(Object.values(V.finestre.lista).map((W) =>
                       [W.nome, { aperta: W.aperta, disegni: W.disegni, posto: W.pos.toArray().map((v) => +v.toFixed(3)) }])) : null,
                     presaFinestra: V.presaFinestra ? V.presaFinestra.W.nome : null,
+                    lettura: V.finestre && V.finestre.lettura ? { occhio: V.finestre.lettura.occhio.visible,
+                      nome: V.finestre.lettura.nome.visible, voli: V.finestre.lettura.voli } : null,
                     prese_finestre: V.finestre ? V.finestre.prese : 0,
                     ms_disegno_finestre: V.finestre ? +V.finestre.msDisegno.toFixed(2) : 0,
                     supporto: V.supporto ? V.supporto.matrixWorld.toArray() : null }),
