@@ -174,12 +174,12 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
-| **Ultimo commit di codice pubblicato** | `6d86c88` — *visore: plastico davanti a chi guarda, pulsante che lampeggia, spia* (costruzione `2026-10-13-c`, 13/10 sera) |
+| **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
 | **Branch** | `esperienza-plastico` = `6122289` (09/10): UNITA in `main` il 09/10. Da qui si lavora su `main` (o su una branch nuova da `main`) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-10-13-c` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-c`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
+| **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -2006,8 +2006,8 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     cartellino era la spia → fuori dalla vista, solo se c'e' un errore;
     5) simulazione, non visore: motore Render giu' (mail «server failure» a
     Raffaella), generatore locale, «agenti che arrivano: 0» → misura a parte.
-  - **`2026-10-13-d` FATTA E PROVATA, NON PUBBLICATA** (manca la frase di
-    Raffaella): `veritas_visore.js` `?v=11` (+176/-15 su `6d86c88`). Luce verde
+  - **`2026-10-13-d` PUBBLICATA (`d9db81c`, «pubblica» di Raffaella)**
+    (prima: fatta e provata): `veritas_visore.js` `?v=11` (+176/-15 su `6d86c88`). Luce verde
     a regia AVVIATA («l'occhio sta per cominciare» prima); **la lettura sul
     plastico**: telecamera di luce (piramide verde, 5 cm) sulla posa della
     fermata (`veritas:fermata camera.mondo`) che vola da un oggetto all'altro,
