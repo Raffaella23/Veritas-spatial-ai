@@ -173,13 +173,13 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 |---|---|
 | **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
-| **Branch** | `main` (unico, Regola B) |
-| **Ultimo commit di codice pubblicato** | `a8dc354` — *regia: filtro della quota di superficie verticale* (costruzione `2026-09-28-a`) |
+| **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
+| **Ultimo commit di codice pubblicato** | `b249a28` — *visore: l'aeroporto si apre da solo dall'indirizzo corto quest/* (costruzione `2026-10-13-a`, 13/10) |
 | **Branch aperta, NON unita** | `vista-esterna-agenti` = `8ae7dd4`: la telecamera esterna va sugli agenti quando la simulazione parte (§9, Fase A). Il merge lo decide Raffaella |
-| **Branch aperta, NON unita** | `esperienza-plastico` = `7d2a61e` (02/10, Fase C nel §9; prima `52e9f65` del 30/09, costruzione `2026-09-30-a`, parte da `vista-esterna-agenti`): i passi 1-5 dell'esperienza (render, Analisi/Esperienza, selezione, traiettoria, occhi) e i pannelli scuri, tutti approvati da Raffaella (§9, Fase B). NON pubblicata, NON unita. **La Fase C (visore) NON e' su questa branch:** sta solo nel workspace (§9, Fase C) |
+| **Branch** | `esperienza-plastico` = `6122289` (09/10): UNITA in `main` il 09/10. Da qui si lavora su `main` (o su una branch nuova da `main`) |
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
-| **Costruzione pubblicata e servita** | `2026-09-28-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-09-28-a` |
+| **Costruzione pubblicata e servita** | `2026-10-13-a` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-a`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -1900,6 +1900,38 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     tutti); (4) scegliere una persona nel visore + cartellino 3D; (5) vista
     dagli occhi dal passo 5; (6) la cattura. Non provati ancora sul Quest
     vero: correzione dell'occhio (foto con il visore acceso), velo da parte.
+- **FASE C — 09-13/10: PASSTHROUGH NEL QUEST BROWSER, PUBBLICATO.** `main` =
+  `b249a28` (costruzione `2026-10-13-a`). Unione di `esperienza-plastico` in
+  `main` il 09/10 (`419963c`, frase di Raffaella in chat): il sito pubblico e'
+  ora il plastico scuro con Analisi/Esperienza, selezione, cammino, prima
+  persona, pannelli scuri e visore.
+  - **Passthrough** (`veritas_visore.js`): se il browser sa fare
+    `immersive-ar` (Quest Browser) la sessione si apre con la stanza vera:
+    fondo trasparente, niente tavolo finto; tasto A/X acceso/spento (spento =
+    la scena scura). Chrome via Link resta `immersive-vr`. I disegni sullo
+    schermo FUORI dal fotogramma del visore (`captureFOV`, le occhiate degli
+    agenti) si fanno senza visore. Simulatore: 96% trasparente acceso / 0%
+    spento, 21/21 disegni al visore senza fondo.
+  - **Indirizzo corto per il visore: `raffaella23.github.io/Veritas-spatial-ai/quest`**
+    (`quest/index.html` → `?modello=airport_foot_traffic.glb`). Il modello si
+    prende dalla cartella del sito, il nome sopravvive all'accesso (memoria
+    della scheda), si riapre il progetto «airport_foot_traffic · visore» (la
+    prima volta si crea) e «Avvia» si preme da solo. Nel banco: due aperture
+    senza clic. Non provato: copie nell'elenco vero.
+  - Trappole viste da Raffaella: il link mandato su WhatsApp e aperto DENTRO
+    Link apre il Chrome del PC (bloccato sul caricamento di Link, niente
+    passthrough): il visore va usato SENZA Link, Quest Browser. Nel visore la
+    password e' scomoda da scrivere.
+  - **Prima prova vera (13/10, Raffaella):** si apre; **il passthrough
+    funziona** (arriva dopo un po'); controller si', mani nude no; **si vede
+    SOLO il plastico**: nessuna scheda, nessuna vista live dell'analisi, e gli
+    **agenti fermi** (da verificare: probabilmente la simulazione non parte,
+    l'«Avvia» automatico apre solo lo spazio di lavoro).
+  - **Prossimo (richiesta di Raffaella, gia' del 03/10):** tutto cio' che
+    succede nel browser del PC dentro il passthrough — il velo, «quello che
+    vedo» con gli zoom dell'occhio, il racconto — in finestre live che si
+    aprono man mano e si prendono e ancorano con le mani; piu' chiare. Prima:
+    perche' gli agenti sono fermi e se l'analisi gira nel Quest Browser.
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
@@ -1979,6 +2011,8 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 13/10 | **Nel visore si entra da un indirizzo corto (`/quest`) e l'aeroporto si apre da solo**: niente file da scegliere, niente tasti (Raffaella: «mi chiede il GLB, ma io nel visore non ce l'ho»). Il video si fa dal visore (Fotocamera), fuori da Link |
+| 09/10 | **`esperienza-plastico` unita in `main` e pubblicata** (frase di Raffaella in chat): il passthrough si prova dal Quest Browser col sito pubblico |
 | 03/10 | **Il passthrough del progetto passa dal Quest Browser.** Misurato con Link acceso: Chrome sul PC via Link non offre `immersive-ar`. Prima di toccare EIDETICA, la prova in una pagina separata (WebXR puro) sul visore |
 | 03/10 | **Nel visore non basta il report: tutto quello che il velo mostra**, compresa la lettura dell'occhio con gli zoom, in finestre che si aprono in tempo reale; la scheda va presa e avvicinata con le mani e non deve essere cosi' scura (giudizio di Raffaella sulla prima scheda nel Quest) |
 | 02/10 | **Le schede nel visore finiscono col velo**, come nel browser: niente «ultimo stato» conservato, niente seconda memoria del processo; il referto finale resta a richiesta. Contenuto = `stato().report`, nessun dato nuovo |
