@@ -1984,6 +1984,50 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     ⚠️ Trappola misurata: fuori dal fotogramma del visore la telecamera della
     pagina viene spostata dal giro del bundle; la testa si legge solo subito
     dopo `updateCamera` (`V.testa`).
+  - **Prova vera di `-c` (Raffaella, Quest 2 — NON Quest 3: il simulatore e'
+    un Quest 3).** Pulsante che lampeggia ok; l'attesa dell'occhio sul Quest 2
+    e' lentissima. Primo ingresso: niente in vista, nemmeno il cartellino. Poi
+    (stessa versione) la spia ha parlato: **17 fps, 23,6 ms (max 46), plastico
+    a 1,0 m, 29° a destra, 25° in basso, 0 errori, ingressi nessuno** → il
+    disegno ARRIVA agli occhi. Visti: plastico di lato; mani vere (passthrough)
+    che non fanno niente; cartellino che copre le schede; si vede la pianta
+    dall'alto ma NON la lettura dell'occhio; persone che non salgono tutte
+    sull'aereo.
+  - **Differenza scoperta fra Quest vero e simulatore:** three (bundle) sceglie
+    la strada di disegno da `renderState.layers`: il Quest Browser ha i layers
+    → `createProjectionLayer`; iwer no → `XRWebGLLayer`. Le prove nel
+    simulatore non percorrono la strada del Quest.
+  - **Diagnosi dei 5 punti (approvata, in ordine):** 4) si entrava a regia
+    FINITA: la lettura dell'occhio non si vedeva → luce verde quando l'occhio
+    COMINCIA + lettura sul plastico; 2) «ingressi nessuno» letto DOPO l'uscita
+    (alla fine della sessione three li scollega): da misurare con una riga
+    nuova della spia; 1) il plastico si mette dove guardi al primo fotogramma
+    (il pulsante della pagina) → ti segue con calma nei primi 10 s; 3) il
+    cartellino era la spia → fuori dalla vista, solo se c'e' un errore;
+    5) simulazione, non visore: motore Render giu' (mail «server failure» a
+    Raffaella), generatore locale, «agenti che arrivano: 0» → misura a parte.
+  - **`2026-10-13-d` FATTA E PROVATA, NON PUBBLICATA** (manca la frase di
+    Raffaella): `veritas_visore.js` `?v=11` (+176/-15 su `6d86c88`). Luce verde
+    a regia AVVIATA («l'occhio sta per cominciare» prima); **la lettura sul
+    plastico**: telecamera di luce (piramide verde, 5 cm) sulla posa della
+    fermata (`veritas:fermata camera.mondo`) che vola da un oggetto all'altro,
+    filo fino all'oggetto, cartellino col nome e il ragionamento sopra
+    l'oggetto nominato (`veritas:nome`); zoom 58 x 73 cm davanti; plastico che
+    segue la testa ferma (>15°) nei primi 10 s; cartellino della spia solo con
+    errori; spia degli ingressi («concessi: … · il Quest vede N ingressi (max,
+    mani) · collegati max · pizzichi · select · prese»). Prova nel simulatore
+    (`prova_lettura.mjs`): **6 su 6** (verde a 1 fermata su 74; telecamera e
+    nome in 22 s; 0/401 foto col gruppo; cartellino spento; plastico tornato
+    davanti, 0°; riga «concessi»). **Copia di sicurezza:
+    `Desktop\VERITAS\visore_13-10_notte\`** (patch su `6d86c88`, file interi,
+    LEGGIMI); sonde in `Desktop\VERITAS\sonde_visore_13-10\`.
+  - **Tasti «Entra» (domanda di Raffaella, solo diagnosi):** «Entra ↗» del
+    velo (`veritas_apertura.js:624`, azione `:1603`) chiude il velo e scopre la
+    pagina; Raffaella la vuole TOGLIERE (vede «il GLB grezzo con le mesh
+    colorate a caso»: da verificare se e' «Original model» acceso o l'argilla
+    che non si applica sul Quest). Tolto, il velo si chiude solo da se'
+    (fine analisi o 10 min, `TETTO_ATTESA`). Deve restare UN solo tasto del
+    visore: nel velo finche' e' aperto, in alto solo dopo. Non fatto.
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
@@ -2063,6 +2107,7 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 13/10 notte | **Il cuore nel visore e' la lettura dell'occhio**: si entra quando l'occhio comincia, e la lettura si vede sul plastico (telecamera di luce, nome sopra l'oggetto). Un solo tasto «Entra» (quello del visore); la vista grezza del velo va tolta |
 | 13/10 sera | **Nel visore tutto quello che mostra il PC, in finestre chiare che si prendono con le mani**: racconto, zoom dell'occhio, quello che vedo; dall'indirizzo corto anche la simulazione parte da sola. Pubblicato con la frase di Raffaella |
 | 13/10 | **Nel visore si entra da un indirizzo corto (`/quest`) e l'aeroporto si apre da solo**: niente file da scegliere, niente tasti (Raffaella: «mi chiede il GLB, ma io nel visore non ce l'ho»). Il video si fa dal visore (Fotocamera), fuori da Link |
 | 09/10 | **`esperienza-plastico` unita in `main` e pubblicata** (frase di Raffaella in chat): il passthrough si prova dal Quest Browser col sito pubblico |
