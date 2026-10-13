@@ -11,7 +11,7 @@
      quando non c'e' ancora nessun modello dentro e non si butta via niente.
      Non si ricarica mai sotto le mani di chi sta lavorando. -->
 <script>
-window.__EIDETICA_COSTRUZIONE = "2026-10-09-b";
+window.__EIDETICA_COSTRUZIONE = "2026-10-13-a";
 (function () {
   var mia = window.__EIDETICA_COSTRUZIONE, aperta = Date.now();
   console.log("%c[EIDETICA versione] costruzione " + mia,
@@ -827,6 +827,17 @@ window.__EIDETICA_COSTRUZIONE = "2026-10-09-b";
   // e' gia' qui in memoria.
   let fileDaMettereInScena = null;
 
+  // 13/10 — IL MODELLO DALL'INDIRIZZO SOPRAVVIVE ALL'ACCESSO. Misurato nel
+  // Quest Browser da Raffaella: dopo username e password la pagina si ricarica
+  // senza «?modello=», e il visore chiedeva il file. Lo si ricorda qui, appena
+  // la pagina parte, nella memoria della scheda (sparisce quando la si chiude).
+  let modelloDaIndirizzo = null;
+  try {
+    modelloDaIndirizzo = new URLSearchParams(location.search).get("modello");
+    if (modelloDaIndirizzo) sessionStorage.setItem("eidetica:modello", modelloDaIndirizzo);
+    else modelloDaIndirizzo = sessionStorage.getItem("eidetica:modello");
+  } catch (e) { /* senza memoria della scheda: vale solo l'indirizzo */ }
+
   async function showProjects() {
     const { data: userData } = await sb.auth.getUser();
     const userEmail = userData?.user?.email || "";
@@ -980,13 +991,28 @@ window.__EIDETICA_COSTRUZIONE = "2026-10-09-b";
     // «?modello=nome.glb» il file si prende dalla stessa cartella del sito e la
     // strada e' quella di sempre: compare il modulo, si preme «Crea e apri».
     // Solo un nome di file della stessa cartella, niente indirizzi altrui.
-    const daIndirizzo = new URLSearchParams(location.search).get("modello");
+    // 13/10 — E SI APRE DA SOLO. Raffaella, nel visore: «mi chiede il GLB, ma
+    // io nel visore non ce l'ho». Niente da premere: si riapre sempre lo
+    // STESSO progetto («<modello> · visore»), cosi' l'elenco non si riempie di
+    // copie; la prima volta lo si crea. Poi «Avvia» si preme da solo.
+    const daIndirizzo = modelloDaIndirizzo;
     if (daIndirizzo && !fileDaMettereInScena && /^[\w.\-]+\.(glb|gltf)$/i.test(daIndirizzo)) {
+      modelloDaIndirizzo = null;
+      try { sessionStorage.removeItem("eidetica:modello"); } catch (e) {}
       card.querySelector("#v-nuovo-form").style.display = "";
       card.querySelector("#v-file-scelto").textContent = daIndirizzo + " …";
       fetch("./" + daIndirizzo)
         .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
-        .then((b) => scegliIlFile(new File([b], daIndirizzo, { type: "model/gltf-binary" })))
+        .then((b) => {
+          const file = new File([b], daIndirizzo, { type: "model/gltf-binary" });
+          const nome = daIndirizzo.replace(/\.[^.]+$/, "") + " · visore";
+          const gia = (projects || []).find((p) => p.name === nome);
+          window.__veritasAvvioDiretto = true;
+          if (gia) { fileDaMettereInScena = file; bootWithProject(gia); return; }
+          scegliIlFile(file);
+          card.querySelector("#v-new-name").value = nome;
+          card.querySelector("#v-create-btn").click();
+        })
         .catch((e) => { card.querySelector("#v-file-scelto").textContent = daIndirizzo + ": " + (e && e.message); });
     }
 
@@ -1152,6 +1178,11 @@ window.__EIDETICA_COSTRUZIONE = "2026-10-09-b";
       await runOpenSkyEstimate(openskyStatus, agentsInput, agentsVal);
     };
 
+    // 13/10: aperto dall'indirizzo (visore) -> «Avvia» si preme da solo
+    if (window.__veritasAvvioDiretto) {
+      window.__veritasAvvioDiretto = false;
+      setTimeout(() => { const b = card.querySelector("#vs-start-btn"); if (b) b.click(); }, 400);
+    }
     card.querySelector("#vs-start-btn").onclick = () => {
       window.__veritasPassengerScale = parseFloat(scaleInput.value);
       window.__veritasAgentCount = parseInt(agentsInput.value, 10);
