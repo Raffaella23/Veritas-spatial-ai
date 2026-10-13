@@ -54,9 +54,13 @@ const DISTANZA_M = 0.9;           // il centro del plastico, davanti ai piedi
 
 const TESTI = {
   it: { entra: "Entra nel visore", esci: "Esci dal visore",
-        titolo: "Il plastico in scala, nel visore (Quest Link)" },
+        titolo: "Il plastico in scala, nel visore (Quest Link)",
+        prepara: "Visore in preparazione", pronto: "Ora puoi entrare nel visore",
+        zoom: "zoom", avvia: "premi ▶ Avvia simulazione", persone: "le persone partono" },
   en: { entra: "Enter headset", esci: "Exit headset",
-        titolo: "The scale model, in the headset (Quest Link)" },
+        titolo: "The scale model, in the headset (Quest Link)",
+        prepara: "Headset getting ready", pronto: "You can now enter the headset",
+        zoom: "close-ups", avvia: "press ▶ Start simulation", persone: "people are setting off" },
 };
 function lingua() {
   try { return localStorage.getItem("veritasLang") === "it" ? "it" : "en"; } catch (e) { return "en"; }
@@ -72,7 +76,41 @@ const CSS = `
   transition:color .25s,background .25s}
 #eidetica-visore:hover{color:#D7DEE8}
 #eidetica-visore.on{color:#0b1016;background:#2EE6D6}
+#eidetica-visore.attesa{cursor:default;opacity:.6}
+#eidetica-visore.pronto{color:#0b1016;background:#2EE6D6;animation:eidetica-lampeggia 1.1s ease-in-out infinite}
+@keyframes eidetica-lampeggia{0%,100%{box-shadow:0 0 0 0 rgba(46,230,214,.75)}50%{box-shadow:0 0 26px 8px rgba(46,230,214,.9);filter:brightness(1.25)}}
 `;
+// Lo stesso lampeggio dentro l'ombra del velo (il CSS della pagina non ci arriva).
+const CSS_VELO = `
+#eidetica-visore-velo.attesa{cursor:default;opacity:.55}
+#eidetica-visore-velo.pronto{color:#0b1016;background:#2EE6D6;border-color:#2EE6D6;font-weight:600;animation:eidetica-lampeggia 1.1s ease-in-out infinite}
+@keyframes eidetica-lampeggia{0%,100%{box-shadow:0 0 0 0 rgba(46,230,214,.75)}50%{box-shadow:0 0 30px 10px rgba(46,230,214,.9);filter:brightness(1.25)}}
+`;
+
+// ─── QUANDO SI PUO' ENTRARE (13/10 sera) ──────────────────────────────────
+// Raffaella, col Quest addosso: «entri e devi aspettare una vita col visore:
+// non esiste. Fai partire il teatrino normale; quando il modello e' quasi
+// pronto una luce lampeggia e dice: ora puoi entrare dal visore. Nel
+// frattempo lo fai vedere sugli altri device.» Il velo gira sulla pagina
+// (anche nella finestra piatta del Quest Browser); il pulsante del visore
+// resta spento, con a che punto siamo, finche' l'occhio non ha finito gli
+// zoom E le persone camminano. Poi lampeggia.
+function prontoPerIlVisore() {
+  const t = testi();
+  if (document.getElementById("veritas-avvia") && !window.__veritasSimStarted) return { pronto: false, perche: t.avvia };
+  let st = null;
+  try { st = window.__veritasApertura && window.__veritasApertura.stato(); } catch (e) { st = null; }
+  const veloAperto = !!(st && st.aperta);
+  const analisi = !veloAperto || OCCHIO.regiaFinita || (st && st.occhioHaParlato)
+    || (st && (st.stato === "conformita" || st.stato === "orientamento"));
+  if (!analisi) {
+    const f = OCCHIO.fermata;
+    return { pronto: false, perche: f && f.quante ? t.zoom + " " + ((f.indice || 0) + 1) + "/" + f.quante : "" };
+  }
+  if (!window.__veritasSimStarted && !veloAperto) return { pronto: true, perche: "" };   // pagina senza simulazione: come prima
+  if (!window.__veritasSimStarted) return { pronto: false, perche: t.persone };
+  return { pronto: true, perche: "" };
+}
 
 const V = {
   supportato: false,
@@ -232,6 +270,51 @@ function tastoDelPassthrough(frame) {
   V.tastoPrima = giu;
 }
 
+// ─── DAVANTI A CHI GUARDA (13/10 sera) ────────────────────────────────────
+// Raffaella, Quest Browser, seduta nella sua zona: «il modello mi e' uscito a
+// terra, a destra, non di fronte al visore». Il pavimento del Quest ha
+// l'origine dove dice lui (il centro della zona, non la testa), e il tavolo a
+// 0,75 m da terra non tiene conto di chi e' seduto. Al primo fotogramma con la
+// testa si misura dove sei e dove guardi: il plastico va 0,9 m davanti a te,
+// il piano 0,55 m sotto gli occhi (fra 0,55 e 1,0 m da terra); le finestre
+// girano con lui. Il tasto B (o Y) e il «ricentra» del Quest lo rifanno.
+function centraSuChiGuarda(T, frame) {
+  const ren = window.__veritasRenderer, spazio = ren.xr.getReferenceSpace();
+  const pose = spazio && frame.getViewerPose(spazio);
+  if (!pose || !V.supportoBase) return false;
+  const p = pose.transform.position, o = pose.transform.orientation;
+  const avanti = new T.Vector3(0, 0, -1).applyQuaternion(new T.Quaternion(o.x, o.y, o.z, o.w));
+  const giro = Math.hypot(avanti.x, avanti.z) > 0.2 ? Math.atan2(-avanti.x, -avanti.z) : 0;
+  const tavolo = Math.min(1.0, Math.max(0.55, p.y - 0.55));
+  const O = new T.Matrix4().makeRotationY(giro).setPosition(p.x, tavolo - ALTEZZA_TAVOLO_M, p.z);
+  const S = V.supporto;
+  S.matrix.copy(V.supportoBase).multiply(O.clone().invert());
+  S.matrix.decompose(S.position, S.quaternion, S.scale);
+  S.updateMatrixWorld(true);
+  V.presa = null;
+  V.centro = { O, giro };
+  if (V.finestre) for (const W of Object.values(V.finestre.lista)) metticiDavanti(T, W);
+  console.log("[EIDETICA visore] plastico davanti a chi guarda: occhi a " + p.y.toFixed(2) + " m, tavolo a "
+    + tavolo.toFixed(2) + " m, girato di " + Math.round(giro * 180 / Math.PI) + "°");
+  return true;
+}
+
+function metticiDavanti(T, W) {
+  if (!V.centro) return;
+  W.pos.copy(W.pos0).applyMatrix4(V.centro.O);
+  W.quat.copy(W.quat0).premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), V.centro.giro));
+}
+
+function tastoDelCentro(frame) {
+  let giu = false;
+  for (const s of frame.session.inputSources || []) {
+    const g = s.gamepad;
+    if (g && g.buttons && g.buttons[5] && g.buttons[5].pressed) giu = true;
+  }
+  if (giu && !V.tastoCentroPrima) V.daCentrare = true;
+  V.tastoCentroPrima = giu;
+}
+
 function passthrough(si) {
   V.passthrough = !!si;
   console.log("[EIDETICA visore] passthrough " + (V.passthrough ? "acceso" : "spento"));
@@ -248,6 +331,8 @@ function fotogramma(tempo, frame) {
   try {
     const tm = performance.now();
     tastoDelPassthrough(frame);
+    tastoDelCentro(frame);
+    if (V.daCentrare && centraSuChiGuarda(window.THREE, frame)) V.daCentrare = false;
     pizzichiDelleMani(window.THREE);       // la mano nuda: il pizzico dalle dita
     seguiLaPresa(window.THREE);            // il supporto, prima della telecamera
     seguiLaFinestra(window.THREE);
@@ -258,6 +343,10 @@ function fotogramma(tempo, frame) {
     cam.near = VICINO_M; cam.far = LONTANO_M;
     ren.xr.updateCamera(cam);
     campoDeiDueOcchi(window.THREE, ren.xr.getCamera(), V.scala);
+    // la testa com'e' ADESSO: dopo, nel giro del bundle, la telecamera della pagina
+    // puo' essere spostata (misurato: la spia leggeva 6,6 m invece di ~1)
+    V.testa = { pos: cam.position.clone(), quat: cam.quaternion.clone() };
+    posaLaSpia(window.THREE, cam);
     ren.__eideticaSchermoVisore = ren.getRenderTarget();
     // nel visore il terreno della scena diventa il piano del tavolo
     if (terra) terra.visible = false;
@@ -272,9 +361,10 @@ function fotogramma(tempo, frame) {
     V.coda = [];
     V.dentroFotogramma = true;
     for (const [, cb] of coda) {
-      try { cb(tempo); } catch (e) { console.warn("[EIDETICA visore]", e && e.message); }
+      try { cb(tempo); } catch (e) { erroreDelVisore(e); console.warn("[EIDETICA visore]", e && e.message); }
     }
   } catch (e) {
+    erroreDelVisore(e);
     console.warn("[EIDETICA visore] fotogramma:", e && e.message);
   } finally {
     V.dentroFotogramma = false;
@@ -304,6 +394,7 @@ function registra(ms) {
   if (ora - R.da < 5000) return;
   console.log("[EIDETICA visore] ritmo " + (R.n * 1000 / (ora - R.da)).toFixed(0) + " fotogrammi/s, disegno "
     + (R.somma / R.n).toFixed(1) + " ms (max " + R.max.toFixed(0) + "), in fila " + V.coda.length);
+  V.ritmo = { fps: Math.round(R.n * 1000 / (ora - R.da)), ms: +(R.somma / R.n).toFixed(1), max: Math.round(R.max) };
   R.da = ora; R.n = 0; R.somma = 0; R.max = 0;
 }
 
@@ -727,6 +818,11 @@ function ascoltaLOcchio() {
       img.src = d.immagine;
     }
   });
+  addEventListener("veritas:regia", (e) => {
+    const d = e.detail || {};
+    if (d.fase === "inizio") OCCHIO.regiaFinita = false;
+    if (d.fase === "fine") OCCHIO.regiaFinita = true;
+  });
   addEventListener("veritas:nome", (e) => {
     const d = e.detail || {};
     OCCHIO.nominati++; OCCHIO.ultimo = Date.now();
@@ -769,8 +865,9 @@ function preparaLeFinestre(T) {
     // girata verso chi sta al centro della stanza
     const pos = new T.Vector3(...m.posto);
     const quat = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), Math.atan2(-pos.x, -pos.z));
-    F.lista[nome] = { nome, l: m.l, h: m.h, tela, trama, mesh, pos, quat,
+    F.lista[nome] = { nome, l: m.l, h: m.h, tela, trama, mesh, pos, quat, pos0: pos.clone(), quat0: quat.clone(),
                       aperta: false, nata: 0, firma: null, disegni: 0 };
+    metticiDavanti(T, F.lista[nome]);
   }
   // il recinto dell'oggetto che l'occhio guarda, sul plastico (metri veri)
   const recinto = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(1, 1, 1)),
@@ -1068,7 +1165,7 @@ function seguiLaFinestra(T) {
   const r = V.ingressi[P.i].raggio, W = P.W;
   const M = new T.Matrix4().compose(r.position, r.quaternion, new T.Vector3(1, 1, 1)).multiply(P.scarto);
   W.pos.setFromMatrixPosition(M);
-  const testa = window.__veritasCamera ? window.__veritasCamera.position : new T.Vector3(0, 1.6, 0);
+  const testa = V.testa ? V.testa.pos : new T.Vector3(0, 1.6, 0);
   W.quat.setFromAxisAngle(new T.Vector3(0, 1, 0), Math.atan2(testa.x - W.pos.x, testa.z - W.pos.z));
 }
 
@@ -1094,6 +1191,98 @@ function togliLeFinestre() {
   if (F.gruppo.parent) F.gruppo.parent.remove(F.gruppo);
   for (const W of Object.values(F.lista)) { W.mesh.geometry.dispose(); W.mesh.material.dispose(); W.trama.dispose(); }
   F.recinto.geometry.dispose(); F.recinto.material.dispose();
+}
+
+// ─── LA SPIA (13/10 sera) ─────────────────────────────────────────────────
+// Raffaella, Quest Browser: dentro il visore non vedeva niente; premuto il
+// tasto per uscire, il plastico e le finestre comparivano «in basso a destra»
+// accanto alla pagina. Nel Quest simulato invece si vede tutto: il perche' sta
+// nel Quest vero, e dal PC non si legge. La spia lo dice in due posti:
+//   - un cartellino DAVANTI AGLI OCCHI (segue la testa, 0,6 m avanti e un po'
+//     sotto): se lo vedi il visore disegna, e il cartellino dice dove sta il
+//     plastico rispetto a te; se non vedi nemmeno lui, il disegno non arriva;
+//   - un riquadro sulla PAGINA, leggibile quando il Quest mostra la pagina.
+// Dice: fotogrammi al secondo e ms, stato del Quest, dove sta il plastico
+// (distanza, destra/sinistra, su/giu'), errori del fotogramma. Mai nelle foto.
+const SPIA_L = 0.30, SPIA_H = 0.11, SPIA_POSTO = [0, -0.10, -0.6];
+function erroreDelVisore(e) {
+  V.errori = (V.errori || 0) + 1;
+  V.ultimoErrore = String((e && e.message) || e).slice(0, 90);
+}
+
+function rigaDellaSpia(T) {
+  const r = V.ritmo || {}, righe = [];
+  righe.push("EIDETICA visore · " + (r.fps != null ? r.fps + " fps · " + r.ms + " ms (max " + r.max + ")" : "primi fotogrammi…")
+    + " · Quest: " + (V.statoQuest || "visible"));
+  const cam = V.testa, radice = window.__veritasModelRoot;
+  if (cam && radice && V.supporto) {
+    const b = new T.Box3().setFromObject(radice), c = b.getCenter(new T.Vector3());
+    const P = new T.Vector3(c.x, b.min.y, c.z).applyMatrix4(V.supporto.matrixWorld.clone().invert());
+    const v = P.sub(cam.pos).applyQuaternion(cam.quat.clone().invert());
+    const d = v.length(), az = Math.atan2(v.x, -v.z) * 180 / Math.PI, el = Math.atan2(v.y, Math.hypot(v.x, v.z)) * 180 / Math.PI;
+    righe.push("plastico a " + d.toFixed(1) + " m · " + Math.abs(Math.round(az)) + "° " + (az >= 0 ? "a destra" : "a sinistra")
+      + " · " + Math.abs(Math.round(el)) + "° " + (el >= 0 ? "in alto" : "in basso")
+      + " · occhi a " + cam.pos.y.toFixed(2) + " m");
+  }
+  righe.push("errori " + (V.errori || 0) + (V.ultimoErrore ? ": " + V.ultimoErrore : "")
+    + " · ingressi: " + ((V.ingressi || []).filter((x) => x.fonte).map((x) => (x.fonte.hand ? "mano " : "controller ") + (x.fonte.handedness || "")).join(", ") || "nessuno"));
+  return righe;
+}
+
+function preparaLaSpia(T, gruppo) {
+  const tela = document.createElement("canvas");
+  tela.width = 1200; tela.height = Math.round(1200 * SPIA_H / SPIA_L);
+  const trama = new T.CanvasTexture(tela);
+  trama.colorSpace = T.SRGBColorSpace;
+  const mesh = new T.Mesh(new T.PlaneGeometry(1, 1),
+    new T.MeshBasicMaterial({ map: trama, transparent: true, toneMapped: false, depthTest: false, depthWrite: false, fog: false }));
+  mesh.name = "eidetica-visore-spia";
+  mesh.matrixAutoUpdate = false; mesh.frustumCulled = false; mesh.renderOrder = 20;
+  mesh.raycast = () => {};
+  gruppo.add(mesh);
+  let pagina = document.getElementById("eidetica-visore-spia");
+  if (!pagina) {
+    pagina = document.createElement("div");
+    pagina.id = "eidetica-visore-spia";
+    pagina.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:100001;max-width:min(720px,90vw);padding:10px 14px;"
+      + "border-radius:10px;background:rgba(246,248,251,.96);color:#1B2230;border:2px solid #2EE6D6;"
+      + "font:600 15px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;pointer-events:none";
+    document.body.appendChild(pagina);
+  }
+  const S = { mesh, tela, trama, pagina, timer: null };
+  S.timer = setInterval(() => {
+    let righe;
+    try { righe = rigaDellaSpia(window.THREE); } catch (e) { righe = ["spia: " + (e && e.message)]; }
+    S.pagina.textContent = righe.join(String.fromCharCode(10));
+    const c = tela.getContext("2d"), W = tela.width, H = tela.height;
+    c.clearRect(0, 0, W, H);
+    c.beginPath(); c.roundRect(3, 3, W - 6, H - 6, 24);
+    c.fillStyle = "rgba(246,248,251,0.92)"; c.fill();
+    c.lineWidth = 6; c.strokeStyle = "#2EE6D6"; c.stroke();
+    c.fillStyle = "#1B2230"; c.font = "600 34px " + MONO;
+    righe.forEach((r, i) => c.fillText(adatta(c, r, W - 60), 30, 64 + i * 46));
+    trama.needsUpdate = true;
+  }, 500);
+  return S;
+}
+
+// segue la testa: matrice del mondo della telecamera · posto davanti agli occhi
+function posaLaSpia(T, cam) {
+  const S = V.spia;
+  if (!S) return;
+  S.mesh.matrix.copy(cam.matrixWorld).multiply(new T.Matrix4().compose(new T.Vector3(...SPIA_POSTO),
+    new T.Quaternion(), new T.Vector3(SPIA_L, SPIA_H, 1)));
+  S.mesh.matrixWorld.copy(S.mesh.matrix);
+}
+
+function togliLaSpia() {
+  const S = V.spia;
+  if (!S) return;
+  V.spia = null;
+  clearInterval(S.timer);
+  if (S.mesh.parent) S.mesh.parent.remove(S.mesh);
+  S.mesh.geometry.dispose(); S.mesh.material.dispose(); S.trama.dispose();
+  // il riquadro sulla pagina resta, con l'ultima riga: si legge anche fuori
 }
 
 // ─── ENTRARE / USCIRE ─────────────────────────────────────────────────────
@@ -1135,6 +1324,8 @@ async function entra() {
                 aspect: cam.aspect, comandi: ctrl ? ctrl.enabled : null };
   const { supporto, scala, misure } = supportoPerIlPlastico(T);
   V.supporto = supporto; V.scala = scala; V.fotogrammi = 0;
+  V.supportoBase = supporto.matrix.clone(); V.centro = null; V.daCentrare = true;   // al primo fotogramma, davanti a te
+  setTimeout(() => { if (V.sessione === sessione && !V.presa) V.daCentrare = true; }, 1500);   // e di nuovo a tracciamento assestato
   supporto.add(cam);                       // la telecamera sul supporto, non nella scena
   if (ctrl) ctrl.enabled = false;          // nel visore guida la testa, non il mouse
   V.tavolo = preparaIlTavolo(T, scala);
@@ -1142,13 +1333,17 @@ async function entra() {
   for (const ing of V.ingressi) { supporto.add(ing.raggio); supporto.add(ing.mano); }
   V.punti = preparaIPunti(T);
   V.finestre = preparaLeFinestre(T);
+  V.errori = 0; V.ultimoErrore = null; V.ritmo = null; V.statoQuest = "visible";
+  V.spia = preparaLaSpia(T, V.finestre.gruppo);
   prendiIlRitmo();
   V.sessione = sessione;                   // da qui fotogramma() lavora
   sessione.addEventListener("end", esci);  // dopo quello di three: prima pulisce lui
+  // il «ricentra» del Quest (tasto Meta tenuto premuto): di nuovo davanti
+  try { const sp = ren.xr.getReferenceSpace(); if (sp) sp.addEventListener("reset", () => { V.daCentrare = true; }); } catch (e) { /* solo comodita' */ }
   // il Quest mette in pausa la sessione (menu, visore tolto, Link che cade):
   // si scrive, cosi' una clessidra si distingue da un disegno troppo lento
   sessione.addEventListener("visibilitychange", () =>
-    console.log("[EIDETICA visore] il Quest dice: " + sessione.visibilityState));
+    { V.statoQuest = sessione.visibilityState; console.log("[EIDETICA visore] il Quest dice: " + sessione.visibilityState); });
   R.da = 0; R.n = 0; R.somma = 0; R.max = 0;
   try {
     const gl = ren.getContext(), d = gl.getExtension("WEBGL_debug_renderer_info");
@@ -1196,6 +1391,7 @@ function esci() {
   togliIlTavolo();
   togliUnito();
   togliLeMani();
+  togliLaSpia();
   togliLeFinestre();
   V.salvato = null; V.supporto = null;
   // se si esce dal pulsante della pagina, la sessione e' ancora aperta
@@ -1213,10 +1409,17 @@ function aggiornaPulsante() {
   if (!b) return;
   const dentro = !!V.sessione;
   const occhi = window.eideticaSelezione && window.eideticaSelezione.negliOcchi();
-  const pronto = V.supportato && esperienza() && window.__veritasRenderer && window.__veritasModelRoot && !occhi;
+  // 13/10 sera: nel Quest Browser (passthrough) il pulsante c'e' anche in Analisi. Raffaella, uscita
+  // dal visore: «riprovando a rientrare non me lo faceva fare» (il velo era chiuso).
+  const pronto = V.supportato && (esperienza() || V.supportatoAR) && window.__veritasRenderer && window.__veritasModelRoot && !occhi;
   b.style.display = dentro || pronto ? "block" : "none";
   b.classList.toggle("on", dentro);
-  b.textContent = dentro ? testi().esci : testi().entra;
+  const via = dentro ? null : prontoPerIlVisore();
+  if (via && via.pronto && !V.annunciato) { V.annunciato = true; console.log("[EIDETICA visore] ora si puo' entrare nel visore"); }
+  b.classList.toggle("attesa", !!via && !via.pronto);
+  b.classList.toggle("pronto", !!via && via.pronto);
+  b.textContent = dentro ? testi().esci
+    : via.pronto ? testi().pronto : testi().prepara + (via.perche ? " · " + via.perche : "") + "…";
   b.title = testi().titolo;
   const modo = document.getElementById("eidetica-modo");
   const r = modo && modo.getBoundingClientRect();
@@ -1239,6 +1442,12 @@ function pulsanteNelVelo(dentro, occhi) {
   let b = ombra.getElementById("eidetica-visore-velo");
   const pronto = V.supportato && window.__veritasRenderer && window.__veritasModelRoot && !occhi;
   if (!dentro && !pronto) { if (b) b.remove(); return; }
+  if (!ombra.getElementById("eidetica-visore-velo-stile")) {
+    const st = document.createElement("style");
+    st.id = "eidetica-visore-velo-stile";
+    st.textContent = CSS_VELO;
+    ombra.appendChild(st);
+  }
   if (!b) {
     b = document.createElement("button");
     b.id = "eidetica-visore-velo";
@@ -1248,13 +1457,18 @@ function pulsanteNelVelo(dentro, occhi) {
     b.addEventListener("click", premuto);
     entraDelVelo.insertAdjacentElement("afterend", b);
   }
-  b.textContent = dentro ? testi().esci : testi().entra;
+  const via = dentro ? null : prontoPerIlVisore();
+  b.classList.toggle("attesa", !!via && !via.pronto);
+  b.classList.toggle("pronto", !!via && via.pronto);
+  b.textContent = dentro ? testi().esci
+    : via.pronto ? testi().pronto : testi().prepara + (via.perche ? " · " + via.perche : "") + "…";
   b.title = testi().titolo;
 }
 
 function premuto() {
   // si chiude la sessione: three pulisce, poi il suo «end» chiama esci()
   if (V.sessione) V.sessione.end().catch(() => esci());
+  else if (!prontoPerIlVisore().pronto) return;     // non si aspetta dentro il visore
   else entra().catch((e) => console.warn("[EIDETICA visore]", e && e.message));
 }
 
