@@ -11,7 +11,7 @@ import {
 } from "@iwsdk/core";
 import * as THREE from "three";
 
-const COSTRUZIONE = "2026-10-14-v1";
+const COSTRUZIONE = "2026-10-14-v2";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -23,7 +23,7 @@ const entra = document.getElementById("entra");
 const STANZA = { y: -0.107, z: 1.1 };
 const PIANO = 0.86 + STANZA.y;          // 0,753 m da terra
 const CENTRO = new THREE.Vector3(0, PIANO, -0.85);
-const LUNGO = 0.9;                       // il lato lungo del plastico sul tavolo, in metri
+const LUNGO = 0.6;                       // il lato lungo del plastico: un tavolino d'aereo (VR Start: da seduti, nello spazio di un sedile)
 
 const world = await World.create(document.getElementById("scene-container"), {
   xr: {
@@ -89,7 +89,7 @@ cartello.name = "eidetica-spia-fps";
 world.createTransformEntity(cartello);
 
 const M = { ora: 0, media: 0, minimo: 0, campioni: [], fotogrammi: 0, da: 0, dentro: false,
-  disegni: 0, triangoliDisegnati: 0, ritmo: null, pezzi, triangoli: Math.round(triangoli), scala };
+  disegni: 0, triangoliDisegnati: 0, ritmo: null, posato: false, attesaTesta: 0, occhi: null, piano: null, pezzi, triangoli: Math.round(triangoli), scala };
 window.__EIDETICA_VISORE = M;
 
 function scriviSpia() {
@@ -110,6 +110,29 @@ function scriviSpia() {
 }
 scriviSpia();
 
+// IL PLASTICO A PORTATA DI MANO (v2, prova di Raffaella nel Quest 2 del 14/10:
+// «si trova sotto il mio tavolo, le mani non riescono a pizzicarlo»). Il piano
+// misurato dal pavimento non e' il tavolo vero di chi e' seduto: si misura
+// invece dagli OCCHI. Entrati nel visore, appena la testa e' letta, il plastico
+// va 40 cm sotto gli occhi e 45 cm davanti; stanza, scrivania e spia lo seguono
+// (la scrivania resta sotto il plastico). Una volta sola per ogni entrata.
+const SOTTO_OCCHI = 0.40, DAVANTI = 0.45;
+const testa = new THREE.Vector3();
+function posaDavanti() {
+  if (M.posato) return;
+  if (++M.attesaTesta < 20) return;                   // i primi fotogrammi la testa e' ancora a zero
+  world.player.head.getWorldPosition(testa);
+  if (testa.y < 0.5 && M.attesaTesta < 120) return;    // testa non ancora letta: si aspetta ancora un po'
+  const piano = testa.y - SOTTO_OCCHI;
+  const dx = testa.x - CENTRO.x, dy = piano - CENTRO.y, dz = (testa.z - DAVANTI) - CENTRO.z;
+  plastico.position.set(CENTRO.x + dx, piano, CENTRO.z + dz);
+  stanza.position.set(dx, STANZA.y + dy, STANZA.z + dz);
+  cartello.position.set(dx, PIANO + 0.32 + dy, -1.6 + dz);
+  M.posato = true; M.attesaTesta = 0;
+  M.occhi = +testa.y.toFixed(2); M.piano = +piano.toFixed(2);
+  console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti");
+}
+
 // il conto dei fotogrammi: si azzera entrando nel visore, un campione al secondo, gli ultimi 30
 class SpiaFps extends createSystem({}) {
   update() {
@@ -120,6 +143,7 @@ class SpiaFps extends createSystem({}) {
       const s = world.renderer.xr.getSession && world.renderer.xr.getSession();
       M.ritmo = s && s.frameRate ? Math.round(s.frameRate) : null;
     }
+    if (dentro) posaDavanti(); else M.posato = false;
     M.fotogrammi++;
     if (!M.da) M.da = adesso;
     if (adesso - M.da >= 1000) {
