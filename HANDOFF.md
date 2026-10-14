@@ -171,7 +171,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 28/09/2026 — **PUBBLICATA `2026-09-28-a`**: la regia del §12 passo D con catalogo da 4 (74 oggetti, 19 sguardi), solo parole di cose, conseguenze sospese se non verificate, e il filtro della QUOTA DI SUPERFICIE VERTICALE per «seduto»/«sdraiato» (72 sedute, la sagoma senza «sdraiato»). Limite noto non indagato: dopo «Avvia» 175 s (workspace) contro 70 s (pubblicata `-c`). Prima: 25/09/2026 — §6.14 PUBBLICATO (`2026-09-24-h`). NUOVA IMPOSTAZIONE decisa da Raffaella: **l'occhio regista** (§0.5, progetto nel §12). Le sezioni a pezzi sono ABBANDONATE (§9). Letta la catena del «sedersi»: §6.19 |
+| **Aggiornato** | 14/10/2026 — **DUE GARE META** (piano nel §13): VR Start (consegna 18/11, il plastico nel visore) e Hackathon IA Meta (26/10–5/11, il cervello che da' i nomi agli spazi). Misure del 13/10 notte su Render, «Entra ↗» del velo e persone che non salgono sull'aereo: §9, blocco «14/10». Pubblicata e servita: `2026-10-13-d` |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -180,7 +180,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
-| **Motore Python** | `veritas-core-api` su Render, piano gratuito: dorme dopo ~15 min, spesso non raggiungibile durante le prove; l'app ricade sul generatore JS locale e lo dichiara |
+| **Motore Python** | `veritas-core-api` su Render, piano gratuito. ⚠️ Misurato il 13/10 notte: la simulazione vera (28 persone, 4.000 passi) dura OLTRE 150 s e intanto il motore non risponde nemmeno al controllo di salute → Render lo riavvia e manda la mail «server failure» (13/10 ore 17:38 e 18:14, 09/10). La pagina aspetta 70 s e ricade sempre sul generatore JS locale: **oggi Render non viene mai usato**. Le pubblicazioni su `main` lo ricostruiscono ogni volta (innocuo) |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
 genera flussi e fa camminare 28 corpi fisici veri (Rapier). Il circuito
@@ -1519,6 +1519,9 @@ interruzione. Conta il battito dei timer della pagina.
 
 ## 9. PROSSIMO PASSO AUTORIZZATO
 
+> ⚠️ **Dal 14/10/2026 l'ordine del lavoro e' il §13 (due gare Meta).** Quello che
+> segue resta come storia e come elenco dei difetti aperti.
+
 ### Piano deciso da Raffaella il 28/09 sera — UNA FUNZIONE CENTRALE → UNA DIMOSTRAZIONE FORTE → POI ESTENSIONE
 
 **Diagnosi della vista esterna (28/09, build `2026-09-28-a`):** gli agenti sono
@@ -2028,6 +2031,32 @@ misurato; (2) dalla telecamera «Top Down 80m» (~108 m) ogni figura e' alta
     che non si applica sul Quest). Tolto, il velo si chiude solo da se'
     (fine analisi o 10 min, `TETTO_ATTESA`). Deve restare UN solo tasto del
     visore: nel velo finche' e' aperto, in alto solo dopo. Non fatto.
+  - **14/10 (sessione 8d0dec05) — MISURE, nessun codice cambiato, niente pubblicato.**
+    La 13-d era gia' pubblicata e servita (controllato `?v=2026-10-13-d`).
+    Sonde nuove (copia in `Desktop\VERITAS\sonde_14-10\`, con LEGGIMI):
+    `cosa_mostra_entra.mjs`, `chi_sale_sull_aereo.mjs`, `rete_render.mjs`,
+    `rete_nocoi.mjs`, `prendi_corpo.mjs`, `dove_finiscono.mjs`.
+    - **«Entra ↗» del velo sul PC** (anche con l'identita' del Quest Browser):
+      dopo il clic il modello e' d'ARGILLA, 2.416 pezzi su 2.416, «Original
+      model» spento. Il «grezzo» visto da Raffaella NON si riproduce sul PC:
+      nasce solo sul Quest. Domanda aperta: lo vede sulla pagina piatta o
+      dentro il visore? Il tasto non e' ancora tolto.
+    - **Render**: vedi §1 «Motore Python». In piu': col service worker dei
+      fili (`veritas_fili.js`) la richiesta `POST /api/simulate` NON parte
+      finche' non scade (esce e muore dopo 70 s, `ERR_ABORTED`); con `?nocoi`
+      parte subito ma Render non risponde in tempo. Una chiamata vera mandata
+      a mano (curl, corpo catturato dalla pagina): nessuna risposta in 150 s.
+    - **Le persone e l'aereo** (generatore locale, 800 fotogrammi = 400 s):
+      le zone arrivate alla simulazione sono 2 origini, 2 accoglienze,
+      13 soste, 1 filtro — **nessuna meta d'imbarco / aereo**. Le 28 persone
+      a fine corsa sono ancora in cammino, sparse fra 22 e 58 m
+      dall'ingresso, nessuna sparisce. Non salgono perche' nessuno ha detto
+      loro dov'e' l'aereo. (Legato a «Le mete si generano» e all'occhio.)
+    - **Difetto della pagella** (`index.html`, «LA PAGELLA DELLE MISSIONI»):
+      col generatore locale conta le tappe sotto `fatti[0]` ma le rilegge
+      sotto `fatti["a0"]` → «28 su 28 fermi prima dell'origine» e' FALSO.
+      In piu' le missioni sono quelle mandate a Render, che il generatore
+      locale non usa. Da correggere (dannoso: dice una cosa falsa).
 
 **6.16 - PUBBLICATO** (`2026-09-24-e`): zone dal conto dei posti quando gli
 arredi arrivano, e riappoggiate sugli arredi dopo l'occhio. A fine giro 10 posti
@@ -2107,8 +2136,9 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 14/10 | **Due gare Meta con lo stesso EIDETICA in due pezzi**: il CERVELLO (Hackathon IA Meta, 26/10–5/11: SAM 3.1 + Muse per ritagliare e dare il nome agli spazi e spiegare l'accessibilita') e il VISORE (VR Start, 18/11: plastico sulla scrivania, solo mani, da seduti, 60 fps, tutto in inglese). Piano nel §13. **Approvato l'impianto**: l'analisi sul PC scrive il «pacchetto del progetto», il visore (app IWSDK nuova) apre solo quello |
 | 13/10 notte | **Il cuore nel visore e' la lettura dell'occhio**: si entra quando l'occhio comincia, e la lettura si vede sul plastico (telecamera di luce, nome sopra l'oggetto). Un solo tasto «Entra» (quello del visore); la vista grezza del velo va tolta |
-| 13/10 sera | **Nel visore tutto quello che mostra il PC, in finestre chiare che si prendono con le mani**: racconto, zoom dell'occhio, quello che vedo; dall'indirizzo corto anche la simulazione parte da sola. Pubblicato con la frase di Raffaella |
+| 13/10 sera | **Nel visore tutto quello che mostra il PC, in finestre chiare che si prendono con le mani**: racconto, zoom dell'occhio, quello che vedo; dall'indirizzo corto anche la simulazione parte da sola. Pubblicato con la frase di Raffaella |
 | 13/10 | **Nel visore si entra da un indirizzo corto (`/quest`) e l'aeroporto si apre da solo**: niente file da scegliere, niente tasti (Raffaella: «mi chiede il GLB, ma io nel visore non ce l'ho»). Il video si fa dal visore (Fotocamera), fuori da Link |
 | 09/10 | **`esperienza-plastico` unita in `main` e pubblicata** (frase di Raffaella in chat): il passthrough si prova dal Quest Browser col sito pubblico |
 | 03/10 | **Il passthrough del progetto passa dal Quest Browser.** Misurato con Link acceso: Chrome sul PC via Link non offre `immersive-ar`. Prima di toccare EIDETICA, la prova in una pagina separata (WebXR puro) sul visore |
@@ -2693,3 +2723,122 @@ misurare.
 lunga si scrive prima: cosa misura, quale numero la dichiara riuscita, quanto
 dura al massimo. Se non passa ci si ferma e si ragiona con lei.
 
+---
+
+## 13. PIANO STRATEGICO — DUE GARE META (14/10/2026)
+
+> Raffaella, 14/10: le due gare usano **lo stesso progetto, EIDETICA, diviso in
+> due pezzi**. Ogni lavoro deve servire a entrambe. Lei la mattina e' a scuola:
+> si lavora di pomeriggio e di sera. Regole di sempre: solo aggiunte, spiegazioni
+> semplici, una domanda per volta.
+
+### 13.1 Le due gare
+
+| | **Hackathon IA Meta — «il cervello»** | **Meta VR Start — «il visore»** |
+|---|---|---|
+| Quando | online, 26/10 ore 17:00 → 05/11 ore 03:00 (Italia). Gratis solo se selezionata (si sa prima del 26) | consegna **18/11 ore 21:00** (Italia) |
+| Percorso | sviluppatori indipendenti, montepremi 1 M$ | Productivity, divisione «Adapted / Significantly Updated» (EIDETICA esisteva prima del 24/09) |
+| Strumenti | modelli Meta: **SAM 3.1** (ritagliare stanze e oggetti dalle viste del modello), **Muse Spark / Muse Image** (riconoscere e dare il nome a ogni spazio, spiegare i problemi di accessibilita' in parole semplici) | **IWSDK** (Immersive Web SDK, costruito su Three.js come EIDETICA) |
+| Obiettivo | i nomi veri degli ambienti (oggi «Room 1, Room 2…») e un resoconto chiaro, a partire dall'accessibilita'. Le persone simulate si muovono grazie a cio' che l'IA ha capito: si mostra, **senza spiegare come** (un po' di mistero) | premi speciali **Accessibility Forward** e **Agentic Interaction** |
+| Ingresso | **GLB grezzo**, senza BIM ne' IFC. Gaussian splat solo come obiettivo FUTURO: sulle scansioni non abbiamo lavorato, non si promette | il plastico del progetto analizzato |
+| Regole | regolamento ufficiale prima del 26/10: **rileggerlo quando arriva** | **solo mani**; **da seduti** (tutto nello spazio di un sedile d'aereo); avvio veloce; un momento completo in **meno di 10 minuti**; **almeno 60 fps** sul visore; **tutto in inglese**, interfaccia compresa (oggi e' meta' e meta') |
+| Consegna | (dal regolamento) | link all'app, video < 3 min girato nel visore o nell'emulatore, descrizione in inglese |
+
+⚠️ **Attenzione (Raffaella):** il VR Start esclude i progetti fatti con un «aiuto
+speciale» da Meta. Se Raffaella viene selezionata all'hackathon, si scrive agli
+organizzatori del VR Start per avere conferma che i modelli Meta si possono usare.
+Se non viene selezionata, il problema non c'e'.
+
+### 13.2 Che cosa si vede nel visore (deciso da Raffaella)
+
+- **Niente camminata nell'edificio a grandezza vera.** L'edificio e' un
+  **PLASTICO sulla scrivania**: si prende, si gira e si ingrandisce con le mani.
+- Si vedono le **personcine che camminano**.
+- **Si tocca una stanza e dice cosa non va** (accessibilita').
+- Ci si puo' **«affacciare» all'altezza di chi e' in sedia a rotelle**.
+- **Quest 2**: la stanza vera si vede solo in bianco e nero, quindi il plastico sta
+  dentro una **stanza virtuale a colori** (come nella diretta Meta del 13/10
+  «0 to VR with Immersive Web SDK», costruita con IWSDK e Claude Desktop).
+
+### 13.3 L'impianto — APPROVATO da Raffaella il 14/10 («sì, approvo»)
+
+**Due pezzi che si parlano con un file solo.**
+
+1. **Il cervello (sul PC)** = l'EIDETICA di oggi: carica il GLB, lo analizza,
+   riconosce zone, nomi, aperture, problemi, fa camminare le persone. Alla fine
+   scrive un **«pacchetto del progetto»**: il plastico d'argilla gia' unito per
+   materiale (vedi Fase C: 2.416 pezzi → 31), le stanze con nome e problemi, i
+   percorsi delle persone (i fotogrammi), le letture dell'occhio. Nell'hackathon
+   i nomi e i resoconti li danno SAM 3.1 + Muse: cambia chi parla, non il
+   pacchetto.
+2. **Il visore** = un'app **nuova e leggera, in IWSDK**, che apre il pacchetto e
+   basta. Si AGGIUNGE accanto a EIDETICA (una cartella sua nel repository,
+   pubblicata su GitHub Pages come il resto); la pagina di oggi resta com'e'.
+
+**Perche':** le regole del VR Start (avvio veloce, < 10 min, 60 fps su Quest 2)
+non si reggono facendo girare l'analisi dentro il visore. Misurato: la pagina
+intera nel Quest 2 fa **17 fps** e l'attesa dell'occhio e' «lentissima»; il
+motore Render non risponde in tempo (§1). Col pacchetto il visore non aspetta
+nessuno, e il cervello puo' lavorare con calma sul PC (o con i modelli Meta).
+
+### 13.4 Cosa si riusa di quello che c'e' gia'
+
+| Gia' fatto | Dove serve nel visore |
+|---|---|
+| Caricamento del GLB e **argilla** (`veritas_carta.js`), fondo scuro (§0.1) | il plastico con lo stesso vestito del PC |
+| **Plastico unito per materiale** (Fase C, v=4: 31 pezzi, 258 disegni, 13,0 ms sul PC) | la base dei 60 fps sul Quest 2 |
+| Scala 1:80, tavolo della misura dell'edificio, plastico davanti a chi guarda e che segue la testa nei primi 10 s (13-c, 13-d) | il plastico sulla scrivania, da seduti |
+| Presa col pizzico e col controller (v5), spia degli ingressi | sostituita dalle prese di IWSDK (sotto), la spia resta per le prove |
+| I percorsi delle persone (fotogrammi del generatore / motore) e i corpi | le personcine sul plastico |
+| La **lettura dell'occhio sul plastico** (telecamera di luce, nome sopra l'oggetto, 13-d) e le **finestre dal vivo** (racconto, zoom) | «tocchi una stanza e dice cosa non va» |
+| La figura umana come metro (§0.2), il taglio a 1,10 per livello | l'affaccio all'altezza della sedia a rotelle (occhi a circa 1,20 m) |
+| La conformita' del velo (norme trascritte) | il resoconto d'accessibilita' |
+| Le sonde col simulatore `iwer` (`banco/vivo/`) | IWSDK usa lo STESSO emulatore: le prove si rifanno uguali |
+
+### 13.5 Cosa ci fanno risparmiare gli strumenti Meta (risorse del contest)
+
+Fonte: `start-developer-competition-26.devpost.com/resources` (letta il 14/10).
+
+- **Prese con le mani gia' pronte** (IWSDK, `features: { grabbing: true }`):
+  `OneHandGrabbable` (prendi e gira), `TwoHandsGrabbable` (con due mani anche
+  **ingrandisci**), `DistanceGrabbable`. ⚠️ Con le mani nude serve
+  `grabbing: { useHandPinchForGrab: true }`, se no il pizzico vale solo come
+  «grilletto». Sostituisce il nostro codice delle mani.
+- **Ambiente e luci**: `DomeGradient` / `DomeTexture` per lo sfondo,
+  `IBLTexture` con `src: 'room'` (stanza gia' pronta) per la luce; la stanza a
+  colori si puo' fare con un GLB d'ambiente. Risolve il bianco e nero del Quest 2.
+- **Emulatore incluso** (IWER, lo stesso delle nostre sonde) con **emulazione
+  delle mani** («Gaze + Hands»: pizzico col mouse). Prove senza visore, e il
+  video della consegna si puo' girare anche nell'emulatore.
+- **Pubblicazione** su GitHub Pages (`base` di Vite = nome del repository, poi
+  `npm run build`) o Vercel (`meta-quest/iwsdk-v0-template`): la strada e' gia'
+  la nostra.
+- **Agentic Tools** (`github.com/meta-quest/agentic-tools`): istruzioni pronte
+  per l'assistente, fra cui `hz-iwsdk-webxr` (IWSDK) e `hz-store-pwa`; CLI
+  **`metavr`** con `metavr capture` (foto e video dal visore), `metavr perf`
+  (misura dei fotogrammi: serve per i 60 fps), `metavr log`. Serve la modalita'
+  sviluppatore sul Quest e il cavo USB. Installazione: la fa Raffaella
+  (configurazione permanente), oppure la si autorizza in chat.
+- ⚠️ **Rischio:** la guida IWSDK dichiara le prove su **Quest 3 / 3S**, non sul
+  Quest 2. I 60 fps sul Quest 2 vanno misurati PRESTO, prima di costruire sopra.
+
+### 13.6 Calendario
+
+| Periodo | Lavoro |
+|---|---|
+| **14 → 25/10** | la base nel visore: stanza a colori + plastico + mani (IWSDK). Primo passo: un'app IWSDK minima con il plastico d'argilla unito, misurata nel Quest 2 (60 fps sì/no) |
+| **26/10 → 4/11** | hackathon IA: riconoscimento e nomi degli spazi (SAM 3.1 + Muse), resoconto d'accessibilita' |
+| **5 → 18/11** | finire il visore (personcine, «tocca la stanza», affaccio in carrozzina, tutto in inglese) e girare il video (< 3 min) |
+
+### 13.7 Difetti aperti che pesano sulle gare
+
+1. **Nessuna meta d'imbarco** arriva alla simulazione → le persone non salgono
+   sull'aereo (§9, blocco 14/10). Per il cervello: le mete devono venire da cio'
+   che l'IA ha capito.
+2. **Pagella delle missioni falsa** col generatore locale (§9, blocco 14/10).
+3. **Render inutilizzabile** per la simulazione vera sul piano gratuito (§1).
+   Col pacchetto i percorsi si calcolano sul PC, senza Render.
+4. **Il «grezzo» dopo «Entra ↗»** solo sul Quest (§9): da capire prima di
+   togliere il tasto.
+5. **Lingua**: l'interfaccia e' meta' italiano e meta' inglese; per il VR Start
+   tutto in inglese.
