@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>EIDETICA — headset</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0e131b; color: #e8eaf0;
+        font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+      #scene-container { position: fixed; inset: 0; }
+      #entra { position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%);
+        padding: 18px 44px; border: 0; border-radius: 999px; background: #d9b45a; color: #10151d;
+        font: 600 22px/1 system-ui, sans-serif; cursor: pointer; display: none; }
+      #stato { position: fixed; left: 16px; top: 14px; opacity: .75; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <div id="scene-container"></div>
+    <div id="stato">EIDETICA · loading the model…</div>
+    <button id="entra" type="button">Enter</button>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
