@@ -1,3 +1,3 @@
 Arredi da Poly Haven, licenza CC0 (pubblico dominio):
-- poltroncina.glb = "Mid Century Lounge Chair" (polyhaven.com/a/mid_century_lounge_chair), colore schiarito in bianco avorio
 - felce.glb = "Fern 02", solo la pianta b (polyhaven.com/a/fern_02)
+La sedia da ufficio (v17) e' disegnata nel codice (main.js), niente file.

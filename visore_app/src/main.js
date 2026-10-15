@@ -19,8 +19,9 @@ import {
 } from "@iwsdk/core";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const COSTRUZIONE = "2026-10-15-v16";
+const COSTRUZIONE = "2026-10-15-v17";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -72,15 +73,15 @@ const luceURL = parseFloat(new URLSearchParams(location.search).get("luce"));   
 if (Number.isFinite(luceURL)) STUDIO.luceForza = luceURL;
 // v15: la prova dei pesi (spiegata sotto, a provaDeiPesi)
 const PROVA = new URLSearchParams(location.search).has("prova");
-const TAPPE = [   // v16: «tutto acceso» si rimisura fra una tappa e l'altra (le misure ballano di parecchio)
+const TAPPE = [   // v17: «tutto acceso» si rimisura fra una tappa e l'altra (le misure ballano); arredi uno per uno
   ["Everything on", {}],
   ["No live shadow", { ombre: false }],
   ["Everything on", {}],
+  ["No fern", { felce: false }],
+  ["No chair", { sedia: false }],
   ["No glass walls", { lastre: false }],
   ["Everything on", {}],
-  ["No 360 studio", { studio: false }],
-  ["No chair, fern, body", { arredi: false }],
-  ["Model only", { ombre: false, studio: false, lastre: false, arredi: false }],
+  ["Model only", { ombre: false, studio: false, lastre: false, felce: false, sedia: false, corpo: false }],
 ];
 const PP = { i: -1, da: 0, f: 0, conta: 0, ris: [] };
 const livello = world.activeLevel.value;
@@ -227,7 +228,7 @@ const costaVetro = vetroLeggero(0x7fa89e, 0.85, 0.1, 0xa9cbc2);
 const vetroFume = vetroLeggero(0x2a2e33, 0.14, 0.35, 0xc9d0d6, THREE.DoubleSide);
 // v8: IL CROMO VERO. Il metallo riflette la foto della stanza A COLORI e a pieno
 // contrasto (la luce generale usa una copia grigia e tenue: sul metallo sembrava
-// vernice grigia). Lo stesso riflesso va al piede della poltroncina.
+// vernice grigia). Lo stesso cromo fa la colonna e la base della sedia.
 const riflessoStanza = await (async () => {
   const t = await AssetManager.loadTexture(BASE + STUDIO.foto);
   t.mapping = THREE.EquirectangularReflectionMapping;
@@ -338,28 +339,54 @@ function appendiIlMarchio(altezzaPiano) {
   gancio.position.set(0, sopra, POSTO_MARCHIO.z);
 }
 
-// GLI ARREDI (v7, 15/10): una poltroncina di design bianca e una felce in un vaso
+// GLI ARREDI (v7, 15/10; la sedia rifatta nella v17): la sedia e una felce in un vaso
 // bianco opaco, per completare lo studio (Poly Haven, CC0 — vedi arredi/FONTE.txt).
 // Stanno a terra: la loro altezza si fissa alla posa, come le gambe.
 const aTerra = [];
 const ombreggia = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-const poltroncina = (await AssetManager.loadGLTF(BASE + "arredi/poltroncina.glb")).scene;
-poltroncina.name = "eidetica-poltroncina";
-// v8: e' LA SEDIA DI CHI USA L'APP (VR Start: si lavora seduti). Sta dove sei seduta,
-// girata verso il piano, con la seduta che entra appena sotto il bordo della scrivania
-// (la schiena resta dietro la testa: non si vede guardando avanti)
-poltroncina.position.set(0, 0, DAVANTI + 0.15);
-poltroncina.rotation.y = Math.PI;
-poltroncina.traverse((m) => { if (m.isMesh && m.material) {
-  m.material.envMap = riflessoStanza; m.material.envMapIntensity = 1.0; m.material.envMapRotation = giroRiflesso;
-  // v14 (Raffaella, da renderista): la pelle era troppo lucida. Pelle OPACA e morbida
-  // (ruvidita' alta: riflesso largo e soffice); dove la texture dice metallo, cromo.
-  m.material.onBeforeCompile = (sh) => {
-    sh.fragmentShader = sh.fragmentShader.replace("#include <metalnessmap_fragment>",
-      "#include <metalnessmap_fragment>\n  roughnessFactor = mix(0.82, 0.08, step(0.5, metalnessFactor));");
-  };
-  m.material.customProgramCacheKey = () => "eidetica-pelle-opaca";
-  m.material.needsUpdate = true; } });
+// v17: LA SEDIA DA UFFICIO (Raffaella: «si, metti la sedia da ufficio bianca con la colonna
+// regolabile»). La poltroncina della v8 si faceva su misura INGRANDENDOLA tutta: diventava
+// enorme, sbatteva nelle gambe del tavolo e non arrivava comunque alla quota giusta. La sedia
+// da scrivania vera ha la COLONNA che sale e scende: la seduta va alla quota di chi siede
+// (occhi - 78 cm) e la sedia resta della sua misura. Bianca e sobria, colonna e base cromate,
+// cinque razze con le rotelle; niente braccioli (le braccia sono le mani vere).
+// Sta dove sei seduta, girata verso il piano, la seduta 8 cm dietro gli occhi.
+const poltroncina = new THREE.Group();
+poltroncina.name = "eidetica-sedia";
+const pelle = new THREE.MeshStandardMaterial({ color: 0xf2f2ef, roughness: 0.82, metalness: 0 });
+const ruote = new THREE.MeshStandardMaterial({ color: 0x2a2d31, roughness: 0.55, metalness: 0 });
+const SEDIA = { seduta: [0.48, 0.07, 0.46], schienale: [0.44, 0.46, 0.045], razza: 0.30 };
+const sedile = new THREE.Mesh(new RoundedBoxGeometry(...SEDIA.seduta, 4, 0.03), pelle);
+const schienale = new THREE.Mesh(new RoundedBoxGeometry(...SEDIA.schienale, 4, 0.02), pelle);
+const dorso = new THREE.Mesh(new THREE.BoxGeometry(0.045, 1, 0.014), acciaio);        // la lama cromata che regge lo schienale
+const colonna = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1, 24), acciaio);
+const fodero = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, 0.2, 24), acciaio);
+fodero.position.y = 0.17;
+const mozzo = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.05, 24), acciaio);
+mozzo.position.y = 0.085;
+poltroncina.add(sedile, schienale, dorso, colonna, fodero, mozzo);
+for (let i = 0; i < 5; i++) {
+  const a = (i / 5) * Math.PI * 2 + Math.PI / 5, r = SEDIA.razza;
+  const braccio = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.022, r), acciaio);
+  braccio.position.set(Math.sin(a) * r / 2, 0.072, Math.cos(a) * r / 2);
+  braccio.rotation.order = "YXZ"; braccio.rotation.set(0.10, a, 0);                    // scende appena verso la rotella
+  const rotella = new THREE.Mesh(new THREE.SphereGeometry(0.026, 16, 10), ruote);
+  rotella.position.set(Math.sin(a) * r, 0.026, Math.cos(a) * r);
+  poltroncina.add(braccio, rotella);
+}
+// la colonna sale o scende: la seduta (la sua faccia di sopra) va alla quota s dal pavimento
+function regolaLaSedia(s) {
+  const sotto = s - SEDIA.seduta[1];
+  sedile.position.set(0, s - SEDIA.seduta[1] / 2, 0);
+  colonna.scale.y = Math.max(0.05, sotto - 0.11); colonna.position.y = 0.11 + colonna.scale.y / 2;
+  schienale.position.set(0, s + 0.13 + SEDIA.schienale[1] / 2, SEDIA.seduta[2] / 2 + 0.03);
+  schienale.rotation.x = 0.12;                                                          // appena reclinato
+  const da = s - 0.03, a = s + 0.17;
+  dorso.scale.y = a - da; dorso.position.set(0, (da + a) / 2, SEDIA.seduta[2] / 2 + 0.02);
+}
+regolaLaSedia(0.46);
+poltroncina.position.set(0, 0, DAVANTI + 0.08);
+// il davanti della sedia (-z) guarda gia' il piano: lo schienale sta dietro, verso +z
 ombreggia(poltroncina);
 const felce = new THREE.Group();
 felce.name = "eidetica-felce";
@@ -368,6 +395,14 @@ const vaso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.19, 0.62, 48),
 vaso.position.y = 0.31;
 const pianta = (await AssetManager.loadGLTF(BASE + "arredi/felce.glb")).scene;
 pianta.scale.setScalar(1.3);
+// v17 (prova dei pesi v16: senza sedia, felce e sagoma da ~52 a 67 fps). Le foglie sono
+// ritagliate (ogni punto si decide se c'e' o no) e a due facce: con la luce «fisica» e il
+// rilievo (normal map) calcolati punto per punto erano la cosa piu' cara accanto al plastico.
+// Ora luce semplice (Lambert: sole + cielo), stesso colore e stesso ritaglio.
+pianta.traverse((m) => { if (m.isMesh && m.material) {
+  const v = m.material;
+  m.material = new THREE.MeshLambertMaterial({ map: v.map, alphaTest: v.alphaTest || 0.5, side: THREE.DoubleSide, color: v.color });
+  v.dispose(); } });
 pianta.position.set(0.045, 0.62, -0.03);                      // la felce b del file e' spostata di qualche cm: si centra sul vaso
 felce.add(vaso, pianta);
 felce.position.set(xDestra + 0.45, 0, zDietro + 0.40);       // dietro la lastra di destra: si intravede dal vetro
@@ -380,17 +415,11 @@ aTerra.push(poltroncina, felce);
 // (letti alla posa). Da seduti gli occhi stanno ~78 cm sopra la seduta (misura media).
 // L'altezza della seduta del modello si misura una volta, con un raggio dall'alto.
 const SEDUTA_OCCHI = 0.78;
-const sedutaModello = (() => {
-  const bb = new THREE.Box3().setFromObject(poltroncina, true), c = bb.getCenter(new THREE.Vector3());
-  const ray = new THREE.Raycaster(new THREE.Vector3(c.x, bb.max.y + 1, c.z), new THREE.Vector3(0, -1, 0));
-  const y = ray.intersectObject(poltroncina, true).map((h) => h.point.y - bb.min.y).find((h) => h > 0.25 && h < 0.65);
-  return y || null;
-})();
 function sedutaSuMisura(occhi) {
-  if (!sedutaModello || !(occhi > 0.9)) return;
-  const k = Math.max(0.85, Math.min(1.35, (occhi - SEDUTA_OCCHI) / sedutaModello));
-  poltroncina.scale.setScalar(k);
-  sedutaFatta = +(sedutaModello * k).toFixed(2);
+  if (!(occhi > 0.9)) return;
+  const sQuota = Math.max(0.38, Math.min(0.80, occhi - SEDUTA_OCCHI));   // l'escursione di una colonna a gas, larga
+  regolaLaSedia(sQuota);
+  sedutaFatta = +sQuota.toFixed(2);
 }
 let sedutaFatta = null;
 
@@ -412,7 +441,7 @@ postazione.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShad
   };
   macchia(0, zPiano + 0.08, P.largo * 0.62, P.fondo * 0.75, 0.16);           // il piano di cristallo: appena un velo
   for (const [x, z] of [[-xG, -zG], [xG, -zG], [-xG, zG], [xG, zG]]) macchia(x, zPiano + z + 0.02, 0.05, 0.07, 0.55);   // i piedini
-  macchia(0, DAVANTI + 0.15 + 0.04, 0.42, 0.40, 0.42);                        // la sedia
+  macchia(0, DAVANTI + 0.08 + 0.03, 0.36, 0.36, 0.40);                        // la sedia: la base a cinque razze
   macchia(xDestra + 0.45, zDietro + 0.43, 0.32, 0.32, 0.5);                   // il vaso
   const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
   pavimento.material.map = t; pavimento.material.needsUpdate = true;
@@ -490,8 +519,9 @@ function faiIlCorpo(ey, py) {
     osso(V(-0.11, s + 0.10, 0.08), V(0.11, s + 0.10, 0.08), 0.095),         // il bacino
   ];
   for (const x of [-1, 1]) pezzi.push(
-    osso(V(0.10 * x, s + 0.09, 0.06), V(0.11 * x, s + 0.10, -0.38), 0.072),  // la coscia, sulla seduta
-    osso(V(0.11 * x, s + 0.07, -0.40), V(0.12 * x, 0.08, -0.44), 0.048),     // la gamba, fino a terra
+    // v17 (Raffaella: «le ginocchia stanno in alto rispetto alla sedia»): la coscia POSA sulla seduta, quasi in piano
+    osso(V(0.10 * x, s + 0.074, 0.07), V(0.11 * x, s + 0.07, -0.36), 0.072),   // la coscia, sulla seduta
+    osso(V(0.11 * x, s + 0.05, -0.38), V(0.12 * x, 0.08, -0.42), 0.048),      // la gamba, fino a terra
     osso(V(0.12 * x, 0.05, -0.42), V(0.13 * x, 0.04, -0.60), 0.038));        // il piede
   const g = mergeGeometries(pezzi);
   pezzi.forEach((p) => p.dispose());
@@ -665,7 +695,7 @@ function posaDavanti() {
   M.introDa = performance.now();                       // v12: l'apertura del marchio
   M.occhi = +testa.y.toFixed(2); M.piano = +(testa.y - SOTTO_OCCHI).toFixed(2);
   M.seduta = sedutaFatta;
-  console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti; seduta a " + M.seduta + " m (modello " + sedutaModello + ")");
+  console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti; seduta a " + M.seduta + " m");
 }
 
 // IL PIANO ALL'ALTEZZA DELLE MANI (v16). Raffaella nel visore: per prendere il plastico ha
@@ -756,11 +786,11 @@ function solePerIlPlastico() {
 // v15: LA PROVA DEI PESI (?prova nel link). Una sola entrata nel visore misura da sola
 // quanto costa ogni parte della scena: 6 tappe da 9 s (si contano gli ultimi 6), poi la
 // tabella resta sul pannello. Raffaella legge i numeri, senza rifare la prova tante volte.
-function pesi({ ombre = true, studio: st = true, lastre = true, arredi = true }) {
+function pesi({ ombre = true, studio: st = true, lastre = true, felce: fe = true, sedia = true, corpo = true }) {
   sole.castShadow = ombre; r.shadowMap.needsUpdate = true;
   studio.visible = st;
   lastraDietro.visible = lastraDestra.visible = lastre; for (const p of profili) p.visible = lastre;
-  poltroncina.visible = felce.visible = corpoA.visible = corpoB.visible = arredi;
+  poltroncina.visible = sedia; felce.visible = fe; corpoA.visible = corpoB.visible = corpo;
 }
 function provaDeiPesi(adesso) {
   if (M.dentro && (!M.posato || !M.fineAllinea)) return;   // v16: prima si allinea il piano alle mani
@@ -769,6 +799,8 @@ function provaDeiPesi(adesso) {
   const t = adesso - PP.da;
   if (t >= 3000) { PP.f++; if (!PP.conta) PP.conta = adesso; }
   if (t >= 9000) {
+    // v17: se il visore si e' fermato (menu aperto, cuffia tolta) la tappa si rifa' da capo (v16: «NaN»)
+    if (PP.f < 60 || adesso - PP.conta < 4000) { PP.da = adesso; PP.f = 0; PP.conta = 0; return; }
     const fps = (PP.f - 1) * 1000 / (adesso - PP.conta);
     PP.ris.push([TAPPE[PP.i][0], fps, world.renderer.info.render.calls]);
     console.log("[EIDETICA visore] prova dei pesi: " + TAPPE[PP.i][0] + " = " + fps.toFixed(1) + " fps");

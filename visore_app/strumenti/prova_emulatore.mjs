@@ -56,6 +56,7 @@ const dentro = await page.evaluate(() => { const M = window.__EIDETICA_VISORE;
   return { dentro: M.dentro, campioni: M.campioni.length, ora: M.ora, disegni: M.disegni, tris: M.triangoliDisegnati, ritmo: M.ritmo, posato: M.posato, occhi: M.occhi, piano: M.piano }; });
 console.log(ora() + " nel visore simulato: " + JSON.stringify(dentro));
 await page.screenshot({ path: path.join(FOTO, "2_dentro" + (process.env.ETICHETTA || "") + ".png") });
+if (process.env.SPOSTA) { await page.evaluate((v) => window.__iwer.position.set(...v), process.env.SPOSTA.split(",").map(Number)); await page.waitForTimeout(800); }   // SPOSTA="x,y,z": la testa si sposta dopo la posa (per guardare da fuori)
 // GUARDA="60,-60": gira la testa (gradi, + = sinistra) e fotografa, per vedere la stanza attorno
 for (const g of (process.env.GUARDA || "").split(",").filter(Boolean)) {
   await page.evaluate(([gradi, piega]) => { const a = gradi * Math.PI / 180, b = -piega * Math.PI / 180;
