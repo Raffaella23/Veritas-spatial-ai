@@ -18,8 +18,9 @@ import {
   IBLTexture, TwoHandsGrabbable, RayInteractable, PokeInteractable, Pressed,
 } from "@iwsdk/core";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-const COSTRUZIONE = "2026-10-15-v15";
+const COSTRUZIONE = "2026-10-15-v16";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -71,12 +72,14 @@ const luceURL = parseFloat(new URLSearchParams(location.search).get("luce"));   
 if (Number.isFinite(luceURL)) STUDIO.luceForza = luceURL;
 // v15: la prova dei pesi (spiegata sotto, a provaDeiPesi)
 const PROVA = new URLSearchParams(location.search).has("prova");
-const TAPPE = [
+const TAPPE = [   // v16: «tutto acceso» si rimisura fra una tappa e l'altra (le misure ballano di parecchio)
   ["Everything on", {}],
   ["No live shadow", { ombre: false }],
-  ["No 360 studio", { studio: false }],
+  ["Everything on", {}],
   ["No glass walls", { lastre: false }],
-  ["No chair, no fern", { arredi: false }],
+  ["Everything on", {}],
+  ["No 360 studio", { studio: false }],
+  ["No chair, fern, body", { arredi: false }],
   ["Model only", { ombre: false, studio: false, lastre: false, arredi: false }],
 ];
 const PP = { i: -1, da: 0, f: 0, conta: 0, ris: [] };
@@ -89,7 +92,10 @@ r.shadowMap.enabled = true;
 // la fa SOLO il plastico, su se stesso e sul sottomano, e si ricalcola solo quando il
 // plastico si muove (prima: ogni fotogramma, su 3,4 m di scena, morbida = molto cara).
 // Le ombre a terra di scrivania, sedia e felce sono dipinte una volta sola (sotto).
-r.shadowMap.type = THREE.PCFShadowMap;
+// v16 (prova dei pesi: senza ombra viva da 38 a 59 fps): ombra NETTA a un solo campione
+// (BasicShadowMap) invece di quella sfumata a piu' campioni: costa una frazione, e con 0,4 mm
+// per punto d'ombra il bordo resta pulito (Raffaella: «ombre un po' piu' definite»)
+r.shadowMap.type = THREE.BasicShadowMap;
 r.shadowMap.autoUpdate = false;
 r.shadowMap.needsUpdate = true;
 const sole = new THREE.DirectionalLight(0xfffaf2, 1.9);   // v6: piu' forte, ombre proprie e portate decise
@@ -196,22 +202,29 @@ const yPiano = -P.sottomano - P.spessore / 2;
 const postazione = new THREE.Group();
 postazione.name = "eidetica-postazione";
 // v6: IL CRISTALLO. Di fronte quasi invisibile, di taglio riflette (come il vetro vero:
-// effetto Fresnel), lucido, con la costa verde ben leggibile
-function cristallo(m, quanto) {
-  m.onBeforeCompile = (sh) => {
-    sh.fragmentShader = sh.fragmentShader.replace("#include <dithering_fragment>",
-      "#include <dithering_fragment>\n  float fres = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 3.0);\n"
-      + "  gl_FragColor.a = clamp(gl_FragColor.a + fres * " + quanto.toFixed(2) + ", 0.0, 1.0);");
-  };
-  m.customProgramCacheKey = () => "eidetica-cristallo-" + quanto;
-  return m;
+// effetto Fresnel), con la costa verde ben leggibile
+// v16 (prova dei pesi nel Quest 2: senza le lastre di vetro da 38 a 51 fps). Le lastre
+// coprono mezzo campo visivo e il vetro «fisico» (luce, riflessi della stanza) si calcolava
+// punto per punto su tutta quella superficie. Ora il vetro e' DISEGNATO: un colore, una
+// trasparenza, e di taglio si schiarisce e si fa piu' pieno (Fresnel) come il vetro vero.
+// Stesso aspetto da lontano, una frazione del lavoro.
+function vetroLeggero(colore, alfa, fres, riflesso = 0xdfe6ea, lati = THREE.FrontSide) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColore: { value: new THREE.Color(colore) }, uRiflesso: { value: new THREE.Color(riflesso) },
+      uAlfa: { value: alfa }, uFres: { value: fres } },
+    vertexShader: `varying vec3 vN; varying vec3 vV;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uColore; uniform vec3 uRiflesso; uniform float uAlfa; uniform float uFres; varying vec3 vN; varying vec3 vV;
+      void main() { float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 3.0);
+        gl_FragColor = vec4(mix(uColore, uRiflesso, f), clamp(uAlfa + f * uFres, 0.0, 1.0));
+        #include <colorspace_fragment>
+      }`,
+    transparent: true, depthWrite: false, side: lati,
+  });
 }
-const vetroChiaro = cristallo(new THREE.MeshStandardMaterial({ color: 0xe6efed, roughness: 0.02, metalness: 0,
-  transparent: true, opacity: 0.10, depthWrite: false, envMapIntensity: 2.6 }), 0.55);
-const costaVetro = new THREE.MeshStandardMaterial({ color: 0x7fa89e, roughness: 0.05, metalness: 0,
-  transparent: true, opacity: 0.85, depthWrite: false, envMapIntensity: 2 });
-const vetroFume = cristallo(new THREE.MeshStandardMaterial({ color: 0x2a2e33, roughness: 0.02, metalness: 0.1,
-  transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 2.2 }), 0.35);
+const vetroChiaro = vetroLeggero(0xe6efed, 0.10, 0.55);
+const costaVetro = vetroLeggero(0x7fa89e, 0.85, 0.1, 0xa9cbc2);
+const vetroFume = vetroLeggero(0x2a2e33, 0.14, 0.35, 0xc9d0d6, THREE.DoubleSide);
 // v8: IL CROMO VERO. Il metallo riflette la foto della stanza A COLORI e a pieno
 // contrasto (la luce generale usa una copia grigia e tenue: sul metallo sembrava
 // vernice grigia). Lo stesso riflesso va al piede della poltroncina.
@@ -437,7 +450,54 @@ studio.renderOrder = -10;
   studio.rotation.y = Math.atan2(x, -z);                    // porta il punto (x, z) della foto davanti, a (0, -1)
 }
 world.createTransformEntity(studio);
-const finti = [studio, pavimento, lastraDietro, lastraDestra, ...profili, poltroncina, felce, ...gambe];
+// LA SAGOMA DI CHI SIEDE (v16). Raffaella: «una sagoma come quella delle mani, un filo
+// segnato, non un manichino: una sagoma delicata». Il Quest 2 non vede il corpo: senza, guardando
+// in basso si vede la seduta vuota e ci si sente «per aria». Il corpo seduto e' fatto di poche
+// forme morbide (busto, spalle, bacino, cosce, gambe, piedi) e se ne disegna SOLO IL CONTORNO,
+// bianco e sottile come quello delle mani di Meta: dentro si vede attraverso. Niente braccia:
+// le braccia sono le mani vere. Si fa su misura degli occhi, alla posa, e la sedia con lui.
+const corpoDentro = new THREE.MeshBasicMaterial({ colorWrite: false });            // scrive solo la profondita': dentro il filo si vede la scena
+const corpoFilo = new THREE.ShaderMaterial({
+  uniforms: { uSpessore: { value: 0.0028 }, uColore: { value: new THREE.Color(0xffffff) }, uAlfa: { value: 0.62 } },
+  // il filo svanisce vicino agli occhi: busto e spalle, a pochi cm, farebbero una riga grossa e spezzata
+  vertexShader: `uniform float uSpessore; varying float vVicino;
+    void main() { vec4 mv = modelViewMatrix * vec4(position + normal * uSpessore, 1.0); vVicino = smoothstep(0.32, 0.52, length(mv.xyz)); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform vec3 uColore; uniform float uAlfa; varying float vVicino;
+    void main() { gl_FragColor = vec4(uColore, uAlfa * vVicino);
+      #include <colorspace_fragment>
+    }`,
+  side: THREE.BackSide, transparent: true, depthWrite: false,
+});
+const corpoA = new THREE.Mesh(new THREE.BufferGeometry(), corpoDentro), corpoB = new THREE.Mesh(new THREE.BufferGeometry(), corpoFilo);
+corpoA.name = "eidetica-corpo"; corpoB.name = "eidetica-corpo-filo";
+corpoA.renderOrder = 998; corpoB.renderOrder = 999;
+corpoA.frustumCulled = corpoB.frustumCulled = false;
+postazione.add(corpoA, corpoB);
+const SU = new THREE.Vector3(0, 1, 0);
+function osso(a, b, raggio, largo = 1, fondo = 1) {   // una forma morbida da a a b (metri, sistema della postazione)
+  const d = new THREE.Vector3().subVectors(b, a), l = d.length();
+  const g = new THREE.CapsuleGeometry(raggio, Math.max(0.001, l), 6, 16);
+  g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5),
+    new THREE.Quaternion().setFromUnitVectors(SU, d.normalize()), new THREE.Vector3(largo, 1, fondo)));
+  return g;
+}
+// ey = occhi, py = punto d'appoggio (quote dal pavimento); gli occhi stanno a DAVANTI dietro il plastico
+function faiIlCorpo(ey, py) {
+  const s = ey - SEDUTA_OCCHI, V = (x, y, dz) => new THREE.Vector3(x, y - py, DAVANTI + dz);
+  const pezzi = [
+    osso(V(0, s + 0.13, 0.11), V(0, ey - 0.25, 0.09), 0.11, 1.4, 0.8),       // il busto
+    osso(V(-0.16, ey - 0.21, 0.10), V(0.16, ey - 0.21, 0.10), 0.055),       // le spalle
+    osso(V(-0.11, s + 0.10, 0.08), V(0.11, s + 0.10, 0.08), 0.095),         // il bacino
+  ];
+  for (const x of [-1, 1]) pezzi.push(
+    osso(V(0.10 * x, s + 0.09, 0.06), V(0.11 * x, s + 0.10, -0.38), 0.072),  // la coscia, sulla seduta
+    osso(V(0.11 * x, s + 0.07, -0.40), V(0.12 * x, 0.08, -0.44), 0.048),     // la gamba, fino a terra
+    osso(V(0.12 * x, 0.05, -0.42), V(0.13 * x, 0.04, -0.60), 0.038));        // il piede
+  const g = mergeGeometries(pezzi);
+  pezzi.forEach((p) => p.dispose());
+  corpoA.geometry.dispose(); corpoA.geometry = g; corpoB.geometry = g;
+}
+const finti = [studio, pavimento, lastraDietro, lastraDestra, ...profili, poltroncina, felce, ...gambe, corpoA, corpoB];
 postazione.traverse((o) => { if (o.isMesh && (o.material === vetroChiaro || (Array.isArray(o.material) && o.material.includes(vetroChiaro)) || o.material === acciaio) && !finti.includes(o)) finti.push(o); });
 const piedino = [];   // il leggio del pannello resta anche in passthrough
 postazione.traverse((o) => { if (o.isMesh && o.material === acciaio && o.geometry.parameters && o.geometry.parameters.width < 0.2 && o.position.z > zPiano - P.fondo / 2 && Math.abs(o.position.x) < 0.1 && o.position.y > -0.05) piedino.push(o); });
@@ -484,7 +544,7 @@ enteBottone.addComponent(RayInteractable);
 enteBottone.addComponent(PokeInteractable);
 
 // la posa: plastico e postazione insieme; le gambe, l'ombra e la L arrivano fino al pavimento vero
-function posaLaPostazione(punto) {
+function posaLaPostazione(punto, occhi = punto.y + SOTTO_OCCHI) {
   postazione.position.copy(punto);
   plastico.position.copy(punto);
   plastico.position.y += 0.0015;   // v15: 1,5 mm sopra il sottomano (le due facce combaciavano: lo sfarfallio)
@@ -496,12 +556,12 @@ function posaLaPostazione(punto) {
   lastraDietro.position.y = lastraDestra.position.y = -punto.y + L.alto / 2;
   for (const p of profili) p.position.y = -punto.y + 0.015;
   for (const a of aTerra) a.position.y = -punto.y;
-  studio.position.set(punto.x, punto.y + SOTTO_OCCHI, punto.z + DAVANTI);   // il centro della foto = gli occhi
-  const occhi = punto.y + SOTTO_OCCHI;                       // v15: il pavimento della foto a quota zero
+  studio.position.set(punto.x, occhi, punto.z + DAVANTI);   // il centro della foto = gli occhi (v15: col pavimento a quota zero)
   if (occhi > 0.3 && Math.abs(occhi - altezzaStudio) > 0.01) {
     studio.geometry.dispose(); studio.geometry = geoStudioA(occhi); altezzaStudio = occhi;
   }
   sedutaSuMisura(occhi);
+  faiIlCorpo(occhi, punto.y);                                // v16: la sagoma di chi siede
   appendiIlMarchio(punto.y);
   r.shadowMap.needsUpdate = true;
 }
@@ -545,9 +605,9 @@ function scriviPannello() {
   p.fillStyle = "rgba(154,163,178,0.35)"; p.fillRect(52, 168, tela.width - 104, 2);
   if (PROVA) {   // v15: la tabella della prova dei pesi
     const tinta = (v) => v >= 60 ? "#4fe08a" : v >= 45 ? C.arancio : "#ff5f57";
-    p.font = "400 27px " + CARATTERE;
+    p.font = "400 24px " + CARATTERE;
     TAPPE.forEach(([nome], i) => {
-      const y = 212 + i * 34, ris = PP.ris[i];
+      const y = 204 + i * 29, ris = PP.ris[i];
       p.fillStyle = i === PP.i ? C.testo : C.grigio;
       p.fillText((i + 1) + "  " + nome, 52, y);
       p.fillStyle = ris ? tinta(ris[1]) : C.grigio;
@@ -555,7 +615,8 @@ function scriviPannello() {
       if (ris) { p.fillStyle = C.grigio; p.fillText(ris[2] + " draws", 760, y); }
     });
     p.fillStyle = C.grigio; p.font = "400 22px " + CARATTERE;
-    p.fillText((PP.i >= TAPPE.length ? "Test done · " : "Load test · keep still · ") + COSTRUZIONE, 52, 428);
+    p.fillText((PP.i >= TAPPE.length ? "Test done · " : !M.fineAllinea ? "Rest a hand flat on your desk · " : "Load test · keep still, look at the model · ")
+      + (M.ritmo ? M.ritmo + " Hz · " : "") + COSTRUZIONE, 52, 440);
     p.restore(); trama.needsUpdate = true;
     return;
   }
@@ -580,7 +641,7 @@ function scriviPannello() {
   p.beginPath(); p.arc(64, 372, 9, 0, Math.PI * 2);
   p.fillStyle = !pieno ? C.grigio : ok ? "#4fe08a" : C.arancio; p.fill();
   p.fillStyle = C.grigio; p.font = "400 26px " + CARATTERE;
-  p.fillText((pieno ? (ok ? "Stable above 60 fps" : "Below 60 fps") : "Measuring " + M.campioni.length + " / 30 s")
+  p.fillText((M.dentro && M.posato && !M.fineAllinea ? "Rest a hand flat on your desk" : pieno ? (ok ? "Stable above 60 fps" : "Below 60 fps") : "Measuring " + M.campioni.length + " / 30 s")
     + "   ·   " + M.disegni + " draws · " + Math.round(M.triangoliDisegnati / 1000) + "k tris"
     + (M.ritmo ? " · " + M.ritmo + " Hz" : "") + "   ·   " + COSTRUZIONE, 88, 381);
   p.restore();
@@ -598,12 +659,55 @@ function posaDavanti() {
   if (++M.attesaTesta < 20) return;                   // i primi fotogrammi la testa e' ancora a zero
   world.player.head.getWorldPosition(testa);
   if (testa.y < 0.5 && M.attesaTesta < 120) return;    // testa non ancora letta: si aspetta ancora un po'
-  posaLaPostazione(new THREE.Vector3(testa.x, testa.y - SOTTO_OCCHI, testa.z - DAVANTI));
+  posaLaPostazione(new THREE.Vector3(testa.x, testa.y - SOTTO_OCCHI, testa.z - DAVANTI), testa.y);
   M.posato = true; M.attesaTesta = 0;
+  M.occhiV = testa.clone(); M.allineaDa = performance.now(); M.fineAllinea = false; M.allineato = false; manoFerma.left = []; manoFerma.right = [];
   M.introDa = performance.now();                       // v12: l'apertura del marchio
   M.occhi = +testa.y.toFixed(2); M.piano = +(testa.y - SOTTO_OCCHI).toFixed(2);
   M.seduta = sedutaFatta;
   console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti; seduta a " + M.seduta + " m (modello " + sedutaModello + ")");
+}
+
+// IL PIANO ALL'ALTEZZA DELLE MANI (v16). Raffaella nel visore: per prendere il plastico ha
+// dovuto mettere le mani SOTTO il piano della sua scrivania vera: il piano finto stava piu' in
+// basso del vero (e lei si sentiva alta sulla sedia). Nei primi 15 s dopo l'entrata, se una
+// mano si posa FERMA e PIATTA davanti, fra 18 e 62 cm sotto gli occhi, quella e' la scrivania
+// vera: il sottomano col plastico si posa li'. Senza scrivania vera (o coi controller) resta
+// la posa dagli occhi.
+const GIUNTI = ["wrist", "middle-finger-metacarpal", "thumb-tip", "index-finger-tip", "middle-finger-tip", "ring-finger-tip", "pinky-finger-tip"];
+const manoFerma = { left: [], right: [] }, giunto = new THREE.Vector3();
+function allineaAlleMani(adesso) {
+  if (adesso - M.allineaDa > 15000) { M.fineAllinea = true; console.log("[EIDETICA visore] nessuna mano posata: piano dagli occhi"); scriviPannello(); return; }
+  const s = r.xr.getSession(), frame = r.xr.getFrame && r.xr.getFrame(), rs = r.xr.getReferenceSpace();
+  if (!s || !frame || !rs || !frame.getJointPose) return;
+  world.player.updateMatrixWorld();
+  const piani = [];
+  for (const src of s.inputSources) {
+    if (!src.hand || !manoFerma[src.handedness]) continue;
+    let basso = Infinity, alto = -Infinity, z = 0, n = 0, puntaGiu = Infinity, puntaSu = -Infinity;
+    for (const nome of GIUNTI) {
+      const j = src.hand.get(nome), p = j && frame.getJointPose(j, rs);
+      if (!p) { n = 0; break; }
+      giunto.set(p.transform.position.x, p.transform.position.y, p.transform.position.z).applyMatrix4(world.player.matrixWorld);
+      const y = giunto.y - (p.radius || 0.008);
+      basso = Math.min(basso, y); alto = Math.max(alto, y); z += giunto.z; n++;
+      if (/^(index|middle|ring)-finger-tip$/.test(nome)) { puntaGiu = Math.min(puntaGiu, y); puntaSu = Math.max(puntaSu, y); }   // le punte posate stanno alla stessa quota
+    }
+    const storia = manoFerma[src.handedness];
+    const sotto = M.occhiV.y - basso, davanti = M.occhiV.z - z / Math.max(1, n);
+    M.mani = { [src.handedness]: { n, piatta: +(alto - basso).toFixed(3), punte: +(puntaSu - puntaGiu).toFixed(3), sotto: +sotto.toFixed(3), davanti: +davanti.toFixed(3) }, ...(M.mani || {}) };   // per le prove
+    if (!n || alto - basso > 0.07 || puntaSu - puntaGiu > 0.025 || sotto < 0.18 || sotto > 0.62 || davanti < 0.12) { storia.length = 0; continue; }   // non e' una mano piatta posata davanti
+    storia.push([adesso, basso]);
+    while (storia.length && adesso - storia[0][0] > 800) storia.shift();
+    const ys = storia.map((v) => v[1]);
+    if (adesso - storia[0][0] > 700 && Math.max(...ys) - Math.min(...ys) < 0.008) piani.push(ys.sort((a, b) => a - b)[ys.length >> 1]);
+  }
+  if (!piani.length) return;
+  const piano = piani.reduce((a, b) => a + b, 0) / piani.length;
+  posaLaPostazione(new THREE.Vector3(postazione.position.x, piano, postazione.position.z), M.occhiV.y);
+  M.allineato = M.fineAllinea = true; M.piano = +piano.toFixed(3); M.seduta = sedutaFatta;
+  console.log("[EIDETICA visore] scrivania vera letta dalle mani: piano a " + M.piano + " m (" + Math.round((M.occhiV.y - piano) * 100) + " cm sotto gli occhi), seduta a " + M.seduta + " m");
+  scriviPannello();
 }
 
 // L'APERTURA DEL MARCHIO (v12): 0-0,8 s l'occhio si apre (da una fessura a tutto
@@ -656,11 +760,11 @@ function pesi({ ombre = true, studio: st = true, lastre = true, arredi = true })
   sole.castShadow = ombre; r.shadowMap.needsUpdate = true;
   studio.visible = st;
   lastraDietro.visible = lastraDestra.visible = lastre; for (const p of profili) p.visible = lastre;
-  poltroncina.visible = felce.visible = arredi;
+  poltroncina.visible = felce.visible = corpoA.visible = corpoB.visible = arredi;
 }
 function provaDeiPesi(adesso) {
-  if (M.dentro && !M.posato) return;
-  if (PP.i === -1) { if (!PP.da) PP.da = adesso + 6000; if (adesso < PP.da) return; PP.i = 0; PP.da = adesso; pesi(TAPPE[0][1]); }
+  if (M.dentro && (!M.posato || !M.fineAllinea)) return;   // v16: prima si allinea il piano alle mani
+  if (PP.i === -1) { if (!PP.da) PP.da = adesso + 3000; if (adesso < PP.da) return; PP.i = 0; PP.da = adesso; pesi(TAPPE[0][1]); }
   if (PP.i >= TAPPE.length) return;
   const t = adesso - PP.da;
   if (t >= 3000) { PP.f++; if (!PP.conta) PP.conta = adesso; }
@@ -684,6 +788,7 @@ class Regia extends createSystem({}) {
     solePerIlPlastico();
     const adesso = performance.now();
     animaMarchio(adesso);
+    if (M.dentro && M.posato && !M.fineAllinea) allineaAlleMani(adesso);
     if (PROVA) provaDeiPesi(adesso);
     const premuto = enteBottone.hasComponent(Pressed);
     if (premuto && !M.premuto) mettiPassthrough(!passthrough);

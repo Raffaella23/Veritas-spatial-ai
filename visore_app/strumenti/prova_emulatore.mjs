@@ -37,7 +37,7 @@ await page.route((u) => u.href.startsWith(BASE), (r) => {
 });
 const iwer = fs.readFileSync(path.join(qui, "..", "node_modules", "iwer", "build", "iwer.min.js"), "utf8");
 await page.addInitScript(iwer + `
-  ;(function(){ const d = new IWER.XRDevice(IWER.metaQuest2); d.installRuntime({ forceInstall: true }); window.__iwer = d; if (${Number(process.env.OCCHI) || 0}) d.position.set(0, ${Number(process.env.OCCHI) || 0}, 0); })();`);
+  ;(function(){ const d = new IWER.XRDevice(IWER.metaQuest2); d.installRuntime({ forceInstall: true }); window.__iwer = d; if (${Number(process.env.OCCHI) || 0}) d.position.set(0, ${Number(process.env.OCCHI) || 0}, 0); if (${Number(process.env.MANI) || 0}) { d.primaryInputMode = "hand"; d.hands.left.position.set(-0.15, ${Number(process.env.MANI) || 0}, -0.40); d.hands.right.position.set(0.15, ${Number(process.env.MANI) || 0}, -0.40); const g = ${Number(process.env.GIRA) || 0} * Math.PI / 180, ax = "${process.env.ASSE || "z"}"; const q = (sg) => { const h = sg * g / 2; return ax === "x" ? [Math.sin(h), 0, 0, Math.cos(h)] : ax === "y" ? [0, Math.sin(h), 0, Math.cos(h)] : [0, 0, Math.sin(h), Math.cos(h)]; }; d.hands.left.quaternion.set(...q(1)); d.hands.right.quaternion.set(...q(-1)); } })();`);
 
 await page.goto(BASE + (process.env.QUERY || ""), { waitUntil: "load" });
 await page.waitForFunction(() => window.__EIDETICA_VISORE && window.__EIDETICA_VISORE.pezzi > 0, null, { timeout: 90000 });
@@ -73,6 +73,7 @@ if (process.env.PREMI) {   // PREMI=1: il pulsante PASSTHROUGH (dal PC: tasto P)
   await page.screenshot({ path: path.join(FOTO, "4_passthrough.png") });
   await page.keyboard.press("p"); await page.waitForTimeout(800);
 }
+if (process.env.STAMPA) console.log(ora() + " " + process.env.STAMPA + " = " + JSON.stringify(await page.evaluate((k) => window.__EIDETICA_VISORE[k], process.env.STAMPA)));
 const pesanti = richieste.filter((r) => /assets\//.test(r));
 console.log(ora() + " file scaricati: " + richieste.length + " (" + pesanti.map((r) => r.replace("assets/", "")).join(", ") + ")");
 console.log(ora() + " errori: " + (errori.length ? errori.slice(0, 8).join(" | ") : "nessuno"));
