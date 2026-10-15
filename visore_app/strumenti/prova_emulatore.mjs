@@ -37,7 +37,7 @@ await page.route((u) => u.href.startsWith(BASE), (r) => {
 });
 const iwer = fs.readFileSync(path.join(qui, "..", "node_modules", "iwer", "build", "iwer.min.js"), "utf8");
 await page.addInitScript(iwer + `
-  ;(function(){ const d = new IWER.XRDevice(IWER.metaQuest2); d.installRuntime({ forceInstall: true }); window.__iwer = d; })();`);
+  ;(function(){ const d = new IWER.XRDevice(IWER.metaQuest2); d.installRuntime({ forceInstall: true }); window.__iwer = d; if (${Number(process.env.OCCHI) || 0}) d.position.set(0, ${Number(process.env.OCCHI) || 0}, 0); })();`);
 
 await page.goto(BASE + (process.env.QUERY || ""), { waitUntil: "load" });
 await page.waitForFunction(() => window.__EIDETICA_VISORE && window.__EIDETICA_VISORE.pezzi > 0, null, { timeout: 90000 });
@@ -58,11 +58,11 @@ console.log(ora() + " nel visore simulato: " + JSON.stringify(dentro));
 await page.screenshot({ path: path.join(FOTO, "2_dentro" + (process.env.ETICHETTA || "") + ".png") });
 // GUARDA="60,-60": gira la testa (gradi, + = sinistra) e fotografa, per vedere la stanza attorno
 for (const g of (process.env.GUARDA || "").split(",").filter(Boolean)) {
-  await page.evaluate((gradi) => { const a = gradi * Math.PI / 180, b = -0.30;
+  await page.evaluate(([gradi, piega]) => { const a = gradi * Math.PI / 180, b = -piega * Math.PI / 180;
     const qy = [0, Math.sin(a / 2), 0, Math.cos(a / 2)], qx = [Math.sin(b / 2), 0, 0, Math.cos(b / 2)];
     const q = [qy[3] * qx[0] + qy[0] * qx[3] + qy[1] * qx[2] - qy[2] * qx[1], qy[3] * qx[1] - qy[0] * qx[2] + qy[1] * qx[3] + qy[2] * qx[0],
                qy[3] * qx[2] + qy[0] * qx[1] - qy[1] * qx[0] + qy[2] * qx[3], qy[3] * qx[3] - qy[0] * qx[0] - qy[1] * qx[1] - qy[2] * qx[2]];
-    window.__iwer.quaternion.set(q[0], q[1], q[2], q[3]); }, Number(g));
+    window.__iwer.quaternion.set(q[0], q[1], q[2], q[3]); }, [Number(g), Number(process.env.PIEGA) || 17]);
   await page.waitForTimeout(2500);
   await page.screenshot({ path: path.join(FOTO, "3_guarda_" + g + ".png") });
   console.log(ora() + " testa girata di " + g + " gradi: foto");

@@ -19,7 +19,7 @@ import {
 } from "@iwsdk/core";
 import * as THREE from "three";
 
-const COSTRUZIONE = "2026-10-15-v14";
+const COSTRUZIONE = "2026-10-15-v15";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -69,18 +69,35 @@ const giroURL = parseFloat(new URLSearchParams(location.search).get("giro"));
 if (Number.isFinite(giroURL)) STUDIO.giro = giroURL;
 const luceURL = parseFloat(new URLSearchParams(location.search).get("luce"));   // ?luce=<forza> per le prove
 if (Number.isFinite(luceURL)) STUDIO.luceForza = luceURL;
+// v15: la prova dei pesi (spiegata sotto, a provaDeiPesi)
+const PROVA = new URLSearchParams(location.search).has("prova");
+const TAPPE = [
+  ["Everything on", {}],
+  ["No live shadow", { ombre: false }],
+  ["No 360 studio", { studio: false }],
+  ["No glass walls", { lastre: false }],
+  ["No chair, no fern", { arredi: false }],
+  ["Model only", { ombre: false, studio: false, lastre: false, arredi: false }],
+];
+const PP = { i: -1, da: 0, f: 0, conta: 0, ris: [] };
 const livello = world.activeLevel.value;
 livello.addComponent(IBLTexture, { src: BASE + STUDIO.luce, intensity: STUDIO.luceForza, rotation: [0, STUDIO.giro, 0] });
 // ...e un sole a ~60° che fa ombre proprie e portate (piu' tenue della pagina: la stanza illumina gia')
 const r = world.renderer;
 r.shadowMap.enabled = true;
-r.shadowMap.type = THREE.PCFSoftShadowMap;   // v6: bordi d'ombra morbidi
+// v15 (Raffaella nel Quest 2: 26 fps, media 37,6, minimo 25): l'ombra calcolata dal vivo
+// la fa SOLO il plastico, su se stesso e sul sottomano, e si ricalcola solo quando il
+// plastico si muove (prima: ogni fotogramma, su 3,4 m di scena, morbida = molto cara).
+// Le ombre a terra di scrivania, sedia e felce sono dipinte una volta sola (sotto).
+r.shadowMap.type = THREE.PCFShadowMap;
+r.shadowMap.autoUpdate = false;
+r.shadowMap.needsUpdate = true;
 const sole = new THREE.DirectionalLight(0xfffaf2, 1.9);   // v6: piu' forte, ombre proprie e portate decise
 const DIR_SOLE = new THREE.Vector3(0.25, 0.95, -1.0).normalize();   // ~35° sull'orizzonte: ombre lunghe   // la luce viene dalle finestre, davanti a chi siede: le ombre vengono verso di lei
 sole.castShadow = true;
-sole.shadow.mapSize.set(2048, 2048);   // su 60 cm di plastico: 0,3 mm per punto d'ombra
-sole.shadow.bias = -0.0004;
-sole.shadow.normalBias = 0.002;
+sole.shadow.mapSize.set(2048, 2048);   // v15: solo sul plastico (~75 cm): 0,4 mm per punto d'ombra, ombre nette
+sole.shadow.bias = -0.0003;
+sole.shadow.normalBias = 0.0006;
 world.scene.add(sole, sole.target);
 // la luce calda della stanza ingiallisce l'argilla: un cielo neutro (quello della pagina, piu' tenue) la riporta al suo grigio
 const cielo = new THREE.HemisphereLight(0xb8c4d6, 0x141820, 0.35);
@@ -134,8 +151,23 @@ plastico.scale.setScalar(scala);
 plastico.position.copy(CENTRO);
 const ente = world.createTransformEntity(plastico);
 ente.addComponent(RayInteractable);
+// v15 (Raffaella: «il modello e' il modello, non e' una fisarmonica»): con due mani si
+// ingrandisce SOLO tutto insieme, mai stirato su un asse (scala uniforme, sotto in Regia);
+// e si ingrandisce di piu' (fino a 10 volte) per avvicinarsi davvero.
 ente.addComponent(TwoHandsGrabbable, { rotate: true, translate: true, scale: true,
-  scaleMin: [scala * 0.3, scala * 0.3, scala * 0.3], scaleMax: [scala * 4, scala * 4, scala * 4] });
+  scaleMin: [scala * 0.3, scala * 0.3, scala * 0.3], scaleMax: [scala * 10, scala * 10, scala * 10] });
+// IWSDK non passa l'opzione «uniforme» alla presa (@pmndrs/handle): la si aggiunge alla
+// presa appena creata, leggendo le sue opzioni ogni volta
+function presaUniforme() {
+  if (M.presaUniforme) return;
+  const c = ente.getComponents().find((k) => k.id === "Handle");
+  const h = c && ente.getValue(c, "instance");
+  if (!h || !h.getOptions) return;
+  const prima = h.getOptions;
+  h.getOptions = () => { const o = prima(); if (o && o.scale) o.scale = { ...o.scale, uniform: true }; return o; };
+  M.presaUniforme = true;
+  console.log("[EIDETICA visore] presa a due mani: ingrandimento uniforme");
+}
 
 // IL PANNELLO: vetro scuro col filo ciano, come i pannelli della tavola UX.
 // Per ora dice i fotogrammi (la misura delle prove); poi diventera' il pannello del progetto.
@@ -226,7 +258,8 @@ pezzo(new THREE.BoxGeometry(P.gamba, P.gamba, 2 * zG), acciaio, xG, yTelaio, zPi
 const gambe = [[-xG, -zG], [xG, -zG], [-xG, zG], [xG, zG]].map(([x, z]) =>
   pezzo(new THREE.BoxGeometry(P.gamba, 1, P.gamba), acciaio, x, 0, zPiano + z));
 // l'ombra sul pavimento: appoggia la scrivania nella foto (si vede solo l'ombra)
-const pavimento = pezzo(new THREE.PlaneGeometry(4, 4), new THREE.ShadowMaterial({ opacity: 0.45 }), 0, 0, zPiano, false);
+// v15: le ombre a terra sono DIPINTE una volta (sotto, dopo gli arredi): morbide e sobrie, e non costano
+const pavimento = pezzo(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false }), 0, 0, zPiano, false);
 pavimento.rotation.x = -Math.PI / 2;
 // la L di cristallo fume' a tutta altezza: una lastra dietro, una a destra
 const L = P.lastraL, zDietro = zPiano - P.fondo / 2 - L.distanza, xDestra = P.largo / 2 + 0.25;
@@ -329,6 +362,49 @@ ombreggia(felce);
 postazione.add(poltroncina, felce);
 aTerra.push(poltroncina, felce);
 
+// v15: LA SEDUTA A MISURA DI CHI SIEDE. Raffaella nel visore era «piu' alta della sedia di
+// una trentina di centimetri». La sedia non e' tracciata: si fa su misura dei suoi occhi
+// (letti alla posa). Da seduti gli occhi stanno ~78 cm sopra la seduta (misura media).
+// L'altezza della seduta del modello si misura una volta, con un raggio dall'alto.
+const SEDUTA_OCCHI = 0.78;
+const sedutaModello = (() => {
+  const bb = new THREE.Box3().setFromObject(poltroncina, true), c = bb.getCenter(new THREE.Vector3());
+  const ray = new THREE.Raycaster(new THREE.Vector3(c.x, bb.max.y + 1, c.z), new THREE.Vector3(0, -1, 0));
+  const y = ray.intersectObject(poltroncina, true).map((h) => h.point.y - bb.min.y).find((h) => h > 0.25 && h < 0.65);
+  return y || null;
+})();
+function sedutaSuMisura(occhi) {
+  if (!sedutaModello || !(occhi > 0.9)) return;
+  const k = Math.max(0.85, Math.min(1.35, (occhi - SEDUTA_OCCHI) / sedutaModello));
+  poltroncina.scale.setScalar(k);
+  sedutaFatta = +(sedutaModello * k).toFixed(2);
+}
+let sedutaFatta = null;
+
+// v15: nessuna ombra calcolata dal vivo su scrivania, sedia e felce (era la spesa piu'
+// grossa): l'ombra vera resta solo al plastico e cade sul sottomano
+postazione.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = o.geometry === geoS; } });
+// LE OMBRE A TERRA, DIPINTE (v15). Raffaella: «le ombre a terra sono esagerate». Ombre
+// morbide di contatto, come nelle foto di prodotto: la scrivania, i piedini, la sedia,
+// il vaso. La luce viene dalle finestre davanti: le ombre scivolano appena verso chi siede.
+{
+  const N = 512, tela = document.createElement("canvas"); tela.width = tela.height = N;
+  const g = tela.getContext("2d");
+  const px = (x) => (x / 4 + 0.5) * N, pz = (z) => ((z - zPiano) / 4 + 0.5) * N, m = N / 4;
+  const macchia = (x, z, rx, rz, a) => {
+    g.save(); g.translate(px(x), pz(z)); g.scale(rx * m, rz * m);
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+    rg.addColorStop(0, "rgba(0,0,0," + a + ")"); rg.addColorStop(0.55, "rgba(0,0,0," + a * 0.45 + ")"); rg.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 1, 0, Math.PI * 2); g.fill(); g.restore();
+  };
+  macchia(0, zPiano + 0.08, P.largo * 0.62, P.fondo * 0.75, 0.16);           // il piano di cristallo: appena un velo
+  for (const [x, z] of [[-xG, -zG], [xG, -zG], [-xG, zG], [xG, zG]]) macchia(x, zPiano + z + 0.02, 0.05, 0.07, 0.55);   // i piedini
+  macchia(0, DAVANTI + 0.15 + 0.04, 0.42, 0.40, 0.42);                        // la sedia
+  macchia(xDestra + 0.45, zDietro + 0.43, 0.32, 0.32, 0.5);                   // il vaso
+  const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
+  pavimento.material.map = t; pavimento.material.needsUpdate = true;
+}
+
 // LO STUDIO TUTT'ATTORNO (v13): la foto a 360° su una sfera centrata negli occhi di
 // chi siede. Si entra SEMPRE in passthrough (immersive-ar) quando il visore lo sa
 // fare: la sfera copre la stanza vera e simula il passthrough a colori del Quest 3.
@@ -336,9 +412,23 @@ aTerra.push(poltroncina, felce);
 // (a colori sul Quest 3, in bianco e nero sul Quest 2).
 const tStudio = await new THREE.TextureLoader().loadAsync(BASE + STUDIO.foto);
 tStudio.colorSpace = THREE.SRGBColorSpace; tStudio.anisotropy = 8;
-const geoStudio = new THREE.SphereGeometry(9, 96, 48);
-geoStudio.scale(-1, 1, 1);                                   // vista da dentro, non specchiata
-const studio = new THREE.Mesh(geoStudio, new THREE.MeshBasicMaterial({ map: tStudio, toneMapped: false, depthWrite: false }));
+// v15: IL PAVIMENTO DELLA FOTO A TERRA. Raffaella nel visore: «la scrivania non poggia per
+// terra, sta per aria», «la sedia non poggia». Su una sfera di 9 m il pavimento della foto
+// appariva metri sotto i piedi. Ora la meta' di sotto della sfera e' SCHIACCIATA sul piano
+// del pavimento vero (come GroundedSkybox di three.js): il pavimento della foto sta a quota
+// zero, dove poggiano gambe, sedia e vaso, e i muri restano lontani.
+function geoStudioA(altezzaOcchi) {
+  const g = new THREE.SphereGeometry(9, 96, 48);
+  g.scale(-1, 1, 1);                                         // vista da dentro, non specchiata
+  const pos = g.attributes.position, t = new THREE.Vector3(), y1 = -altezzaOcchi * 1.5;
+  for (let i = 0; i < pos.count; i++) {
+    t.fromBufferAttribute(pos, i);
+    if (t.y < 0) { t.multiplyScalar(t.y < y1 ? -altezzaOcchi / t.y : 1 - (t.y * t.y) / (3 * y1 * y1)); t.toArray(pos.array, 3 * i); }
+  }
+  return g;
+}
+const studio = new THREE.Mesh(geoStudioA(1.2), new THREE.MeshBasicMaterial({ map: tStudio, toneMapped: false, depthWrite: false }));
+let altezzaStudio = 1.2;
 studio.name = "eidetica-studio";
 studio.renderOrder = -10;
 // davanti (-z) deve cadere il punto della foto scelto (0,596 = la parete con le 4 cornici)
@@ -397,6 +487,7 @@ enteBottone.addComponent(PokeInteractable);
 function posaLaPostazione(punto) {
   postazione.position.copy(punto);
   plastico.position.copy(punto);
+  plastico.position.y += 0.0015;   // v15: 1,5 mm sopra il sottomano (le due facce combaciavano: lo sfarfallio)
   plastico.quaternion.identity();
   plastico.scale.setScalar(scala);
   const h = Math.max(0.3, punto.y - P.sottomano - P.spessore);   // dal sotto del vetro a terra
@@ -406,7 +497,13 @@ function posaLaPostazione(punto) {
   for (const p of profili) p.position.y = -punto.y + 0.015;
   for (const a of aTerra) a.position.y = -punto.y;
   studio.position.set(punto.x, punto.y + SOTTO_OCCHI, punto.z + DAVANTI);   // il centro della foto = gli occhi
+  const occhi = punto.y + SOTTO_OCCHI;                       // v15: il pavimento della foto a quota zero
+  if (occhi > 0.3 && Math.abs(occhi - altezzaStudio) > 0.01) {
+    studio.geometry.dispose(); studio.geometry = geoStudioA(occhi); altezzaStudio = occhi;
+  }
+  sedutaSuMisura(occhi);
   appendiIlMarchio(punto.y);
+  r.shadowMap.needsUpdate = true;
 }
 posaLaPostazione(CENTRO);
 
@@ -446,6 +543,22 @@ function scriviPannello() {
   p.fillText("HEADSET · PERFORMANCE", 52, 140);
   if ("letterSpacing" in p) p.letterSpacing = "0px";
   p.fillStyle = "rgba(154,163,178,0.35)"; p.fillRect(52, 168, tela.width - 104, 2);
+  if (PROVA) {   // v15: la tabella della prova dei pesi
+    const tinta = (v) => v >= 60 ? "#4fe08a" : v >= 45 ? C.arancio : "#ff5f57";
+    p.font = "400 27px " + CARATTERE;
+    TAPPE.forEach(([nome], i) => {
+      const y = 212 + i * 34, ris = PP.ris[i];
+      p.fillStyle = i === PP.i ? C.testo : C.grigio;
+      p.fillText((i + 1) + "  " + nome, 52, y);
+      p.fillStyle = ris ? tinta(ris[1]) : C.grigio;
+      p.fillText(ris ? ris[1].toFixed(1) + " fps" : i === PP.i ? "measuring…" : "—", 560, y);
+      if (ris) { p.fillStyle = C.grigio; p.fillText(ris[2] + " draws", 760, y); }
+    });
+    p.fillStyle = C.grigio; p.font = "400 22px " + CARATTERE;
+    p.fillText((PP.i >= TAPPE.length ? "Test done · " : "Load test · keep still · ") + COSTRUZIONE, 52, 428);
+    p.restore(); trama.needsUpdate = true;
+    return;
+  }
   // la misura
   const pieno = M.campioni.length >= 30, ok = pieno && M.minimo >= 60;
   // v11: I NUMERI SEGNALANO (Raffaella: «gli elementi segnaletici devono essere interattivi»):
@@ -489,7 +602,8 @@ function posaDavanti() {
   M.posato = true; M.attesaTesta = 0;
   M.introDa = performance.now();                       // v12: l'apertura del marchio
   M.occhi = +testa.y.toFixed(2); M.piano = +(testa.y - SOTTO_OCCHI).toFixed(2);
-  console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti");
+  M.seduta = sedutaFatta;
+  console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti; seduta a " + M.seduta + " m (modello " + sedutaModello + ")");
 }
 
 // L'APERTURA DEL MARCHIO (v12): 0-0,8 s l'occhio si apre (da una fessura a tutto
@@ -516,12 +630,16 @@ function animaMarchio(adesso) {
 // IL SOLE SEGUE IL PLASTICO: la sua camera d'ombra lo copre tutto anche
 // quando lo prendi, lo sposti o lo ingrandisci (come sistemaIlSole della pagina)
 let raggioOmbra = 0;
+const ultimaPosa = new THREE.Matrix4();
 function solePerIlPlastico() {
+  // v15: l'ombra si ricalcola SOLO se il plastico si e' mosso (preso, girato, ingrandito)
+  plastico.updateMatrixWorld();
+  if (!ultimaPosa.equals(plastico.matrixWorld)) { ultimaPosa.copy(plastico.matrixWorld); r.shadowMap.needsUpdate = true; }
   const k = plastico.scale.x / scala;
-  // copre la scrivania e il pavimento sotto (le ombre delle gambe), e il plastico anche ingrandito
-  const raggio = Math.max(1.7, (LUNGO / 2 + 0.06) * k);   // v7: anche la poltroncina e la felce
-  sole.target.position.copy(postazione.position);
-  sole.position.copy(postazione.position).addScaledVector(DIR_SOLE, 3);
+  // v15: la camera d'ombra stringe sul solo plastico (anche ingrandito): ombre nette
+  const raggio = (LUNGO / 2 + 0.06) * k;
+  sole.target.position.copy(plastico.position);
+  sole.position.copy(plastico.position).addScaledVector(DIR_SOLE, 3);
   if (Math.abs(raggio - raggioOmbra) > 0.002) {
     const c = sole.shadow.camera;
     c.left = -raggio; c.right = raggio; c.top = raggio; c.bottom = -raggio;
@@ -531,12 +649,42 @@ function solePerIlPlastico() {
   }
 }
 
+// v15: LA PROVA DEI PESI (?prova nel link). Una sola entrata nel visore misura da sola
+// quanto costa ogni parte della scena: 6 tappe da 9 s (si contano gli ultimi 6), poi la
+// tabella resta sul pannello. Raffaella legge i numeri, senza rifare la prova tante volte.
+function pesi({ ombre = true, studio: st = true, lastre = true, arredi = true }) {
+  sole.castShadow = ombre; r.shadowMap.needsUpdate = true;
+  studio.visible = st;
+  lastraDietro.visible = lastraDestra.visible = lastre; for (const p of profili) p.visible = lastre;
+  poltroncina.visible = felce.visible = arredi;
+}
+function provaDeiPesi(adesso) {
+  if (M.dentro && !M.posato) return;
+  if (PP.i === -1) { if (!PP.da) PP.da = adesso + 6000; if (adesso < PP.da) return; PP.i = 0; PP.da = adesso; pesi(TAPPE[0][1]); }
+  if (PP.i >= TAPPE.length) return;
+  const t = adesso - PP.da;
+  if (t >= 3000) { PP.f++; if (!PP.conta) PP.conta = adesso; }
+  if (t >= 9000) {
+    const fps = (PP.f - 1) * 1000 / (adesso - PP.conta);
+    PP.ris.push([TAPPE[PP.i][0], fps, world.renderer.info.render.calls]);
+    console.log("[EIDETICA visore] prova dei pesi: " + TAPPE[PP.i][0] + " = " + fps.toFixed(1) + " fps");
+    PP.i++; PP.da = adesso; PP.f = 0; PP.conta = 0;
+    pesi(PP.i < TAPPE.length ? TAPPE[PP.i][1] : {});
+    scriviPannello();
+  }
+}
+window.__EIDETICA_PROVA = PP;
+
 // il conto dei fotogrammi: si azzera entrando nel visore, un campione al secondo, gli ultimi 30
 class Regia extends createSystem({}) {
   update() {
+    presaUniforme();
+    { const s = plastico.scale;   // cintura e bretelle: il plastico non si stira mai
+      if (Math.abs(s.x - s.y) > 1e-6 || Math.abs(s.x - s.z) > 1e-6) s.setScalar(Math.cbrt(s.x * s.y * s.z)); }
     solePerIlPlastico();
     const adesso = performance.now();
     animaMarchio(adesso);
+    if (PROVA) provaDeiPesi(adesso);
     const premuto = enteBottone.hasComponent(Pressed);
     if (premuto && !M.premuto) mettiPassthrough(!passthrough);
     M.premuto = premuto;
@@ -545,6 +693,10 @@ class Regia extends createSystem({}) {
       M.dentro = dentro; M.campioni = []; M.fotogrammi = 0; M.da = adesso;
       const s = world.renderer.xr.getSession && world.renderer.xr.getSession();
       M.ritmo = s && s.frameRate ? Math.round(s.frameRate) : null;
+      // v15: il Quest 2 nel browser corre a 90 Hz (11 ms per fotogramma); a 72 Hz ne ha
+      // 13,9: lo stesso disegno regge meglio, e 72 resta sopra i 60 del VR Start
+      if (s && s.updateTargetFrameRate && s.supportedFrameRates && [...s.supportedFrameRates].includes(72) && Math.round(s.frameRate || 0) !== 72)
+        s.updateTargetFrameRate(72).then(() => { M.ritmo = 72; console.log("[EIDETICA visore] ritmo del visore: 72 Hz"); }).catch(() => {});
     }
     if (dentro) posaDavanti(); else M.posato = false;
     M.fotogrammi++;
