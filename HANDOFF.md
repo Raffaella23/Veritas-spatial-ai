@@ -167,11 +167,29 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 ---
 
+### 0.7 — UNO STRUMENTO DA STUDIO DI ARCHITETTO, MAI UN VIDEOGIOCO (15/10/2026)
+
+> Raffaella, 15/10, «te lo pongo proprio come regola»: anche fatta con gli
+> strumenti Meta (IWSDK), l'estetica di EIDETICA e' quella di una piattaforma
+> professionale per studi di architetti e ingegneri di altissimo livello. Gli
+> strumenti non devono renderla «gamificata».
+
+- Ogni scelta del visore si guarda con l'occhio di un web designer di
+  piattaforme tecnologiche di alto livello: niente cieli azzurri, legni finti,
+  oggetti da gioco; scritte sobrie; mani e puntatori discreti.
+- Il contrasto voluto: **scena tech** (pannelli di vetro scuro con cornice di
+  **fili LED arancio → viola → ciano**, i colori della tavola UX; le scie degli
+  agenti) **dentro uno studio vero e classico** (passthrough simulato, §13.8).
+- I colori sono **segnaletici e reagiscono**: un numero buono e' verde, uno
+  al limite ambra, uno fuori soglia rosso.
+- Tutti i pannelli e le schede hanno **lo stesso vetro** (trasparenza come il
+  pannello delle misure della v10+).
+
 ## 1. STATO ATTUALE
 
 | | |
 |---|---|
-| **Aggiornato** | 14/10/2026 — **DUE GARE META** (piano nel §13): VR Start (consegna 18/11, il plastico nel visore) e Hackathon IA Meta (26/10–5/11, il cervello che da' i nomi agli spazi). Misure del 13/10 notte su Render, «Entra ↗» del velo e persone che non salgono sull'aereo: §9, blocco «14/10». Pubblicata e servita: `2026-10-13-d` |
+| **Aggiornato** | 15/10/2026 — **IL VISORE IWSDK** (§13.8): prova di carico superata nel Quest 2 (76-80 fps), poi la scena vestita da studio vero (v4-v14, NON pubblicate). Regola estetica nuova: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -180,6 +198,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
+| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-14-v2`** (`b3bbc16`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-14-v2`. **Pronta, NON pubblicata: `2026-10-15-v14`** (copia completa in `Desktop\VERITAS\visore_iwsdk_14-10`). Il vecchio visore `/quest` (13-d) non si prova piu' |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito. ⚠️ Misurato il 13/10 notte: la simulazione vera (28 persone, 4.000 passi) dura OLTRE 150 s e intanto il motore non risponde nemmeno al controllo di salute → Render lo riavvia e manda la mail «server failure» (13/10 ore 17:38 e 18:14, 09/10). La pagina aspetta 70 s e ricade sempre sul generatore JS locale: **oggi Render non viene mai usato**. Le pubblicazioni su `main` lo ricostruiscono ogni volta (innocuo) |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -2136,6 +2155,8 @@ https, `--allow-running-insecure-content`.
 
 | Data | Decisione |
 |---|---|
+| 15/10 | **La scena del visore**: passthrough simulato con una foto 360° vera di uno studio (Poly Haven CC0, n. 3), la postazione di Raffaella come modello (cristallo, sottomano, L fume', cromo vero), poltroncina = la sedia di chi lavora seduto, felce; logo appeso al soffitto con apertura animata; pannelli di vetro con fili LED; pulsante PASSTHROUGH per la stanza vera (§13.8). Regola estetica §0.7 |
+| 14/10 sera | **Prova di carico IWSDK**: plastico unito (31 pezzi) nel Quest 2 = 76-80 fps per 30 s, SUPERATA. Il plastico si posa dagli OCCHI (40 cm sotto, 45 cm davanti), lungo 60 cm (sedile d'aereo) |
 | 14/10 | **Due gare Meta con lo stesso EIDETICA in due pezzi**: il CERVELLO (Hackathon IA Meta, 26/10–5/11: SAM 3.1 + Muse per ritagliare e dare il nome agli spazi e spiegare l'accessibilita') e il VISORE (VR Start, 18/11: plastico sulla scrivania, solo mani, da seduti, 60 fps, tutto in inglese). Piano nel §13. **Approvato l'impianto**: l'analisi sul PC scrive il «pacchetto del progetto», il visore (app IWSDK nuova) apre solo quello |
 | 13/10 notte | **Il cuore nel visore e' la lettura dell'occhio**: si entra quando l'occhio comincia, e la lettura si vede sul plastico (telecamera di luce, nome sopra l'oggetto). Un solo tasto «Entra» (quello del visore); la vista grezza del velo va tolta |
 | 13/10 sera | **Nel visore tutto quello che mostra il PC, in finestre chiare che si prendono con le mani**: racconto, zoom dell'occhio, quello che vedo; dall'indirizzo corto anche la simulazione parte da sola. Pubblicato con la frase di Raffaella |
@@ -2842,3 +2863,64 @@ Fonte: `start-developer-competition-26.devpost.com/resources` (letta il 14/10).
    togliere il tasto.
 5. **Lingua**: l'interfaccia e' meta' italiano e meta' inglese; per il VR Start
    tutto in inglese.
+
+### 13.8 Il visore IWSDK: com'e' fatto e a che punto e' (15/10/2026)
+
+**Dove sta.** Sorgente in `visore_app/` (Vite + `@iwsdk/core` 1.0.1, istruzioni in
+`visore_app/LEGGIMI.md`); costruito in `visore/`, servito da GitHub Pages. La
+pagina di EIDETICA non e' toccata. Copia di lavoro completa (anche cio' che non e'
+pubblicato) in `Desktop\VERITAS\visore_iwsdk_14-10`, con le foto delle prove.
+
+**Misure.**
+- v1 (14/10, `a86c7a8`): plastico d'argilla unito sul PC (`strumenti/fai_plastico.mjs`,
+  aeroporto 2.416 → 31 pezzi, 186.074 triangoli), senza ombre: **76-80 fps** nel
+  Quest 2 per 30 s (spia «30/30»). La pagina intera ne faceva 17.
+- v2 (14/10, `b3bbc16`, servita): il plastico era sotto il tavolo vero di
+  Raffaella, le mani non lo raggiungevano → ora si posa dagli occhi. **La presa
+  con le mani della v2 non e' ancora stata provata.**
+- v4-v14 (15/10): la scena pesa di piu' (circa 140 disegni, ombre morbide): **i fps
+  nel Quest 2 sono da rimisurare** prima di aggiungere altro.
+
+**La scena (v14, non pubblicata).**
+- **Passthrough simulato**: si entra SEMPRE in `immersive-ar` quando il visore lo
+  sa fare; attorno, una sfera con la foto 360° «Brown Photostudio 03» (Poly Haven,
+  CC0), centrata negli occhi, girata con davanti la parete con le 4 cornici fra le
+  due finestre. La stessa foto quasi senza colore fa la luce (IBL): l'argilla resta
+  grigia. Sole a ~35° dalle finestre, ombre morbide (PCFSoft, 2048).
+- **Pulsante PASSTHROUGH** (vetro con fili LED, sul piano a destra, si preme col
+  dito o col pizzico a distanza; sul PC il tasto P): spegne la sfera e gli arredi
+  finti e lascia plastico, sottomano, pannello, logo → la stanza vera (a colori sul
+  Quest 3, bianco e nero sul Quest 2).
+- **Postazione** (modello: la scrivania di Raffaella, foto «Riferimento postazione»
+  in `Desktop\VERITAS`, 15/10): piano di cristallo (effetto Fresnel, coste verdi),
+  telaio e gambe in **cromo vero** (riflettono la foto a colori), sottomano chiaro
+  col plastico, L di cristallo fume' a tutta altezza, ombra sul pavimento della foto.
+- **Poltroncina** bianca di design (Poly Haven CC0, schiarita), **sotto la
+  scrivania al posto di chi siede** (VR Start: si lavora seduti); pelle opaca e
+  morbida, piede cromato. **Felce** in vaso bianco dietro la lastra di destra.
+- **Logo** (`Eidetica _logo_colorato.png`, scontornato): all'ingresso si apre davanti
+  agli occhi (come una palpebra, ~4 s), poi va al suo posto, **appeso al soffitto con
+  un cavetto e il rosone**, sopra il pannello, retroilluminato dal suo alone.
+- **Pannello** delle misure: vetro scuro trasparente con cornice di fili LED, retto
+  dal piedino cromato come un leggio; numeri verdi >= 60, ambra 45-59, rossi < 45.
+- **Plastico**: contrasto netto, pavimenti antracite e muri chiari (si misura
+  l'«alto» nel sistema del plastico: il GLB ha i pezzi girati di -90°, come da Blender).
+- **Mani**: presa a una e due mani col pizzico (`useHandPinchForGrab`), girare e
+  ingrandire con due mani, pulsanti col dito (poke) o col raggio. Da provare nel Quest.
+
+**Trappole trovate.**
+- Git Bash storpia i percorsi che iniziano con `/` (`BASE=/` → `C:/Program Files/Git/`):
+  si usa `MSYS_NO_PATHCONV=1`.
+- IWSDK in AR nasconde da solo lo sfondo (`DomeTexture`): lo studio e' una sfera
+  nostra. Il verso della foto sulla sfera: `rotation.y = atan2(x, -z)` del punto scelto.
+- I numeri dei fps dell'emulatore (iwer, senza scheda video) non contano.
+
+**Prossimi passi (in ordine, deciso con Raffaella).**
+1. Pubblicare la v14 (solo con la sua frase), provarla nel Quest 2: fps, presa del
+   plastico, pulsante PASSTHROUGH.
+2. **La parte tecnica**: il «pacchetto del progetto» scritto dal PC (§13.3) con i
+   percorsi delle persone e le letture dell'occhio → **le scie colorate degli agenti**
+   sul plastico e **le schede dell'occhio che si accendono man mano che procede la
+   comprensione** (stesso vetro con fili LED, in un posto comodo, prendibili e
+   avvicinabili con la mano).
+3. Tutto in inglese (VR Start).

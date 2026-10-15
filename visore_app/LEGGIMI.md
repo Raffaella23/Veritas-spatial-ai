@@ -9,7 +9,7 @@ sta in `../visore/` ed e' servito da GitHub Pages:
 
 ```
 npm install
-mkdir public && cp -r ../visore/stanza public/            # stanza Meta (Apache 2.0)
+mkdir -p public && cp -r public_studio public/studio && cp -r public_arredi public/arredi && cp -r public_marchio public/marchio   # stanza 360° e arredi (Poly Haven, CC0)
 node strumenti/fai_plastico.mjs ../airport_foot_traffic.glb public/plastico.glb
 npx vite build                                             # -> dist/
 node strumenti/prova_emulatore.mjs                         # Quest 2 simulato (iwer)

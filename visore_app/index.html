@@ -6,13 +6,17 @@
     <link rel="icon" href="data:," />
     <title>EIDETICA — headset</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #0e131b; color: #e8eaf0;
+      html, body { margin: 0; height: 100%; color: #e8eaf0;
+        background: radial-gradient(circle at 38% 52%, #1a2231 0%, #0e131b 55%, #07090d 100%);
         font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
       #scene-container { position: fixed; inset: 0; }
       #entra { position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%);
-        padding: 18px 44px; border: 0; border-radius: 999px; background: #d9b45a; color: #10151d;
-        font: 600 22px/1 system-ui, sans-serif; cursor: pointer; display: none; }
-      #stato { position: fixed; left: 16px; top: 14px; opacity: .75; font-size: 14px; }
+        padding: 16px 40px; border: 1px solid rgba(63,208,232,.55); border-radius: 14px;
+        background: rgba(14,19,27,.82); color: #e8eaf0; letter-spacing: .32em; text-transform: uppercase;
+        font: 400 18px/1 "Segoe UI", Roboto, system-ui, sans-serif; cursor: pointer; display: none;
+        backdrop-filter: blur(14px); }
+      #entra:hover { border-color: #3fd0e8; }
+      #stato { position: fixed; left: 20px; top: 16px; color: #9aa3b2; font-size: 13px; letter-spacing: .08em; }
     </style>
   </head>
   <body>
