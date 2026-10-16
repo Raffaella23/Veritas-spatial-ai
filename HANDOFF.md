@@ -200,7 +200,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 16/10/2026 notte — **v20 PUBBLICATA E SERVITA** (`39c5a87`, su richiesta di Raffaella in chat). Raffaella l'ha guardata: animazioni buone, ma **i percorsi sono sbagliati** (per aria, sui muri, niente scale ne' scala mobile): §13.8 «Raffaella sulla v20» — e' il prossimo lavoro. Prima (§13.8 «v20»), provata nell'emulatore 8/8: velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
+| **Aggiornato** | 17/10/2026 (sessione c1274ea1) — **I PERCORSI SBAGLIATI SONO DEL CERVELLO, NON DEL VISORE** (§13.8 «I PERCORSI — ACCERTATO il 17/10»): il visore posa bene; il pacchetto ha registrato il piano senza corpo; anche sul PC il piano salta fra muri e piani e il corpo fisico, quando arriva (~4 min), blocca tutti. Causa principale: la navmesh spezzata in 30 pezzi (sedute, banconi, pontili bassi 1,61 m). Correzioni parziali solo nel workspace (non pubblicate, patch in `Desktop\VERITAS\cervello_17-10`); proposta la strada «rete continua dall'occhio → folla di navcat → missioni», attende il si' di Raffaella. Prima: 16/10/2026 notte — **v20 PUBBLICATA E SERVITA** (`39c5a87`, su richiesta di Raffaella in chat). Raffaella l'ha guardata: animazioni buone, ma **i percorsi sono sbagliati** (per aria, sui muri, niente scale ne' scala mobile): §13.8 «Raffaella sulla v20» — e' il prossimo lavoro. Prima (§13.8 «v20»), provata nell'emulatore 8/8: velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -3093,11 +3093,57 @@ stessa cartella. Il pacchetto e' lo stesso della v19: il cervello non e' toccato
 > come abbiamo fatto nella versione desktop.»
 - I percorsi del visore sono quelli REGISTRATI nel pacchetto dalla pagina del PC
   (`fai_pacchetto.mjs`, ultima versione della traiettoria): il visore non li calcola.
-- ⚠️ **Da accertare per primo, prima di costruire** (§0.3): (a) sulla pagina del PC, con i corpi
-  fisici Rapier (§5), gli stessi percorsi sono giusti o sbagliati anche li'? (b) il pacchetto registra
-  i fotogrammi DOPO il corpo fisico o quelli del generatore JS? (c) il visore li posa alla quota
-  giusta (matrice del modello: ×5,583 e +2,25 m in altezza)? Se e' (c) e' un errore del visore; se e'
-  (a) o (b) e' del cervello (§13.7 punti 1, 6-9). La risposta decide dove si mette «tutta la fisica».
+**I PERCORSI — ACCERTATO il 17/10 (sessione c1274ea1). L'errore e' del CERVELLO, non del visore.
+Codice corretto solo nel workspace, NON pubblicato.** Copia di sicurezza: `Desktop\VERITAS\cervello_17-10\`
+(`index_percorsi.patch` = +62/−4 righe di `index.html`, le sonde in `sonde\`, le foto in `foto\`).
+- **(c) Il visore posa bene.** Sul plastico vero (`sonde\dove_poggiano.mjs`) 3 passi su 4 hanno i
+  piedi entro 10 cm da un pavimento: la matrice e' giusta.
+- **(b) Il pacchetto ha registrato il PIANO, non il corpo.** Nella versione registrata tutte le 28
+  persone hanno il 7-13% dei passi in cammino sospesi oltre 0,5 m (impossibile con la gravita'); in
+  tutto 13% dei passi nel vuoto (salgono in diagonale fra un piano e l'altro, senza scale) e 9% con una
+  parete dentro il corpo; 196 salti oltre 4 m in mezzo secondo.
+- **(a) Anche la pagina del PC e' sbagliata.** Pubblicata 13-d, `sonde\sonda_corpo.mjs`: le prime 6
+  versioni della traiettoria sono il piano senza corpo; la 7ª, dopo ~4 min, ha il corpo (0 posizioni
+  dentro un solido) ma le persone restano BLOCCATE: 12 m in 400 s invece di 290 (scostamento mediano
+  23 m). Il corpo ferma chi il piano manda nei muri. Foto: `profilo_persona13_piano_e_corpo.jpg`.
+- **Le cause, misurate:**
+  1. **La navmesh e' spezzata in 30 pezzi** (2.619 m² su un terminal di 113 × 63 m; pianta in
+     `foto\pianta_navmesh_spezzata.jpg`): file di sedute e banconi spezzano il piano terra in
+     isolette (l'ingresso «Zona 1» sta su un'isola di 5 m²); i **pontili hanno 1,61 m di luce**
+     (pavimento 2,95, soffitto 4,56; la persona e' 1,75) e restano fuori — §0.2, falso problema del
+     modello stilizzato: anche il piano terra ha solo 1,91 m di luce. Abbassare l'altezza della
+     persona a 1,4 / 1,2 / 1,0 m NON unisce i pezzi (misurato). Collegamenti che ci sono: 4 scale
+     mobili (Cube062/Cube195, +2,22 m, 26°, fra x −24 e −29) e 7 porte in piano (6 sulla facciata
+     lato aerei a x −45,6, 1 al piano di sopra).
+  2. **Il generatore ripartiva ogni tratto dalla tappa ideale** (`expandRoute`): tappa irraggiungibile
+     → la persona arrivava «il piu' vicino possibile» e poi SALTAVA alla tappa in linea retta, dentro
+     muri e solai. In un giro: 187 tratti parziali, 61 in linea retta (mappa a un livello).
+  3. **Le 7 tappe segnate «fuori dal percorso»** (`n.escluso`, «tappe: ... fuori dal percorso») non le
+     toglieva nessuno.
+  4. **Nessuna tappa «destinazione»** (aereo / imbarco): senza, `hasBranching` e' falso, i flussi non
+     partono e TUTTI fanno il giro di tutte le tappe nell'ordine dell'elenco (§13.7 punto 1).
+  5. **Il corpo Rapier non sale la scala mobile** (collegamento dichiarato) e lavora 15-45 s su un
+     tetto di 45 s: oltre il tetto il corpo non si applica.
+- **Fatto nel workspace (non pubblicato):** in `findRoute`, con la navmesh pronta MAI piu' la linea
+  retta (aggancio al calpestabile entro 6 m e un secondo tentativo, se no nessun tratto); una tappa che
+  a piedi non si raggiunge si SALTA (prima «il piu' vicino possibile»: vicoli ciechi); ogni tratto
+  riparte da dove si e' arrivati; si nasce sulla rete; chi non ha tappe raggiungibili resta in piedi
+  dove nasce; le tappe `escluso` si tolgono davvero.
+- **Misurato dopo, stessa prova: il criterio NON e' passato.** Il corpo si applica in 16 s con
+  scostamento 2,5 m (era 23) e i salti quasi spariscono; ma, con la rete a pezzi, tutti finiscono
+  ammucchiati in cima alla scala mobile (le tappe dopo non si raggiungono) e `resolveOverlaps` li
+  sparpaglia a ogni fotogramma (1.100 m in 400 s).
+- **Prototipo della folla di navcat** (`navcat/blocks` → `crowd`, quella di Recast/Detour: Unity,
+  Unreal; `sonde\prova_folla.js`, solo misura): 28 persone × 400 s calcolate in **1,5-2 s**, 100% dei
+  passi sul pavimento, si scansano fra loro. Si inceppano ai collegamenti (buco di 1 m fra due pezzi,
+  capi delle scale mobili): serve l'attraversamento fatto da noi (`autoTraverseOffMeshConnections:
+  false`, a velocita' vera) e soprattutto una rete continua.
+- **STRADA PROPOSTA a Raffaella il 17/10 (attende il suo si'):** (1) una rete continua di dove si
+  cammina, collegando i pezzi SOLO dove l'occhio vede un passaggio («passa»: porta, pontile, scala,
+  scala mobile) e la geometria lo conferma (§0.4: vede l'occhio, valida il cervello); (2) le persone
+  con la folla di navcat al posto di serpeggio + richiamo + `resolveOverlaps` + corpo Rapier: restano
+  sul pavimento, non si attraversano (§13.7 p. 8), prendono scale mobili e pontili; (3) le missioni
+  vere (aereo → pontile → terminal → uscita, e il contrario); (4) il pacchetto dalla versione finale.
 
 **Il metodo delle prove (§0.8).** Le verifiche si fanno nell'emulatore e le foto si
 mandano a Raffaella: `node strumenti/prova_emulatore.mjs` con `OCCHI=1.2` (altezza degli
@@ -3117,7 +3163,12 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
 1. ~~Gli agenti e l'occhio~~: fatto nella v19. ~~La v20 nel visore~~: **pubblicata** (sopra).
    Anteprima locale: configurazione «visore-v19» di `.claude/launch.json`, porta 5175,
    `/Veritas-spatial-ai/visore/?salta=70` (va rifatta puntare alla cartella della sessione nuova).
-2. **I percorsi** («Raffaella sulla v20», sopra): prima accertare (a)/(b)/(c), poi la fisica come sul PC.
+   ⚠️ Trappola (17/10): il server dell'anteprima della sessione prima puo' restare acceso sulla 5175
+   e servire la cartella vecchia; si ferma (`Get-CimInstance Win32_Process`, riga di comando) e si
+   riapre.
+2. **I percorsi** («I PERCORSI — ACCERTATO il 17/10», sopra): accertato, e' del cervello. Prossimo: la
+   STRADA PROPOSTA (rete continua dall'occhio → folla di navcat → missioni → pacchetto), col si' di
+   Raffaella; si riparte applicando `Desktop\VERITAS\cervello_17-10\index_percorsi.patch` su `main`.
 3. Il cervello (PIANO sopra, e §13.7 punti 1, 6-9): missioni con origine e meta vere, scala mobile,
    pontile, parcheggio, soste sulle sedute viste, corpi che non si attraversano, carrozzina e bambino
    con la famiglia. Poi si rifa il pacchetto e il visore lo mostra senza cambiare niente.
