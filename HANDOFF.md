@@ -200,7 +200,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 16/10/2026 — **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
+| **Aggiornato** | 16/10/2026 sera — **v19 FATTA E PROVATA NELL'EMULATORE, NON PUBBLICATA** (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -209,7 +209,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
-| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v18`** (`263892c`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v18` (con `&prova`: la prova dei pesi). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu' |
+| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v18`** (`263892c`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v18` (con `&prova`: la prova dei pesi). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu'. **v19 (agenti e occhio) pronta, NON pubblicata**: sorgente nella copia di lavoro, si pubblica solo con la frase di Raffaella |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito. ⚠️ Misurato il 13/10 notte: la simulazione vera (28 persone, 4.000 passi) dura OLTRE 150 s e intanto il motore non risponde nemmeno al controllo di salute → Render lo riavvia e manda la mail «server failure» (13/10 ore 17:38 e 18:14, 09/10). La pagina aspetta 70 s e ricade sempre sul generatore JS locale: **oggi Render non viene mai usato**. Le pubblicazioni su `main` lo ricostruiscono ogni volta (innocuo) |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -2874,6 +2874,16 @@ Fonte: `start-developer-competition-26.devpost.com/resources` (letta il 14/10).
    togliere il tasto.
 5. **Lingua**: l'interfaccia e' meta' italiano e meta' inglese; per il VR Start
    tutto in inglese.
+6. **Il cammino che si ferma (visto UNA volta, 16/10, non ripetuto).** Nella seconda delle
+   tre registrazioni del pacchetto l'ultima versione della traiettoria (la 7, arrivata dopo la
+   fine della regia) faceva fare alle persone **4-25 m in 400 s** (785 passi fermi su 799),
+   mentre la prima e la terza registrazione davano **300-480 m** a testa in tutte le versioni.
+   Probabile il filtro del corpo (§6.17: arriva in fondo quando il giro si calma; §6.2: corpi
+   fermi contro i muri). Da misurare nel cervello, non nel visore: `fai_pacchetto.mjs` stampa
+   ora i metri mediani di OGNI versione e tiene la prima («personePiano») oltre all'ultima.
+7. **Nessuna persona in sedia a rotelle** fra le 28 della simulazione: i profili girano su
+   business, family, elderly, student, crew, vip. Per «Accessibility Forward» serve almeno
+   chi e' in carrozzina (nel visore ha gia' il suo colore, ciano). E' del cervello.
 
 ### 13.8 Il visore IWSDK: com'e' fatto e a che punto e' (aggiornato 16/10/2026)
 
@@ -2946,6 +2956,45 @@ No chair / No glass walls / Everything on / Model only. La tabella resta sul pan
   si stirava «come una fisarmonica»; lo si aggiunge alle opzioni della presa) e fino a
   10 volte.
 
+**v19 — GLI AGENTI E L'OCCHIO (16/10 sera). Fatta e provata nell'emulatore, NON pubblicata.**
+Sorgente nella copia di lavoro `Desktop\VERITAS\visore_iwsdk_14-10\visore_app` (`src/lettura.js`
+nuovo, `src/main.js` +18 righe di aggancio, `strumenti/fai_pacchetto.mjs` e
+`strumenti/prova_lettura.mjs` nuovi, `public_progetto/pacchetto.json`, LEGGIMI); foto `v19_*`
+nella stessa cartella.
+- **Il pacchetto del progetto** (§13.3), `strumenti/fai_pacchetto.mjs`: apre la pagina
+  PUBBLICATA da `/quest` in Chrome senza finestra (accesso finto del banco), lascia lavorare
+  occhio e simulazione, e **registra senza calcolare**: righello umano (97 figure, ×5,583),
+  ultimo report di ogni stato del velo (in inglese), le 74 fermate della regia con immagine
+  (224 px) e posa della telecamera, i 74 nomi, le 28 persone (800 fotogrammi, 400 s, in cm,
+  una lettera di stato), la matrice del modello (file del plastico -> metri della pagina).
+  Un file, 1,1 MB. Alza il tetto della regia a 600 s (`window.__veritasRegiaTetto`, gia'
+  previsto): senza scheda video uno sguardo costa 12-30 s e a 360 s si fermava a 64/74.
+  Tre registrazioni: 390 s (64/74), 327 s, 493 s (74/74, 72 sedute): vedi §13.7 punto 6.
+- **La riproduzione** (`src/lettura.js`), nell'ordine in cui EIDETICA capisce: 0 s SCALE,
+  4 s ZONES, 9-49 s OBJECTS (immagine dell'occhio, nome, ragionamento in inglese dalla stessa
+  conseguenza della regia, luce verde sulle copie, telecamera di luce, nome sopra l'oggetto),
+  51 s COMPLIANCE, 56 s WAYFINDING, **61 s PEOPLE: le persone camminano** (al doppio, in giro
+  continuo). `?salta=<s>` manda avanti (prove, foto); `?cammino=piano` usa la prima versione.
+- **Le schede**: sei, vetro coi fili LED come il pannello, 20 x 13 cm, in due colonne a
+  sinistra del plastico (40° e 64°, 50 cm dagli occhi, da 4 a 34 cm sotto gli occhi); spente
+  appena accennate, si accendono una alla volta. **Col pizzico (anche da lontano) vengono alla
+  mano** (DistanceGrabbable, MoveTowardsTarget, 16 cm davanti); lasciate restano li'; sono
+  sempre girate verso chi guarda.
+- **Le scie**: un nastro di luce per persona (55 cm veri, 3 mm sul plastico), colore del
+  profilo (carrozzina ciano, anziani rosa, famiglie arancio, business oro, turisti viola,
+  studenti pervinca, equipaggio bianco, VIP lilla; mai verde e rosso, che sono segnali),
+  14 s di simulazione accesi dietro la persona e un filo tenue di dove si e' camminato
+  (i flussi). Disegnate UNA volta (39.632 vertici, una chiamata): a ogni fotogramma cambia
+  un numero. Personcine: 28 capsule di luce, una chiamata.
+- **Prova** (`prova_lettura.mjs`, criteri scritti prima, tetto 4 min): **7/7**: pacchetto e
+  6 schede; occhio sugli oggetti a lettura in corso; a lettura finita 6 schede accese e
+  28 persone in vista col tempo che avanza; **scheda presa: da 0,44 a 0,16 m dalla mano**,
+  lasciata ferma (0,000 m); zero errori di pagina. Nella prova dei pesi c'e' la tappa nuova
+  «No agents & cards» (nove tappe).
+- ⚠️ Non verificato: leggibilita' delle schede nel Quest vero (testo 26-34 px su 1024 =
+  0,6-0,8° a 50 cm: forse da avvicinare con la mano), fps con agenti e schede, il pizzico
+  vero sulle schede.
+
 **Il metodo delle prove (§0.8).** Le verifiche si fanno nell'emulatore e le foto si
 mandano a Raffaella: `node strumenti/prova_emulatore.mjs` con `OCCHI=1.2` (altezza degli
 occhi), `PIEGA=45` (sguardo in giu', gradi), `GUARDA="0,40,-150"` (giri di testa e foto),
@@ -2961,11 +3010,10 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
   prima chiamata (v15: «Cannot access before initialization»).
 
 **Prossimi passi (in ordine, deciso con Raffaella).**
-1. **Gli agenti e l'occhio** (prossima sessione): il «pacchetto del progetto» scritto dal
-   PC (§13.3) con i percorsi delle persone e le letture dell'occhio → **le scie colorate
-   degli agenti** sul plastico e **le schede dell'occhio che si accendono man mano che
-   procede la comprensione** (stesso vetro con fili LED, in un posto comodo, prendibili e
-   avvicinabili con la mano). Si guarda tutto nell'emulatore; il Quest solo alla fine.
-2. Alla tappa: UNA prova nel Quest con `&prova` (fps con agenti e schede), le quote della
-   v18 e la mano sulla scrivania.
+1. ~~Gli agenti e l'occhio~~: **fatto nella v19** (sopra), da guardare con Raffaella sulle
+   foto e da pubblicare con la sua frase (si copia `dist/` in `visore/`, costruzione
+   `2026-10-16-v19`).
+2. Alla tappa: UNA prova nel Quest con `&prova` (fps con agenti e schede, tappa «No agents &
+   cards»), le quote della v18, la mano sulla scrivania, la leggibilita' delle schede e il
+   pizzico vero.
 3. Tutto in inglese (VR Start).
