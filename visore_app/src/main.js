@@ -21,7 +21,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const COSTRUZIONE = "2026-10-15-v17";
+const COSTRUZIONE = "2026-10-16-v18";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -37,8 +37,10 @@ const C = {
 };
 const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).concat(1);
 
-// da seduti, prima di leggere la testa: occhi a ~1,20 m, plastico 40 cm sotto e 45 cm davanti
-const SOTTO_OCCHI = 0.40, DAVANTI = 0.45;
+// da seduti, prima di leggere la testa: occhi a ~1,20 m, plastico 60 cm sotto e 45 cm davanti
+// v18 (Raffaella, seduta fin dall'entrata: «la scrivania altissima… una ventina di centimetri,
+// tutto deve scendere in giu'»): il piano scende da 40 a 60 cm sotto gli occhi
+const SOTTO_OCCHI = 0.60, DAVANTI = 0.45;
 const CENTRO = new THREE.Vector3(0, 1.2 - SOTTO_OCCHI, -DAVANTI);
 const LUNGO = 0.6;   // il lato lungo del plastico: un tavolino d'aereo (VR Start: da seduti, nello spazio di un sedile)
 
@@ -307,7 +309,7 @@ const caricaTrama = async (u) => {
   return t;
 };
 const [tLogo, tAlone] = await Promise.all([caricaTrama("marchio/logo.png"), caricaTrama("marchio/alone.png")]);
-const LOGO = { largo: 0.80, y: 0.72 };                       // 72 cm sopra il piano: sopra il pannello, poco sopra gli occhi
+const LOGO = { largo: 0.80, y: 0.92 };                       // v18: 92 cm sopra il piano (sceso di 20): resta poco sopra gli occhi
 const altoLogo = LOGO.largo * 857 / 1536;
 const marchio = new THREE.Group();
 marchio.name = "eidetica-marchio";
@@ -410,14 +412,14 @@ ombreggia(felce);
 postazione.add(poltroncina, felce);
 aTerra.push(poltroncina, felce);
 
-// v15: LA SEDUTA A MISURA DI CHI SIEDE. Raffaella nel visore era «piu' alta della sedia di
-// una trentina di centimetri». La sedia non e' tracciata: si fa su misura dei suoi occhi
-// (letti alla posa). Da seduti gli occhi stanno ~78 cm sopra la seduta (misura media).
-// L'altezza della seduta del modello si misura una volta, con un raggio dall'alto.
-const SEDUTA_OCCHI = 0.78;
-function sedutaSuMisura(occhi) {
-  if (!(occhi > 0.9)) return;
-  const sQuota = Math.max(0.38, Math.min(0.80, occhi - SEDUTA_OCCHI));   // l'escursione di una colonna a gas, larga
+// LA SEDUTA SI MISURA DAL PIANO (v18). Prima (v15-v17) si misurava dagli occhi (occhi - 78 cm):
+// fra seduta e piano restavano 38 cm, troppi (Raffaella: «la scrivania altissima», «la sagoma
+// piu' alta»). Come in uno studio vero, la seduta sta 28 cm sotto il piano della scrivania;
+// la sagoma di chi siede posa sulla seduta. Se il piano lo fissa la mano (scrivania vera),
+// seduta e sagoma lo seguono.
+const SEDUTA_PIANO = 0.28;
+function sedutaSuMisura(piano) {
+  const sQuota = Math.max(0.38, Math.min(0.80, piano - SEDUTA_PIANO));   // l'escursione di una colonna a gas, larga
   regolaLaSedia(sQuota);
   sedutaFatta = +sQuota.toFixed(2);
 }
@@ -512,7 +514,7 @@ function osso(a, b, raggio, largo = 1, fondo = 1) {   // una forma morbida da a 
 }
 // ey = occhi, py = punto d'appoggio (quote dal pavimento); gli occhi stanno a DAVANTI dietro il plastico
 function faiIlCorpo(ey, py) {
-  const s = ey - SEDUTA_OCCHI, V = (x, y, dz) => new THREE.Vector3(x, y - py, DAVANTI + dz);
+  const s = sedutaFatta, V = (x, y, dz) => new THREE.Vector3(x, y - py, DAVANTI + dz);
   const pezzi = [
     osso(V(0, s + 0.13, 0.11), V(0, ey - 0.25, 0.09), 0.11, 1.4, 0.8),       // il busto
     osso(V(-0.16, ey - 0.21, 0.10), V(0.16, ey - 0.21, 0.10), 0.055),       // le spalle
@@ -590,7 +592,7 @@ function posaLaPostazione(punto, occhi = punto.y + SOTTO_OCCHI) {
   if (occhi > 0.3 && Math.abs(occhi - altezzaStudio) > 0.01) {
     studio.geometry.dispose(); studio.geometry = geoStudioA(occhi); altezzaStudio = occhi;
   }
-  sedutaSuMisura(occhi);
+  sedutaSuMisura(punto.y);
   faiIlCorpo(occhi, punto.y);                                // v16: la sagoma di chi siede
   appendiIlMarchio(punto.y);
   r.shadowMap.needsUpdate = true;
@@ -608,6 +610,9 @@ function tondo(x, y, w, h, rr) {
   p.beginPath(); p.moveTo(x + rr, y); p.arcTo(x + w, y, x + w, y + h, rr); p.arcTo(x + w, y + h, x, y + h, rr);
   p.arcTo(x, y + h, x, y, rr); p.arcTo(x, y, x + w, y, rr); p.closePath();
 }
+// v18: le quote in centimetri dal pavimento, e chi ha fissato il piano (la mano o gli occhi)
+const quote = () => !M.occhi ? "" : "Eyes " + Math.round(M.occhi * 100) + " · desk " + Math.round(M.piano * 100)
+  + (M.allineato ? " (your hand)" : " (from eyes)") + " · seat " + Math.round((M.seduta || 0) * 100) + " cm";
 const CARATTERE = "'Segoe UI', Roboto, 'Helvetica Neue', system-ui, sans-serif";
 function scriviPannello() {
   p.clearRect(0, 0, tela.width, tela.height);
@@ -646,7 +651,7 @@ function scriviPannello() {
     });
     p.fillStyle = C.grigio; p.font = "400 22px " + CARATTERE;
     p.fillText((PP.i >= TAPPE.length ? "Test done · " : !M.fineAllinea ? "Rest a hand flat on your desk · " : "Load test · keep still, look at the model · ")
-      + (M.ritmo ? M.ritmo + " Hz · " : "") + COSTRUZIONE, 52, 440);
+      + (M.ritmo ? M.ritmo + " Hz · " : "") + COSTRUZIONE + "   ·   " + quote(), 52, 440);
     p.restore(); trama.needsUpdate = true;
     return;
   }
@@ -674,6 +679,7 @@ function scriviPannello() {
   p.fillText((M.dentro && M.posato && !M.fineAllinea ? "Rest a hand flat on your desk" : pieno ? (ok ? "Stable above 60 fps" : "Below 60 fps") : "Measuring " + M.campioni.length + " / 30 s")
     + "   ·   " + M.disegni + " draws · " + Math.round(M.triangoliDisegnati / 1000) + "k tris"
     + (M.ritmo ? " · " + M.ritmo + " Hz" : "") + "   ·   " + COSTRUZIONE, 88, 381);
+  p.font = "400 22px " + CARATTERE; p.fillText(quote(), 88, 418);   // v18: le quote, per capire senza indovinare
   p.restore();
   trama.needsUpdate = true;
 }
@@ -726,7 +732,7 @@ function allineaAlleMani(adesso) {
     const storia = manoFerma[src.handedness];
     const sotto = M.occhiV.y - basso, davanti = M.occhiV.z - z / Math.max(1, n);
     M.mani = { [src.handedness]: { n, piatta: +(alto - basso).toFixed(3), punte: +(puntaSu - puntaGiu).toFixed(3), sotto: +sotto.toFixed(3), davanti: +davanti.toFixed(3) }, ...(M.mani || {}) };   // per le prove
-    if (!n || alto - basso > 0.07 || puntaSu - puntaGiu > 0.025 || sotto < 0.18 || sotto > 0.62 || davanti < 0.12) { storia.length = 0; continue; }   // non e' una mano piatta posata davanti
+    if (!n || alto - basso > 0.07 || puntaSu - puntaGiu > 0.025 || sotto < 0.25 || sotto > 0.72 || davanti < 0.25) { storia.length = 0; continue; }   // non e' una mano piatta posata davanti
     storia.push([adesso, basso]);
     while (storia.length && adesso - storia[0][0] > 800) storia.shift();
     const ys = storia.map((v) => v[1]);
@@ -794,7 +800,7 @@ function pesi({ ombre = true, studio: st = true, lastre = true, felce: fe = true
 }
 function provaDeiPesi(adesso) {
   if (M.dentro && (!M.posato || !M.fineAllinea)) return;   // v16: prima si allinea il piano alle mani
-  if (PP.i === -1) { if (!PP.da) PP.da = adesso + 3000; if (adesso < PP.da) return; PP.i = 0; PP.da = adesso; pesi(TAPPE[0][1]); }
+  if (PP.i === -1) { if (!PP.da) PP.da = adesso + 8000; if (adesso < PP.da) return; PP.i = 0; PP.da = adesso; pesi(TAPPE[0][1]); }
   if (PP.i >= TAPPE.length) return;
   const t = adesso - PP.da;
   if (t >= 3000) { PP.f++; if (!PP.conta) PP.conta = adesso; }
