@@ -13,15 +13,26 @@
 //   sole forte a ~60°, ombre proprie e portate), la lastra scura sotto il
 //   plastico col filo ciano e un pannello di vetro scuro come quelli della
 //   tavola UX del 29/09. I colori restano solo per i nostri segni.
+// v19 (16/10): GLI AGENTI E L'OCCHIO, dal «pacchetto del progetto» scritto dal PC
+//   (strumenti/fai_pacchetto.mjs): le schede dell'occhio che si accendono una alla volta e le
+//   scie colorate delle persone sul plastico. Tutto in src/lettura.js; qui solo gli agganci.
+// v20 (16/10 sera, dalle richieste di Raffaella sulla v19): velocita' VERA di serie e il pulsante
+//   SPEED (x1 / x2 / x4) accanto a PASSTHROUGH; corpi veri animati colorati per profilo (src/corpi.js);
+//   zoom fino a 40 volte con due mani (una persona alta ~40 cm), sul PC la rotellina avvicina davvero;
+//   scie a terra; scegliere una persona e guardare con i suoi occhi, in una finestra o entrando nel
+//   modello a grandezza vera (src/persona.js).
 import {
   World, createSystem, AssetManager, SessionMode, ReferenceSpaceType,
   IBLTexture, TwoHandsGrabbable, RayInteractable, PokeInteractable, Pressed,
+  DistanceGrabbable, MovementMode,
 } from "@iwsdk/core";
+import { preparaLettura, VELOCITA } from "./lettura.js";
+import { preparaPersona } from "./persona.js";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const COSTRUZIONE = "2026-10-16-v18";
+const COSTRUZIONE = "2026-10-16-v20";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");
@@ -82,8 +93,10 @@ const TAPPE = [   // v17: «tutto acceso» si rimisura fra una tappa e l'altra (
   ["No fern", { felce: false }],
   ["No chair", { sedia: false }],
   ["No glass walls", { lastre: false }],
+  ["No agents & cards", { agenti: false }],   // v19: quanto pesano scie, persone e schede
+  ["Their eyes window", { finestra: true }],  // v20: la finestra coi suoi occhi (il plastico disegnato una volta in piu')
   ["Everything on", {}],
-  ["Model only", { ombre: false, studio: false, lastre: false, felce: false, sedia: false, corpo: false }],
+  ["Model only", { ombre: false, studio: false, lastre: false, felce: false, sedia: false, corpo: false, agenti: false }],
 ];
 const PP = { i: -1, da: 0, f: 0, conta: 0, ris: [] };
 const livello = world.activeLevel.value;
@@ -163,8 +176,11 @@ ente.addComponent(RayInteractable);
 // v15 (Raffaella: «il modello e' il modello, non e' una fisarmonica»): con due mani si
 // ingrandisce SOLO tutto insieme, mai stirato su un asse (scala uniforme, sotto in Regia);
 // e si ingrandisce di piu' (fino a 10 volte) per avvicinarsi davvero.
+// v20 (Raffaella: «zoom molto piu' forte, fino a vedere il movimento del corpo»): fino a 40 volte,
+// cioe' una persona alta ~40 cm in mano
+const ZOOM_MAX = 40;
 ente.addComponent(TwoHandsGrabbable, { rotate: true, translate: true, scale: true,
-  scaleMin: [scala * 0.3, scala * 0.3, scala * 0.3], scaleMax: [scala * 10, scala * 10, scala * 10] });
+  scaleMin: [scala * 0.3, scala * 0.3, scala * 0.3], scaleMax: [scala * ZOOM_MAX, scala * ZOOM_MAX, scala * ZOOM_MAX] });
 // IWSDK non passa l'opzione «uniforme» alla presa (@pmndrs/handle): la si aggiunge alla
 // presa appena creata, leggendo le sue opzioni ogni volta
 function presaUniforme() {
@@ -575,6 +591,45 @@ const enteBottone = world.createTransformEntity(bottone, entePostazione);   // r
 enteBottone.addComponent(RayInteractable);
 enteBottone.addComponent(PokeInteractable);
 
+// v20: IL PULSANTE SPEED, lo stesso vetro, appena davanti a PASSTHROUGH: x1 (il passo vero) -> x2 -> x4
+const telaV = document.createElement("canvas");
+telaV.width = 640; telaV.height = 200;
+const pv = telaV.getContext("2d");
+const tramaV = new THREE.CanvasTexture(telaV);
+tramaV.colorSpace = THREE.SRGBColorSpace;
+const bottoneV = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.05),
+  new THREE.MeshBasicMaterial({ map: tramaV, transparent: true, toneMapped: false, depthWrite: false }));
+bottoneV.name = "eidetica-pulsante-velocita";
+bottoneV.renderOrder = 10;
+function scriviVelocita() {
+  const v = lettura ? lettura.velocita() : 1;
+  pv.clearRect(0, 0, 640, 200);
+  const B = 18;
+  pv.beginPath(); pv.roundRect(B, B, 640 - 2 * B, 200 - 2 * B, 82);
+  pv.fillStyle = v > 1 ? "rgba(255,176,32,0.22)" : "rgba(12,16,24,0.55)"; pv.fill();
+  const led = pv.createLinearGradient(B, 0, 640 - B, 0);
+  led.addColorStop(0, "#ffb020"); led.addColorStop(0.5, "#b36bff"); led.addColorStop(1, "#3fd0e8");
+  pv.save(); pv.shadowColor = "rgba(179,107,255,0.95)"; pv.shadowBlur = 12;
+  pv.lineWidth = 4; pv.strokeStyle = led; pv.stroke(); pv.restore();
+  pv.fillStyle = "#e8eaf0"; pv.font = "500 44px 'Segoe UI', Roboto, system-ui, sans-serif";
+  if ("letterSpacing" in pv) pv.letterSpacing = "6px";
+  pv.textAlign = "center"; pv.textBaseline = "middle";
+  pv.fillText("SPEED  " + (v === 1 ? "REAL" : "×" + v), 320, 102);
+  tramaV.needsUpdate = true;
+}
+bottoneV.position.set(LUNGO / 2 + 0.12, 0.035, 0.145);
+bottoneV.rotation.set(-1.0, -0.25, 0);
+postazione.add(bottoneV);
+const enteBottoneV = world.createTransformEntity(bottoneV, entePostazione);
+enteBottoneV.addComponent(RayInteractable);
+enteBottoneV.addComponent(PokeInteractable);
+function cambiaVelocita() {
+  if (persona && persona.dentro()) return;                        // dentro il modello si va sempre al passo vero
+  const v = lettura.velocita(), i = VELOCITA.indexOf(v);
+  lettura.velocita(VELOCITA[(i + 1) % VELOCITA.length]);
+  scriviVelocita();
+}
+
 // la posa: plastico e postazione insieme; le gambe, l'ombra e la L arrivano fino al pavimento vero
 function posaLaPostazione(punto, occhi = punto.y + SOTTO_OCCHI) {
   postazione.position.copy(punto);
@@ -595,15 +650,26 @@ function posaLaPostazione(punto, occhi = punto.y + SOTTO_OCCHI) {
   sedutaSuMisura(punto.y);
   faiIlCorpo(occhi, punto.y);                                // v16: la sagoma di chi siede
   appendiIlMarchio(punto.y);
+  lettura.posa(punto, occhi);                                // v19: le schede dell'occhio attorno agli occhi
+  persona.posa(punto, occhi);                                // v20: l'elenco delle persone, il cartellino, la finestra
   r.shadowMap.needsUpdate = true;
 }
+// v19: la lettura dell'occhio e le persone, dal pacchetto del progetto (src/lettura.js)
+const lettura = await preparaLettura({ world, BASE, modello, plastico, RayInteractable, DistanceGrabbable, MovementMode });
+// v20: scegliere una persona e i suoi occhi (src/persona.js). Dentro il modello: niente ombra viva
+// (l'edificio a grandezza vera), e il plastico non si prende
+const persona = preparaPersona({ world, lettura, plastico, RayInteractable, PokeInteractable, DistanceGrabbable, MovementMode,
+  ombre: (si) => { sole.castShadow = si; r.shadowMap.needsUpdate = true; },
+  rilascia: () => { try { const c = ente.getComponents().find((k) => k.id === "Handle"); const h = c && ente.getValue(c, "instance"); if (h && h.cancel) h.cancel(); } catch (e) {} } });
 posaLaPostazione(CENTRO);
 
 const M = { ora: 0, media: 0, minimo: 0, campioni: [], fotogrammi: 0, da: 0, dentro: false,
   disegni: 0, triangoliDisegnati: 0, ritmo: null, posato: false, attesaTesta: 0, occhi: null, piano: null,
-  pezzi, triangoli: Math.round(triangoli), scala };
+  pezzi, triangoli: Math.round(triangoli), scala, lettura: lettura.stato, persona: persona.stato };
 window.__EIDETICA_VISORE = M;
+lettura.avvia(performance.now());                        // v19: sul PC (anteprima) la lettura parte subito
 window.__EIDETICA_PLASTICO = plastico;   // per le prove (anteprima ed emulatore)
+window.__EIDETICA_MONDO = world;          // v20: per le prove (telecamera, clic sui pannelli)
 M.introDa = performance.now();                           // v12: sul PC l'apertura parte subito
 
 function tondo(x, y, w, h, rr) {
@@ -642,7 +708,7 @@ function scriviPannello() {
     const tinta = (v) => v >= 60 ? "#4fe08a" : v >= 45 ? C.arancio : "#ff5f57";
     p.font = "400 24px " + CARATTERE;
     TAPPE.forEach(([nome], i) => {
-      const y = 204 + i * 29, ris = PP.ris[i];
+      const y = 198 + i * 24, ris = PP.ris[i];   // v20: dieci tappe (c'e' anche «Their eyes window»)
       p.fillStyle = i === PP.i ? C.testo : C.grigio;
       p.fillText((i + 1) + "  " + nome, 52, y);
       p.fillStyle = ris ? tinta(ris[1]) : C.grigio;
@@ -699,6 +765,7 @@ function posaDavanti() {
   M.posato = true; M.attesaTesta = 0;
   M.occhiV = testa.clone(); M.allineaDa = performance.now(); M.fineAllinea = false; M.allineato = false; manoFerma.left = []; manoFerma.right = [];
   M.introDa = performance.now();                       // v12: l'apertura del marchio
+  lettura.avvia(M.introDa);                            // v19: dentro il visore la lettura riparte da capo
   M.occhi = +testa.y.toFixed(2); M.piano = +(testa.y - SOTTO_OCCHI).toFixed(2);
   M.seduta = sedutaFatta;
   console.log("[EIDETICA visore] occhi a " + M.occhi + " m: plastico posato a " + M.piano + " m, 45 cm davanti; seduta a " + M.seduta + " m");
@@ -792,7 +859,9 @@ function solePerIlPlastico() {
 // v15: LA PROVA DEI PESI (?prova nel link). Una sola entrata nel visore misura da sola
 // quanto costa ogni parte della scena: 6 tappe da 9 s (si contano gli ultimi 6), poi la
 // tabella resta sul pannello. Raffaella legge i numeri, senza rifare la prova tante volte.
-function pesi({ ombre = true, studio: st = true, lastre = true, felce: fe = true, sedia = true, corpo = true }) {
+function pesi({ ombre = true, studio: st = true, lastre = true, felce: fe = true, sedia = true, corpo = true, agenti = true, finestra = false }) {
+  lettura.visibile(agenti);
+  persona.prova(finestra);
   sole.castShadow = ombre; r.shadowMap.needsUpdate = true;
   studio.visible = st;
   lastraDietro.visible = lastraDestra.visible = lastre; for (const p of profili) p.visible = lastre;
@@ -826,6 +895,12 @@ class Regia extends createSystem({}) {
     solePerIlPlastico();
     const adesso = performance.now();
     animaMarchio(adesso);
+    lettura.aggiorna(adesso);                                 // v19: schede, occhio sul plastico, persone
+    persona.aggiorna(adesso);                                 // v20: la persona scelta, i suoi occhi
+    const premutoV = enteBottoneV.hasComponent(Pressed);
+    if (premutoV && !M.premutoV) cambiaVelocita();
+    M.premutoV = premutoV;
+    if (lettura.velocita() !== M.velScritta) { M.velScritta = lettura.velocita(); scriviVelocita(); }   // anche quando la cambia chi entra nel modello
     if (M.dentro && M.posato && !M.fineAllinea) allineaAlleMani(adesso);
     if (PROVA) provaDeiPesi(adesso);
     const premuto = enteBottone.hasComponent(Pressed);
@@ -882,17 +957,32 @@ console.log("[EIDETICA visore] " + COSTRUZIONE + ": plastico " + pezzi + " pezzi
     preso = { x: e.clientX, y: e.clientY };
     cam.quaternion.setFromEuler(sguardo);
   });
+  // v20 (Raffaella: «sul PC la rotellina si ferma presto, cambia solo il campo visivo»): la rotellina
+  // AVVICINA davvero, verso il punto del plastico sotto il cursore, fino a pochi centimetri da una
+  // persona (alta 1 cm); all'indietro si torna con calma al posto di partenza
+  const partenza = cam.position.clone(), raggio = new THREE.Raycaster(), mouse = new THREE.Vector2();
   tela3d.addEventListener("wheel", (e) => {
-    if (world.renderer.xr.isPresenting) return;
-    cam.fov = Math.max(25, Math.min(95, cam.fov + Math.sign(e.deltaY) * 4));
-    cam.updateProjectionMatrix();
     e.preventDefault();
+    if (world.renderer.xr.isPresenting || persona.dentro()) return;
+    const rc = tela3d.getBoundingClientRect();
+    mouse.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+    raggio.setFromCamera(mouse, cam);
+    const colpo = raggio.intersectObject(plastico, true)[0];
+    M.rotellina = colpo ? +colpo.distance.toFixed(4) : null;   // per le prove: quanto manca al punto mirato
+    if (e.deltaY < 0 && colpo && colpo.distance > 0.006) cam.position.addScaledVector(raggio.ray.direction, colpo.distance * 0.2);
+    else if (e.deltaY > 0) cam.position.lerp(partenza, 0.22);
+    const vicino = colpo ? colpo.distance * (e.deltaY < 0 ? 0.8 : 1.3) : 0.5;
+    cam.near = Math.max(0.0004, Math.min(0.02, vicino * 0.05));
+    cam.updateProjectionMatrix();
   }, { passive: false });
 }
 
 // sul PC (anteprima): il tasto P fa quello che fa il pulsante nel visore
 addEventListener("keydown", (e) => { if (e.key === "p" || e.key === "P") mettiPassthrough(!passthrough); });
+// v20: V come il pulsante SPEED; Esc esce dal modello
+addEventListener("keydown", (e) => { if (e.key === "v" || e.key === "V") cambiaVelocita(); if (e.key === "Escape") persona.esci(); });
 scriviBottone();
+scriviVelocita();
 
 // un solo tasto per entrare
 if (navigator.xr && (await navigator.xr.isSessionSupported("immersive-vr").catch(() => false))) {
@@ -903,5 +993,5 @@ if (navigator.xr && (await navigator.xr.isSessionSupported("immersive-vr").catch
   world.renderer.xr.addEventListener("sessionstart", () => { entra.style.display = "none"; });
   world.renderer.xr.addEventListener("sessionend", () => { entra.style.display = "block"; });
 } else {
-  stato.textContent += " · preview: drag to look around, scroll to zoom";
+  stato.textContent += " · preview: drag to look around, scroll to zoom in, V speed";
 }
