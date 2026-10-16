@@ -200,7 +200,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 16/10/2026 notte — **v20 FATTA E PROVATA NELL'EMULATORE (8/8), NON PUBBLICATA** (§13.8 «v20»): velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
+| **Aggiornato** | 16/10/2026 notte — **v20 PUBBLICATA E SERVITA** (`39c5a87`, su richiesta di Raffaella in chat). Raffaella l'ha guardata: animazioni buone, ma **i percorsi sono sbagliati** (per aria, sui muri, niente scale ne' scala mobile): §13.8 «Raffaella sulla v20» — e' il prossimo lavoro. Prima (§13.8 «v20»), provata nell'emulatore 8/8: velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -209,7 +209,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
-| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v18`** (`263892c`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v18` (con `&prova`: la prova dei pesi). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu'. **v20 (persone vere e i loro occhi, contiene la v19) pronta, NON pubblicata**: sorgente nella copia di lavoro, si pubblica solo con la frase di Raffaella |
+| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v20`** (`39c5a87`, 16/10 notte; contiene la v19) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v20` (con `&prova`: la prova dei pesi). Prima: v18 (`263892c`). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu' |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito. ⚠️ Misurato il 13/10 notte: la simulazione vera (28 persone, 4.000 passi) dura OLTRE 150 s e intanto il motore non risponde nemmeno al controllo di salute → Render lo riavvia e manda la mail «server failure» (13/10 ore 17:38 e 18:14, 09/10). La pagina aspetta 70 s e ricade sempre sul generatore JS locale: **oggi Render non viene mai usato**. Le pubblicazioni su `main` lo ricostruiscono ogni volta (innocuo) |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -3047,8 +3047,8 @@ non e' rifatta.** Cosa ha chiesto, con le misure che ho preso subito:
   zona (sedute, desk), profili completi (carrozzina, bambino con la famiglia). Poi si rifa il
   pacchetto con `fai_pacchetto.mjs` e il visore lo mostra senza cambiare niente.
 
-**v20 — PERSONE VERE E I LORO OCCHI (16/10 notte). Fatta e provata nell'emulatore (8/8), NON
-pubblicata.** Contiene la v19. Sorgente nella copia di lavoro `Desktop\VERITAS\visore_iwsdk_14-10\visore_app`
+**v20 — PERSONE VERE E I LORO OCCHI (16/10 notte). Provata nell'emulatore (8/8), PUBBLICATA E
+SERVITA (`39c5a87`) su richiesta di Raffaella in chat** («fai la pubblicazione»). Contiene la v19. Sorgente nella copia di lavoro `Desktop\VERITAS\visore_iwsdk_14-10\visore_app`
 (nuovi `src/corpi.js`, `src/persona.js`, `strumenti/fai_corpo.mjs`, `strumenti/prova_persona.mjs`,
 `public_corpo/corpo.glb`; toccati `src/lettura.js`, `src/main.js`, LEGGIMI); foto `v20_*` nella
 stessa cartella. Il pacchetto e' lo stesso della v19: il cervello non e' toccato.
@@ -3086,6 +3086,19 @@ stessa cartella. Il pacchetto e' lo stesso della v19: il cervello non e' toccato
 - ⚠️ Visto nelle foto, del cervello: i corpi in fila che si attraversano (§13.7 punto 8); il percorso a
   zig-zag della linea dorata e' quello registrato.
 
+**Raffaella sulla v20 (16/10 notte, nell'anteprima). E' IL PROSSIMO LAVORO.**
+> «Di animazione funzionano, camminano decentemente, ma i percorsi sono totalmente per aria, non
+> prendono le scale, non sembrano seguire in maniera logica, non prendono la scala mobile.
+> Camminano sui muri, cosa che non deve avvenire. Ho bisogno di implementare tutta la fisica cosi'
+> come abbiamo fatto nella versione desktop.»
+- I percorsi del visore sono quelli REGISTRATI nel pacchetto dalla pagina del PC
+  (`fai_pacchetto.mjs`, ultima versione della traiettoria): il visore non li calcola.
+- ⚠️ **Da accertare per primo, prima di costruire** (§0.3): (a) sulla pagina del PC, con i corpi
+  fisici Rapier (§5), gli stessi percorsi sono giusti o sbagliati anche li'? (b) il pacchetto registra
+  i fotogrammi DOPO il corpo fisico o quelli del generatore JS? (c) il visore li posa alla quota
+  giusta (matrice del modello: ×5,583 e +2,25 m in altezza)? Se e' (c) e' un errore del visore; se e'
+  (a) o (b) e' del cervello (§13.7 punti 1, 6-9). La risposta decide dove si mette «tutta la fisica».
+
 **Il metodo delle prove (§0.8).** Le verifiche si fanno nell'emulatore e le foto si
 mandano a Raffaella: `node strumenti/prova_emulatore.mjs` con `OCCHI=1.2` (altezza degli
 occhi), `PIEGA=45` (sguardo in giu', gradi), `GUARDA="0,40,-150"` (giri di testa e foto),
@@ -3101,13 +3114,14 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
   prima chiamata (v15: «Cannot access before initialization»).
 
 **Prossimi passi (in ordine, deciso con Raffaella).**
-1. ~~Gli agenti e l'occhio~~: fatto nella v19. ~~La v20 nel visore~~: **fatta** (sopra).
-   Raffaella la guarda nell'anteprima (configurazione «visore-v19» di `.claude/launch.json`, porta
-   5175, `/Veritas-spatial-ai/visore/?salta=70`): si pubblica SOLO con la sua frase in chat.
-2. Il cervello (PIANO sopra, e §13.7 punti 1, 6-9): missioni con origine e meta vere, scala mobile,
+1. ~~Gli agenti e l'occhio~~: fatto nella v19. ~~La v20 nel visore~~: **pubblicata** (sopra).
+   Anteprima locale: configurazione «visore-v19» di `.claude/launch.json`, porta 5175,
+   `/Veritas-spatial-ai/visore/?salta=70` (va rifatta puntare alla cartella della sessione nuova).
+2. **I percorsi** («Raffaella sulla v20», sopra): prima accertare (a)/(b)/(c), poi la fisica come sul PC.
+3. Il cervello (PIANO sopra, e §13.7 punti 1, 6-9): missioni con origine e meta vere, scala mobile,
    pontile, parcheggio, soste sulle sedute viste, corpi che non si attraversano, carrozzina e bambino
    con la famiglia. Poi si rifa il pacchetto e il visore lo mostra senza cambiare niente.
-3. Alla tappa: UNA prova nel Quest con `&prova` (fps con corpi, schede e finestra degli occhi; tappe
+4. Alla tappa: UNA prova nel Quest con `&prova` (fps con corpi, schede e finestra degli occhi; tappe
    «No agents & cards» e «Their eyes window»), STEP INSIDE nel visore, le quote della v18, la mano
    sulla scrivania, la leggibilita' di schede ed elenco, il pizzico vero.
-4. Tutto in inglese (VR Start).
+5. Tutto in inglese (VR Start).
