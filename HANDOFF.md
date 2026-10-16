@@ -200,7 +200,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 
 | | |
 |---|---|
-| **Aggiornato** | 16/10/2026 sera — **v19 FATTA E PROVATA NELL'EMULATORE, NON PUBBLICATA** (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
+| **Aggiornato** | 16/10/2026 notte — **v20 FATTA E PROVATA NELL'EMULATORE (8/8), NON PUBBLICATA** (§13.8 «v20»): velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -209,7 +209,7 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
 | **Nota** | `1c4faef` e' il fix PARZIALE del §6.16: corretto ma **inerte** su questo modello, vedi §6.16 |
 | **Deploy** | GitHub Pages da `main`. ⚠️ la CDN può servire la versione precedente per qualche minuto dopo il deploy: verificare sempre `window.__EIDETICA_COSTRUZIONE` prima di giudicare |
 | **Costruzione pubblicata e servita** | `2026-10-13-d` — link: `https://raffaella23.github.io/Veritas-spatial-ai/?v=2026-10-13-d`; **nel visore (Quest Browser): `raffaella23.github.io/Veritas-spatial-ai/quest`** |
-| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v18`** (`263892c`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v18` (con `&prova`: la prova dei pesi). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu'. **v19 (agenti e occhio) pronta, NON pubblicata**: sorgente nella copia di lavoro, si pubblica solo con la frase di Raffaella |
+| **Visore IWSDK (app nuova)** | Cartella `visore/` (servita) + sorgente `visore_app/` (LEGGIMI). **Pubblicata e servita: `2026-10-16-v18`** (`263892c`) — link: `raffaella23.github.io/Veritas-spatial-ai/visore/?v=2026-10-16-v18` (con `&prova`: la prova dei pesi). Copia di lavoro in `Desktop\VERITAS\visore_iwsdk_14-10`. Il vecchio visore `/quest` (13-d) non si prova piu'. **v20 (persone vere e i loro occhi, contiene la v19) pronta, NON pubblicata**: sorgente nella copia di lavoro, si pubblica solo con la frase di Raffaella |
 | **Motore Python** | `veritas-core-api` su Render, piano gratuito. ⚠️ Misurato il 13/10 notte: la simulazione vera (28 persone, 4.000 passi) dura OLTRE 150 s e intanto il motore non risponde nemmeno al controllo di salute → Render lo riavvia e manda la mail «server failure» (13/10 ore 17:38 e 18:14, 09/10). La pagina aspetta 70 s e ricade sempre sul generatore JS locale: **oggi Render non viene mai usato**. Le pubblicazioni su `main` lo ricostruiscono ogni volta (innocuo) |
 
 **Stato effettivo:** la piattaforma carica un modello, lo analizza, riconosce zone,
@@ -2884,6 +2884,16 @@ Fonte: `start-developer-competition-26.devpost.com/resources` (letta il 14/10).
 7. **Nessuna persona in sedia a rotelle** fra le 28 della simulazione: i profili girano su
    business, family, elderly, student, crew, vip. Per «Accessibility Forward» serve almeno
    chi e' in carrozzina (nel visore ha gia' il suo colore, ciano). E' del cervello.
+8. **I corpi si attraversano** (segnalato da Raffaella il 16/10 notte: «sul PC gli agenti si
+   fermavano e i corpi entravano uno dentro l'altro»). Misurato nel pacchetto: **521 incontri a
+   meno di 40 cm in 400 s**, quasi tutti di passaggio (il piu' lungo 8 s), tutte e 28 le persone
+   coinvolte. Nessuno resta fermo piu' di 10 s di fila in questa registrazione (il «cammino che si
+   ferma» e' il punto 6). Con i corpi veri della v20 si vede. E' del cervello (`resolveOverlaps`,
+   §6.17): il visore non lo nasconde con un trucco.
+9. **Seduti nel vuoto.** Dei 3.780 fotogrammi «seduto» del cervello, solo **195 (5%)** stanno a meno
+   di 1 m da una delle 72 sedute che l'occhio ha riconosciuto; gli altri 3.585 sono in corridoio.
+   Coi corpi veri si sedevano nel vuoto: la v20 li mostra **in piedi, in attesa** («nel dubbio vince
+   l'occhio», §0.4). E' del cervello: le soste vanno messe sulle sedute viste.
 
 ### 13.8 Il visore IWSDK: com'e' fatto e a che punto e' (aggiornato 16/10/2026)
 
@@ -3027,15 +3037,54 @@ non e' rifatta.** Cosa ha chiesto, con le misure che ho preso subito:
   mani fino a ~40× (una persona alta ~40 cm), sul PC la rotellina che avvicina davvero; (d) scie
   riviste da vicino; (e) scegliere una persona (pizzico sulla persona o pannello con l'elenco:
   profilo, missione, meta) -> cartellino + linea dorata fino alla meta -> «Through their eyes».
-  ⚠️ Da chiedere: gli occhi della persona in una FINESTRA (una scheda che mostra cio' che vede,
-  da seduti senza nausea: consigliato) o ENTRANDO nel modello a grandezza vera (§13.2 diceva
-  «niente camminata a grandezza vera»). Ogni pezzo misurato nell'emulatore; i fps (28 corpi
-  animati sul Quest 2) nella prova unica alla fine, con la prova dei pesi.
+  **Deciso da Raffaella il 16/10 notte: tutti e due, sceglie il cliente** («darei la possibilita'
+  al cliente»): FINESTRA o ENTRARE nel modello a grandezza vera, sempre a velocita' di camminata
+  normale. **FATTO nella v20** (sotto). I fps (28 corpi animati sul Quest 2) nella prova unica
+  alla fine, con la prova dei pesi.
 - *Cervello* (pagina del PC, si pubblica solo col si' di Raffaella; e' anche la gara IA del 26/10):
   missioni con origine e meta vere (aereo -> pontile -> terminal -> parcheggio, e il contrario), le
   persone che nascono all'origine, percorsi che usano scala mobile e pontile, comportamenti per
   zona (sedute, desk), profili completi (carrozzina, bambino con la famiglia). Poi si rifa il
   pacchetto con `fai_pacchetto.mjs` e il visore lo mostra senza cambiare niente.
+
+**v20 — PERSONE VERE E I LORO OCCHI (16/10 notte). Fatta e provata nell'emulatore (8/8), NON
+pubblicata.** Contiene la v19. Sorgente nella copia di lavoro `Desktop\VERITAS\visore_iwsdk_14-10\visore_app`
+(nuovi `src/corpi.js`, `src/persona.js`, `strumenti/fai_corpo.mjs`, `strumenti/prova_persona.mjs`,
+`public_corpo/corpo.glb`; toccati `src/lettura.js`, `src/main.js`, LEGGIMI); foto `v20_*` nella
+stessa cartella. Il pacchetto e' lo stesso della v19: il cervello non e' toccato.
+- **Velocita' vera** di serie (prova: il cammino avanza 1,00 s per secondo); pulsante **SPEED** sul
+  piano davanti a PASSTHROUGH: REAL -> ×2 -> ×4 (tasto V sul PC). Il tempo si somma fotogramma per
+  fotogramma: cambiando velocita' nessuno salta.
+- **Corpi veri**: la figura del PC (Quaternius, CC0) alleggerita da `fai_corpo.mjs` a 2.671 triangoli
+  (era 13.743), solo cammina / fermo / seduto, 244 KB. Le pose si «cuociono» all'apertura in una trama
+  (74 pose): le 28 persone sono UNA chiamata di disegno, colorate per profilo (stessi colori della v19),
+  con la luce del plastico e un filo di luce propria. Il passo dei piedi segue i metri fatti (a ×4
+  camminano piu' svelti, non scivolano); girano con calma verso dove vanno.
+- **Seduto solo dove l'occhio ha visto una seduta** (§13.7 punto 9): altrove in piedi, «waiting».
+- **Zoom**: con due mani fino a **40×** (era 10×). Sul PC la **rotellina avvicina davvero**, verso il
+  punto sotto il cursore (prova: da 0,76 m a 0,05 m da una persona), all'indietro si torna al posto.
+- **Scie** a terra (4 cm, larghe 40 cm, era 25 cm d'altezza e 55 di larghezza): da vicino stanno
+  sotto i piedi dei corpi.
+- **Scegliere una persona**: elenco **07 · PEOPLE** a destra del plastico (vetro coi fili LED; 28 righe
+  col colore, il profilo e lo stato), pizzico su una riga o sulla persona sul plastico. Cartellino:
+  Mission («Free walk · no mission yet»: le missioni sono del cervello), Going to (fine del tratto e
+  la cosa nominata dall'occhio piu' vicina, coi metri), Now, Walked, Arrives in. Gli altri si
+  attenuano; anello d'oro ai piedi, **linea dorata** (nastro a terra + filo) fino alla meta, che pulsa.
+- **I suoi occhi, due modi a scelta del cliente** (pulsanti sul cartellino):
+  **THEIR EYES · WINDOW** — una scheda di vetro accanto al plastico (prendibile col pizzico) mostra cio'
+  che vede (occhi a 1,62 m, 1,20 se seduto; sguardo un po' in giu'), ridisegnata a fotogrammi alterni;
+  **STEP INSIDE** — si entra nel modello a grandezza vera (un metro = un metro, provato), all'altezza
+  dei suoi occhi, sempre a ×1; il modello si muove e gira con calma attorno a chi e' seduto; attorno il
+  fondo del velo; davanti, un po' in basso, il comando EXIT (Esc sul PC); uscendo il plastico torna
+  esattamente dov'era (0,00 mm).
+- **Prova** (`prova_persona.mjs`, criteri scritti prima, tetto 5 min): **8/8**, zero errori. Nella prova
+  dei pesi c'e' la tappa nuova «Their eyes window» (dieci tappe).
+- ⚠️ Non verificato: fps nel Quest 2 (28 corpi + finestra degli occhi: il plastico disegnato una volta
+  in piu'), la sensazione di STEP INSIDE nel visore (giro del modello attorno a chi siede: nausea?),
+  il pizzico vero sulle righe e sulle persone (1 cm sul plastico: forse solo ingrandito), la
+  leggibilita' dell'elenco.
+- ⚠️ Visto nelle foto, del cervello: i corpi in fila che si attraversano (§13.7 punto 8); il percorso a
+  zig-zag della linea dorata e' quello registrato.
 
 **Il metodo delle prove (§0.8).** Le verifiche si fanno nell'emulatore e le foto si
 mandano a Raffaella: `node strumenti/prova_emulatore.mjs` con `OCCHI=1.2` (altezza degli
@@ -3052,9 +3101,13 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
   prima chiamata (v15: «Cannot access before initialization»).
 
 **Prossimi passi (in ordine, deciso con Raffaella).**
-1. ~~Gli agenti e l'occhio~~: **fatto nella v19** (sopra). Raffaella l'ha guardata e NON va
-   pubblicata cosi': prima il PIANO qui sopra (v20 nel visore, poi il cervello).
-2. Alla tappa: UNA prova nel Quest con `&prova` (fps con agenti e schede, tappa «No agents &
-   cards»), le quote della v18, la mano sulla scrivania, la leggibilita' delle schede e il
-   pizzico vero.
-3. Tutto in inglese (VR Start).
+1. ~~Gli agenti e l'occhio~~: fatto nella v19. ~~La v20 nel visore~~: **fatta** (sopra).
+   Raffaella la guarda nell'anteprima (configurazione «visore-v19» di `.claude/launch.json`, porta
+   5175, `/Veritas-spatial-ai/visore/?salta=70`): si pubblica SOLO con la sua frase in chat.
+2. Il cervello (PIANO sopra, e §13.7 punti 1, 6-9): missioni con origine e meta vere, scala mobile,
+   pontile, parcheggio, soste sulle sedute viste, corpi che non si attraversano, carrozzina e bambino
+   con la famiglia. Poi si rifa il pacchetto e il visore lo mostra senza cambiare niente.
+3. Alla tappa: UNA prova nel Quest con `&prova` (fps con corpi, schede e finestra degli occhi; tappe
+   «No agents & cards» e «Their eyes window»), STEP INSIDE nel visore, le quote della v18, la mano
+   sulla scrivania, la leggibilita' di schede ed elenco, il pizzico vero.
+4. Tutto in inglese (VR Start).
