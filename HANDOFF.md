@@ -2995,6 +2995,48 @@ nella stessa cartella.
   0,6-0,8° a 50 cm: forse da avvicinare con la mano), fps con agenti e schede, il pizzico
   vero sulle schede.
 
+**Raffaella sulla v19 (16/10 sera, guardata nell'anteprima del PC). NON PUBBLICARE finche'
+non e' rifatta.** Cosa ha chiesto, con le misure che ho preso subito:
+1. **Troppo veloci.** Misurato: nel pacchetto le persone vanno a 0,6-1,0 m/s (famiglie 0,6-0,8,
+   business 0,9-1,0): giuste. Il «troppo veloce» era il ×2 della v19. -> Di serie la velocita'
+   vera, e un comando per accelerare (×1 / ×2 / ×4).
+2. **Corpi veri, non capsule di luce.** Figure umane realistiche (come sul PC: `corpi/persona.gltf`,
+   Quaternius CC0, cammina / seduto / fermo), di colori diversi per profilo; la luce deve servire
+   a capire (oggi le sagome fotografate del modello si leggono meglio degli agenti).
+3. **Zoom molto piu' forte**, fino a vedere il movimento del corpo e i dettagli: nel visore oltre
+   i 10× delle due mani; sul PC la rotellina oggi si ferma presto (cambia solo il campo visivo).
+4. **Le scie da vedere da vicino** (con lo zoom).
+5. **Scegliere una persona e guardare con i suoi occhi**, come sul PC (selezione, cartellino, linea
+   dorata fino alla meta, «Con i suoi occhi»: passi 3-5 del §9, `veritas_selezione.js`). Esempio di
+   Raffaella: «l'agente 1 e' un uomo d'affari che scende dall'aereo e deve prendere la macchina: lo
+   seleziono e guardo il percorso con i suoi occhi». Serve un pannello di controllo.
+6. **Missioni** (del cervello): ogni persona ha una meta e una missione assegnabile.
+7. **La lettura dello spazio** (del cervello): le persone devono prendere la scala mobile, passare
+   dal pontile (il tunnel fra aereo e terminal), arrivare alla macchina o ripartire dalla macchina;
+   oggi NASCONO a meta' percorso (misurato: compaiono fra il fotogramma 1 e il 35, dove capita).
+   Timore di Raffaella: che non capiscano frecce e indicazioni. Misurato: l'occhio le frecce le
+   VEDE (nella regia «directional floor arrow», 13 + 6 copie, «si cammina sopra»), e guarda il
+   modello coi colori veri (l'argilla e' solo per mostrare); il punto e' il percorso, non l'occhio.
+8. **Comportamenti per zona e per profilo** (del cervello, c'erano sul PC): chi si siede in sala
+   d'attesa, chi resta fermo al desk informazioni, la sedia a rotelle piu' lenta (oggi nessuna fra
+   le 28), il bambino che si muove con la famiglia; animazioni dei corpi.
+
+**PIANO (proposto il 16/10 sera; l'ordine lo conferma Raffaella nella chat nuova).**
+- *Visore, v20* (nessun cambiamento al cervello): (a) velocita' vera + pulsante SPEED accanto a
+  PASSTHROUGH; (b) corpi veri animati colorati per profilo, con la luce del plastico; (c) zoom: due
+  mani fino a ~40× (una persona alta ~40 cm), sul PC la rotellina che avvicina davvero; (d) scie
+  riviste da vicino; (e) scegliere una persona (pizzico sulla persona o pannello con l'elenco:
+  profilo, missione, meta) -> cartellino + linea dorata fino alla meta -> «Through their eyes».
+  ⚠️ Da chiedere: gli occhi della persona in una FINESTRA (una scheda che mostra cio' che vede,
+  da seduti senza nausea: consigliato) o ENTRANDO nel modello a grandezza vera (§13.2 diceva
+  «niente camminata a grandezza vera»). Ogni pezzo misurato nell'emulatore; i fps (28 corpi
+  animati sul Quest 2) nella prova unica alla fine, con la prova dei pesi.
+- *Cervello* (pagina del PC, si pubblica solo col si' di Raffaella; e' anche la gara IA del 26/10):
+  missioni con origine e meta vere (aereo -> pontile -> terminal -> parcheggio, e il contrario), le
+  persone che nascono all'origine, percorsi che usano scala mobile e pontile, comportamenti per
+  zona (sedute, desk), profili completi (carrozzina, bambino con la famiglia). Poi si rifa il
+  pacchetto con `fai_pacchetto.mjs` e il visore lo mostra senza cambiare niente.
+
 **Il metodo delle prove (§0.8).** Le verifiche si fanno nell'emulatore e le foto si
 mandano a Raffaella: `node strumenti/prova_emulatore.mjs` con `OCCHI=1.2` (altezza degli
 occhi), `PIEGA=45` (sguardo in giu', gradi), `GUARDA="0,40,-150"` (giri di testa e foto),
@@ -3010,9 +3052,8 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
   prima chiamata (v15: «Cannot access before initialization»).
 
 **Prossimi passi (in ordine, deciso con Raffaella).**
-1. ~~Gli agenti e l'occhio~~: **fatto nella v19** (sopra), da guardare con Raffaella sulle
-   foto e da pubblicare con la sua frase (si copia `dist/` in `visore/`, costruzione
-   `2026-10-16-v19`).
+1. ~~Gli agenti e l'occhio~~: **fatto nella v19** (sopra). Raffaella l'ha guardata e NON va
+   pubblicata cosi': prima il PIANO qui sopra (v20 nel visore, poi il cervello).
 2. Alla tappa: UNA prova nel Quest con `&prova` (fps con agenti e schede, tappa «No agents &
    cards»), le quote della v18, la mano sulla scrivania, la leggibilita' delle schede e il
    pizzico vero.
