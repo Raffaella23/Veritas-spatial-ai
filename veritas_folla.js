@@ -413,11 +413,18 @@ export function missioni({ nav, navMesh, stato, nodi, accessi, sedute }) {
   // doppioni: lo stesso accesso detto due volte
   const unici = (L) => L.filter((x, i) => !L.slice(0, i).some((y) => distXZ(x.pos, y.pos) < 8));
   A = unici(A); B = unici(B).sort((x, y) => (y.fuori ? 1 : 0) - (x.fuori ? 1 : 0));
+  // 17/10/2026 sera — LO STESSO ACCESSO DETTO DA DUE FONTI. Il pontile visto e la
+  // ricerca degli accessi davano lo stesso ingresso a 20 cm l'uno dall'altro
+  // (misurato sull'aeroporto): ne nascevano due missioni da un punto a se' stesso,
+  // e chi le riceveva nasceva gia' arrivato ed usciva subito di scena (6 persone
+  // su 28). Vicino in pianta come i doppioni (8 m) e allo stesso piano: e' uno.
+  const stesso = (x, y) => distXZ(x.pos, y.pos) < 8 && Math.abs(x.pos[1] - y.pos[1]) < PERSONA.altezza;
+  B = B.filter((b) => !A.some((a) => stesso(a, b)));
   const tappe = (nodi || []).filter((n) => n && n.pos && !n.escluso && ['accoglienza', 'filtro', 'sosta'].indexOf(n.type) >= 0)
     .map((n) => { const q = sullaRete(nav, navMesh, n.pos); return q ? { ...n, pos: q.punto } : null; }).filter(Boolean);
   const coppie = [];
   if (A.length && B.length) {
-    for (const b of B) for (const a of A) if (siRaggiunge(nav, navMesh, b.pos, a.pos)) coppie.push([b, a]);
+    for (const b of B) for (const a of A) if (!stesso(a, b) && siRaggiunge(nav, navMesh, b.pos, a.pos)) coppie.push([b, a]);
   }
   if (!coppie.length) {
     const tutti = unici(A.concat(B));

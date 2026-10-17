@@ -114,6 +114,15 @@ console.log('\n4. La carrozzina (17/10 sera): non sale le scale; una rampa a nor
     persone: misti([{ nome: 'sala', pos: [3, 0, 4] }, { nome: 'mezzanino', pos: [29, 1, 4] }]) });
   check('museo: sulla rampa al 7% sale anche chi va in carrozzina', resM.esiti.every((e) => e.uscita),
     resM.esiti.map((e) => e.id + ':' + e.fatte + (e.uscita ? 'ok' : '')).join(' '));
+
+  // 17/10 sera: lo stesso accesso detto da due fonti (una meta vista e un accesso
+  // trovato a 30 cm) non fa una missione da un punto a se' stesso
+  const doppio = missioni({ nav, navMesh: reteM.navMesh, stato: reteM,
+    nodi: [{ name: 'mezzanino', type: 'destinazione', pos: [29, 1, 4] }],
+    accessi: [{ nome: 'Accesso 1', centro: [29, 1, 4.3] }, { nome: 'ingresso', centro: [3, 0, 4] }] });
+  const lunghezze = doppio.missioni.map((x) => Math.hypot(x.tappe[0].pos[0] - x.tappe[x.tappe.length - 1].pos[0], x.tappe[0].pos[2] - x.tappe[x.tappe.length - 1].pos[2]));
+  check('museo: lo stesso accesso da due fonti non fa una missione da un punto a se stesso',
+    doppio.missioni.length > 0 && lunghezze.every((l) => l > 8), doppio.missioni.map((x, i) => x.nome + ' ' + lunghezze[i].toFixed(1) + ' m').join(' | '));
 }
 
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));
