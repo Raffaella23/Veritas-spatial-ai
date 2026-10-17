@@ -14,7 +14,7 @@ import { generateSoloNavMesh } from 'navcat/blocks';
 import * as nav from 'navcat';
 import {
   PERSONA, VOXEL_MAX, cellaOttima, parametri, costruisci, misura, isole, percorso, sulCammino, ALTEZZA_LIBERA_NORMA, collegamentiOrizzontali,
-  geometriaDaModello, eSegnaleticaATerra } from './veritas_navmesh.js';
+  geometriaDaModello, eSegnaleticaATerra, costruisciDaScena, confermatoDallOcchio } from './veritas_navmesh.js';
 
 let ko = 0;
 const check = (n, ok, d = '') => {
@@ -418,6 +418,131 @@ console.log('\n11. «a terra»: la lastra vista come segnaletica si calpesta, la
   const e = eSegnaleticaATerra;
   check('eSegnaleticaATerra: una freccia 2 x 1,6 x 0,13 e una lastra',
     e(new T.Box3(new T.Vector3(9, 0.46, 2.2), new T.Vector3(11, 0.59, 3.8)), occhio(8.8, 2, 11.2, 4)));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\n12. La rete continua: si collega SOLO dove l occhio vede un passaggio (17/10/2026)');
+{
+  // §0.9 — NESSUNA di queste scene e' un aeroporto: una scuola, un ospedale,
+  // una chiesa. Se la regola funzionasse solo sul terminal, qui fallirebbe.
+  const T = await import('three');
+  const scatola = (radice, x0, y0, z0, x1, y1, z1, nome) => {
+    const m = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0));
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    m.name = nome; radice.add(m); return m;
+  };
+  const strada = async (radice, da, a, occhio) => {
+    radice.updateMatrixWorld(true);
+    const r = await costruisciDaScena(T, radice, occhio ? { coseNominate: occhio } : {});
+    const ps = r && r.navMesh ? percorso(nav, r.navMesh, da, a) : null;
+    return { passa: !!(ps && !ps.parziale), r };
+  };
+  const riquadro = (termine, min, max) => ({ termine, nome: termine, min, max,
+    postura: ['stairs', 'bridge', 'door'].includes(termine) ? 'passa' : null });
+
+  // LA SCUOLA: due piani (0 e +2,0 m) e una rampa stretta fra i due, che la
+  // geometria trova (superficie inclinata) ma la mappa non calpesta da sola.
+  const scuola = () => {
+    const r = new T.Group();
+    scatola(r, 0, -0.1, 0, 10.4, 0, 8, 'piano terra');
+    scatola(r, 14.0, 1.9, 0, 24, 2.0, 8, 'piano primo');
+    const rampa = new T.Mesh(new T.BoxGeometry(Math.hypot(4.4, 2), 0.1, 0.62));
+    rampa.position.set(12.2, 1.0, 4); rampa.rotation.z = Math.atan2(2, 4.4); rampa.name = 'rampa'; r.add(rampa);
+    return r;
+  };
+  const cieca = await strada(scuola(), [5, 0, 4], [20, 2, 4], null);
+  check('scuola, occhio muto: la rampa resta candidata, i piani non si uniscono',
+    !cieca.passa && ((cieca.r.collegamenti || {}).candidati || []).length > 0,
+    'candidate ' + ((cieca.r.collegamenti || {}).candidati || []).length);
+  const vista = await strada(scuola(), [5, 0, 4], [20, 2, 4], [riquadro('stairs', [9.9, -0.1, 3.5], [14.5, 2.2, 4.5])]);
+  check('scuola, l occhio la chiama «scale»: i due piani si uniscono', vista.passa,
+    ((vista.r.collegamenti || {}).aggiunti || []).map((c) => c.visto).join(','));
+  const sbaglio = await strada(scuola(), [5, 0, 4], [20, 2, 4], [riquadro('bus', [9.9, -0.1, 3.5], [14.5, 2.2, 4.5])]);
+  check('scuola, l occhio la chiama «autobus» (non si passa): restano separati', !sbaglio.passa);
+  check('un nome «si passa» ACCANTO al piede della rampa non la conferma',
+    !confermatoDallOcchio([10, 0, 4], [14.4, 2, 4], 0.62, [riquadro('stairs', [8, 0, 5.2], [9.9, 2.2, 7])]));
+
+  // L'OSPEDALE: due padiglioni uniti da un tunnel col soffitto a 1,6 m (il
+  // modello stilizzato del §0.2). Chi lo vede come «passerella» ci fa passare.
+  const ospedale = () => {
+    const r = new T.Group();
+    scatola(r, 0, -0.1, 0, 8, 0, 8, 'padiglione A');
+    scatola(r, 16, -0.1, 0, 24, 0, 8, 'padiglione B');
+    scatola(r, 8, -0.1, 3, 16, 0, 5.4, 'tunnel pavimento');
+    scatola(r, 8, 0, 2.9, 16, 1.6, 3.0, 'tunnel parete');
+    scatola(r, 8, 0, 5.4, 16, 1.6, 5.5, 'tunnel parete');
+    scatola(r, 8, 1.6, 2.9, 16, 1.7, 5.5, 'tunnel tetto');
+    return r;
+  };
+  const basso = await strada(ospedale(), [4, 0, 4], [20, 0, 4], null);
+  check('ospedale, occhio muto: nel tunnel da 1,6 m la persona non passa', !basso.passa);
+  const tunnel = await strada(ospedale(), [4, 0, 4], [20, 0, 4], [riquadro('bridge', [8, -0.1, 2.9], [16, 1.7, 5.5])]);
+  check('ospedale, l occhio vede la passerella: tetto e pareti del tunnel non tolgono il pavimento, si passa',
+    tunnel.passa && tunnel.r.geometria.soffitti === 3, 'tolti tetto e pareti: ' + tunnel.r.geometria.soffitti);
+
+  // LA CHIESA: navata e cappella divise da un muro con una porta chiusa.
+  const chiesa = (conPorta) => {
+    const r = new T.Group();
+    scatola(r, 0, -0.1, 0, 12, 0, 8, 'navata');
+    scatola(r, 12.2, -0.1, 0, 18, 0, 8, 'cappella');
+    if (!conPorta) { scatola(r, 12, 0, 0, 12.2, 3, 8, 'muro'); return r; }
+    scatola(r, 12, 0, 0, 12.2, 3, 3.5, 'muro');
+    scatola(r, 12, 0, 4.5, 12.2, 3, 8, 'muro');
+    scatola(r, 12, 2.1, 3.5, 12.2, 3, 4.5, 'architrave');
+    scatola(r, 12.05, 0, 3.5, 12.15, 2.1, 4.5, 'anta chiusa');
+    return r;
+  };
+  const muro = await strada(chiesa(false), [6, 0, 4], [15, 0, 4], null);
+  check('chiesa, muro pieno e occhio muto: separate', !muro.passa);
+  const nonVista = await strada(chiesa(true), [6, 0, 4], [15, 0, 4], null);
+  check('chiesa, porta modellata chiusa e occhio muto: separate (la geometria da sola non apre)', !nonVista.passa);
+  const porta = await strada(chiesa(true), [6, 0, 4], [15, 0, 4], [riquadro('door', [11.9, 0, 3.45], [12.3, 2.15, 4.55])]);
+  check('chiesa, l occhio vede la porta: si passa, e solo dalla porta', porta.passa
+    && porta.r.passaggi.aggiunti.length > 0 && porta.r.passaggi.aggiunti.every((c) => c.da[2] > 3.3 && c.da[2] < 4.7),
+    porta.r.passaggi.aggiunti.map((c) => c.da.map((v) => v.toFixed(1)).join('/')).join(' '));
+  const portaFinta = await strada(chiesa(false), [6, 0, 4], [15, 0, 4], [riquadro('door', [11.9, 0, 3.45], [12.3, 2.15, 4.55])]);
+  check('chiesa, l occhio dice «porta» su un muro pieno: la geometria non conferma, separate', !portaFinta.passa);
+
+  // LA STAZIONE (17/10 sera): un mezzanino a +4 m e una scala mobile larga 1 m
+  // SOPRA il piano terra, che continua sotto. Il nastro ha piu' vertici su un
+  // fianco che sull'altro (come i modelli veri): la mediana cadeva sul fianco.
+  // L'occhio la chiama «passerella», come all'aeroporto.
+  const stazione = () => {
+    const r = new T.Group();
+    scatola(r, 0, -0.1, 0, 24, 0, 8, 'piano terra');
+    scatola(r, 14, 3.9, 0, 24, 4.0, 8, 'mezzanino');
+    const A0 = [6, 0, 3.5], Am = [10, 2, 3.5], A1 = [14, 4, 3.5], B0 = [6, 0, 4.5], B1 = [14, 4, 4.5];
+    const v = [...A0, ...Am, ...B0, ...Am, ...A1, ...B1, ...Am, ...B1, ...B0];
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.BufferAttribute(new Float32Array(v), 3));
+    const nastro = new T.Mesh(g, new T.MeshBasicMaterial({ side: T.DoubleSide }));
+    nastro.name = 'nastro'; r.add(nastro);
+    return r;
+  };
+  const scalaVista = await strada(stazione(), [3, 0, 2], [20, 4, 4], [riquadro('bridge', [5.8, -0.1, 3.3], [14.2, 4.2, 4.7])]);
+  const corsia = ((scalaVista.r.collegamenti || {}).aggiunti || [])[0];
+  check('stazione, la scala vista come «passerella»: i due piani si uniscono', scalaVista.passa);
+  check('stazione, la passerella che sale non e un tetto: niente tolto dalla mappa',
+    scalaVista.r.geometria.soffitti === 0, 'tolti: ' + scalaVista.r.geometria.soffitti);
+  check('stazione, sotto il nastro basso il piano terra non si calpesta',
+    !sulCammino(nav, scalaVista.r.navMesh, [7.5, 0, 4], [0.2, 0.5, 0.2]).ok);
+  check('stazione, i capi della scala stanno a meta della larghezza (z 4,0), non sul fianco',
+    !!corsia && !!corsia.asse && corsia.asse.every((q) => Math.abs(q[2] - 4) < 0.05),
+    corsia && corsia.asse ? corsia.asse.map((q) => q[2].toFixed(2)).join(' / ') : 'nessun asse');
+
+  // LA SALA DI VETRO: due padiglioni e fra loro una sala chiusa su tutti i lati
+  // (pareti di testa comprese). L'occhio sbaglia e la chiama «passerella»: la
+  // geometria sospende la conseguenza (28/09), le pareti restano.
+  const salaDiVetro = () => {
+    const r = ospedale();
+    scatola(r, 8, 0, 2.9, 8.1, 1.6, 5.5, 'testata');
+    scatola(r, 15.9, 0, 2.9, 16, 1.6, 5.5, 'testata');
+    return r;
+  };
+  const sala = await strada(salaDiVetro(), [4, 0, 4], [20, 0, 4], [riquadro('bridge', [8, -0.1, 2.9], [16, 1.7, 5.5])]);
+  check('sala di vetro chiamata «passerella»: chiusa ai due capi, le pareti restano e non ci si passa',
+    !sala.passa && sala.r.geometria.soffitti === 0 && sala.r.geometria.stanze === 1,
+    'tolti ' + sala.r.geometria.soffitti + ', stanze ' + sala.r.geometria.stanze);
 }
 
 console.log('\n' + (ko ? ko + ' PROVE FALLITE' : 'tutte le prove passate'));

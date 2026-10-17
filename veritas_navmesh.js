@@ -289,13 +289,51 @@ export function cosaIntera(o, radice) {
   return (p && p !== radice && p.children.length && p.children.every((c) => c.isMesh)) ? p : o;
 }
 
+/** Il solido e' chiuso e rovesciato (volume con segno negativo)? Una volta per geometria. */
+const ROVESCI = new WeakMap();
+function solidoRovesciato(geom) {
+  if (!geom || !geom.attributes || !geom.attributes.position) return false;
+  if (ROVESCI.has(geom)) return ROVESCI.get(geom);
+  const a = geom.attributes.position, ind = geom.index;
+  const nTri = Math.floor((ind ? ind.count : a.count) / 3);
+  let esito = false;
+  if (nTri >= 4 && nTri <= 200000) {
+    // i vertici saldati per posizione (un modello duplica i vertici per le normali)
+    const id = new Map(), vid = new Int32Array(a.count);
+    for (let i = 0; i < a.count; i++) {
+      const k = Math.round(a.getX(i) * 1e4) + ',' + Math.round(a.getY(i) * 1e4) + ',' + Math.round(a.getZ(i) * 1e4);
+      let v = id.get(k); if (v === undefined) { v = id.size; id.set(k, v); } vid[i] = v;
+    }
+    const spigoli = new Map();
+    let cx = 0, cy = 0, cz = 0;
+    for (let i = 0; i < a.count; i++) { cx += a.getX(i); cy += a.getY(i); cz += a.getZ(i); }
+    cx /= a.count; cy /= a.count; cz /= a.count;
+    let vol = 0;
+    for (let t = 0; t < nTri; t++) {
+      const i0 = ind ? ind.getX(t * 3) : t * 3, i1 = ind ? ind.getX(t * 3 + 1) : t * 3 + 1, i2 = ind ? ind.getX(t * 3 + 2) : t * 3 + 2;
+      for (const [p, q] of [[vid[i0], vid[i1]], [vid[i1], vid[i2]], [vid[i2], vid[i0]]]) {
+        const k = p < q ? p + ':' + q : q + ':' + p; spigoli.set(k, (spigoli.get(k) || 0) + 1);
+      }
+      const ax = a.getX(i0) - cx, ay = a.getY(i0) - cy, az = a.getZ(i0) - cz;
+      const bx = a.getX(i1) - cx, by = a.getY(i1) - cy, bz = a.getZ(i1) - cz;
+      const qx = a.getX(i2) - cx, qy = a.getY(i2) - cy, qz = a.getZ(i2) - cz;
+      vol += (ax * (by * qz - bz * qy) - ay * (bx * qz - bz * qx) + az * (bx * qy - by * qx)) / 6;
+    }
+    let chiuso = spigoli.size > 0;
+    for (const n of spigoli.values()) if (n !== 2) { chiuso = false; break; }
+    esito = chiuso && vol < 0;
+  }
+  ROVESCI.set(geom, esito);
+  return esito;
+}
+
 export function geometriaDaModello(THREE, radice, opz = {}) {
   if (!THREE || !radice) return null;
   radice.updateMatrixWorld(true);
 
   const pos = [];
   const idx = [];
-  let mesh = 0, saltate = 0, segnaletica = 0;
+  let mesh = 0, saltate = 0, segnaletica = 0, specchiate = 0;
   const tolte = [];
   const tettoTriangoli = opz.tettoTriangoli || 1.2e6;
   const tettoIstanze = opz.tettoIstanze || 4096;
@@ -303,6 +341,11 @@ export function geometriaDaModello(THREE, radice, opz = {}) {
   const v = new THREE.Vector3();
   const aree = areeATerraDalMondo(opz);
   const giudicate = new Map();   // cosa intera -> e' segnaletica a terra?
+  // 17/10/2026 — NEL PASSAGGIO VISTO IL SOFFITTO NON TOGLIE IL PAVIMENTO (§0.2,
+  // §0.4). Vedi `soffittiNeiPassaggi`: tetto e travi di un pontile visto
+  // dall'occhio non entrano nella mappa; pavimento e pareti si'.
+  const cieliTolti = soffittiNeiPassaggi(THREE, radice, opz);
+  let soffitti = 0;
 
   function aggiungi(geom, matrice) {
     const attr = geom && geom.attributes && geom.attributes.position;
@@ -312,13 +355,32 @@ export function geometriaDaModello(THREE, radice, opz = {}) {
       v.set(attr.getX(i), attr.getY(i), attr.getZ(i)).applyMatrix4(matrice);
       pos.push(v.x, v.y, v.z);
     }
+    // ⛔ 17/10/2026 — UN OGGETTO SPECCHIATO HA I PAVIMENTI A ROVESCIO. Un modello
+    //    usa spesso la stessa parte specchiata (scala -1 su un asse): il disegno
+    //    a schermo la gira da solo, ma qui i triangoli passano con la matrice e
+    //    basta, e uno specchio inverte il verso di ogni triangolo. La libreria
+    //    giudica il pavimento dal verso: la faccia di sopra diventa «rivolta in
+    //    giu'», quella di sotto «rivolta in su', e coperta». Misurato sui pontili
+    //    dell'aeroporto: centinaia di lastre specchiate, pavimento a 2,99 m letto
+    //    a 2,85 sotto la lastra stessa — nessuno ci camminava. E' geometria, non
+    //    taratura: col determinante negativo si scambiano due vertici.
+    // 17/10/2026 — E UN SOLIDO ROVESCIATO (dentro-fuori) HA I PAVIMENTI A ROVESCIO,
+    //    come uno specchiato. Misurato sulla clinica (IFC convertito): 808 solidi
+    //    su 4.896 col volume negativo, e la mappa vedeva 613 m² su due piani. Si
+    //    gira SOLO un solido CHIUSO (ogni spigolo fra due triangoli): su una lastra
+    //    aperta il volume non vuol dire niente, e non si tocca.
+    const specchio = (matrice.determinant() < 0) !== solidoRovesciato(geom);
     const ind = geom.index;
     if (ind) {
       for (let i = 0; i + 2 < ind.count; i += 3)
-        idx.push(base + ind.getX(i), base + ind.getX(i + 1), base + ind.getX(i + 2));
+        if (specchio) idx.push(base + ind.getX(i), base + ind.getX(i + 2), base + ind.getX(i + 1));
+        else idx.push(base + ind.getX(i), base + ind.getX(i + 1), base + ind.getX(i + 2));
     } else {
-      for (let i = 0; i + 2 < attr.count; i += 3) idx.push(base + i, base + i + 1, base + i + 2);
+      for (let i = 0; i + 2 < attr.count; i += 3)
+        if (specchio) idx.push(base + i, base + i + 2, base + i + 1);
+        else idx.push(base + i, base + i + 1, base + i + 2);
     }
+    if (specchio) specchiate++;
     mesh++;
   }
 
@@ -340,6 +402,8 @@ export function geometriaDaModello(THREE, radice, opz = {}) {
         return;
       }
     }
+
+    if (cieliTolti.size && cieliTolti.has(o)) { soffitti++; return; }
 
     if (o.isInstancedMesh && o.count > 0) {
       const n = Math.min(o.count, tettoIstanze);
@@ -367,7 +431,7 @@ export function geometriaDaModello(THREE, radice, opz = {}) {
     positions: new Float32Array(pos),
     indices: new Uint32Array(idx),
     triangoli: idx.length / 3,
-    mesh, saltate, segnaletica, tolte,
+    mesh, saltate, segnaletica, tolte, specchiate, soffitti, stanze: cieliTolti.stanze || 0, chiusi: cieliTolti.chiusi || [],
     ingombro: { min, max },
   };
 }
@@ -544,6 +608,13 @@ export function isole(navMesh) {
 
 /** Tolleranza di aggancio: quanto lontano si cerca il pavimento sotto un punto. */
 const TOLLERANZA = [2, 4, 2];
+
+// 17/10/2026 sera — LA CARROZZINA NON PRENDE SCALE NE' SCALE MOBILI. Un
+// collegamento fra piani piu' ripido di una rampa a norma (DM 236/1989, art.
+// 8.1.11: pendenza massima 8%) porta il segno SOLO_A_PIEDI; chi va in
+// carrozzina cerca una strada senza (`veritas_folla`, stesso numero).
+const SOLO_A_PIEDI = 2;
+const PENDENZA_MAX_CARROZZINA = Math.atan(0.08) * 180 / Math.PI;
 
 /**
  * Il punto sta sul cammino? Se si', dove esattamente.
@@ -815,16 +886,27 @@ export function misuraInclinata(facce, opz = {}) {
   //    La fascia e' stretta — un ottavo — perche' su una fascia larga la
   //    mediana cade a meta' salita e il capo risulta 25 cm piu' in su di dov'e'.
   const fascia = Math.max(pa, lunghezza * 0.08);
-  const bassa = { y: [], x: [], z: [] }, alta = { y: [], x: [], z: [] };
+  // ⛔ 17/10/2026 sera — IL CAPO STA A META' DELLA LARGHEZZA, non su uno spigolo.
+  //    La mediana delle x e delle z dei vertici cadeva su un BORDO: una rampa
+  //    modellata ha i vertici sui due fianchi e nessuno in mezzo. Misurato sulla
+  //    scala mobile dell'aeroporto (netti 0,90 m fra le balaustre, asse z 8,05):
+  //    capi a z 7,62 e 8,52, la corsia correva in diagonale e lungo la
+  //    balaustra, e la «parete dentro il corpo» era per meta' li'. Lungo la
+  //    salita resta la mediana; di traverso il centro fra i due fianchi.
+  const bassa = { y: [], a: [], b: [] }, alta = { y: [], a: [], b: [] };
   for (const t of facce) for (const v of t) {
     const a = A(v);
     const dove = a <= amin + fascia ? bassa : (a >= amax - fascia ? alta : null);
     if (!dove) continue;
-    dove.y.push(v[1]); dove.x.push(v[0]); dove.z.push(v[2]);
+    dove.y.push(v[1]); dove.a.push(a); dove.b.push(B(v));
   }
   if (!bassa.y.length || !alta.y.length) return null;
-  const capoA = [mediana(bassa.x), mediana(bassa.y), mediana(bassa.z)];
-  const capoB = [mediana(alta.x), mediana(alta.y), mediana(alta.z)];
+  const capoDi = (f) => {
+    const a = mediana(f.a), b = (Math.min(...f.b) + Math.max(...f.b)) / 2;
+    return [cx + a * cu - b * su, mediana(f.y), cz + a * su + b * cu];
+  };
+  const capoA = capoDi(bassa);
+  const capoB = capoDi(alta);
   const sale = capoB[1] >= capoA[1];
   const capoBasso = sale ? capoA : capoB;
   const capoAlto = sale ? capoB : capoA;
@@ -891,7 +973,14 @@ export function superficiInclinate(THREE, radice, opz = {}) {
     }
     if (facce.length < 2) return;
     const m = misuraInclinata(facce, opz);
-    if (m) out.push({ nome: o.name || '(mesh senza nome)', ...m });
+    // 17/10/2026 — anche DOVE sta la cosa intera: la regia dell'occhio ci va a
+    // guardare (`candidati`), e il collegamento si dichiara solo se l'occhio la
+    // chiama «si passa» (§0.4: vede l'occhio, valida il cervello).
+    if (m) {
+      const scatola = new THREE.Box3().setFromObject(cosaIntera(o, radice));
+      out.push({ nome: o.name || '(mesh senza nome)', uuid: o.uuid, ...m,
+                 scatola: { min: scatola.min.toArray(), max: scatola.max.toArray() } });
+    }
   });
 
   out.sort((a, b) => b.dislivello - a.dislivello);
@@ -905,6 +994,27 @@ export function superficiInclinate(THREE, radice, opz = {}) {
  * Restituisce sempre anche gli SCARTATI col motivo: un passaggio che non c'e'
  * non si dichiara, e uno che c'e' e non si aggancia va detto, non nascosto.
  */
+// 17/10/2026 sera — DALLA RAMPA SI SCENDE DRITTI. Il capo si aggancia al pavimento
+// cercando AVANTI lungo l'asse della rampa (da `altro` verso `capo`, e oltre), a
+// passi di mezzo raggio di persona, con poco gioco di lato; solo se non trova
+// niente si ripiega sul punto piu' vicino in ogni direzione. Misurato sulla scala
+// mobile dell'aeroporto: il piu' vicino in ogni direzione stava 45 cm di lato,
+// sulla balaustra, e la corsia ci correva contro.
+function sulCamminoAvanti(nav, navMesh, capo, altro, tolleranza, raggio) {
+  const dx = capo[0] - altro[0], dz = capo[2] - altro[2], L = Math.hypot(dx, dz);
+  const tol = tolleranza || TOLLERANZA;
+  if (L > 1e-6 && raggio > 0) {
+    const ux = dx / L, uz = dz / L, passo = raggio / 2, gioco = [raggio / 2, tol[1], raggio / 2];
+    for (let k = 0; k * passo <= tol[0]; k++) {
+      const q = sulCammino(nav, navMesh, [capo[0] + ux * k * passo, capo[1], capo[2] + uz * k * passo], gioco);
+      if (!q.ok) continue;
+      const lato = Math.abs(-(q.punto[0] - capo[0]) * uz + (q.punto[2] - capo[2]) * ux);
+      if (lato <= raggio / 2) return q;
+    }
+  }
+  return sulCammino(nav, navMesh, capo, tol);
+}
+
 export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
   const esito = { aggiunti: [], scartati: [], ids: [], livelli: liv || [] };
   if (!nav || !navMesh || !candidati || !candidati.length) {
@@ -928,6 +1038,8 @@ export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
   // Il pavimento si cerca entro l'altezza di una persona: piu' in la' non e'
   // il pavimento di quella rampa, e' un altro piano.
   const tolleranza = [p.raggio * 5, p.altezza, p.raggio * 5];
+  const segnoDi = (c) => (opz.flagsCollegamento != null ? opz.flagsCollegamento : 1)
+    | (c.pendenza > PENDENZA_MAX_CARROZZINA ? SOLO_A_PIEDI : 0);
 
   const livelloDi = (y) => {
     let quale = -1, dist = Infinity;
@@ -952,10 +1064,29 @@ export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
 
     // I capi si agganciano al pavimento vero: una rampa modellata comincia
     // quasi sempre qualche centimetro sopra o sotto la superficie camminabile.
-    const qb = sulCammino(nav, navMesh, c.capoBasso, tolleranza);
-    const qa = sulCammino(nav, navMesh, c.capoAlto, tolleranza);
+    const qb = sulCamminoAvanti(nav, navMesh, c.capoBasso, c.capoAlto, tolleranza, p.raggio);
+    const qa = sulCamminoAvanti(nav, navMesh, c.capoAlto, c.capoBasso, tolleranza, p.raggio);
     if (!qb.ok || !qa.ok) { scarta('un capo non tocca nessuna superficie camminabile'); continue; }
 
+    // ⛔ 17/10/2026 — SOLO DOVE L'OCCHIO HA VISTO UN PASSAGGIO (strada approvata
+    //    da Raffaella il 17/10; §0.4, §0.9). La geometria PROPONE la rampa; la
+    //    DICHIARA l'occhio, se li' ha visto «si passa» (scala, scala mobile,
+    //    rampa...). Finche' non l'ha vista la rampa resta CANDIDATA: la regia ci
+    //    va a guardare (`esito.candidati`), e nessuno la percorre sulla parola
+    //    della sola geometria. Misurato il 17/10 sull'aeroporto: l'occhio non
+    //    aveva MAI guardato le scale mobili — nessun «tipo» le conteneva.
+    //    Senza `opz.soloOcchio` (prove al banco) si resta come prima.
+    let visto = null;
+    if (opz.soloOcchio === true) {
+      visto = confermatoDallOcchio(qb.punto, qa.punto, c.larghezza, opz.passaggi || []);
+      if (!visto) {
+        esito.candidati = esito.candidati || [];
+        esito.candidati.push({ nome: c.nome, uuid: c.uuid, scatola: c.scatola, da: qb.punto, a: qa.punto,
+                               dislivello: c.dislivello, larghezza: c.larghezza });
+        scarta(opz.occhioHaParlato ? "l'occhio non ci ha visto un passaggio" : "in attesa dell'occhio");
+        continue;
+      }
+    }
     let id = null;
     try {
       const r = nav.addOffMeshConnection(navMesh, {
@@ -963,7 +1094,7 @@ export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
         end: qa.punto,
         radius: raggioAggancio,
         direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
-        flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
+        flags: segnoDi(c),
         area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
       });
       id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
@@ -981,13 +1112,51 @@ export function collegamentiVerticali(nav, navMesh, candidati, liv, opz = {}) {
       scarta('dichiarato ma non agganciato alla navmesh');
       continue;
     }
+    // 17/10/2026 — DUE CORSIE AFFIANCATE: UNA SALE, UNA SCENDE. Una scala mobile
+    // ha due nastri; dichiarati tutti e due «nei due versi» la folla li usa per
+    // salire E per scendere sullo stesso nastro, e chi sale e chi scende si
+    // bloccano faccia a faccia (misurato al banco: meta' delle persone ferme ai
+    // due capi). Se c'e' gia' una corsia fra gli stessi piani, coi capi vicini
+    // (entro dieci raggi di persona), la prima diventa in salita e questa in discesa.
+    let verso = 'entrambi';
+    const gemella = esito.aggiunti.find((x) => x.verso === 'entrambi' && x.quote[0] === liv[basso].quota && x.quote[1] === liv[alto].quota
+      && Math.hypot(x.da[0] - qb.punto[0], x.da[2] - qb.punto[2]) < p.raggio * 10 && Math.hypot(x.a[0] - qa.punto[0], x.a[2] - qa.punto[2]) < p.raggio * 10);
+    if (gemella && opz.corsie !== false && nav.OffMeshConnectionDirection.START_TO_END != null) {
+      try {
+        const unaVia = (start, end) => {
+          const rr = nav.addOffMeshConnection(navMesh, { start, end, radius: raggioAggancio,
+            direction: nav.OffMeshConnectionDirection.START_TO_END,
+            flags: segnoDi(c), area: opz.areaCollegamento != null ? opz.areaCollegamento : 0 });
+          return (rr && typeof rr === 'object') ? (rr.id != null ? rr.id : rr.offMeshConnectionId) : rr;
+        };
+        const su = unaVia(gemella.da, gemella.a), giu = unaVia(qa.punto, qb.punto);
+        if (su != null && giu != null && nav.isOffMeshConnectionConnected(navMesh, su) && nav.isOffMeshConnectionConnected(navMesh, giu)) {
+          nav.removeOffMeshConnection(navMesh, gemella.id);
+          nav.removeOffMeshConnection(navMesh, id);
+          esito.ids.splice(esito.ids.indexOf(gemella.id), 1, su);
+          gemella.id = su; gemella.verso = 'sale'; id = giu; verso = 'scende';
+        } else {
+          for (const x of [su, giu]) if (x != null) { try { nav.removeOffMeshConnection(navMesh, x); } catch (e) {} }
+        }
+      } catch (e) { /* si resta nei due versi */ }
+    }
     esito.ids.push(id);
     esito.aggiunti.push({
-      nome: c.nome, id, da: qb.punto, a: qa.punto,
+      nome: c.nome, id, verso, da: verso === 'scende' ? qa.punto : qb.punto, a: verso === 'scende' ? qb.punto : qa.punto,
+      visto: visto ? (visto.nome || visto.termine) : null,
       dislivello: c.dislivello, larghezza: c.larghezza,
       riempimento: c.riempimento, pendenza: c.pendenza,
       quote: [liv[basso].quota, liv[alto].quota],
+      asse: [c.capoBasso.slice(), c.capoAlto.slice()],
+      soloAPiedi: c.pendenza > PENDENZA_MAX_CARROZZINA,
     });
+  }
+  // 17/10/2026 sera — L'ASSE DELLA RAMPA resta attaccato al collegamento, per
+  // chi lo percorre (`veritas_folla`): fra le balaustre si sta in mezzo, e si
+  // piega verso il pavimento libero solo una volta scesi.
+  for (const x of esito.aggiunti) {
+    const oc = navMesh.offMeshConnections && navMesh.offMeshConnections[x.id];
+    if (oc) oc.asse = x.asse;
   }
   return esito;
 }
@@ -1021,6 +1190,9 @@ function muroInMezzo(geo, da, a, opz = {}) {
     if (Math.min(ax, bx, cx) > maxX || Math.max(ax, bx, cx) < minX) continue;
     if (Math.min(ay, by, cy) > maxY || Math.max(ay, by, cy) < minY) continue;
     if (Math.min(az, bz, cz) > maxZ || Math.max(az, bz, cz) < minZ) continue;
+    // 17/10/2026 — i pezzi del passaggio visto non fanno da muro a se' stessi
+    // (una porta modellata chiusa, la parete di un pontile): §0.4, vince l'occhio.
+    if (opz.ignora && opz.ignora(ax, ay, az, bx, by, bz, cx, cy, cz)) continue;
 
     const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
     const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
@@ -1214,6 +1386,500 @@ export function collegamentiOrizzontali(nav, navMesh, gruppi, geo, opz = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// 6-ter. I PASSAGGI VISTI DALL'OCCHIO — la rete continua (17/10/2026)
+// ---------------------------------------------------------------------------
+//
+// Raffaella, 17/10, strada approvata: «una rete continua di dove si cammina,
+// collegando i pezzi SOLO dove l'occhio vede un passaggio — porta, pontile,
+// scala, scala mobile — e la geometria lo conferma». E §0.9: deve valere per
+// ogni modello. Qui non c'e' nessun nome di mesh, nessuna coordinata, nessuna
+// soglia scelta sull'aeroporto: le parole vengono dall'occhio («passa», cioe'
+// POSTURA_DI e PASSO_DI di veritas_riconosce.js), le misure dalla PERSONA.
+//
+// Misurato il 17/10 sull'aeroporto (prima di scrivere): 30 pezzi; i due pontili
+// fuori dalla mappa perche' il loro soffitto sta a 1,65 m dal pavimento (il
+// modello e' stilizzato: §0.2); le scale mobili collegate dalla sola geometria,
+// e l'occhio non le aveva mai guardate.
+//
+//   passaggiVisti         le cose che l'occhio ha chiamato «si passa», credibili
+//   soffittiNeiPassaggi   nel passaggio visto il tetto non toglie il pavimento
+//   confermatoDallOcchio  la rampa proposta dalla geometria e' coperta da un passaggio visto?
+//   collegamentiDallOcchio due pezzi che toccano lo stesso passaggio visto si
+//                         collegano ATTRAVERSO di esso, se la geometria conferma
+//   partiCollegate        quante parti restano, contando ogni collegamento
+
+const PASSA = (o) => !!o && (o.postura === 'passa' || o.passo === 'varco');
+
+/** L'occhio ha gia' parlato? Senza la sua testimonianza non si collega niente. */
+export function occhioHaParlato(opz = {}) {
+  if (opz.passaggi) return true;
+  if (opz.coseNominate || opz.vistoNelMondo) return true;
+  if (typeof window === 'undefined') return false;
+  return Array.isArray(window.__veritasCoseNominate) || (window.__veritasVistoNelMondo || []).length > 0;
+}
+
+/**
+ * Le cose che l'occhio ha chiamato «si passa», con il loro ingombro nel mondo.
+ * Credibili come in `marcaDallOcchio` e in «a terra»: il lato corto in pianta
+ * non supera LATO_MASSIMO_ATERRA_M (un riquadro grande come una sala chiamato
+ * «pontile» non e' un passaggio, e' una zona).
+ */
+export function passaggiVisti(opz = {}) {
+  if (opz.passaggi) return opz.passaggi;
+  const W = typeof window !== 'undefined' ? window : {};
+  const cose = opz.coseNominate || W.__veritasCoseNominate || [];
+  const viste = opz.vistoNelMondo || W.__veritasVistoNelMondo || [];
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const corto = (min, max) => Math.min(max[0] - min[0], max[2] - min[2]);
+  const fuori = [];
+  for (const c of cose) {
+    if (!PASSA(c) || !c.min || !c.max || corto(c.min, c.max) > LATO_MASSIMO_ATERRA_M) continue;
+    fuori.push({ min: c.min.slice(), max: c.max.slice(), termine: c.termine || null, nome: c.nome || null, da: 'regia' });
+  }
+  for (const o of viste) {
+    if (!PASSA(o) || !o.mondo || !o.mondo.min || !o.mondo.max) continue;
+    const min = o.mondo.min.slice(), max = o.mondo.max.slice();
+    if (corto(min, max) > LATO_MASSIMO_ATERRA_M) continue;
+    if (o.da !== 'prospettiva') {      // la pianta non ha quota: vale quella del suo piano
+      if (typeof o.quotaPiano !== 'number') continue;
+      min[1] = o.quotaPiano - p.gradino; max[1] = o.quotaPiano + p.altezza;
+    }
+    fuori.push({ min, max, termine: o.termine || null, nome: o.nome || null, da: o.da || 'occhio' });
+  }
+  return fuori;
+}
+
+/**
+ * NEL PASSAGGIO VISTO IL SOFFITTO NON TOGLIE IL PAVIMENTO.
+ *
+ * Il pontile di questo aeroporto ha 1,65 m fra pavimento e tetto: la persona
+ * (1,75) non ci sta, e la mappa lo cancellava. E' il §0.2 — il modello e'
+ * stilizzato, non e' vero che non ci si passa — e il §0.4: la geometria e' un
+ * parere secondario, non un veto. Dove l'occhio ha visto «si passa» E la
+ * geometria trova sotto il centro del passaggio il suo pavimento piano (pezzi
+ * alti al piu' un gradino, alla quota piu' bassa del passaggio), i pezzi che
+ * stanno TUTTI sopra quel pavimento piu' un gradino — tetto, travi, luci — non
+ * entrano nella mappa. Le pareti toccano il pavimento e restano: si cammina
+ * dentro il passaggio, non fuori.
+ * ⚠️ Una scala o una scala mobile non hanno un pavimento piano sotto il centro:
+ *    qui non si tocca niente, i loro gradini restano.
+ * @returns {Set<THREE.Object3D>} le mesh da lasciare fuori
+ */
+export function soffittiNeiPassaggi(THREE, radice, opz = {}) {
+  const tolti = new Set();
+  if (!THREE || !radice || opz.soffittiNeiPassaggi === false || !occhioHaParlato(opz)) return tolti;
+  const passaggi = passaggiVisti(opz);
+  if (!passaggi.length) return tolti;
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const pezzi = [], b = new THREE.Box3();
+  radice.traverse((o) => {
+    if (!o.isMesh || !o.geometry || o.isInstancedMesh || o.visible === false) return;
+    if (o.userData && (o.userData.__veritasHelper || o.userData.__veritasAgent)) return;
+    b.setFromObject(o);
+    if (!b.isEmpty()) pezzi.push({ o, min: b.min.toArray(), max: b.max.toArray() });
+  });
+  const M = 0.5;   // la tolleranza dei riquadri visti, la stessa di «a terra»
+  const scatolaDi = new Map(pezzi.map((q) => [q.o, q]));
+  // IL PAVIMENTO DEL PASSAGGIO: un raggio dal centro del riquadro verso il basso
+  // deve incontrare una superficie rivolta in su' alla quota piu' bassa del
+  // passaggio (entro un gradino). Non si giudica dall'ingombro dei pezzi:
+  // misurato sul pontile, il pavimento e' fatto di lastre INCLINATE (il tubo
+  // scende di 20 cm verso il terminal), piu' alte di un gradino nel loro
+  // ingombro. Su una scala il raggio cade su un gradino a meta' salita: niente.
+  const rc = new THREE.Raycaster(), giu = new THREE.Vector3(0, -1, 0), nn = new THREE.Vector3(), mn = new THREE.Matrix3();
+  const pavimentoDi = (P) => {
+    const cx = (P.min[0] + P.max[0]) / 2, cz = (P.min[2] + P.max[2]) / 2;
+    const sotto = pezzi.filter((q) => q.min[0] <= cx && q.max[0] >= cx && q.min[2] <= cz && q.max[2] >= cz).map((q) => q.o);
+    // 17/10/2026 sera: il raggio parte da SOPRA il riquadro, cosi' una rampa che
+    // sale dentro il passaggio si incontra sempre prima del pavimento di sotto
+    // (partendo a una statura dal fondo, a meta' di una scala mobile alta si
+    // passava sotto il nastro e si trovava il piano terra).
+    rc.set(new THREE.Vector3(cx, Math.max(P.min[1] + p.altezza, P.max[1] + p.gradino), cz), giu);
+    rc.far = Math.max(p.altezza, P.max[1] - P.min[1]) + 2 * p.gradino;
+    // ⚠️ E SOPRA QUEL PAVIMENTO DEVE ESSERCI SPAZIO: si sta DENTRO il passaggio.
+    //    Un oggetto pieno chiamato «pontile» per sbaglio (misurato: totem e
+    //    colonne dell'atrio) ha sopra il pavimento la sua faccia di sotto, a zero
+    //    centimetri: non e' un passaggio in cui si cammina, e non si tocca. Lo
+    //    spazio minimo e' mezza persona: sotto, non ci si sta nemmeno chinati.
+    let sopra = null;
+    for (const h of rc.intersectObjects(sotto, false)) {
+      if (!h.face) continue;
+      // la normale della faccia e' gia' quella vera (anche su un pezzo specchiato):
+      // si porta nel mondo con la matrice delle normali
+      nn.copy(h.face.normal).applyMatrix3(mn.getNormalMatrix(h.object.matrixWorld)).normalize();
+      const verticale = Math.abs(nn.y) < Math.cos(p.pendenzaMax * Math.PI / 180);
+      // il raggio scende da sopra: conta l'inclinazione della faccia, non il
+      // verso in cui e' stata disegnata (i modelli veri hanno facce rovesciate)
+      if (!verticale && h.point.y >= P.min[1] - p.gradino && h.point.y <= P.min[1] + p.gradino)
+        return (sopra == null || sopra - h.point.y >= p.altezza / 2) ? h.point.y : null;
+      // ⛔ 17/10/2026 sera — UNA RAMPA CHE SALE DAL FONDO DEL PASSAGGIO E' IL SUO
+      //    PAVIMENTO, non un tetto. Misurato sulla scala mobile vista come
+      //    «passerella»: il raggio cadeva sul nastro a meta' salita, tirava dritto
+      //    fino al piano terra SOTTO la scala e prendeva quello per pavimento; poi
+      //    toglieva dalla mappa la scala intera, balaustre comprese (e gli arredi
+      //    in cima): si camminava sotto e attraverso la scala. Una superficie
+      //    calpestabile a meta' altezza, di un pezzo che parte dal fondo del
+      //    passaggio, e' una rampa o una scala: qui non si toglie niente (la
+      //    salita la dichiara `collegamentiVerticali`).
+      if (!verticale) {
+        const q = scatolaDi.get(h.object);
+        if (q && q.min[1] <= P.min[1] + p.gradino) return null;
+      }
+      sopra = h.point.y;
+    }
+    return null;
+  };
+  const conPavimento = [];
+  for (const P of passaggi) { const y = pavimentoDi(P); if (y != null) conPavimento.push({ P, y }); }
+  // Un pezzo e' del passaggio se il suo centro in pianta cade in un riquadro col
+  // pavimento e lui sta dentro l'altezza del passaggio: cosi' anche una lastra
+  // di tetto lunga, a cavallo di due riquadri, esce intera.
+  const suoiDi = new Map(conPavimento.map((x) => [x, []]));
+  for (const q of pezzi) {
+    const cx = (q.min[0] + q.max[0]) / 2, cz = (q.min[2] + q.max[2]) / 2;
+    for (const x of conPavimento) {
+      const { P, y } = x;
+      if (cx < P.min[0] - M || cx > P.max[0] + M || cz < P.min[2] - M || cz > P.max[2] + M) continue;
+      // IL CORPO DEL PASSAGGIO SOPRA IL SUO PAVIMENTO: tetto, travi, e anche le
+      // pareti. Misurato sul pontile: le pareti sono inclinate verso l'interno, e
+      // all'altezza della testa fra l'una e l'altra resta meno di una spalla — il
+      // modello e' stilizzato (§0.2). Restano i pezzi che non salgono oltre un
+      // gradino sopra il pavimento (il pavimento stesso) e quelli che vengono da
+      // sotto (le gambe che lo reggono). Il bordo del pavimento resta un bordo:
+      // la mappa finisce dove finisce il pavimento, nessuno cammina nel vuoto.
+      if (q.min[1] >= y - p.gradino && q.max[1] > y + p.gradino && q.max[1] <= P.max[1] + M) { suoiDi.get(x).push(q.o); break; }
+    }
+  }
+  // ⛔ 17/10/2026 sera — UN PASSAGGIO E' APERTO AI DUE CAPI. La geometria
+  //    sospende la conseguenza «ci si cammina dentro», mai il nome (28/09):
+  //    se le pareti del riquadro lo chiudono da TUTTE E DUE le parti lungo il
+  //    suo lato lungo, all'altezza del petto, e' una stanza, non un pontile, e
+  //    le pareti restano nella mappa. Misurato sull'aeroporto: box di vetro
+  //    1,5 x 4,6 m chiamati «pontile d'imbarco», attraversati da chi passava.
+  const chiuso = (P, y, suoi) => {
+    if (!suoi.length) return false;
+    const lx = P.max[0] - P.min[0], lz = P.max[2] - P.min[2];
+    // in un riquadro dove una persona non si gira (lato corto sotto quattro
+    // raggi) non c'e' ne' un corridoio ne' una stanza da riconoscere
+    if (Math.min(lx, lz) < 4 * p.raggio) return false;
+    const lungoX = lx >= lz, mezzo = (lungoX ? lx : lz) / 2 + M;
+    const o = new THREE.Vector3((P.min[0] + P.max[0]) / 2, y + p.altezza * 0.6, (P.min[2] + P.max[2]) / 2);
+    let lati = 0;
+    // da dentro si vedono le facce di DIETRO delle pareti: per questo raggio
+    // contano tutte e due le facce, poi ogni materiale torna com'era
+    const lati0 = [];
+    for (const ob of suoi) for (const m of [].concat(ob.material || [])) { lati0.push([m, m.side]); m.side = THREE.DoubleSide; }
+    try {
+      for (const s of [1, -1]) {
+        rc.set(o, new THREE.Vector3(lungoX ? s : 0, 0, lungoX ? 0 : s));
+        rc.far = mezzo;
+        if (rc.intersectObjects(suoi, false).length) lati++;
+      }
+    } finally { for (const [m, sd] of lati0) m.side = sd; }
+    return lati === 2;
+  };
+  let stanze = 0;
+  const chiusi = [];
+  for (const x of conPavimento) {
+    const suoi = suoiDi.get(x);
+    if (chiuso(x.P, x.y, suoi)) { stanze++; chiusi.push({ min: x.P.min.slice(), max: x.P.max.slice() }); continue; }
+    for (const o of suoi) tolti.add(o);
+  }
+  tolti.stanze = stanze;
+  tolti.chiusi = chiusi;
+  return tolti;
+}
+
+/**
+ * La rampa proposta dalla geometria (capi `da`, `a`, larga `larghezza`) passa
+ * dentro un passaggio visto? Si guarda la META' CENTRALE della salita, non i
+ * capi: accanto al piede di una scala mobile puo' esserci qualunque cosa, e un
+ * nome sbagliato su un oggetto vicino non deve confermarla.
+ * @returns il passaggio che la conferma, o null
+ */
+export function confermatoDallOcchio(da, a, larghezza, passaggi, opz = {}) {
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  for (const P of passaggi || []) {
+    for (let k = 0; k <= 8; k++) {
+      const t = 0.25 + 0.5 * k / 8;
+      const q = [da[0] + (a[0] - da[0]) * t, da[1] + (a[1] - da[1]) * t, da[2] + (a[2] - da[2]) * t];
+      if (q[0] >= P.min[0] - p.raggio && q[0] <= P.max[0] + p.raggio
+          && q[2] >= P.min[2] - p.raggio && q[2] <= P.max[2] + p.raggio
+          && q[1] >= P.min[1] - p.gradino && q[1] <= P.max[1] + p.gradino) return P;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fra `a` e `b` c'e' pavimento continuo? Ogni 0,3 m (mezzo corpo) una
+ * superficie rivolta in su' deve stare entro un gradino dalla retta fra i due
+ * capi. Serve al passaggio visto che prosegue oltre il riquadro dell'occhio
+ * (il tratto finale di un pontile che l'occhio non ha inquadrato): si va avanti
+ * solo finche' c'e' il pavimento, che e' geometria, non una distanza scelta.
+ */
+export function pavimentoContinuo(geo, a, b, opz = {}) {
+  if (!geo || !geo.positions || !geo.indices) return false;
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const P = geo.positions, I = geo.indices;
+  const x0 = Math.min(a[0], b[0]) - 0.3, x1 = Math.max(a[0], b[0]) + 0.3;
+  const z0 = Math.min(a[2], b[2]) - 0.3, z1 = Math.max(a[2], b[2]) + 0.3;
+  const y0 = Math.min(a[1], b[1]) - p.gradino, y1 = Math.max(a[1], b[1]) + p.gradino;
+  const cosMax = Math.cos(p.pendenzaMax * Math.PI / 180);
+  const tri = [];
+  for (let t = 0; t + 2 < I.length; t += 3) {
+    const i0 = I[t] * 3, i1 = I[t + 1] * 3, i2 = I[t + 2] * 3;
+    if (Math.max(P[i0], P[i1], P[i2]) < x0 || Math.min(P[i0], P[i1], P[i2]) > x1) continue;
+    if (Math.max(P[i0 + 2], P[i1 + 2], P[i2 + 2]) < z0 || Math.min(P[i0 + 2], P[i1 + 2], P[i2 + 2]) > z1) continue;
+    if (Math.max(P[i0 + 1], P[i1 + 1], P[i2 + 1]) < y0 || Math.min(P[i0 + 1], P[i1 + 1], P[i2 + 1]) > y1) continue;
+    const ux = P[i1] - P[i0], uy = P[i1 + 1] - P[i0 + 1], uz = P[i1 + 2] - P[i0 + 2];
+    const vx = P[i2] - P[i0], vy = P[i2 + 1] - P[i0 + 1], vz = P[i2 + 2] - P[i0 + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz);
+    if (!(l > 0) || ny / l < cosMax) continue;          // non e' un pavimento rivolto in su'
+    tri.push(i0, i1, i2);
+  }
+  const quota = (x, z) => {
+    let migliore = null;
+    for (let k = 0; k < tri.length; k += 3) {
+      const A = tri[k], B = tri[k + 1], C = tri[k + 2];
+      const d = (P[B + 2] - P[C + 2]) * (P[A] - P[C]) + (P[C] - P[B]) * (P[A + 2] - P[C + 2]);
+      if (Math.abs(d) < 1e-12) continue;
+      const l1 = ((P[B + 2] - P[C + 2]) * (x - P[C]) + (P[C] - P[B]) * (z - P[C + 2])) / d;
+      const l2 = ((P[C + 2] - P[A + 2]) * (x - P[C]) + (P[A] - P[C]) * (z - P[C + 2])) / d;
+      const l3 = 1 - l1 - l2;
+      if (l1 < -1e-6 || l2 < -1e-6 || l3 < -1e-6) continue;
+      const y = l1 * P[A + 1] + l2 * P[B + 1] + l3 * P[C + 1];
+      if (migliore == null || y > migliore) migliore = y;
+    }
+    return migliore;
+  };
+  const lung = Math.hypot(b[0] - a[0], b[2] - a[2]);
+  const n = Math.max(1, Math.ceil(lung / 0.3));
+  for (let s = 0; s <= n; s++) {
+    const t = s / n, x = a[0] + (b[0] - a[0]) * t, z = a[2] + (b[2] - a[2]) * t, y = a[1] + (b[1] - a[1]) * t;
+    const q = quota(x, z);
+    if (q == null || Math.abs(q - y) > p.gradino) return false;
+  }
+  return true;
+}
+
+/** I riquadri che si toccano (entro `margine`) sono un passaggio solo: i pezzi di un pontile. */
+export function catenePassaggi(passaggi, margine) {
+  const n = (passaggi || []).length, padre = [];
+  for (let i = 0; i < n; i++) padre.push(i);
+  const rad = (i) => (padre[i] === i ? i : (padre[i] = rad(padre[i])));
+  const toccano = (a, b) => [0, 1, 2].every((k) => a.min[k] <= b.max[k] + margine && b.min[k] <= a.max[k] + margine);
+  for (let i = 0; i < n; i++) for (let k = i + 1; k < n; k++)
+    if (toccano(passaggi[i], passaggi[k])) padre[rad(i)] = rad(k);
+  const m = new Map();
+  for (let i = 0; i < n; i++) { const r = rad(i); if (!m.has(r)) m.set(r, []); m.get(r).push(passaggi[i]); }
+  return [...m.values()];
+}
+
+/**
+ * DUE PEZZI CHE TOCCANO LO STESSO PASSAGGIO VISTO SI COLLEGANO ATTRAVERSO DI ESSO.
+ *
+ * Vede l'occhio («si passa»), conferma la geometria:
+ *   - i due capi stanno sul pavimento (bordo di due isole, dentro il passaggio);
+ *   - il tratto fra i capi resta DENTRO il passaggio (si passa da li', non accanto);
+ *   - la pendenza e' quella di una persona (PERSONA.pendenzaMax);
+ *   - all'altezza del petto non c'e' un muro che non sia del passaggio stesso.
+ * Un passaggio che tocca un pezzo solo non collega niente: e' un accesso (dove
+ * si arriva da fuori della rete), e lo si restituisce in `catene` per le missioni.
+ */
+export function collegamentiDallOcchio(nav, navMesh, gruppi, geo, passaggi, opz = {}) {
+  const esito = { aggiunti: [], scartati: [], ids: [], catene: [] };
+  // 17/10/2026 sera — una stanza chiusa ai due capi che l'occhio ha chiamato
+  // passaggio (`soffittiNeiPassaggi`) non collega niente: le sue pareti restano.
+  const chiusi = (geo && geo.chiusi) || [];
+  const uguale = (u, v) => u.every((x, k) => x === v[k]);
+  if (passaggi && chiusi.length) passaggi = passaggi.filter((P) => !chiusi.some((c) => uguale(c.min, P.min) && uguale(c.max, P.max)));
+  if (!passaggi || !passaggi.length) { esito.perche = "l'occhio non ha visto nessun passaggio"; return esito; }
+  if (!nav || !navMesh || typeof nav.addOffMeshConnection !== 'function'
+      || typeof nav.isOffMeshConnectionConnected !== 'function' || !nav.OffMeshConnectionDirection) {
+    esito.perche = 'questa navcat non espone i collegamenti fuori-mesh';
+    return esito;
+  }
+  const p = { ...PERSONA, ...(opz.persona || {}) };
+  const portata = opz.raggioAggancio || p.raggio * 5;
+  const tolleranza = [p.raggio * 5, p.altezza, p.raggio * 5];
+  const pendenzaMax = Math.tan(p.pendenzaMax * Math.PI / 180);
+  const nella = (q, cat, m) => cat.some((P) => q[0] >= P.min[0] - m && q[0] <= P.max[0] + m
+    && q[2] >= P.min[2] - m && q[2] <= P.max[2] + m && q[1] >= P.min[1] - p.gradino && q[1] <= P.max[1] + p.gradino);
+  const suo = (cat) => {
+    const den = (x, y, z) => cat.some((P) => x >= P.min[0] - 0.05 && x <= P.max[0] + 0.05
+      && y >= P.min[1] - 0.05 && y <= P.max[1] + 0.05 && z >= P.min[2] - 0.05 && z <= P.max[2] + 0.05);
+    return (ax, ay, az, bx, by, bz, cx, cy, cz) => den(ax, ay, az) && den(bx, by, bz) && den(cx, cy, cz);
+  };
+  for (const cat of catenePassaggi(passaggi, p.raggio)) {
+    const nome = cat[0].nome || cat[0].termine || 'passaggio';
+    // I capi possibili: i punti di bordo delle isole dentro il passaggio, e il
+    // pavimento subito fuori da ogni lato di ogni riquadro (e sotto il suo
+    // centro). I punti di bordo da soli sono radi — uno per lato di poligono — e
+    // davanti a una porta stretta puo' non cadercene nessuno (misurato al banco).
+    const perIsola = new Map();
+    const metti = (gi, q) => { if (gi < 0) return; if (!perIsola.has(gi)) perIsola.set(gi, []); perIsola.get(gi).push(q); };
+    (gruppi || []).forEach((g, gi) => {
+      if (!g || !g.bordo) return;
+      for (const q of g.bordo) if (nella(q, cat, portata)) metti(gi, q);
+    });
+    // Le isole OLTRE il riquadro, ma entro la misura del passaggio stesso (la sua
+    // diagonale in pianta): il passaggio visto puo' proseguire sul suo pavimento
+    // fino a loro — lo si accetta solo col pavimento continuo (`pavimentoContinuo`).
+    const cmin = [0, 1, 2].map((k) => Math.min(...cat.map((P) => P.min[k])));
+    const cmax = [0, 1, 2].map((k) => Math.max(...cat.map((P) => P.max[k])));
+    const misura = Math.hypot(cmax[0] - cmin[0], cmax[2] - cmin[2]);
+    const lontane = new Map();
+    (gruppi || []).forEach((g, gi) => {
+      if (!g || !g.bordo || perIsola.has(gi)) return;
+      const punti = g.bordo.filter((q) => q[0] >= cmin[0] - misura && q[0] <= cmax[0] + misura
+        && q[2] >= cmin[2] - misura && q[2] <= cmax[2] + misura
+        && q[1] >= cmin[1] - p.gradino && q[1] <= cmax[1] + p.gradino);
+      if (punti.length) lontane.set(gi, punti);
+    });
+    const isolaDi = (q) => {
+      let quale = -1, dmin = Infinity;
+      (gruppi || []).forEach((g, gi) => {
+        const I = g && g.ingombro;
+        if (!I || q[0] < I.min[0] - 0.2 || q[0] > I.max[0] + 0.2 || q[2] < I.min[2] - 0.2 || q[2] > I.max[2] + 0.2
+            || q[1] < I.min[1] - p.gradino || q[1] > I.max[1] + p.gradino) return;
+        for (const b of g.bordo || []) {
+          const d = Math.hypot(b[0] - q[0], b[2] - q[2]) + Math.abs(b[1] - q[1]);
+          if (d < dmin) { dmin = d; quale = gi; }
+        }
+      });
+      return quale;
+    };
+    const fuoriDi = p.raggio * 2;
+    for (const P of cat) {
+      const c = [(P.min[0] + P.max[0]) / 2, P.min[1], (P.min[2] + P.max[2]) / 2];
+      for (const q of [c, [P.min[0] - fuoriDi, c[1], c[2]], [P.max[0] + fuoriDi, c[1], c[2]],
+                       [c[0], c[1], P.min[2] - fuoriDi], [c[0], c[1], P.max[2] + fuoriDi]]) {
+        const s = sulCammino(nav, navMesh, q, [fuoriDi, p.altezza, fuoriDi]);
+        if (s.ok) metti(isolaDi(s.punto), s.punto);
+      }
+    }
+    const tocchi = [...perIsola.entries()].map(([gi, punti]) => ({ gi, punti }));
+    const ci = esito.catene.length;
+    esito.catene.push({ nome, termine: cat[0].termine || null, riquadri: cat.length, isole: tocchi.map((t) => t.gi),
+      punti: tocchi.flatMap((t) => t.punti.map((q) => ({ punto: q, isola: t.gi }))),
+      min: [0, 1, 2].map((k) => Math.min(...cat.map((P) => P.min[k]))),
+      max: [0, 1, 2].map((k) => Math.max(...cat.map((P) => P.max[k]))) });
+    const lontaneL = [...lontane.entries()].map(([gi, punti]) => ({ gi, punti, lontana: true }));
+    const coppieIsole = [];
+    for (let i = 0; i < tocchi.length; i++) {
+      for (let k = i + 1; k < tocchi.length; k++) coppieIsole.push([tocchi[i], tocchi[k]]);
+      for (const L of lontaneL) coppieIsole.push([tocchi[i], L]);
+    }
+    for (const [A, B] of coppieIsole) {
+      // Prima i tratti il cui punto di mezzo sta DENTRO il riquadro visto: e' li'
+      // che l'occhio ha visto il passaggio (la porta, non il muro accanto).
+      const coppie = [];
+      for (const a of A.punti) for (const b of B.punti)
+        coppie.push({ a, b, d: Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]),
+          fuori: nella([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], cat, 0) ? 0 : 1 });
+      coppie.sort((u, v) => u.fuori - v.fuori || u.d - v.d);
+      let fatto = false, primoNo = null;
+      const provati = [];
+      for (const c of coppie) {
+        if (fatto || provati.length >= 12) break;
+        if (provati.some((q) => Math.hypot(q[0] - c.a[0], q[2] - c.a[2]) < p.raggio * 2)) continue;
+        provati.push(c.a);
+        const dxz = Math.hypot(c.b[0] - c.a[0], c.b[2] - c.a[2]), dy = Math.abs(c.b[1] - c.a[1]);
+        // ⚠️ SOLO IN PIANO (misurato il 17/10: un box di vetro che l'occhio aveva
+        //    chiamato «pontile» faceva da scala fra i due piani). Fra due quote la
+        //    salita la deve dare la geometria — una rampa vista (`collegamentiVerticali`).
+        if (dy > p.gradino) { primoNo = primoNo || "fra due quote: la salita la da' solo una rampa vista"; continue; }
+        let fuori = false;
+        for (let s = 1; s < 8 && !fuori; s++) {
+          const t = s / 8;
+          if (!nella([c.a[0] + (c.b[0] - c.a[0]) * t, c.a[1] + (c.b[1] - c.a[1]) * t, c.a[2] + (c.b[2] - c.a[2]) * t], cat, portata)) fuori = true;
+        }
+        if (fuori && !B.lontana) { primoNo = primoNo || 'il tratto uscirebbe dal passaggio'; continue; }
+        if (B.lontana && !pavimentoContinuo(geo, c.a, c.b, opz)) { primoNo = primoNo || 'oltre il riquadro il pavimento non continua'; continue; }
+        if (muroInMezzo(geo, c.a, c.b, { ...opz, ignora: suo(cat) })) { primoNo = primoNo || "c'e' un muro fuori dal passaggio"; continue; }
+        const qa = sulCammino(nav, navMesh, c.a, tolleranza), qb = sulCammino(nav, navMesh, c.b, tolleranza);
+        if (!qa.ok || !qb.ok) { primoNo = primoNo || 'un capo non tocca nessuna superficie camminabile'; continue; }
+        let id = null;
+        try {
+          const r = nav.addOffMeshConnection(navMesh, {
+            start: qa.punto, end: qb.punto, radius: portata,
+            direction: nav.OffMeshConnectionDirection.BIDIRECTIONAL,
+            flags: opz.flagsCollegamento != null ? opz.flagsCollegamento : 1,
+            area: opz.areaCollegamento != null ? opz.areaCollegamento : 0,
+          });
+          id = (r && typeof r === 'object') ? (r.id != null ? r.id : r.offMeshConnectionId) : r;
+        } catch (e) { primoNo = primoNo || 'navcat ha rifiutato il collegamento'; continue; }
+        if (id == null || !nav.isOffMeshConnectionConnected(navMesh, id)) {
+          if (id != null && typeof nav.removeOffMeshConnection === 'function') { try { nav.removeOffMeshConnection(navMesh, id); } catch (e) {} }
+          primoNo = primoNo || 'dichiarato ma non agganciato alla navmesh';
+          continue;
+        }
+        esito.ids.push(id);
+        esito.aggiunti.push({ id, nome, catena: ci, termine: cat[0].termine || null, da: qa.punto, a: qb.punto,
+          lunghezza: Math.round(dxz * 100) / 100, dislivello: Math.round(dy * 100) / 100, isole: [A.gi, B.gi] });
+        fatto = true;
+      }
+      if (!fatto) esito.scartati.push({ nome, isole: [A.gi, B.gi], perche: primoNo || 'nessuna coppia di capi' });
+    }
+  }
+  return esito;
+}
+
+/**
+ * Quante parti restano, contando OGNI collegamento dichiarato (rampe viste,
+ * cuciture, passaggi visti). `isole` da sola non li vede: conta solo i
+ * poligoni che si toccano. Un capo appartiene all'isola che lo contiene in
+ * pianta alla sua quota.
+ */
+export function partiCollegate(r) {
+  const g = (r && r.isole) || [];
+  const padre = g.map((_, i) => i);
+  const rad = (i) => (padre[i] === i ? i : (padre[i] = rad(padre[i])));
+  const di = (q) => {
+    let meglio = -1, d = Infinity;
+    g.forEach((x, i) => {
+      const fuori = Math.max(0, x.ingombro.min[0] - q[0], q[0] - x.ingombro.max[0])
+        + Math.max(0, x.ingombro.min[2] - q[2], q[2] - x.ingombro.max[2]);
+      const dy = q[1] < x.ingombro.min[1] - 0.5 || q[1] > x.ingombro.max[1] + 0.5 ? 9 : 0;
+      const dd = fuori + dy;
+      if (dd < d && x.bordo && x.bordo.some((b) => Math.hypot(b[0] - q[0], b[2] - q[2]) < 1.5 && Math.abs(b[1] - q[1]) < 1)) { d = dd; meglio = i; }
+    });
+    if (meglio < 0) g.forEach((x, i) => {
+      if (q[0] >= x.ingombro.min[0] && q[0] <= x.ingombro.max[0] && q[2] >= x.ingombro.min[2] && q[2] <= x.ingombro.max[2]
+          && q[1] >= x.ingombro.min[1] - 0.5 && q[1] <= x.ingombro.max[1] + 0.5 && meglio < 0) meglio = i;
+    });
+    return meglio;
+  };
+  const tutti = [].concat(((r && r.collegamenti) || {}).aggiunti || [], ((r && r.cuciture) || {}).aggiunti || [],
+    ((r && r.passaggi) || {}).aggiunti || []);
+  for (const c of tutti) {
+    const a = di(c.da), b = di(c.a);
+    if (a >= 0 && b >= 0) padre[rad(a)] = rad(b);
+  }
+  const m = new Map();
+  g.forEach((x, i) => { const k = rad(i); if (!m.has(k)) m.set(k, { isole: [], area: 0 }); const v = m.get(k); v.isole.push(i); v.area += x.area; });
+  return [...m.values()].sort((a, b) => b.area - a.area);
+}
+
+/** La rete in una riga, per la console e per il velo. */
+export function raccontaRete(r) {
+  if (!r || !r.isole) return 'nessuna mappa';
+  const parti = r.parti || partiCollegate(r);
+  const totale = r.isole.reduce((s, x) => s + x.area, 0);
+  const col = (r.collegamenti || {}), pas = (r.passaggi || {}), cuc = (r.cuciture || {});
+  const attesa = (col.candidati || []).length;
+  return r.isole.length + ' pezzi di pavimento, ' + parti.length + ' parti collegate (la piu\' grande '
+    + Math.round(parti.length ? parti[0].area : 0) + ' m² su ' + Math.round(totale) + '); collegamenti: '
+    + (col.aggiunti || []).length + ' fra piani visti dall\'occhio, '
+    + (pas.aggiunti || []).length + ' attraverso passaggi visti, '
+    + (cuc.aggiunti || []).length + ' cuciture'
+    + (r.geometria && r.geometria.stanze ? '; ' + r.geometria.stanze + ' stanze chiuse chiamate «passaggio»: pareti tenute' : '')
+    + (attesa ? '; ' + attesa + ' rampe proposte dalla geometria ' + (occhioHaParlato() ? 'che l\'occhio non ha confermato' : 'in attesa dell\'occhio') : '');
+}
+
+// ---------------------------------------------------------------------------
 // 7. L'aggancio al programma
 // ---------------------------------------------------------------------------
 //
@@ -1257,11 +1923,17 @@ export async function costruisciDaScena(THREE, radice, opz = {}) {
   // restano isole, e le tappe del piano di sopra vengono riportate a terra.
   // Dentro un try: un modello senza rampe, o una navcat piu' vecchia, devono
   // dare la navmesh di prima, non un errore.
+  // 17/10/2026 — la testimonianza dell'occhio, letta UNA volta per costruzione.
+  const occhio = occhioHaParlato(opz);
+  const passaggi = occhio ? passaggiVisti(opz) : [];
+  r.geometria.soffitti = geo.soffitti || 0;
+  r.geometria.stanze = geo.stanze || 0;
   if (opz.collegaLivelli !== false) {
     try {
       r.livelli = livelli(r.isole, opz);
       r.collegamenti = collegamentiVerticali(
-        lib.nav, r.navMesh, superficiInclinate(THREE, radice, opz), r.livelli, opz);
+        lib.nav, r.navMesh, superficiInclinate(THREE, radice, opz), r.livelli,
+        { ...opz, soloOcchio: opz.soloOcchio !== false, passaggi, occhioHaParlato: occhio });
     } catch (e) {
       r.livelli = r.livelli || [];
       r.collegamenti = { aggiunti: [], scartati: [], ids: [], livelli: r.livelli,
@@ -1281,6 +1953,19 @@ export async function costruisciDaScena(THREE, radice, opz = {}) {
                      perche: 'errore nelle cuciture in piano: ' + ((e && e.message) || e) };
     }
   }
+
+  // E i passaggi visti dall'occhio (17/10/2026): due pezzi che toccano lo
+  // stesso passaggio si collegano attraverso di esso, se la geometria conferma.
+  if (opz.passaggiVisti !== false) {
+    try {
+      r.passaggi = collegamentiDallOcchio(lib.nav, r.navMesh, r.isole, geo, passaggi, opz);
+    } catch (e) {
+      r.passaggi = { aggiunti: [], scartati: [], ids: [], catene: [],
+                     perche: 'errore nei passaggi visti: ' + ((e && e.message) || e) };
+    }
+    r.passaggi.occhio = occhio;
+  }
+  try { r.parti = partiCollegate(r); } catch (e) { r.parti = null; }
   return { ok: true, ...r };
 }
 
@@ -1500,7 +2185,8 @@ export default {
   cellaOttima, parametri, geometriaDaModello, costruisci,
   areaPoligono, quotaPoligono, misura, isole, sulCammino, percorso,
   livelli, misuraInclinata, superficiInclinate, collegamentiVerticali,
-  collegamentiOrizzontali,
+  collegamentiOrizzontali, passaggiVisti, occhioHaParlato, soffittiNeiPassaggi, confermatoDallOcchio,
+  catenePassaggi, collegamentiDallOcchio, partiCollegate, raccontaRete, pavimentoContinuo,
   libreria, costruisciDaScena, stato, percorsoCorrente, sulCamminoCorrente, filtroCosto,
   gruppiCollegati, catenaCamminabile, raccontaCammino, raccontaLivelli, raccontaCuciture,
 };
@@ -1558,6 +2244,7 @@ if (typeof window !== 'undefined') {
               + (col.scartati.length ? ' Scartate ' + col.scartati.length + ' superfici inclinate: '
                   + col.scartati.slice(0, 4).map((s) => s.nome + ' — ' + s.perche).join(' | ') : ''));
         }
+        console.log('[VERITAS rete] ' + raccontaRete(r));
         if (typeof window.__veritasAnnounce === 'function') {
           try { window.__veritasAnnounce(raccontaCammino(r)); } catch (e) {}
         }
@@ -1574,5 +2261,24 @@ if (typeof window !== 'undefined') {
     }, 0);
     return out;
   };
+  // 17/10/2026 — QUANDO LA REGIA FINISCE l'occhio ha guardato anche i
+  // collegamenti che la geometria proponeva (le fermate dei collegamenti,
+  // veritas_regia.js): la mappa si rifa' UNA volta con la sua testimonianza, e
+  // le tappe si riappoggiano. Il giro di comprensione la rifara' ancora
+  // (veritas_comando.js), con le cose posate nel mondo.
+  try {
+    window.addEventListener('veritas:regia', function (ev) {
+      const d = ev && ev.detail;
+      if (!d || d.fase !== 'fine' || !window.THREE || !window.__veritasModelRoot) return;
+      costruisciDaScena(window.THREE, window.__veritasModelRoot).then(function (r) {
+        window.__veritasNavmeshEsito = r;
+        if (!r || !r.ok) return;
+        console.log('[VERITAS rete] dopo la regia: ' + raccontaRete(r));
+        if (typeof window.__veritasZoneSulCammino === 'function') {
+          try { window.__veritasZoneSulCammino(); } catch (e) {}
+        }
+      });
+    });
+  } catch (e) {}
   console.log('[VERITAS cammino] pronto (navcat) — window.__veritasNavmesh');
 }

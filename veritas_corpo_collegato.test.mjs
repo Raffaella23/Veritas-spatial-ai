@@ -59,7 +59,13 @@ console.log('\n— il punto di innesto: DOVE viene chiamato —');
 // sono unite (motore Python e generatore JS) e PRIMA che i fotogrammi finiscano
 // nella traiettoria in uso. Un solo punto, altrimenti si corregge meta' dei
 // casi senza accorgersene.
-const iBackend = html.indexOf('let fresh = await veritasTryBackendSimulate(');
+// 17/10/2026: prima del motore Python viene la folla (veritas_folla.js), i cui
+// fotogrammi sono gia' «raggiunti»: il corpo si applica a tutto il resto.
+const iBackend = html.indexOf('fresh = await veritasTryBackendSimulate(');
+check('la folla viene prima del motore, e salta il corpo',
+  html.indexOf('let fresh = await veritasFolla(currentNodes);') > 0
+  && html.indexOf('let fresh = await veritasFolla(currentNodes);') < iBackend
+  && html.includes('if (!fresh.dallaFolla) fresh = await veritasApplicaCorpo(fresh);'));
 const iLocale = html.indexOf('if (!fresh) fresh = generateTrajectory(currentNodes);');
 const iCorpo = html.indexOf('fresh = await veritasApplicaCorpo(fresh);');
 const iPush = html.indexOf('traj.frames.push(...fresh.frames);');

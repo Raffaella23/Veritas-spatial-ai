@@ -89,6 +89,34 @@ export function contaPerChiCammina(t) {
     && t.misura[1] >= 0.2 && t.misura[1] <= 3 && t.stacco <= 0.3;
 }
 
+/**
+ * LE FERMATE DEI COLLEGAMENTI — 17/10/2026, strada approvata da Raffaella.
+ *
+ * La geometria propone dove due piani si toccano: una superficie inclinata che
+ * li unisce (rampa, scala, scala mobile). Il collegamento pero' si dichiara solo
+ * se l'occhio, guardandolo, dice «si passa» (§0.4: vede l'occhio, valida il
+ * cervello; `confermatoDallOcchio` nella navmesh). Misurato il 17/10
+ * sull'aeroporto: nessun «tipo» conteneva le scale mobili, quindi l'occhio non
+ * le aveva MAI guardate, e la gente saliva e scendeva sulla parola della sola
+ * geometria. Una fermata per cosa intera; nessun nome di mesh, nessun tipo di
+ * edificio: vale per lo scalone di un museo come per la rampa di una scuola.
+ */
+export function fermateDeiCollegamenti(nm) {
+  const U = nm && typeof nm.stato === "function" ? nm.stato() : null;
+  const cand = (U && U.collegamenti && U.collegamenti.candidati) || [];
+  const viste = new Set(), fuori = [];
+  for (const c of cand) {
+    const s = c && c.scatola;
+    if (!s || !s.min || !s.max) continue;
+    const chiave = s.min.concat(s.max).map((v) => v.toFixed(1)).join(",");
+    if (viste.has(chiave)) continue;
+    viste.add(chiave);
+    fuori.push({ copie: [{ min: s.min.slice(), max: s.max.slice(), centro: s.min.map((v, k) => (v + s.max[k]) / 2), pezzi: [] }],
+                 misura: s.max.map((v, k) => v - s.min[k]), stacco: 0, collegamento: true });
+  }
+  return fuori;
+}
+
 /** Le fermate, nell'ordine della superficie di pavimento occupata. */
 export function scegliFermate(tipi, quante = FERMATE) {
   return (tipi || []).filter(contaPerChiCammina)
@@ -351,6 +379,15 @@ export async function regia(opz = {}) {
 
     const tipi = C.tipiInteri(C.inventarioDaScena(THREE, radice));
     const fermate = scegliFermate(tipi, opz.fermate || window.__veritasRegiaFermate || FERMATE);
+    // 17/10/2026 — prima di tutto i collegamenti che la geometria propone: senza
+    // lo sguardo dell'occhio nessuno sale e nessuno scende (`fermateDeiCollegamenti`).
+    // la mappa nasce un attimo dopo il modello: la si aspetta, al piu' 15 s
+    for (let k = 0; k < 60 && window.__veritasNavmesh && !window.__veritasNavmesh.stato(); k++) await aspetta(250);
+    const diCollegamento = fermateDeiCollegamenti(window.__veritasNavmesh);
+    if (diCollegamento.length) {
+      fermate.unshift(...diCollegamento);
+      log(diCollegamento.length + " fermate sui collegamenti proposti dalla geometria (rampe, scale): li dichiara solo l'occhio");
+    }
     const voci = paroleDiCose(R.vocabolarioPer(window.__veritasDominio || "aeroporto"));
     const perParola = new Map(voci.map((v) => [v.chiedi, v]));
     const parole = voci.map((v) => v.chiedi);
