@@ -196,11 +196,30 @@ misurano esattamente 0,50 m — sospetto di un valore di ripiego.
   altezza vera), **solo alle tappe**, tutto in UNA prova, avvisando prima. Mai «leggimi i
   numeri» se si possono ricavare.
 
+### 0.9 — SI LAVORA PER LE GARE, MA SI COSTRUISCE PER OGNI MODELLO (17/10/2026)
+
+> Raffaella, 17/10: «Noi sviluppiamo per i contest di Meta, e quindi su questo modello. Però dai
+> una base a quello che facciamo che possa essere applicabile a un altro modello: EIDETICA deve
+> essere una piattaforma agnostica. Oggi ci occupiamo di un aeroporto, domani potremo averne altri.
+> Tutto quello che fai a livello di cervello, di visione delle immagini, di fisica, di movimento dei
+> corpi, pensalo in modo che sia utilizzabile anche dopo.»
+
+- **Vale per tutto, non solo per i nomi** (la Regola 0-bis del §2 parla del vocabolario): anche la
+  mappa di dove si cammina, i collegamenti fra i piani, la folla, le missioni, le soste, la fisica.
+- **Niente tarato su questo aeroporto**: nessun nome di mesh (Cube062…), nessuna coordinata, nessuna
+  soglia scelta perche' qui funziona. Le misure sono quelle della PERSONA (§0.2) e le categorie
+  architettoniche (accesso, distribuzione, attesa, servizio, collegamento verticale, esterno).
+- **Le missioni nascono da cio' che l'occhio ha capito** (§0.4): da un accesso a un altro, passando
+  dai collegamenti che l'occhio ha visto («passa»), non da «aereo → parcheggio» scritto nel codice.
+- **La prova di agnosticita'**: ogni pezzo nuovo del cervello si prova anche su un secondo modello
+  che NON sia un aeroporto (vedi la memoria «rassicura con una prova»: scuola, ospedale, stazione,
+  chiesa), oltre che su questo.
+
 ## 1. STATO ATTUALE
 
 | | |
 |---|---|
-| **Aggiornato** | 17/10/2026 (sessione c1274ea1) — **I PERCORSI SBAGLIATI SONO DEL CERVELLO, NON DEL VISORE** (§13.8 «I PERCORSI — ACCERTATO il 17/10»): il visore posa bene; il pacchetto ha registrato il piano senza corpo; anche sul PC il piano salta fra muri e piani e il corpo fisico, quando arriva (~4 min), blocca tutti. Causa principale: la navmesh spezzata in 30 pezzi (sedute, banconi, pontili bassi 1,61 m). Correzioni parziali solo nel workspace (non pubblicate, patch in `Desktop\VERITAS\cervello_17-10`); proposta la strada «rete continua dall'occhio → folla di navcat → missioni», attende il si' di Raffaella. Prima: 16/10/2026 notte — **v20 PUBBLICATA E SERVITA** (`39c5a87`, su richiesta di Raffaella in chat). Raffaella l'ha guardata: animazioni buone, ma **i percorsi sono sbagliati** (per aria, sui muri, niente scale ne' scala mobile): §13.8 «Raffaella sulla v20» — e' il prossimo lavoro. Prima (§13.8 «v20»), provata nell'emulatore 8/8: velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
+| **Aggiornato** | 17/10/2026 (sessione c1274ea1) — **I PERCORSI SBAGLIATI SONO DEL CERVELLO, NON DEL VISORE** (§13.8 «I PERCORSI — ACCERTATO il 17/10»): il visore posa bene; il pacchetto ha registrato il piano senza corpo; anche sul PC il piano salta fra muri e piani e il corpo fisico, quando arriva (~4 min), blocca tutti. Causa principale: la navmesh spezzata in 30 pezzi (sedute, banconi, pontili bassi 1,61 m). Correzioni parziali solo nel workspace (non pubblicate, patch in `Desktop\VERITAS\cervello_17-10`); APPROVATA il 17/10 la strada «rete continua dall'occhio → folla di navcat → missioni», tutta agnostica (nuova regola §0.9). Prima: 16/10/2026 notte — **v20 PUBBLICATA E SERVITA** (`39c5a87`, su richiesta di Raffaella in chat). Raffaella l'ha guardata: animazioni buone, ma **i percorsi sono sbagliati** (per aria, sui muri, niente scale ne' scala mobile): §13.8 «Raffaella sulla v20» — e' il prossimo lavoro. Prima (§13.8 «v20»), provata nell'emulatore 8/8: velocita' vera + SPEED, corpi veri animati per profilo, zoom fino a 40×, scie a terra, scegliere una persona e i suoi occhi (finestra o dentro il modello, sceglie il cliente). Trovati due difetti del cervello (§13.7 punti 8-9: corpi che si attraversano, seduti nel vuoto). Prima, 16/10 sera — v19 (§13.8 «v19»): il pacchetto del progetto scritto dal PC, le sei schede dell'occhio, le scie colorate delle persone. Prima: **IL VISORE IWSDK** (§13.8): pubblicata e servita la `2026-10-16-v18`; **70 fps su 72 nel Quest 2** con tutta la scena accesa (prova dei pesi); pavimento della foto a terra, zoom solo uniforme, sedia da ufficio regolabile, sagoma di chi siede a filo, piano 60 cm sotto gli occhi. Metodo nuovo: le prove le fa Claude nell'emulatore (§0.8). Regola estetica: §0.7. Piano delle due gare: §13 |
 | **Repository ufficiale** | `Raffaella23/Veritas-spatial-ai` |
 | **Branch** | `main` (unico, Regola B) — dal 09/10 contiene `esperienza-plastico` (merge `419963c`, autorizzato da Raffaella in chat) |
 | **Ultimo commit di codice pubblicato** | `d9db81c` — *visore: la lettura dell'occhio sul plastico, plastico che segue, spia degli ingressi* (costruzione `2026-10-13-d`, 13/10 notte) |
@@ -3138,7 +3157,7 @@ Codice corretto solo nel workspace, NON pubblicato.** Copia di sicurezza: `Deskt
   passi sul pavimento, si scansano fra loro. Si inceppano ai collegamenti (buco di 1 m fra due pezzi,
   capi delle scale mobili): serve l'attraversamento fatto da noi (`autoTraverseOffMeshConnections:
   false`, a velocita' vera) e soprattutto una rete continua.
-- **STRADA PROPOSTA a Raffaella il 17/10 (attende il suo si'):** (1) una rete continua di dove si
+- **STRADA APPROVATA da Raffaella il 17/10** («Si', si', assolutamente»), **con la regola del §0.9** (tutto agnostico, provato anche su un modello che non sia un aeroporto): (1) una rete continua di dove si
   cammina, collegando i pezzi SOLO dove l'occhio vede un passaggio («passa»: porta, pontile, scala,
   scala mobile) e la geometria lo conferma (§0.4: vede l'occhio, valida il cervello); (2) le persone
   con la folla di navcat al posto di serpeggio + richiamo + `resolveOverlaps` + corpo Rapier: restano
@@ -3167,8 +3186,8 @@ simulate), `STAMPA=mani` (stampa un campo di `__EIDETICA_VISORE`), `QUERY="?prov
    e servire la cartella vecchia; si ferma (`Get-CimInstance Win32_Process`, riga di comando) e si
    riapre.
 2. **I percorsi** («I PERCORSI — ACCERTATO il 17/10», sopra): accertato, e' del cervello. Prossimo: la
-   STRADA PROPOSTA (rete continua dall'occhio → folla di navcat → missioni → pacchetto), col si' di
-   Raffaella; si riparte applicando `Desktop\VERITAS\cervello_17-10\index_percorsi.patch` su `main`.
+   STRADA APPROVATA il 17/10 (rete continua dall'occhio → folla di navcat → missioni → pacchetto),
+   tutta agnostica (§0.9), in una chat nuova; si riparte applicando `Desktop\VERITAS\cervello_17-10\index_percorsi.patch` su `main`.
 3. Il cervello (PIANO sopra, e §13.7 punti 1, 6-9): missioni con origine e meta vere, scala mobile,
    pontile, parcheggio, soste sulle sedute viste, corpi che non si attraversano, carrozzina e bambino
    con la famiglia. Poi si rifa il pacchetto e il visore lo mostra senza cambiare niente.
