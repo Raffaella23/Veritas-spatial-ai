@@ -14,7 +14,7 @@
 // Dietro la scia recente resta un filo tenue di dove si e' camminato: i flussi si leggono.
 // Tutto in inglese (VR Start). I numeri sono quelli del PC: nessuno si inventa qui.
 import * as THREE from "three";
-import { preparaCorpi, CAMMINA, FERMO, SEDUTO, PASSO_CICLO } from "./corpi.js";
+import { preparaCorpi, CAMMINA, FERMO, SEDUTO, SIEDE, ALZA, PASSO_CICLO } from "./corpi.js";
 
 // i colori dei profili: dalla tavola UX (arancio -> viola -> ciano), mai il verde e il rosso,
 // che sono dei segnali (§0.7). Chi e' in sedia a rotelle e' ciano: si vede subito (Accessibility).
@@ -178,6 +178,12 @@ export async function preparaLettura({ world, BASE, modello, plastico, RayIntera
       }
     }
     S.sedutiSuSeduta = su; S.sedutiNelVuoto = s - su;
+    // v21: dove comincia e dove finisce ogni seduta, per i gesti di sedersi e di alzarsi
+    for (const a of agenti) {
+      a.inizioS = new Int32Array(a.n); a.fineS = new Int32Array(a.n);
+      for (let j = 0; j < a.n; j++) a.inizioS[j] = a.seduta[j] ? (j > 0 && a.seduta[j - 1] ? a.inizioS[j - 1] : j) : -1;
+      for (let j = a.n - 1; j >= 0; j--) a.fineS[j] = a.seduta[j] ? (j + 1 < a.n && a.seduta[j + 1] ? a.fineS[j + 1] : j + 1) : -1;
+    }
     console.log("[EIDETICA visore] seduti: " + su + " fotogrammi su una seduta vista dall'occhio, " + (s - su) + " nel vuoto (mostrati in attesa, in piedi)");
   }
   {
@@ -492,12 +498,20 @@ export async function preparaLettura({ world, BASE, modello, plastico, RayIntera
         a.ang = a.ang == null || salto > 3 ? voluto : a.ang + giro(voluto - a.ang) * Math.min(1, dt * 4 * Math.max(1, S.velocita));
       }
       const passo = Math.hypot(X[3 * j + 3] - X[3 * j], X[3 * j + 5] - X[3 * j + 2]) / 100 / ((tempi[k + 1] - tempi[k]) || 0.5);
-      const st = a.st[j] === "S" && !a.seduta[j] ? "W" : a.st[j], gesto = st === "S" ? SEDUTO : st === "W" || passo < 0.2 ? FERMO : CAMMINA;
+      const st = a.st[j] === "S" && !a.seduta[j] ? "W" : a.st[j];
+      let gesto = st === "S" ? SEDUTO : st === "W" || passo < 0.2 ? FERMO : CAMMINA, unaVolta = null;
+      // v21 (Raffaella, 17/10): arrivando alla seduta ci si SIEDE, ripartendo ci si ALZA
+      if (st === "S" && corpi && corpi.clips[SIEDE] && a.inizioS[j] >= 0) {
+        const tDentro = ts - tempi[a.k0 + a.inizioS[j]], tFuori = (tempi[a.k0 + Math.min(a.n - 1, a.fineS[j])] || ts) - ts;
+        const dIn = corpi.clips[SIEDE].durata, dOut = corpi.clips[ALZA].durata;
+        if (tDentro >= 0 && tDentro < dIn) { gesto = SIEDE; unaVolta = tDentro / dIn; }
+        else if (tFuori >= 0 && tFuori < dOut && a.fineS[j] < a.n - 1) { gesto = ALZA; unaVolta = 1 - tFuori / dOut; }
+      }
       // il passo dei piedi segue i metri fatti davvero: x2 e x4 camminano piu' svelti, non scivolano
       if (gesto === CAMMINA) a.fase += (salto < 3 ? salto : 0) / PASSO_CICLO;
-      else if (corpi) a.fase += dt * S.velocita / corpi.clips[gesto].durata;
+      else if (corpi && unaVolta == null) a.fase += dt * S.velocita / corpi.clips[gesto].durata;
       a.ora = { x, y, z, j, st, passo, gesto, ang: a.ang || 0 };
-      if (corpi) { if (S.nascosto === i) corpi.nascondi(i); else corpi.posa(i, x, y, z, a.ang || 0, gesto, a.fase); }
+      if (corpi) { if (S.nascosto === i) corpi.nascondi(i); else corpi.posa(i, x, y, z, a.ang || 0, gesto, unaVolta != null ? unaVolta : a.fase); }
       else { m4.makeTranslation(x, y, z); persone.setMatrixAt(i, m4); }
       inVista++;
       conta[st] = (conta[st] || 0) + 1;

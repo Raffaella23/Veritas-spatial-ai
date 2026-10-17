@@ -12,8 +12,10 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // [nome dell'animazione, pose cotte]: le pose intermedie le fa la scheda video
-const CLIP = [["Walk_Loop", 24], ["Idle_Loop", 30], ["Sitting_Idle_Loop", 20]];
-export const CAMMINA = 0, FERMO = 1, SEDUTO = 2;
+// v21 (17/10/2026): anche SEDERSI e ALZARSI, gesti che si fanno una volta (non in giro)
+const CLIP = [["Walk_Loop", 24], ["Idle_Loop", 30], ["Sitting_Idle_Loop", 20], ["Sitting_Enter", 16], ["Sitting_Exit", 16]];
+export const CAMMINA = 0, FERMO = 1, SEDUTO = 2, SIEDE = 3, ALZA = 4;
+const UNA_VOLTA = new Set([SIEDE, ALZA]);
 export const PASSO_CICLO = 1.45;   // metri di un giro del passo (due passi): il passo segue il cammino vero
 
 export async function preparaCorpi({ BASE, quanti, altezza = 1.8, bagliore = 0.3 }) {
@@ -121,8 +123,10 @@ export async function preparaCorpi({ BASE, quanti, altezza = 1.8, bagliore = 0.3
     mesh, clips, scala: sc,
     // una persona: dove (metri della pagina), verso dove guarda, che cosa fa, a che punto del gesto
     posa(i, x, y, z, angolo, clip, fase) {
-      const c = clips[clip], f = (((fase % 1) + 1) % 1) * c.n, a = Math.floor(f);
-      posa.setXYZ(i, c.inizio + a, c.inizio + ((a + 1) % c.n), f - a);
+      const c = clips[clip];
+      // un gesto che si fa una volta si ferma all'ultima posa, non ricomincia
+      const f = UNA_VOLTA.has(clip) ? Math.min(0.999, Math.max(0, fase)) * (c.n - 1) : (((fase % 1) + 1) % 1) * c.n, a = Math.floor(f);
+      posa.setXYZ(i, c.inizio + a, c.inizio + (UNA_VOLTA.has(clip) ? Math.min(a + 1, c.n - 1) : (a + 1) % c.n), f - a);
       m4.compose(t3.set(x, y, z), q.setFromAxisAngle(su, angolo), s3);
       mesh.setMatrixAt(i, m4);
     },

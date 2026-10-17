@@ -13,7 +13,8 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 const [, , entrata = "../corpi/persona.gltf", uscita = "public_corpo/corpo.glb"] = process.argv;
-const TENERE = ["Walk_Loop", "Idle_Loop", "Sitting_Idle_Loop"];
+// v21 (17/10): anche SEDERSI e ALZARSI (Raffaella: «aggiungere animazioni per sedersi, per aspettare»)
+const TENERE = ["Walk_Loop", "Idle_Loop", "Sitting_Idle_Loop", "Sitting_Enter", "Sitting_Exit"];
 const RAPPORTO = Number(process.env.RAPPORTO || 0.16);   // ~2.200 triangoli: a 1:177 la persona e' alta 1 cm
 
 const io = new NodeIO();

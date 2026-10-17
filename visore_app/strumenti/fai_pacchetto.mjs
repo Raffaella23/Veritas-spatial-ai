@@ -30,7 +30,8 @@ import { fileURLToPath } from "node:url";
 const qui = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.BASE || "https://raffaella23.github.io/Veritas-spatial-ai/";
 const FINTO = path.resolve(qui, "..", "..", "banco", "finti", "supabase_finto.js");
-const USCITA = path.resolve(qui, "..", "public_progetto", "pacchetto.json");
+const USCITA = process.env.USCITA ? path.resolve(process.env.USCITA) : path.resolve(qui, "..", "public_progetto", "pacchetto.json");
+const WS = process.env.WS ? path.resolve(process.env.WS) : null;   // 17/10: la pagina del CLONE di lavoro, non la pubblicata
 const PROFILO = process.env.PROFILO || path.join(os.tmpdir(), "eidetica_profilo_pacchetto");
 const TETTO_MIN = Number(process.env.TETTO) || 15;
 const t0 = Date.now(), ora = () => String(Math.round((Date.now() - t0) / 1000)).padStart(4) + "s";
@@ -98,6 +99,7 @@ p.on("console", (m) => {
   if (r) righello = { figure: +r[1], alteNelFile: +r[2], uomo: +r[3], fattore: +r[4] };
   if (/\[VERITAS (regia|scala)\]|Traiettoria aggiornata|generatore/i.test(t)) console.log(ora() + " " + t.slice(0, 180));
 });
+if (WS) await ctx.route((u) => u.href.startsWith(BASE), (r) => { const u = new URL(r.request().url()); const rel = decodeURIComponent(u.pathname.slice("/Veritas-spatial-ai/".length)) || "index.html"; const f = path.resolve(WS, rel); const T = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript", ".json": "application/json", ".glb": "model/gltf-binary", ".png": "image/png", ".svg": "image/svg+xml", ".css": "text/css" }; if (f.startsWith(WS) && fs.existsSync(f) && fs.statSync(f).isFile()) return r.fulfill({ status: 200, path: f, headers: { "content-type": T[path.extname(f)] || "application/octet-stream", "cache-control": "no-store" } }); return r.continue(); });
 await p.goto(BASE + "quest/index.html?cb=" + Date.now(), { waitUntil: "load", timeout: 120000 });
 await p.waitForFunction(() => window.__EIDETICA_COSTRUZIONE, null, { timeout: 120000 });
 const costruzione = await p.evaluate(() => window.__EIDETICA_COSTRUZIONE);
@@ -132,7 +134,7 @@ const estraiPersone = () => p.evaluate(() => {
 });
 const versioni = [];
 // si aspetta la fine della regia e una traiettoria che non cambia piu' da 40 s
-let ultimaFirma = null, fermaDa = Date.now(), ultimoAvviso = 0;
+let ultimaFirma = null, fermaDa = Date.now(), ultimoAvviso = 0, versioneOcchio = null;
 for (;;) {
   await aspetta(3000);
   const s = await p.evaluate(() => {
@@ -141,7 +143,9 @@ for (;;) {
     const ids = new Set(); for (const x of f) for (const a of x.agents || []) ids.add(a.id);
     return { regia: window.__pacchetto.regia, fermate: window.__pacchetto.fermate.length, nomi: window.__pacchetto.nomi.length,
       fotogrammi: f.length, persone: ids.size, versione: tr && tr.__versioneFotogrammi, ultimo: f.length ? f[f.length - 1].t : null,
-      stato: (window.__pacchetto.stati[window.__pacchetto.stati.length - 1] || {}).stato };
+      stato: (window.__pacchetto.stati[window.__pacchetto.stati.length - 1] || {}).stato,
+      // 17/10: anche il giro dell occhio sulle piante deve essere finito (la mappa si rifa dopo di lui)
+      occhio: !!(window.__veritasComando && window.__veritasComando.stato && window.__veritasComando.stato().giri >= 1) };
   });
   const firma = [s.fotogrammi, s.persone, s.versione, s.ultimo].join("|");
   if (firma !== ultimaFirma) { ultimaFirma = firma; fermaDa = Date.now();
@@ -150,7 +154,10 @@ for (;;) {
   if (Date.now() - ultimoAvviso > 30000) { ultimoAvviso = Date.now();
     console.log(ora() + " velo " + s.stato + " · fermate " + s.fermate + " · nomi " + s.nomi + " · regia " + (s.regia ? "finita" : "in corso")
       + " · fotogrammi " + s.fotogrammi + " · persone " + s.persone + " · versione " + s.versione); }
-  if (s.regia && s.persone >= 20 && s.fotogrammi >= 200 && Date.now() - fermaDa > 40000) break;
+  // 17/10: dopo il giro dell occhio deve arrivare una versione NUOVA della traiettoria (la mappa rifatta)
+  if (s.occhio && versioneOcchio == null) { versioneOcchio = s.versione || 0; console.log(ora() + " giro dell occhio cominciato: si aspetta una traiettoria dopo la versione " + versioneOcchio); }
+  const dopoOcchio = process.env.SENZA_OCCHIO || (versioneOcchio != null && (s.versione || 0) > versioneOcchio);
+  if (s.regia && dopoOcchio && s.persone >= 20 && s.fotogrammi >= 200 && Date.now() - fermaDa > 40000) break;
 }
 // e il velo fino al suo ultimo stato (l'orientamento arriva ~9 s dopo la conformita'), al massimo 45 s
 for (let i = 0; i < 15; i++) {
@@ -170,6 +177,11 @@ const dati = await p.evaluate(() => {
     velo: { successione: P.stati, report: P.ultimo },
     regia: { fine: P.regia, fermate: P.fermate, nomi: P.nomi },
     sedute: (window.__veritasSedute || []).length,
+    // 17/10 sera: le missioni e gli esiti della folla, per sapere chi non parte e perche'
+    folla: (() => { const F = window.__veritasFollaUltima; if (!F) return null; const r = (v) => v.map((x) => +(+x).toFixed(2));
+      return { missioni: F.missioni.map((m) => ({ nome: m.nome, tappe: m.tappe.map((t) => ({ nome: t.nome || null, pos: r(t.pos) })) })),
+        accessi: { passaggi: F.accessi.passaggi.map((a) => ({ nome: a.nome, pos: r(a.pos) })), fuori: F.accessi.fuori.map((a) => ({ nome: a.nome, pos: r(a.pos) })) },
+        esiti: F.esiti, persone: F.persone }; })(),
   };
 });
 const ultima = await estraiPersone();
@@ -186,6 +198,7 @@ const pacchetto = {
   velo: dati.velo,
   regia: dati.regia,
   sedute: dati.sedute,
+  folla: dati.folla,                 // missioni ed esiti della folla (null col generatore di prima)
   persone: dati.persone,             // l'ultima versione della traiettoria (col corpo, quando il filtro ha finito)
   personePiano: dati.personePiano,   // la prima completa (il piano), se diversa
   versioni: versioni.map((v) => ({ versione: v.versione, fotogrammi: v.tempi.length, metriMediani: v.metriMediani })),

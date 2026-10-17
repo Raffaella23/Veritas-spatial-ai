@@ -32,7 +32,8 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
-const COSTRUZIONE = "2026-10-16-v20";
+// v21 (17/10/2026): il cervello nuovo (rete continua, folla, missioni) e i gesti di sedersi e alzarsi
+const COSTRUZIONE = "2026-10-17-v21";
 window.__EIDETICA_COSTRUZIONE_VISORE = COSTRUZIONE;
 const BASE = import.meta.env.BASE_URL;
 const stato = document.getElementById("stato");

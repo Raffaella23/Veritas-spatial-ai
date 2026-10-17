@@ -135,7 +135,7 @@ async function cliccaPannello(page, nome, px, py) {
   for (let i = 0; i < 14; i++) { await page.mouse.wheel(0, 120); await page.waitForTimeout(60); }
   // 4. clic sulla riga della terza persona presente
   const riga = await page.evaluate(() => window.__EIDETICA_PERSONA.stato.acceso);
-  const scelta = 0;   // la prima riga: «01»
+  const scelta = Number(process.env.SCELTA) || 0;   // la riga dell elenco (di serie la prima: «01»)
   await cliccaPannello(page, "eidetica-elenco-persone", 64 + 120, 200 - 10 + scelta * 42);
   const s1 = await P(page);
   esito("clic sull'elenco: la persona scelta", riga && s1.scelta === scelta, "elenco acceso " + riga + " · scelta " + s1.scelta);
